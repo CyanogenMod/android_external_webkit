@@ -198,8 +198,7 @@ bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::
     SkPath scaledPath;
     int scale = 1;
 
-    SkRect bounds;
-    originalPath->computeBounds(&bounds, SkPath::kFast_BoundsType);
+    const SkRect& bounds = originalPath->getBounds();
 
     // We can immediately return false if the point is outside the bounding rect
     if (!bounds.contains(SkFloatToScalar(point.x()), SkFloatToScalar(point.y())))

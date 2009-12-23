@@ -52,8 +52,7 @@ static bool anp_isEmpty(const ANPPath* path) {
 }
 
 static void anp_getBounds(const ANPPath* path, ANPRectF* bounds) {
-    SkRect r;
-    path->computeBounds(&r, SkPath::kFast_BoundsType);
+    const SkRect& r = path->getBounds();
     SkANP::SetRect(bounds, r);
 }
 
