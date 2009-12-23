@@ -99,7 +99,8 @@ void Path::translate(const FloatSize& size)
 
 FloatRect Path::boundingRect() const
 {
-    const SkRect& r = m_path->getBounds();
+    SkRect r;
+    m_path->computeBounds(&r, SkPath::kFast_BoundsType);
     return FloatRect(   SkScalarToFloat(r.fLeft),
                         SkScalarToFloat(r.fTop),
                         SkScalarToFloat(r.width()),
@@ -343,7 +344,8 @@ static FloatRect boundingBoxForCurrentStroke(GraphicsContext* context)
     context->setupStrokePaint(&paint);
     SkPath fillPath;
     paint.getFillPath(*path, &fillPath);
-    const SkRect& r = fillPath.getBounds();
+    SkRect r;
+    fillPath.computeBounds(&r, SkPath::kFast_BoundsType);
     return FloatRect(SkScalarToFloat(r.fLeft), SkScalarToFloat(r.fTop),
                      SkScalarToFloat(r.width()), SkScalarToFloat(r.height()));
 }

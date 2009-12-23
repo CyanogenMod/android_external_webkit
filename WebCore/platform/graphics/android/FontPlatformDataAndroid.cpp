@@ -147,7 +147,6 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
 
     paint->setAntiAlias(true);
     paint->setSubpixelText(true);
-    paint->setHinting(SkPaint::kSlight_Hinting);
     paint->setTextSize(SkFloatToScalar(ts));
     paint->setTypeface(mTypeface);
     paint->setFakeBoldText(mFakeBold);

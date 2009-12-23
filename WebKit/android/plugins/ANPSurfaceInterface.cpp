@@ -73,7 +73,7 @@ static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRec
 
     sp<Surface> surface = getSurface(env, surfaceView);
 
-    if (!bitmap || !Surface::isValid(surface)) {
+    if (!bitmap || !surface->isValid() ) {
             return false;
     }
 
@@ -93,7 +93,7 @@ static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRec
         return false;
     }
 
-    ssize_t bpr = info.s * bytesPerPixel(info.format);
+    ssize_t bpr = info.bpr;
 
     bitmap->format = convertPixelFormat(info.format);
     bitmap->width = info.w;
@@ -117,7 +117,7 @@ static void anp_unlock(JNIEnv* env, jobject surfaceView) {
 
     sp<Surface> surface = getSurface(env, surfaceView);
 
-    if (!Surface::isValid(surface)) {
+    if (!surface->isValid()) {
         return;
     }
 

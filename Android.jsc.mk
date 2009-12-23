@@ -191,7 +191,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libandroid_runtime \
 	libnativehelper \
 	libsqlite \
-	libskia \
+	libsgl libcorecg \
 	libutils \
 	libui \
 	libcutils \

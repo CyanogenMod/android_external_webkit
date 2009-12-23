@@ -90,7 +90,7 @@ public:
         float               mStrokeThickness;
         SkPaint::Cap        mLineCap;
         SkPaint::Join       mLineJoin;
-        SkXfermode::Mode    mMode;
+        SkPorterDuff::Mode  mMode;
         int                 mDashRatio; //ratio of the length of a dash to its width
         ShadowRec           mShadow;
         SkColor             mFillColor;
@@ -105,7 +105,7 @@ public:
             mStrokeThickness = 0.0f;  // Same as default in GraphicsContextPrivate.h
             mLineCap         = SkPaint::kDefault_Cap;
             mLineJoin        = SkPaint::kDefault_Join;
-            mMode            = SkXfermode::kSrcOver_Mode;
+            mMode            = SkPorterDuff::kSrcOver_Mode;
             mDashRatio       = 3;
             mUseAA           = true;
             mShadow.mBlur    = 0;
@@ -137,7 +137,7 @@ public:
             if (mShadow.mBlur > 0) {
                 paint->setAntiAlias(true);
                 paint->setDither(true);
-                paint->setXfermodeMode(mMode);
+                paint->setPorterDuffXfermode(mMode);
                 paint->setColor(mShadow.mColor);
                 paint->setMaskFilter(SkBlurMaskFilter::Create(mShadow.mBlur,
                                 SkBlurMaskFilter::kNormal_BlurStyle))->unref();
@@ -225,7 +225,7 @@ public:
     void setup_paint_common(SkPaint* paint) const {
         paint->setAntiAlias(mState->mUseAA);
         paint->setDither(true);
-        paint->setXfermodeMode(mState->mMode);
+        paint->setPorterDuffXfermode(mState->mMode);
         if (mState->mShadow.mBlur > 0) {
             SkDrawLooper* looper = new SkBlurDrawLooper(mState->mShadow.mBlur,
                                                         mState->mShadow.mDx,
@@ -933,7 +933,7 @@ void GraphicsContext::clearRect(const FloatRect& rect)
     SkPaint paint;
     
     m_data->setup_paint_fill(&paint);
-    paint.setXfermodeMode(SkXfermode::kClear_Mode);
+    paint.setPorterDuffXfermode(SkPorterDuff::kClear_Mode);
     GC2Canvas(this)->drawRect(rect, paint);
 }
 

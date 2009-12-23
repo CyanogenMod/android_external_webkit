@@ -36,14 +36,14 @@
 #include <wtf/MathExtras.h>
 #include "GraphicsContext.h"
 #include "SkPath.h"
-#include "SkXfermode.h"
+#include "SkPorterDuff.h"
 
 class SkCanvas;
 class SkRegion;
 
 namespace WebCore {
 
-SkXfermode::Mode WebCoreCompositeToSkiaComposite(CompositeOperator);
+SkPorterDuff::Mode WebCoreCompositeToSkiaComposite(CompositeOperator);
 
 // move this guy into SkColor.h
 SkColor SkPMColorToColor(SkPMColor);

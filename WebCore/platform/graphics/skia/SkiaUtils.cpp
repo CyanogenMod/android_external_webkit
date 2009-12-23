@@ -47,34 +47,34 @@ static const struct CompositOpToSkiaMode {
     uint8_t mCompositOp;
     uint8_t mMode;
 } gMapCompositOpsToSkiaModes[] = {
-    { CompositeClear,           SkXfermode::kClear_Mode },
-    { CompositeCopy,            SkXfermode::kSrc_Mode },
-    { CompositeSourceOver,      SkXfermode::kSrcOver_Mode },
-    { CompositeSourceIn,        SkXfermode::kSrcIn_Mode },
-    { CompositeSourceOut,       SkXfermode::kSrcOut_Mode },
-    { CompositeSourceAtop,      SkXfermode::kSrcATop_Mode },
-    { CompositeDestinationOver, SkXfermode::kDstOver_Mode },
-    { CompositeDestinationIn,   SkXfermode::kDstIn_Mode },
-    { CompositeDestinationOut,  SkXfermode::kDstOut_Mode },
-    { CompositeDestinationAtop, SkXfermode::kDstATop_Mode },
-    { CompositeXOR,             SkXfermode::kXor_Mode },
+    { CompositeClear,           SkPorterDuff::kClear_Mode },
+    { CompositeCopy,            SkPorterDuff::kSrc_Mode },
+    { CompositeSourceOver,      SkPorterDuff::kSrcOver_Mode },
+    { CompositeSourceIn,        SkPorterDuff::kSrcIn_Mode },
+    { CompositeSourceOut,       SkPorterDuff::kSrcOut_Mode },
+    { CompositeSourceAtop,      SkPorterDuff::kSrcATop_Mode },
+    { CompositeDestinationOver, SkPorterDuff::kDstOver_Mode },
+    { CompositeDestinationIn,   SkPorterDuff::kDstIn_Mode },
+    { CompositeDestinationOut,  SkPorterDuff::kDstOut_Mode },
+    { CompositeDestinationAtop, SkPorterDuff::kDstATop_Mode },
+    { CompositeXOR,             SkPorterDuff::kXor_Mode },
     // need more details on the composite modes to be sure these are right
-    { CompositePlusDarker,      SkXfermode::kDarken_Mode },
-    { CompositeHighlight,       SkXfermode::kSrcOver_Mode },  // TODO
-    { CompositePlusLighter,     SkXfermode::kPlus_Mode }
+    { CompositePlusDarker,      SkPorterDuff::kDarken_Mode },
+    { CompositeHighlight,       SkPorterDuff::kSrcOver_Mode },  // TODO
+    { CompositePlusLighter,     SkPorterDuff::kLighten_Mode }
 };
 
-SkXfermode::Mode WebCoreCompositeToSkiaCOmposite(CompositeOperator op)
+SkPorterDuff::Mode WebCoreCompositeToSkiaCOmposite(CompositeOperator op)
 {
     const CompositOpToSkiaMode* table = gMapCompositOpsToSkiaModes;
     
     for (unsigned i = 0; i < SK_ARRAY_COUNT(gMapCompositOpsToSkiaModes); i++) {
         if (table[i].mCompositOp == op)
-            return (SkXfermode::Mode)table[i].mMode;
+            return (SkPorterDuff::Mode)table[i].mMode;
     }
     
     SkDEBUGF(("GraphicsContext::setCompositeOperation uknown CompositeOperator %d\n", op));
-    return SkXfermode::kSrcOver_Mode; // fall-back
+    return SkPorterDuff::kSrcOver_Mode; // fall-back
 }
 
 #endif
@@ -83,33 +83,33 @@ static const struct CompositOpToXfermodeMode {
     uint8_t mCompositOp;
     uint8_t m_xfermodeMode;
 } gMapCompositOpsToXfermodeModes[] = {
-    { CompositeClear,           SkXfermode::kClear_Mode },
-    { CompositeCopy,            SkXfermode::kSrc_Mode },
-    { CompositeSourceOver,      SkXfermode::kSrcOver_Mode },
-    { CompositeSourceIn,        SkXfermode::kSrcIn_Mode },
-    { CompositeSourceOut,       SkXfermode::kSrcOut_Mode },
-    { CompositeSourceAtop,      SkXfermode::kSrcATop_Mode },
-    { CompositeDestinationOver, SkXfermode::kDstOver_Mode },
-    { CompositeDestinationIn,   SkXfermode::kDstIn_Mode },
-    { CompositeDestinationOut,  SkXfermode::kDstOut_Mode },
-    { CompositeDestinationAtop, SkXfermode::kDstATop_Mode },
-    { CompositeXOR,             SkXfermode::kXor_Mode },
-    { CompositePlusDarker,      SkXfermode::kDarken_Mode },
-    { CompositeHighlight,       SkXfermode::kSrcOver_Mode },  // TODO
-    { CompositePlusLighter,     SkXfermode::kPlus_Mode }
+    { CompositeClear,           SkPorterDuff::kClear_Mode },
+    { CompositeCopy,            SkPorterDuff::kSrc_Mode },
+    { CompositeSourceOver,      SkPorterDuff::kSrcOver_Mode },
+    { CompositeSourceIn,        SkPorterDuff::kSrcIn_Mode },
+    { CompositeSourceOut,       SkPorterDuff::kSrcOut_Mode },
+    { CompositeSourceAtop,      SkPorterDuff::kSrcATop_Mode },
+    { CompositeDestinationOver, SkPorterDuff::kDstOver_Mode },
+    { CompositeDestinationIn,   SkPorterDuff::kDstIn_Mode },
+    { CompositeDestinationOut,  SkPorterDuff::kDstOut_Mode },
+    { CompositeDestinationAtop, SkPorterDuff::kDstATop_Mode },
+    { CompositeXOR,             SkPorterDuff::kXor_Mode },
+    { CompositePlusDarker,      SkPorterDuff::kDarken_Mode },
+    { CompositeHighlight,       SkPorterDuff::kSrcOver_Mode },  // TODO
+    { CompositePlusLighter,     SkPorterDuff::kLighten_Mode }
 };
 
-SkXfermode::Mode WebCoreCompositeToSkiaComposite(CompositeOperator op)
+SkPorterDuff::Mode WebCoreCompositeToSkiaComposite(CompositeOperator op)
 {
     const CompositOpToXfermodeMode* table = gMapCompositOpsToXfermodeModes;
     
     for (unsigned i = 0; i < SK_ARRAY_COUNT(gMapCompositOpsToXfermodeModes); i++) {
         if (table[i].mCompositOp == op)
-            return (SkXfermode::Mode)table[i].m_xfermodeMode;
+            return (SkPorterDuff::Mode)table[i].m_xfermodeMode;
     }
 
     SkDEBUGF(("GraphicsContext::setCompositeOperation uknown CompositeOperator %d\n", op));
-    return SkXfermode::kSrcOver_Mode; // fall-back
+    return SkPorterDuff::kSrcOver_Mode; // fall-back
 }
 
 #if PLATFORM(ANDROID)
@@ -198,7 +198,8 @@ bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::
     SkPath scaledPath;
     int scale = 1;
 
-    SkRect bounds = originalPath->getBounds();
+    SkRect bounds;
+    originalPath->computeBounds(&bounds, SkPath::kFast_BoundsType);
 
     // We can immediately return false if the point is outside the bounding rect
     if (!bounds.contains(SkFloatToScalar(point.x()), SkFloatToScalar(point.y())))
