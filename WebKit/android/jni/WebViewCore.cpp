@@ -139,6 +139,8 @@ FILE* gRenderTreeFile = 0;
 
 namespace android {
 
+bool WebViewCore::s_isPaused = false;
+
 // ----------------------------------------------------------------------------
 
 #define GET_NATIVE_VIEW(env, obj) ((WebViewCore*)env->GetIntField(obj, gWebViewCoreFields.m_nativeClass))
@@ -1113,7 +1115,8 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             if ((anchorX | anchorY) == 0)
                 scrollBy(newBounds.x() - bounds.x(),
                         newBounds.y() - bounds.y(), false);
-            else if (bounds != newBounds) {
+            else if ((orsw && osh && bounds.width() && bounds.height())
+                    && (bounds != newBounds)) {
                 WebCore::FrameView* view = m_mainFrame->view();
                 // force left align if width is not changed while height changed.
                 // the anchorPoint is probably at some white space in the node
@@ -2979,6 +2982,8 @@ static void Pause(JNIEnv* env, jobject obj)
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+
+    WebViewCore::setIsPaused(true);
 }
 
 static void Resume(JNIEnv* env, jobject obj)
@@ -2994,6 +2999,8 @@ static void Resume(JNIEnv* env, jobject obj)
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kResume_ANPLifecycleAction;
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+
+    WebViewCore::setIsPaused(false);
 }
 
 static void FreeMemory(JNIEnv* env, jobject obj)
