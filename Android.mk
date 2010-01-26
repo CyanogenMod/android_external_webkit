@@ -35,7 +35,7 @@ else
   else
     # No JS engine is specified, pickup the one we want as default.
     ifeq ($(USE_ALT_JS_ENGINE),true)
-      include $(LOCAL_PATH)/Android.v8.mk
+      include $(LOCAL_PATH)/Android.v8_leading.mk
     else
       include $(LOCAL_PATH)/Android.jsc.mk
     endif  # USE_ALT_JS_ENGINE == true

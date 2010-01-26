@@ -1,0 +1,23 @@
+K 25
+svn:wc:ra_dav:version-url
+V 37
+/svn/!svn/ver/3333/trunk/test/sputnik
+END
+sputnik.status
+K 25
+svn:wc:ra_dav:version-url
+V 52
+/svn/!svn/ver/3333/trunk/test/sputnik/sputnik.status
+END
+testcfg.py
+K 25
+svn:wc:ra_dav:version-url
+V 48
+/svn/!svn/ver/3333/trunk/test/sputnik/testcfg.py
+END
+README
+K 25
+svn:wc:ra_dav:version-url
+V 44
+/svn/!svn/ver/3333/trunk/test/sputnik/README
+END
