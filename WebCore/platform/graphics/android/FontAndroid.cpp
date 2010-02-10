@@ -1,6 +1,7 @@
 /*
  * Copyright 2009, The Android Open Source Project
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2010 Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -188,7 +189,7 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
     SkScalar spacing = paint.getFontMetrics(&metrics);
     
     return FloatRect(point.x(),
-					 point.y() - floorf(SkScalarToFloat(-metrics.fAscent)),
+                     point.y(),
                      roundf(SkScalarToFloat(width)),
                      roundf(SkScalarToFloat(spacing)));
 }
