@@ -262,8 +262,8 @@ namespace android {
         void setGlobalBounds(int x, int y, int h, int v);
 
         void setSizeScreenWidthAndScale(int width, int height, int screenWidth,
-            float scale, int realScreenWidth, int screenHeight,
-            bool ignoreHeight);
+            float scale, int realScreenWidth, int screenHeight, int anchorX,
+            int anchorY, bool ignoreHeight);
 
         /**
          * Handle key events from Java.
@@ -386,6 +386,14 @@ namespace android {
         // Destroys a SurfaceView for a plugin
         void destroySurface(jobject childView);
 
+        // Make the rect (left, top, width, height) visible. If it can be fully
+        // fit, center it on the screen. Otherwise make sure the point specified
+        // by (left + xPercentInDoc * width, top + yPercentInDoc * height)
+        // pinned at the screen position (xPercentInView, yPercentInView).
+        void showRect(int left, int top, int width, int height, int contentWidth,
+            int contentHeight, float xPercentInDoc, float xPercentInView,
+            float yPercentInDoc, float yPercentInView);
+
         // other public functions
     public:
         // reset the picture set to empty
@@ -431,6 +439,8 @@ namespace android {
         // field safely from our respective threads
         static Mutex gButtonMutex;
         WTF::Vector<Container> m_buttons;
+        static bool isPaused() { return s_isPaused; }
+        static void setIsPaused(bool isPaused) { s_isPaused = isPaused; }
         // end of shared members
 
         // internal functions
@@ -487,6 +497,7 @@ namespace android {
         unsigned m_domtree_version;
         bool m_check_domtree_version;
         PageGroup* m_groupForVisitedLinks;
+        static bool s_isPaused;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;
