@@ -32,6 +32,8 @@
 #include "ScheduledAction.h"
 
 #include "Document.h"
+#include "Frame.h"
+#include "ScriptController.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
@@ -90,9 +92,16 @@ ScheduledAction::~ScheduledAction()
 
 void ScheduledAction::execute(ScriptExecutionContext* context)
 {
-    V8Proxy* proxy = V8Proxy::retrieve(context);
-    if (proxy)
-        execute(proxy);
+    if (context->isDocument()) {
+    	  ASSERT(context->isDocument());
+        Frame* frame = static_cast<Document*>(context)->frame();
+        if (!frame || !frame->script()->isEnabled())
+            return;
+
+        V8Proxy* proxy = V8Proxy::retrieve(context);
+        if (proxy)
+            execute(proxy);
+    }
 #if ENABLE(WORKERS)
     else {
         ASSERT(context->isWorkerContext());
@@ -106,6 +115,10 @@ void ScheduledAction::execute(V8Proxy* proxy)
     ASSERT(proxy);
 
     LOCK_V8;
+
+    if (!proxy->isEnabled())
+        return;
+
     v8::HandleScope handleScope;
     v8::Local<v8::Context> v8Context = proxy->context();
     if (v8Context.IsEmpty())
@@ -130,7 +143,7 @@ void ScheduledAction::execute(WorkerContext* workerContext)
 {
     // In a Worker, the execution should always happen on a worker thread.
     ASSERT(workerContext->thread()->threadID() == currentThread());
-  
+
     WorkerScriptController* scriptController = workerContext->script();
 
     if (!m_function.IsEmpty() && m_function->IsFunction()) {

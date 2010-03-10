@@ -1,10 +1,10 @@
 /*
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -47,11 +47,17 @@
 #include "V8Index.h"
 #include "V8IsolatedWorld.h"
 
+#ifdef V8_SVN3374_API_CHANGE
+  #include <stdio.h>
+#endif
 #include <v8.h>
 #include <v8-debug.h>
 #include <wtf/Assertions.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/StdLibExtras.h>
+#ifdef V8_SVN3374_API_CHANGE
+  #include <wtf/StringExtras.h>
+#endif
 #include <wtf/UnusedParam.h>
 
 #if PLATFORM(CHROMIUM)
@@ -302,6 +308,26 @@ void V8Proxy::evaluateInNewWorld(const Vector<ScriptSourceCode>& sources, int ex
     V8IsolatedWorld::evaluate(sources, this, extensionGroup);
 }
 
+#ifdef V8_SVN3374_API_CHANGE
+bool V8Proxy::setInjectedScriptContextDebugId(v8::Handle<v8::Context> targetContext)
+{
+    // Setup context id for JS debugger.
+    v8::Context::Scope contextScope(targetContext);
+    if (m_context.IsEmpty())
+        return false;
+    int debugId = contextDebugId(m_context);
+
+    char buffer[32];
+    if (debugId == -1)
+        snprintf(buffer, sizeof(buffer), "injected");
+    else
+        snprintf(buffer, sizeof(buffer), "injected,%d", debugId);
+    targetContext->SetData(v8::String::New(buffer));
+
+    return true;
+}
+#endif
+
 void V8Proxy::evaluateInNewContext(const Vector<ScriptSourceCode>& sources, int extensionGroup)
 {
     initContextIfNeeded();
@@ -316,6 +342,19 @@ void V8Proxy::evaluateInNewContext(const Vector<ScriptSourceCode>& sources, int 
     ASSERT(V8DOMWrapper::convertDOMWrapperToNative<DOMWindow>(windowWrapper) == m_frame->domWindow());
 
     v8::Persistent<v8::Context> context = createNewContext(v8::Handle<v8::Object>(), extensionGroup);
+
+#ifdef V8_SVN3374_API_CHANGE
+    if (context.IsEmpty())
+        return;
+
+    v8::Context::Scope contextScope(context);
+
+    // Setup context id for JS debugger.
+    if (!setInjectedScriptContextDebugId(context)) {
+        context.Dispose();
+        return;
+    }
+#else
     v8::Context::Scope contextScope(context);
 
     // Setup context id for JS debugger.
@@ -327,7 +366,7 @@ void V8Proxy::evaluateInNewContext(const Vector<ScriptSourceCode>& sources, int 
     }
     contextData->Set(v8::String::New(kContextDebugDataType), v8::String::New("injected"));
     context->SetData(contextData);
-
+#endif
     v8::Handle<v8::Object> global = context->Global();
 
     v8::Handle<v8::String> implicitProtoString = v8::String::New("__proto__");
@@ -1313,10 +1352,18 @@ bool V8Proxy::setContextDebugId(int debugId)
         return false;
 
     v8::Context::Scope contextScope(m_context);
+
+#ifdef V8_SVN3374_API_CHANGE
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "page,%d", debugId);
+    m_context->SetData(v8::String::New(buffer));
+#else
     v8::Handle<v8::Object> contextData = v8::Object::New();
     contextData->Set(v8::String::New(kContextDebugDataType), v8::String::New("page"));
     contextData->Set(v8::String::New(kContextDebugDataValue), v8::Integer::New(debugId));
     m_context->SetData(contextData);
+#endif
+
     return true;
 }
 
