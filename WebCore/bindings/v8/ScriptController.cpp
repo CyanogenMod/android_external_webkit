@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -339,7 +340,7 @@ PassScriptInstance ScriptController::createScriptInstanceForWidget(Widget* widge
 
     // Track the plugin object. We've been given a reference to the object.
     m_pluginObjects.set(widget, npObject);
-
+    _NPN_RetainObject(npObject);
     return V8ScriptInstance::create(wrapper);
 }
 
