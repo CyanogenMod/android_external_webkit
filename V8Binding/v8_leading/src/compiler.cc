@@ -31,66 +31,24 @@
 #include "codegen-inl.h"
 #include "compilation-cache.h"
 #include "compiler.h"
+#include "data-flow.h"
 #include "debug.h"
 #include "fast-codegen.h"
+#include "full-codegen.h"
+#include "liveedit.h"
 #include "oprofile-agent.h"
 #include "rewriter.h"
 #include "scopes.h"
-#include "usage-analyzer.h"
 
 namespace v8 {
 namespace internal {
 
 
-class CodeGenSelector: public AstVisitor {
- public:
-  enum CodeGenTag { NORMAL, FAST };
-
-  CodeGenSelector()
-      : has_supported_syntax_(true),
-        context_(Expression::kUninitialized) {
-  }
-
-  CodeGenTag Select(FunctionLiteral* fun);
-
- private:
-  // Visit an expression in a given expression context.
-  void ProcessExpression(Expression* expr, Expression::Context context) {
-    ASSERT(expr->context() == Expression::kUninitialized ||
-           expr->context() == context);
-    Expression::Context saved = context_;
-    context_ = context;
-    Visit(expr);
-    expr->set_context(context);
-    context_ = saved;
-  }
-
-  void VisitDeclarations(ZoneList<Declaration*>* decls);
-  void VisitStatements(ZoneList<Statement*>* stmts);
-
-  // AST node visit functions.
-#define DECLARE_VISIT(type) virtual void Visit##type(type* node);
-  AST_NODE_LIST(DECLARE_VISIT)
-#undef DECLARE_VISIT
-
-  bool has_supported_syntax_;
-
-  // The desired expression context of the currently visited expression.
-  Expression::Context context_;
-
-  DISALLOW_COPY_AND_ASSIGN(CodeGenSelector);
-};
-
-
-static Handle<Code> MakeCode(FunctionLiteral* literal,
-                             Handle<Script> script,
-                             Handle<Context> context,
-                             bool is_eval,
-                             Handle<SharedFunctionInfo> shared) {
-  ASSERT(literal != NULL);
-
+static Handle<Code> MakeCode(Handle<Context> context, CompilationInfo* info) {
+  FunctionLiteral* function = info->function();
+  ASSERT(function != NULL);
   // Rewrite the AST by introducing .result assignments where needed.
-  if (!Rewriter::Process(literal) || !AnalyzeVariableUsage(literal)) {
+  if (!Rewriter::Process(function)) {
     // Signal a stack overflow by returning a null handle.  The stack
     // overflow exception will be thrown by the caller.
     return Handle<Code>::null();
@@ -101,7 +59,7 @@ static Handle<Code> MakeCode(FunctionLiteral* literal,
     // the top scope only contains the single lazily compiled function,
     // so this doesn't re-allocate variables repeatedly.
     HistogramTimerScope timer(&Counters::variable_allocation);
-    Scope* top = literal->scope();
+    Scope* top = info->scope();
     while (top->outer_scope() != NULL) top = top->outer_scope();
     top->AllocateVariables(context);
   }
@@ -110,51 +68,92 @@ static Handle<Code> MakeCode(FunctionLiteral* literal,
   if (Bootstrapper::IsActive() ?
       FLAG_print_builtin_scopes :
       FLAG_print_scopes) {
-    literal->scope()->Print();
+    info->scope()->Print();
   }
 #endif
 
   // Optimize the AST.
-  if (!Rewriter::Optimize(literal)) {
+  if (!Rewriter::Optimize(function)) {
     // Signal a stack overflow by returning a null handle.  The stack
     // overflow exception will be thrown by the caller.
     return Handle<Code>::null();
   }
 
-  // Generate code and return it.
-  if (FLAG_fast_compiler) {
-    // If there is no shared function info, try the fast code
-    // generator for code in the global scope.  Otherwise obey the
-    // explicit hint in the shared function info.
-    // If always_fast_compiler is true, always try the fast compiler.
-    if (shared.is_null() && !literal->scope()->is_global_scope() &&
-        !FLAG_always_fast_compiler) {
-      if (FLAG_trace_bailout) PrintF("Non-global scope\n");
-    } else if (!shared.is_null() && !shared->try_fast_codegen() &&
-               !FLAG_always_fast_compiler) {
-      if (FLAG_trace_bailout) PrintF("No hint to try fast\n");
-    } else {
-      CodeGenSelector selector;
-      CodeGenSelector::CodeGenTag code_gen = selector.Select(literal);
-      if (code_gen == CodeGenSelector::FAST) {
-        return FastCodeGenerator::MakeCode(literal, script, is_eval);
-      }
-      ASSERT(code_gen == CodeGenSelector::NORMAL);
+  if (function->scope()->num_parameters() > 0 ||
+      function->scope()->num_stack_slots()) {
+    AssignedVariablesAnalyzer ava(function);
+    ava.Analyze();
+    if (ava.HasStackOverflow()) {
+      return Handle<Code>::null();
     }
   }
-  return CodeGenerator::MakeCode(literal, script, is_eval);
+
+  if (FLAG_use_flow_graph) {
+    int variable_count =
+        function->num_parameters() + function->scope()->num_stack_slots();
+    FlowGraphBuilder builder(variable_count);
+    builder.Build(function);
+
+    if (!builder.HasStackOverflow()) {
+      if (variable_count > 0) {
+        ReachingDefinitions rd(builder.postorder(),
+                               builder.body_definitions(),
+                               variable_count);
+        rd.Compute();
+      }
+    }
+
+#ifdef DEBUG
+    if (FLAG_print_graph_text && !builder.HasStackOverflow()) {
+      builder.graph()->PrintText(function, builder.postorder());
+    }
+#endif
+  }
+
+  // Generate code and return it.  Code generator selection is governed by
+  // which backends are enabled and whether the function is considered
+  // run-once code or not:
+  //
+  //  --full-compiler enables the dedicated backend for code we expect to be
+  //    run once
+  //  --fast-compiler enables a speculative optimizing backend (for
+  //    non-run-once code)
+  //
+  // The normal choice of backend can be overridden with the flags
+  // --always-full-compiler and --always-fast-compiler, which are mutually
+  // incompatible.
+  CHECK(!FLAG_always_full_compiler || !FLAG_always_fast_compiler);
+
+  Handle<SharedFunctionInfo> shared = info->shared_info();
+  bool is_run_once = (shared.is_null())
+      ? info->scope()->is_global_scope()
+      : (shared->is_toplevel() || shared->try_full_codegen());
+
+  if (FLAG_always_full_compiler || (FLAG_full_compiler && is_run_once)) {
+    FullCodeGenSyntaxChecker checker;
+    checker.Check(function);
+    if (checker.has_supported_syntax()) {
+      return FullCodeGenerator::MakeCode(info);
+    }
+  } else if (FLAG_always_fast_compiler ||
+             (FLAG_fast_compiler && !is_run_once)) {
+    FastCodeGenSyntaxChecker checker;
+    checker.Check(info);
+    if (checker.has_supported_syntax()) {
+      return FastCodeGenerator::MakeCode(info);
+    }
+  }
+
+  return CodeGenerator::MakeCode(info);
 }
 
 
-static bool IsValidJSON(FunctionLiteral* lit) {
-  if (lit->body()->length() != 1)
-    return false;
-  Statement* stmt = lit->body()->at(0);
-  if (stmt->AsExpressionStatement() == NULL)
-    return false;
-  Expression* expr = stmt->AsExpressionStatement()->expression();
-  return expr->IsValidJSON();
+#ifdef ENABLE_DEBUGGER_SUPPORT
+Handle<Code> MakeCodeForLiveEdit(CompilationInfo* info) {
+  Handle<Context> context = Handle<Context>::null();
+  return MakeCode(context, info);
 }
+#endif
 
 
 static Handle<JSFunction> MakeFunction(bool is_global,
@@ -171,8 +170,8 @@ static Handle<JSFunction> MakeFunction(bool is_global,
   ASSERT(!i::Top::global_context().is_null());
   script->set_context_data((*i::Top::global_context())->data());
 
-#ifdef ENABLE_DEBUGGER_SUPPORT
   bool is_json = (validate == Compiler::VALIDATE_JSON);
+#ifdef ENABLE_DEBUGGER_SUPPORT
   if (is_eval || is_json) {
     script->set_compilation_type(
         is_json ? Smi::FromInt(Script::COMPILATION_TYPE_JSON) :
@@ -180,12 +179,14 @@ static Handle<JSFunction> MakeFunction(bool is_global,
     // For eval scripts add information on the function from which eval was
     // called.
     if (is_eval) {
-      JavaScriptFrameIterator it;
-      script->set_eval_from_shared(
-          JSFunction::cast(it.frame()->function())->shared());
-      int offset = static_cast<int>(
-          it.frame()->pc() - it.frame()->code()->instruction_start());
-      script->set_eval_from_instructions_offset(Smi::FromInt(offset));
+      StackTraceFrameIterator it;
+      if (!it.done()) {
+        script->set_eval_from_shared(
+            JSFunction::cast(it.frame()->function())->shared());
+        int offset = static_cast<int>(
+            it.frame()->pc() - it.frame()->code()->instruction_start());
+        script->set_eval_from_instructions_offset(Smi::FromInt(offset));
+      }
     }
   }
 
@@ -197,24 +198,12 @@ static Handle<JSFunction> MakeFunction(bool is_global,
   ASSERT(is_eval || is_global);
 
   // Build AST.
-  FunctionLiteral* lit = MakeAST(is_global, script, extension, pre_data);
+  FunctionLiteral* lit =
+      MakeAST(is_global, script, extension, pre_data, is_json);
 
   // Check for parse errors.
   if (lit == NULL) {
     ASSERT(Top::has_pending_exception());
-    return Handle<JSFunction>::null();
-  }
-
-  // When parsing JSON we do an ordinary parse and then afterwards
-  // check the AST to ensure it was well-formed.  If not we give a
-  // syntax error.
-  if (validate == Compiler::VALIDATE_JSON && !IsValidJSON(lit)) {
-    HandleScope scope;
-    Handle<JSArray> args = Factory::NewJSArray(1);
-    Handle<Object> source(script->source());
-    SetElement(args, 0, source);
-    Handle<Object> result = Factory::NewSyntaxError("invalid_json", args);
-    Top::Throw(*result, NULL);
     return Handle<JSFunction>::null();
   }
 
@@ -227,8 +216,8 @@ static Handle<JSFunction> MakeFunction(bool is_global,
   HistogramTimerScope timer(rate);
 
   // Compile the code.
-  Handle<Code> code = MakeCode(lit, script, context, is_eval,
-                               Handle<SharedFunctionInfo>::null());
+  CompilationInfo info(lit, script, is_eval);
+  Handle<Code> code = MakeCode(context, &info);
 
   // Check for stack-overflow exceptions.
   if (code.is_null()) {
@@ -274,7 +263,7 @@ static Handle<JSFunction> MakeFunction(bool is_global,
 
 #ifdef ENABLE_DEBUGGER_SUPPORT
   // Notify debugger
-  Debugger::OnAfterCompile(script, fun);
+  Debugger::OnAfterCompile(script, Debugger::NO_AFTER_COMPILE_FLAGS);
 #endif
 
   return fun;
@@ -288,7 +277,9 @@ Handle<JSFunction> Compiler::Compile(Handle<String> source,
                                      Handle<Object> script_name,
                                      int line_offset, int column_offset,
                                      v8::Extension* extension,
-                                     ScriptDataImpl* input_pre_data) {
+                                     ScriptDataImpl* input_pre_data,
+                                     Handle<Object> script_data,
+                                     NativesFlag natives) {
   int source_length = source->length();
   Counters::total_load_size.Increment(source_length);
   Counters::total_compile_size.Increment(source_length);
@@ -316,11 +307,17 @@ Handle<JSFunction> Compiler::Compile(Handle<String> source,
 
     // Create a script object describing the script to be compiled.
     Handle<Script> script = Factory::NewScript(source);
+    if (natives == NATIVES_CODE) {
+      script->set_type(Smi::FromInt(Script::TYPE_NATIVE));
+    }
     if (!script_name.is_null()) {
       script->set_name(*script_name);
       script->set_line_offset(Smi::FromInt(line_offset));
       script->set_column_offset(Smi::FromInt(column_offset));
     }
+
+    script->set_data(script_data.is_null() ? Heap::undefined_value()
+                                           : *script_data);
 
     // Compile the function and add it to the cache.
     result = MakeFunction(true,
@@ -389,8 +386,7 @@ Handle<JSFunction> Compiler::CompileEval(Handle<String> source,
 }
 
 
-bool Compiler::CompileLazy(Handle<SharedFunctionInfo> shared,
-                           int loop_nesting) {
+bool Compiler::CompileLazy(CompilationInfo* info) {
   CompilationZoneScope zone_scope(DELETE_ON_EXIT);
 
   // The VM is in the COMPILER state until exiting this function.
@@ -399,8 +395,8 @@ bool Compiler::CompileLazy(Handle<SharedFunctionInfo> shared,
   PostponeInterruptsScope postpone;
 
   // Compute name, source code and script data.
+  Handle<SharedFunctionInfo> shared = info->shared_info();
   Handle<String> name(String::cast(shared->name()));
-  Handle<Script> script(Script::cast(shared->script()));
 
   int start_position = shared->start_position();
   int end_position = shared->end_position();
@@ -409,7 +405,8 @@ bool Compiler::CompileLazy(Handle<SharedFunctionInfo> shared,
 
   // Generate the AST for the lazily compiled function. The AST may be
   // NULL in case of parser stack overflow.
-  FunctionLiteral* lit = MakeLazyAST(script, name,
+  FunctionLiteral* lit = MakeLazyAST(info->script(),
+                                     name,
                                      start_position,
                                      end_position,
                                      is_expression);
@@ -419,9 +416,7 @@ bool Compiler::CompileLazy(Handle<SharedFunctionInfo> shared,
     ASSERT(Top::has_pending_exception());
     return false;
   }
-
-  // Update the loop nesting in the function literal.
-  lit->set_loop_nesting(loop_nesting);
+  info->set_function(lit);
 
   // Measure how long it takes to do the lazy compilation; only take
   // the rest of the function into account to avoid overlap with the
@@ -429,8 +424,7 @@ bool Compiler::CompileLazy(Handle<SharedFunctionInfo> shared,
   HistogramTimerScope timer(&Counters::compile_lazy);
 
   // Compile the code.
-  Handle<Code> code = MakeCode(lit, script, Handle<Context>::null(), false,
-                               shared);
+  Handle<Code> code = MakeCode(Handle<Context>::null(), info);
 
   // Check for stack-overflow exception.
   if (code.is_null()) {
@@ -439,28 +433,12 @@ bool Compiler::CompileLazy(Handle<SharedFunctionInfo> shared,
   }
 
 #if defined ENABLE_LOGGING_AND_PROFILING || defined ENABLE_OPROFILE_AGENT
-  // Log the code generation. If source information is available include script
-  // name and line number. Check explicit whether logging is enabled as finding
-  // the line number is not for free.
-  if (Logger::is_logging() || OProfileAgent::is_enabled()) {
-    Handle<String> func_name(name->length() > 0 ?
-                             *name : shared->inferred_name());
-    if (script->name()->IsString()) {
-      int line_num = GetScriptLineNumber(script, start_position) + 1;
-      LOG(CodeCreateEvent(Logger::LAZY_COMPILE_TAG, *code, *func_name,
-                          String::cast(script->name()), line_num));
-      OProfileAgent::CreateNativeCodeRegion(*func_name,
-                                            String::cast(script->name()),
-                                            line_num,
-                                            code->instruction_start(),
-                                            code->instruction_size());
-    } else {
-      LOG(CodeCreateEvent(Logger::LAZY_COMPILE_TAG, *code, *func_name));
-      OProfileAgent::CreateNativeCodeRegion(*func_name,
-                                            code->instruction_start(),
-                                            code->instruction_size());
-    }
-  }
+  LogCodeCreateEvent(Logger::LAZY_COMPILE_TAG,
+                     name,
+                     Handle<String>(shared->inferred_name()),
+                     start_position,
+                     info->script(),
+                     code);
 #endif
 
   // Update the shared function info with the compiled code.
@@ -495,7 +473,8 @@ Handle<JSFunction> Compiler::BuildBoilerplate(FunctionLiteral* literal,
   // compiled. These builtins cannot be handled lazily by the parser,
   // since we have to know if a function uses the special natives
   // syntax, which is something the parser records.
-  bool allow_lazy = literal->AllowsLazyCompilation();
+  bool allow_lazy = literal->AllowsLazyCompilation() &&
+      !LiveEditFunctionTracker::IsActive();
 
   // Generate code
   Handle<Code> code;
@@ -508,24 +487,67 @@ Handle<JSFunction> Compiler::BuildBoilerplate(FunctionLiteral* literal,
       return Handle<JSFunction>::null();
     }
 
-    // Generate code and return it.
+    if (literal->scope()->num_parameters() > 0 ||
+        literal->scope()->num_stack_slots()) {
+      AssignedVariablesAnalyzer ava(literal);
+      ava.Analyze();
+      if (ava.HasStackOverflow()) {
+        return Handle<JSFunction>::null();
+      }
+    }
+
+    if (FLAG_use_flow_graph) {
+      int variable_count =
+          literal->num_parameters() + literal->scope()->num_stack_slots();
+      FlowGraphBuilder builder(variable_count);
+      builder.Build(literal);
+
+    if (!builder.HasStackOverflow()) {
+      if (variable_count > 0) {
+        ReachingDefinitions rd(builder.postorder(),
+                               builder.body_definitions(),
+                               variable_count);
+        rd.Compute();
+      }
+    }
+
+#ifdef DEBUG
+      if (FLAG_print_graph_text && !builder.HasStackOverflow()) {
+        builder.graph()->PrintText(literal, builder.postorder());
+      }
+#endif
+    }
+
+    // Generate code and return it.  The way that the compilation mode
+    // is controlled by the command-line flags is described in
+    // the static helper function MakeCode.
+    CompilationInfo info(literal, script, false);
+
+    CHECK(!FLAG_always_full_compiler || !FLAG_always_fast_compiler);
+    bool is_run_once = literal->try_full_codegen();
     bool is_compiled = false;
-    if (FLAG_fast_compiler && literal->try_fast_codegen()) {
-      CodeGenSelector selector;
-      CodeGenSelector::CodeGenTag code_gen = selector.Select(literal);
-      if (code_gen == CodeGenSelector::FAST) {
-        code = FastCodeGenerator::MakeCode(literal,
-                                           script,
-                                           false);  // Not eval.
+    if (FLAG_always_full_compiler || (FLAG_full_compiler && is_run_once)) {
+      FullCodeGenSyntaxChecker checker;
+      checker.Check(literal);
+      if (checker.has_supported_syntax()) {
+        code = FullCodeGenerator::MakeCode(&info);
+        is_compiled = true;
+      }
+    } else if (FLAG_always_fast_compiler ||
+               (FLAG_fast_compiler && !is_run_once)) {
+      // Since we are not lazily compiling we do not have a receiver to
+      // specialize for.
+      FastCodeGenSyntaxChecker checker;
+      checker.Check(&info);
+      if (checker.has_supported_syntax()) {
+        code = FastCodeGenerator::MakeCode(&info);
         is_compiled = true;
       }
     }
 
     if (!is_compiled) {
-      // We didn't try the fast compiler, or we failed to select it.
-      code = CodeGenerator::MakeCode(literal,
-                                     script,
-                                     false);  // Not eval.
+      // We fall back to the classic V8 code generator.
+      code = CodeGenerator::MakeCode(&info);
     }
 
     // Check for stack-overflow exception.
@@ -535,12 +557,14 @@ Handle<JSFunction> Compiler::BuildBoilerplate(FunctionLiteral* literal,
     }
 
     // Function compilation complete.
-    LOG(CodeCreateEvent(Logger::FUNCTION_TAG, *code, *literal->name()));
 
-#ifdef ENABLE_OPROFILE_AGENT
-    OProfileAgent::CreateNativeCodeRegion(*literal->name(),
-                                          code->instruction_start(),
-                                          code->instruction_size());
+#if defined ENABLE_LOGGING_AND_PROFILING || defined ENABLE_OPROFILE_AGENT
+    LogCodeCreateEvent(Logger::FUNCTION_TAG,
+                       literal->name(),
+                       literal->inferred_name(),
+                       literal->start_position(),
+                       script,
+                       code);
 #endif
   }
 
@@ -584,549 +608,39 @@ void Compiler::SetFunctionInfo(Handle<JSFunction> fun,
   fun->shared()->SetThisPropertyAssignmentsInfo(
       lit->has_only_simple_this_property_assignments(),
       *lit->this_property_assignments());
-  fun->shared()->set_try_fast_codegen(lit->try_fast_codegen());
+  fun->shared()->set_try_full_codegen(lit->try_full_codegen());
 }
 
 
-CodeGenSelector::CodeGenTag CodeGenSelector::Select(FunctionLiteral* fun) {
-  Scope* scope = fun->scope();
-
-  if (scope->num_heap_slots() > 0) {
-    // We support functions with a local context if they do not have
-    // parameters that need to be copied into the context.
-    for (int i = 0, len = scope->num_parameters(); i < len; i++) {
-      Slot* slot = scope->parameter(i)->slot();
-      if (slot != NULL && slot->type() == Slot::CONTEXT) {
-        if (FLAG_trace_bailout) {
-          PrintF("Function has context-allocated parameters.\n");
-        }
-        return NORMAL;
-      }
+#if defined ENABLE_LOGGING_AND_PROFILING || defined ENABLE_OPROFILE_AGENT
+void Compiler::LogCodeCreateEvent(Logger::LogEventsAndTags tag,
+                                  Handle<String> name,
+                                  Handle<String> inferred_name,
+                                  int start_position,
+                                  Handle<Script> script,
+                                  Handle<Code> code) {
+  // Log the code generation. If source information is available
+  // include script name and line number. Check explicitly whether
+  // logging is enabled as finding the line number is not free.
+  if (Logger::is_logging() || OProfileAgent::is_enabled()) {
+    Handle<String> func_name(name->length() > 0 ? *name : *inferred_name);
+    if (script->name()->IsString()) {
+      int line_num = GetScriptLineNumber(script, start_position) + 1;
+      LOG(CodeCreateEvent(tag, *code, *func_name,
+                          String::cast(script->name()), line_num));
+      OProfileAgent::CreateNativeCodeRegion(*func_name,
+                                            String::cast(script->name()),
+                                            line_num,
+                                            code->instruction_start(),
+                                            code->instruction_size());
+    } else {
+      LOG(CodeCreateEvent(tag, *code, *func_name));
+      OProfileAgent::CreateNativeCodeRegion(*func_name,
+                                            code->instruction_start(),
+                                            code->instruction_size());
     }
   }
-
-  has_supported_syntax_ = true;
-  VisitDeclarations(scope->declarations());
-  if (!has_supported_syntax_) return NORMAL;
-
-  VisitStatements(fun->body());
-  return has_supported_syntax_ ? FAST : NORMAL;
 }
-
-
-#define BAILOUT(reason)                         \
-  do {                                          \
-    if (FLAG_trace_bailout) {                   \
-      PrintF("%s\n", reason);                   \
-    }                                           \
-    has_supported_syntax_ = false;              \
-    return;                                     \
-  } while (false)
-
-
-#define CHECK_BAILOUT                           \
-  do {                                          \
-    if (!has_supported_syntax_) return;         \
-  } while (false)
-
-
-void CodeGenSelector::VisitDeclarations(ZoneList<Declaration*>* decls) {
-  for (int i = 0; i < decls->length(); i++) {
-    Visit(decls->at(i));
-    CHECK_BAILOUT;
-  }
-}
-
-
-void CodeGenSelector::VisitStatements(ZoneList<Statement*>* stmts) {
-  for (int i = 0, len = stmts->length(); i < len; i++) {
-    Visit(stmts->at(i));
-    CHECK_BAILOUT;
-  }
-}
-
-
-void CodeGenSelector::VisitDeclaration(Declaration* decl) {
-  Property* prop = decl->proxy()->AsProperty();
-  if (prop != NULL) {
-    ProcessExpression(prop->obj(), Expression::kValue);
-    ProcessExpression(prop->key(), Expression::kValue);
-  }
-
-  if (decl->fun() != NULL) {
-    ProcessExpression(decl->fun(), Expression::kValue);
-  }
-}
-
-
-void CodeGenSelector::VisitBlock(Block* stmt) {
-  VisitStatements(stmt->statements());
-}
-
-
-void CodeGenSelector::VisitExpressionStatement(ExpressionStatement* stmt) {
-  ProcessExpression(stmt->expression(), Expression::kEffect);
-}
-
-
-void CodeGenSelector::VisitEmptyStatement(EmptyStatement* stmt) {
-  // EmptyStatement is supported.
-}
-
-
-void CodeGenSelector::VisitIfStatement(IfStatement* stmt) {
-  ProcessExpression(stmt->condition(), Expression::kTest);
-  CHECK_BAILOUT;
-  Visit(stmt->then_statement());
-  CHECK_BAILOUT;
-  Visit(stmt->else_statement());
-}
-
-
-void CodeGenSelector::VisitContinueStatement(ContinueStatement* stmt) {
-}
-
-
-void CodeGenSelector::VisitBreakStatement(BreakStatement* stmt) {
-}
-
-
-void CodeGenSelector::VisitReturnStatement(ReturnStatement* stmt) {
-  ProcessExpression(stmt->expression(), Expression::kValue);
-}
-
-
-void CodeGenSelector::VisitWithEnterStatement(WithEnterStatement* stmt) {
-  ProcessExpression(stmt->expression(), Expression::kValue);
-}
-
-
-void CodeGenSelector::VisitWithExitStatement(WithExitStatement* stmt) {
-  // Supported.
-}
-
-
-void CodeGenSelector::VisitSwitchStatement(SwitchStatement* stmt) {
-  BAILOUT("SwitchStatement");
-}
-
-
-void CodeGenSelector::VisitDoWhileStatement(DoWhileStatement* stmt) {
-  // We do not handle loops with breaks or continue statements in their
-  // body.  We will bailout when we hit those statements in the body.
-  ProcessExpression(stmt->cond(), Expression::kTest);
-  CHECK_BAILOUT;
-  Visit(stmt->body());
-}
-
-
-void CodeGenSelector::VisitWhileStatement(WhileStatement* stmt) {
-  // We do not handle loops with breaks or continue statements in their
-  // body.  We will bailout when we hit those statements in the body.
-  ProcessExpression(stmt->cond(), Expression::kTest);
-  CHECK_BAILOUT;
-  Visit(stmt->body());
-}
-
-
-void CodeGenSelector::VisitForStatement(ForStatement* stmt) {
-  BAILOUT("ForStatement");
-}
-
-
-void CodeGenSelector::VisitForInStatement(ForInStatement* stmt) {
-  BAILOUT("ForInStatement");
-}
-
-
-void CodeGenSelector::VisitTryCatchStatement(TryCatchStatement* stmt) {
-  Visit(stmt->try_block());
-  CHECK_BAILOUT;
-  Visit(stmt->catch_block());
-}
-
-
-void CodeGenSelector::VisitTryFinallyStatement(TryFinallyStatement* stmt) {
-  Visit(stmt->try_block());
-  CHECK_BAILOUT;
-  Visit(stmt->finally_block());
-}
-
-
-void CodeGenSelector::VisitDebuggerStatement(DebuggerStatement* stmt) {
-  // Debugger statement is supported.
-}
-
-
-void CodeGenSelector::VisitFunctionLiteral(FunctionLiteral* expr) {
-  // Function literal is supported.
-}
-
-
-void CodeGenSelector::VisitFunctionBoilerplateLiteral(
-    FunctionBoilerplateLiteral* expr) {
-  BAILOUT("FunctionBoilerplateLiteral");
-}
-
-
-void CodeGenSelector::VisitConditional(Conditional* expr) {
-  ProcessExpression(expr->condition(), Expression::kTest);
-  CHECK_BAILOUT;
-  ProcessExpression(expr->then_expression(), context_);
-  CHECK_BAILOUT;
-  ProcessExpression(expr->else_expression(), context_);
-}
-
-
-void CodeGenSelector::VisitSlot(Slot* expr) {
-  UNREACHABLE();
-}
-
-
-void CodeGenSelector::VisitVariableProxy(VariableProxy* expr) {
-  Expression* rewrite = expr->var()->rewrite();
-  // A rewrite of NULL indicates a global variable.
-  if (rewrite != NULL) {
-    // Non-global.
-    Slot* slot = rewrite->AsSlot();
-    if (slot != NULL) {
-      Slot::Type type = slot->type();
-      // When LOOKUP slots are enabled, some currently dead code
-      // implementing unary typeof will become live.
-      if (type == Slot::LOOKUP) {
-        BAILOUT("Lookup slot");
-      }
-    } else {
-#ifdef DEBUG
-      // Only remaining possibility is a property where the object is
-      // a slotted variable and the key is a smi.
-      Property* property = rewrite->AsProperty();
-      ASSERT_NOT_NULL(property);
-      Variable* object = property->obj()->AsVariableProxy()->AsVariable();
-      ASSERT_NOT_NULL(object);
-      ASSERT_NOT_NULL(object->slot());
-      ASSERT_NOT_NULL(property->key()->AsLiteral());
-      ASSERT(property->key()->AsLiteral()->handle()->IsSmi());
 #endif
-    }
-  }
-}
-
-
-void CodeGenSelector::VisitLiteral(Literal* expr) {
-  /* Nothing to do. */
-}
-
-
-void CodeGenSelector::VisitRegExpLiteral(RegExpLiteral* expr) {
-  /* Nothing to do. */
-}
-
-
-void CodeGenSelector::VisitObjectLiteral(ObjectLiteral* expr) {
-  ZoneList<ObjectLiteral::Property*>* properties = expr->properties();
-
-  for (int i = 0, len = properties->length(); i < len; i++) {
-    ObjectLiteral::Property* property = properties->at(i);
-    if (property->IsCompileTimeValue()) continue;
-
-    switch (property->kind()) {
-      case ObjectLiteral::Property::CONSTANT:
-        UNREACHABLE();
-
-      // For (non-compile-time) materialized literals and computed
-      // properties with symbolic keys we will use an IC and therefore not
-      // generate code for the key.
-      case ObjectLiteral::Property::COMPUTED:  // Fall through.
-      case ObjectLiteral::Property::MATERIALIZED_LITERAL:
-        if (property->key()->handle()->IsSymbol()) {
-          break;
-        }
-        // Fall through.
-
-      // In all other cases we need the key's value on the stack
-      // for a runtime call.  (Relies on TEMP meaning STACK.)
-      case ObjectLiteral::Property::GETTER:  // Fall through.
-      case ObjectLiteral::Property::SETTER:  // Fall through.
-      case ObjectLiteral::Property::PROTOTYPE:
-        ProcessExpression(property->key(), Expression::kValue);
-        CHECK_BAILOUT;
-        break;
-    }
-    ProcessExpression(property->value(), Expression::kValue);
-    CHECK_BAILOUT;
-  }
-}
-
-
-void CodeGenSelector::VisitArrayLiteral(ArrayLiteral* expr) {
-  ZoneList<Expression*>* subexprs = expr->values();
-  for (int i = 0, len = subexprs->length(); i < len; i++) {
-    Expression* subexpr = subexprs->at(i);
-    if (subexpr->AsLiteral() != NULL) continue;
-    if (CompileTimeValue::IsCompileTimeValue(subexpr)) continue;
-    ProcessExpression(subexpr, Expression::kValue);
-    CHECK_BAILOUT;
-  }
-}
-
-
-void CodeGenSelector::VisitCatchExtensionObject(CatchExtensionObject* expr) {
-  ProcessExpression(expr->key(), Expression::kValue);
-  CHECK_BAILOUT;
-  ProcessExpression(expr->value(), Expression::kValue);
-}
-
-
-void CodeGenSelector::VisitAssignment(Assignment* expr) {
-  // We support plain non-compound assignments to properties, parameters and
-  // non-context (stack-allocated) locals, and global variables.
-  Token::Value op = expr->op();
-  if (op == Token::INIT_CONST) BAILOUT("initialize constant");
-
-  Variable* var = expr->target()->AsVariableProxy()->AsVariable();
-  Property* prop = expr->target()->AsProperty();
-  ASSERT(var == NULL || prop == NULL);
-  if (var != NULL) {
-    if (var->mode() == Variable::CONST) {
-      BAILOUT("Assignment to const");
-    }
-    // All global variables are supported.
-    if (!var->is_global()) {
-      ASSERT(var->slot() != NULL);
-      Slot::Type type = var->slot()->type();
-      if (type == Slot::LOOKUP) {
-        BAILOUT("Lookup slot");
-      }
-    }
-  } else if (prop != NULL) {
-    ProcessExpression(prop->obj(), Expression::kValue);
-    CHECK_BAILOUT;
-    // We will only visit the key during code generation for keyed property
-    // stores.  Leave its expression context uninitialized for named
-    // property stores.
-    if (!prop->key()->IsPropertyName()) {
-      ProcessExpression(prop->key(), Expression::kValue);
-      CHECK_BAILOUT;
-    }
-  } else {
-    // This is a throw reference error.
-    BAILOUT("non-variable/non-property assignment");
-  }
-
-  ProcessExpression(expr->value(), Expression::kValue);
-}
-
-
-void CodeGenSelector::VisitThrow(Throw* expr) {
-  ProcessExpression(expr->exception(), Expression::kValue);
-}
-
-
-void CodeGenSelector::VisitProperty(Property* expr) {
-  ProcessExpression(expr->obj(), Expression::kValue);
-  CHECK_BAILOUT;
-  ProcessExpression(expr->key(), Expression::kValue);
-}
-
-
-void CodeGenSelector::VisitCall(Call* expr) {
-  Expression* fun = expr->expression();
-  ZoneList<Expression*>* args = expr->arguments();
-  Variable* var = fun->AsVariableProxy()->AsVariable();
-
-  // Check for supported calls
-  if (var != NULL && var->is_possibly_eval()) {
-    BAILOUT("call to the identifier 'eval'");
-  } else if (var != NULL && !var->is_this() && var->is_global()) {
-    // Calls to global variables are supported.
-  } else if (var != NULL && var->slot() != NULL &&
-             var->slot()->type() == Slot::LOOKUP) {
-    BAILOUT("call to a lookup slot");
-  } else if (fun->AsProperty() != NULL) {
-    Property* prop = fun->AsProperty();
-    Literal* literal_key = prop->key()->AsLiteral();
-    if (literal_key != NULL && literal_key->handle()->IsSymbol()) {
-      ProcessExpression(prop->obj(), Expression::kValue);
-      CHECK_BAILOUT;
-    } else {
-      ProcessExpression(prop->obj(), Expression::kValue);
-      CHECK_BAILOUT;
-      ProcessExpression(prop->key(), Expression::kValue);
-      CHECK_BAILOUT;
-    }
-  } else {
-    // Otherwise the call is supported if the function expression is.
-    ProcessExpression(fun, Expression::kValue);
-  }
-  // Check all arguments to the call.
-  for (int i = 0; i < args->length(); i++) {
-    ProcessExpression(args->at(i), Expression::kValue);
-    CHECK_BAILOUT;
-  }
-}
-
-
-void CodeGenSelector::VisitCallNew(CallNew* expr) {
-  ProcessExpression(expr->expression(), Expression::kValue);
-  CHECK_BAILOUT;
-  ZoneList<Expression*>* args = expr->arguments();
-  // Check all arguments to the call
-  for (int i = 0; i < args->length(); i++) {
-    ProcessExpression(args->at(i), Expression::kValue);
-    CHECK_BAILOUT;
-  }
-}
-
-
-void CodeGenSelector::VisitCallRuntime(CallRuntime* expr) {
-  // Check for inline runtime call
-  if (expr->name()->Get(0) == '_' &&
-      CodeGenerator::FindInlineRuntimeLUT(expr->name()) != NULL) {
-    BAILOUT("inlined runtime call");
-  }
-  // Check all arguments to the call.  (Relies on TEMP meaning STACK.)
-  for (int i = 0; i < expr->arguments()->length(); i++) {
-    ProcessExpression(expr->arguments()->at(i), Expression::kValue);
-    CHECK_BAILOUT;
-  }
-}
-
-
-void CodeGenSelector::VisitUnaryOperation(UnaryOperation* expr) {
-  switch (expr->op()) {
-    case Token::VOID:
-      ProcessExpression(expr->expression(), Expression::kEffect);
-      break;
-    case Token::NOT:
-      ProcessExpression(expr->expression(), Expression::kTest);
-      break;
-    case Token::TYPEOF:
-      ProcessExpression(expr->expression(), Expression::kValue);
-      break;
-    default:
-      BAILOUT("UnaryOperation");
-  }
-}
-
-
-void CodeGenSelector::VisitCountOperation(CountOperation* expr) {
-  Variable* var = expr->expression()->AsVariableProxy()->AsVariable();
-  Property* prop = expr->expression()->AsProperty();
-  ASSERT(var == NULL || prop == NULL);
-  if (var != NULL) {
-    // All global variables are supported.
-    if (!var->is_global()) {
-      ASSERT(var->slot() != NULL);
-      Slot::Type type = var->slot()->type();
-      if (type == Slot::LOOKUP) {
-        BAILOUT("CountOperation with lookup slot");
-      }
-    }
-  } else if (prop != NULL) {
-    ProcessExpression(prop->obj(), Expression::kValue);
-    CHECK_BAILOUT;
-    // We will only visit the key during code generation for keyed property
-    // stores.  Leave its expression context uninitialized for named
-    // property stores.
-    if (!prop->key()->IsPropertyName()) {
-      ProcessExpression(prop->key(), Expression::kValue);
-      CHECK_BAILOUT;
-    }
-  } else {
-    // This is a throw reference error.
-    BAILOUT("CountOperation non-variable/non-property expression");
-  }
-}
-
-
-void CodeGenSelector::VisitBinaryOperation(BinaryOperation* expr) {
-  switch (expr->op()) {
-    case Token::COMMA:
-      ProcessExpression(expr->left(), Expression::kEffect);
-      CHECK_BAILOUT;
-      ProcessExpression(expr->right(), context_);
-      break;
-
-    case Token::OR:
-      switch (context_) {
-        case Expression::kUninitialized:
-          UNREACHABLE();
-        case Expression::kEffect:  // Fall through.
-        case Expression::kTest:  // Fall through.
-        case Expression::kTestValue:
-          // The left subexpression's value is not needed, it is in a pure
-          // test context.
-          ProcessExpression(expr->left(), Expression::kTest);
-          break;
-        case Expression::kValue:  // Fall through.
-        case Expression::kValueTest:
-          // The left subexpression's value is needed, it is in a hybrid
-          // value/test context.
-          ProcessExpression(expr->left(), Expression::kValueTest);
-          break;
-      }
-      CHECK_BAILOUT;
-      ProcessExpression(expr->right(), context_);
-      break;
-
-    case Token::AND:
-      switch (context_) {
-        case Expression::kUninitialized:
-          UNREACHABLE();
-        case Expression::kEffect:  // Fall through.
-        case Expression::kTest:  // Fall through.
-        case Expression::kValueTest:
-          // The left subexpression's value is not needed, it is in a pure
-          // test context.
-          ProcessExpression(expr->left(), Expression::kTest);
-          break;
-        case Expression::kValue:  // Fall through.
-        case Expression::kTestValue:
-          // The left subexpression's value is needed, it is in a hybrid
-          // test/value context.
-          ProcessExpression(expr->left(), Expression::kTestValue);
-          break;
-      }
-      CHECK_BAILOUT;
-      ProcessExpression(expr->right(), context_);
-      break;
-
-    case Token::ADD:
-    case Token::SUB:
-    case Token::DIV:
-    case Token::MOD:
-    case Token::MUL:
-    case Token::BIT_OR:
-    case Token::BIT_AND:
-    case Token::BIT_XOR:
-    case Token::SHL:
-    case Token::SHR:
-    case Token::SAR:
-      ProcessExpression(expr->left(), Expression::kValue);
-      CHECK_BAILOUT;
-      ProcessExpression(expr->right(), Expression::kValue);
-      break;
-
-    default:
-      BAILOUT("Unsupported binary operation");
-  }
-}
-
-
-void CodeGenSelector::VisitCompareOperation(CompareOperation* expr) {
-  ProcessExpression(expr->left(), Expression::kValue);
-  CHECK_BAILOUT;
-  ProcessExpression(expr->right(), Expression::kValue);
-}
-
-
-void CodeGenSelector::VisitThisFunction(ThisFunction* expr) {
-  // ThisFunction is supported.
-}
-
-#undef BAILOUT
-#undef CHECK_BAILOUT
-
 
 } }  // namespace v8::internal

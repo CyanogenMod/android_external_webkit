@@ -89,6 +89,8 @@ uint64_t OS::CpuFeaturesImpliedByPlatform() {
   // Here gcc is telling us that we are on an ARM and gcc is assuming that we
   // have VFP3 instructions.  If gcc can assume it then so can we.
   return 1u << VFP3;
+#elif CAN_USE_ARMV7_INSTRUCTIONS
+  return 1u << ARMv7;
 #else
   return 0;  // Linux runs on anything.
 #endif
@@ -112,6 +114,9 @@ bool OS::ArmCpuHasFeature(CpuFeature feature) {
   switch (feature) {
     case VFP3:
       search_string = "vfp";
+      break;
+    case ARMv7:
+      search_string = "ARMv7";
       break;
     default:
       UNREACHABLE();
@@ -151,11 +156,30 @@ int OS::ActivationFrameAlignment() {
   // On EABI ARM targets this is required for fp correctness in the
   // runtime system.
   return 8;
-#else
+#elif V8_TARGET_ARCH_MIPS
+  return 8;
+#endif
   // With gcc 4.4 the tree vectorization optimiser can generate code
   // that requires 16 byte alignment such as movdqa on x86.
   return 16;
-#endif
+}
+
+
+const char* OS::LocalTimezone(double time) {
+  if (isnan(time)) return "";
+  time_t tv = static_cast<time_t>(floor(time/msPerSecond));
+  struct tm* t = localtime(&tv);
+  if (NULL == t) return "";
+  return t->tm_zone;
+}
+
+
+double OS::LocalTimeOffset() {
+  time_t tv = time(NULL);
+  struct tm* t = localtime(&tv);
+  // tm_gmtoff includes any daylight savings offset, so subtract it.
+  return static_cast<double>(t->tm_gmtoff * msPerSecond -
+                             (t->tm_isdst > 0 ? 3600 * msPerSecond : 0));
 }
 
 
@@ -244,6 +268,8 @@ void OS::DebugBreak() {
 //  which is the architecture of generated code).
 #if defined(__arm__) || defined(__thumb__)
   asm("bkpt 0");
+#elif defined(__mips__)
+  asm("break");
 #else
   asm("int $3");
 #endif
@@ -305,8 +331,8 @@ void OS::LogSharedLibraryAddresses() {
     if (fscanf(fp, " %c%c%c%c", &attr_r, &attr_w, &attr_x, &attr_p) != 4) break;
 
     int c;
-    if (attr_r == 'r' && attr_x == 'x') {
-      // Found a readable and executable entry. Skip characters until we reach
+    if (attr_r == 'r' && attr_w != 'w' && attr_x == 'x') {
+      // Found a read-only executable entry. Skip characters until we reach
       // the beginning of the filename or the end of the line.
       do {
         c = getc(fp);
@@ -695,11 +721,15 @@ static inline bool IsVmThread() {
 
 
 static void ProfilerSignalHandler(int signal, siginfo_t* info, void* context) {
+#ifndef V8_HOST_ARCH_MIPS
   USE(info);
   if (signal != SIGPROF) return;
   if (active_sampler_ == NULL) return;
 
   TickSample sample;
+
+  // We always sample the VM state.
+  sample.state = Logger::state();
 
   // If profiling, we extract the current pc and sp.
   if (active_sampler_->IsProfiling()) {
@@ -707,33 +737,34 @@ static void ProfilerSignalHandler(int signal, siginfo_t* info, void* context) {
     ucontext_t* ucontext = reinterpret_cast<ucontext_t*>(context);
     mcontext_t& mcontext = ucontext->uc_mcontext;
 #if V8_HOST_ARCH_IA32
-    sample.pc = mcontext.gregs[REG_EIP];
-    sample.sp = mcontext.gregs[REG_ESP];
-    sample.fp = mcontext.gregs[REG_EBP];
+    sample.pc = reinterpret_cast<Address>(mcontext.gregs[REG_EIP]);
+    sample.sp = reinterpret_cast<Address>(mcontext.gregs[REG_ESP]);
+    sample.fp = reinterpret_cast<Address>(mcontext.gregs[REG_EBP]);
 #elif V8_HOST_ARCH_X64
-    sample.pc = mcontext.gregs[REG_RIP];
-    sample.sp = mcontext.gregs[REG_RSP];
-    sample.fp = mcontext.gregs[REG_RBP];
+    sample.pc = reinterpret_cast<Address>(mcontext.gregs[REG_RIP]);
+    sample.sp = reinterpret_cast<Address>(mcontext.gregs[REG_RSP]);
+    sample.fp = reinterpret_cast<Address>(mcontext.gregs[REG_RBP]);
 #elif V8_HOST_ARCH_ARM
 // An undefined macro evaluates to 0, so this applies to Android's Bionic also.
 #if (__GLIBC__ < 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ <= 3))
-    sample.pc = mcontext.gregs[R15];
-    sample.sp = mcontext.gregs[R13];
-    sample.fp = mcontext.gregs[R11];
+    sample.pc = reinterpret_cast<Address>(mcontext.gregs[R15]);
+    sample.sp = reinterpret_cast<Address>(mcontext.gregs[R13]);
+    sample.fp = reinterpret_cast<Address>(mcontext.gregs[R11]);
 #else
-    sample.pc = mcontext.arm_pc;
-    sample.sp = mcontext.arm_sp;
-    sample.fp = mcontext.arm_fp;
+    sample.pc = reinterpret_cast<Address>(mcontext.arm_pc);
+    sample.sp = reinterpret_cast<Address>(mcontext.arm_sp);
+    sample.fp = reinterpret_cast<Address>(mcontext.arm_fp);
 #endif
+#elif V8_HOST_ARCH_MIPS
+    // Implement this on MIPS.
+    UNIMPLEMENTED();
 #endif
     if (IsVmThread())
       active_sampler_->SampleStack(&sample);
   }
 
-  // We always sample the VM state.
-  sample.state = Logger::state();
-
   active_sampler_->Tick(&sample);
+#endif
 }
 
 

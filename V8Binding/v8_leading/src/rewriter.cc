@@ -220,6 +220,7 @@ void AstOptimizer::VisitFunctionBoilerplateLiteral(
 
 
 void AstOptimizer::VisitConditional(Conditional* node) {
+  node->condition()->set_no_negative_zero(true);
   Visit(node->condition());
   Visit(node->then_expression());
   Visit(node->else_expression());
@@ -244,6 +245,14 @@ void AstOptimizer::VisitVariableProxy(VariableProxy* node) {
         !Heap::result_symbol()->Equals(*var->name())) {
       func_name_inferrer_.PushName(var->name());
     }
+
+    if (FLAG_safe_int32_compiler) {
+      if (var->IsStackAllocated() &&
+          !var->is_arguments() &&
+          var->mode() != Variable::CONST) {
+        node->set_side_effect_free(true);
+      }
+    }
   }
 }
 
@@ -252,10 +261,20 @@ void AstOptimizer::VisitLiteral(Literal* node) {
   Handle<Object> literal = node->handle();
   if (literal->IsSmi()) {
     node->type()->SetAsLikelySmi();
+    node->set_side_effect_free(true);
   } else if (literal->IsString()) {
     Handle<String> lit_str(Handle<String>::cast(literal));
     if (!Heap::prototype_symbol()->Equals(*lit_str)) {
       func_name_inferrer_.PushName(lit_str);
+    }
+  } else if (literal->IsHeapNumber()) {
+    if (node->to_int32()) {
+      // Any HeapNumber has an int32 value if it is the input to a bit op.
+      node->set_side_effect_free(true);
+    } else {
+      double double_value = HeapNumber::cast(*literal)->value();
+      int32_t int32_value = DoubleToInt32(double_value);
+      node->set_side_effect_free(double_value == int32_value);
     }
   }
 }
@@ -310,6 +329,8 @@ void AstOptimizer::VisitAssignment(Assignment* node) {
       node->type()->SetAsLikelySmiIfUnknown();
       node->target()->type()->SetAsLikelySmiIfUnknown();
       node->value()->type()->SetAsLikelySmiIfUnknown();
+      node->value()->set_to_int32(true);
+      node->value()->set_no_negative_zero(true);
       break;
     case Token::ASSIGN_ADD:
     case Token::ASSIGN_SUB:
@@ -384,6 +405,7 @@ void AstOptimizer::VisitThrow(Throw* node) {
 
 
 void AstOptimizer::VisitProperty(Property* node) {
+  node->key()->set_no_negative_zero(true);
   Visit(node->obj());
   Visit(node->key());
 }
@@ -413,12 +435,41 @@ void AstOptimizer::VisitCallRuntime(CallRuntime* node) {
 
 
 void AstOptimizer::VisitUnaryOperation(UnaryOperation* node) {
+  if (node->op() == Token::ADD || node->op() == Token::SUB) {
+    node->expression()->set_no_negative_zero(node->no_negative_zero());
+  } else {
+    node->expression()->set_no_negative_zero(true);
+  }
   Visit(node->expression());
+  if (FLAG_safe_int32_compiler) {
+    switch (node->op()) {
+      case Token::BIT_NOT:
+        node->expression()->set_to_int32(true);
+        // Fall through.
+      case Token::ADD:
+      case Token::SUB:
+        node->set_side_effect_free(node->expression()->side_effect_free());
+        break;
+      case Token::NOT:
+      case Token::DELETE:
+      case Token::TYPEOF:
+      case Token::VOID:
+        break;
+      default:
+        UNREACHABLE();
+        break;
+    }
+  } else if (node->op() == Token::BIT_NOT) {
+    node->expression()->set_to_int32(true);
+  }
 }
 
 
 void AstOptimizer::VisitCountOperation(CountOperation* node) {
   // Count operations assume that they work on Smis.
+  node->expression()->set_no_negative_zero(node->is_prefix() ?
+                                           true :
+                                           node->no_negative_zero());
   node->type()->SetAsLikelySmiIfUnknown();
   node->expression()->type()->SetAsLikelySmiIfUnknown();
   Visit(node->expression());
@@ -431,7 +482,12 @@ void AstOptimizer::VisitBinaryOperation(BinaryOperation* node) {
   switch (node->op()) {
     case Token::COMMA:
     case Token::OR:
+      node->left()->set_no_negative_zero(true);
+      node->right()->set_no_negative_zero(node->no_negative_zero());
+      break;
     case Token::AND:
+      node->left()->set_no_negative_zero(node->no_negative_zero());
+      node->right()->set_no_negative_zero(node->no_negative_zero());
       break;
     case Token::BIT_OR:
     case Token::BIT_XOR:
@@ -442,6 +498,10 @@ void AstOptimizer::VisitBinaryOperation(BinaryOperation* node) {
       node->type()->SetAsLikelySmiIfUnknown();
       node->left()->type()->SetAsLikelySmiIfUnknown();
       node->right()->type()->SetAsLikelySmiIfUnknown();
+      node->left()->set_to_int32(true);
+      node->right()->set_to_int32(true);
+      node->left()->set_no_negative_zero(true);
+      node->right()->set_no_negative_zero(true);
       break;
     case Token::ADD:
     case Token::SUB:
@@ -451,6 +511,13 @@ void AstOptimizer::VisitBinaryOperation(BinaryOperation* node) {
       if (node->type()->IsLikelySmi()) {
         node->left()->type()->SetAsLikelySmiIfUnknown();
         node->right()->type()->SetAsLikelySmiIfUnknown();
+      }
+      node->left()->set_no_negative_zero(node->no_negative_zero());
+      node->right()->set_no_negative_zero(node->no_negative_zero());
+      if (node->op() == Token::DIV) {
+        node->right()->set_no_negative_zero(false);
+      } else if (node->op() == Token::MOD) {
+        node->right()->set_no_negative_zero(true);
       }
       break;
     default:
@@ -483,6 +550,41 @@ void AstOptimizer::VisitBinaryOperation(BinaryOperation* node) {
       }
     }
   }
+
+  if (FLAG_safe_int32_compiler) {
+    switch (node->op()) {
+      case Token::COMMA:
+      case Token::OR:
+      case Token::AND:
+        break;
+      case Token::BIT_OR:
+      case Token::BIT_XOR:
+      case Token::BIT_AND:
+      case Token::SHL:
+      case Token::SAR:
+      case Token::SHR:
+        // Add one to the number of bit operations in this expression.
+        node->set_num_bit_ops(1);
+        // Fall through.
+      case Token::ADD:
+      case Token::SUB:
+      case Token::MUL:
+      case Token::DIV:
+      case Token::MOD:
+        node->set_side_effect_free(node->left()->side_effect_free() &&
+                                   node->right()->side_effect_free());
+        node->set_num_bit_ops(node->num_bit_ops() +
+                                  node->left()->num_bit_ops() +
+                                  node->right()->num_bit_ops());
+        if (!node->no_negative_zero() && node->op() == Token::MUL) {
+          node->set_side_effect_free(false);
+        }
+        break;
+      default:
+        UNREACHABLE();
+        break;
+    }
+  }
 }
 
 
@@ -492,6 +594,10 @@ void AstOptimizer::VisitCompareOperation(CompareOperation* node) {
     node->left()->type()->SetAsLikelySmiIfUnknown();
     node->right()->type()->SetAsLikelySmiIfUnknown();
   }
+
+  node->left()->set_no_negative_zero(true);
+  // Only [[HasInstance]] has the right argument passed unchanged to it.
+  node->right()->set_no_negative_zero(true);
 
   Visit(node->left());
   Visit(node->right());

@@ -29,6 +29,7 @@
 
 #include "codegen-inl.h"
 #include "register-allocator-inl.h"
+#include "virtual-frame-inl.h"
 
 namespace v8 {
 namespace internal {
@@ -36,19 +37,13 @@ namespace internal {
 // -------------------------------------------------------------------------
 // VirtualFrame implementation.
 
-// When cloned, a frame is a deep copy of the original.
-VirtualFrame::VirtualFrame(VirtualFrame* original)
-    : elements_(original->element_count()),
-      stack_pointer_(original->stack_pointer_) {
-  elements_.AddAll(original->elements_);
-  // Copy register locations from original.
-  memcpy(&register_locations_,
-         original->register_locations_,
-         sizeof(register_locations_));
-}
-
-
-FrameElement VirtualFrame::CopyElementAt(int index) {
+// Create a duplicate of an existing valid frame element.
+// We can pass an optional number type information that will override the
+// existing information about the backing element. The new information must
+// not conflict with the existing type information and must be equally or
+// more precise. The default parameter value kUninitialized means that there
+// is no additional information.
+FrameElement VirtualFrame::CopyElementAt(int index, NumberInfo info) {
   ASSERT(index >= 0);
   ASSERT(index < element_count());
 
@@ -71,15 +66,26 @@ FrameElement VirtualFrame::CopyElementAt(int index) {
       // Fall through.
 
     case FrameElement::MEMORY:  // Fall through.
-    case FrameElement::REGISTER:
+    case FrameElement::REGISTER: {
       // All copies are backed by memory or register locations.
       result.set_type(FrameElement::COPY);
       result.clear_copied();
       result.clear_sync();
       result.set_index(index);
       elements_[index].set_copied();
-      break;
+      // Update backing element's number information.
+      NumberInfo existing = elements_[index].number_info();
+      ASSERT(!existing.IsUninitialized());
+      // Assert that the new type information (a) does not conflict with the
+      // existing one and (b) is equally or more precise.
+      ASSERT((info.ToInt() & existing.ToInt()) == existing.ToInt());
+      ASSERT((info.ToInt() | existing.ToInt()) == info.ToInt());
 
+      elements_[index].set_number_info(!info.IsUninitialized()
+                                       ? info
+                                       : existing);
+      break;
+    }
     case FrameElement::INVALID:
       // We should not try to copy invalid elements.
       UNREACHABLE();
@@ -98,7 +104,7 @@ void VirtualFrame::Adjust(int count) {
   ASSERT(stack_pointer_ == element_count() - 1);
 
   for (int i = 0; i < count; i++) {
-    elements_.Add(FrameElement::MemoryElement());
+    elements_.Add(FrameElement::MemoryElement(NumberInfo::Unknown()));
   }
   stack_pointer_ += count;
 }
@@ -144,10 +150,21 @@ void VirtualFrame::SpillElementAt(int index) {
   if (!elements_[index].is_valid()) return;
 
   SyncElementAt(index);
+  // Number type information is preserved.
+  // Copies get their number information from their backing element.
+  NumberInfo info;
+  if (!elements_[index].is_copy()) {
+    info = elements_[index].number_info();
+  } else {
+    info = elements_[elements_[index].index()].number_info();
+  }
   // The element is now in memory.  Its copied flag is preserved.
-  FrameElement new_element = FrameElement::MemoryElement();
+  FrameElement new_element = FrameElement::MemoryElement(info);
   if (elements_[index].is_copied()) {
     new_element.set_copied();
+  }
+  if (elements_[index].is_untagged_int32()) {
+    new_element.set_untagged_int32(true);
   }
   if (elements_[index].is_register()) {
     Unuse(elements_[index].reg());
@@ -268,7 +285,6 @@ void VirtualFrame::SetElementAt(int index, Result* value) {
 
   InvalidateFrameSlotAt(frame_index);
 
-  FrameElement new_element;
   if (value->is_register()) {
     if (is_used(value->reg())) {
       // The register already appears on the frame.  Either the existing
@@ -301,7 +317,8 @@ void VirtualFrame::SetElementAt(int index, Result* value) {
       Use(value->reg(), frame_index);
       elements_[frame_index] =
           FrameElement::RegisterElement(value->reg(),
-                                        FrameElement::NOT_SYNCED);
+                                        FrameElement::NOT_SYNCED,
+                                        value->number_info());
     }
   } else {
     ASSERT(value->is_constant());
@@ -310,62 +327,6 @@ void VirtualFrame::SetElementAt(int index, Result* value) {
                                       FrameElement::NOT_SYNCED);
   }
   value->Unuse();
-}
-
-
-void VirtualFrame::PushFrameSlotAt(int index) {
-  elements_.Add(CopyElementAt(index));
-}
-
-
-void VirtualFrame::Push(Register reg) {
-  if (is_used(reg)) {
-    int index = register_location(reg);
-    FrameElement element = CopyElementAt(index);
-    elements_.Add(element);
-  } else {
-    Use(reg, element_count());
-    FrameElement element =
-        FrameElement::RegisterElement(reg,
-                                      FrameElement::NOT_SYNCED);
-    elements_.Add(element);
-  }
-}
-
-
-void VirtualFrame::Push(Handle<Object> value) {
-  FrameElement element =
-      FrameElement::ConstantElement(value, FrameElement::NOT_SYNCED);
-  elements_.Add(element);
-}
-
-
-void VirtualFrame::Nip(int num_dropped) {
-  ASSERT(num_dropped >= 0);
-  if (num_dropped == 0) return;
-  Result tos = Pop();
-  if (num_dropped > 1) {
-    Drop(num_dropped - 1);
-  }
-  SetElementAt(0, &tos);
-}
-
-
-bool VirtualFrame::Equals(VirtualFrame* other) {
-#ifdef DEBUG
-  for (int i = 0; i < RegisterAllocator::kNumRegisters; i++) {
-    if (register_location(i) != other->register_location(i)) {
-      return false;
-    }
-  }
-  if (element_count() != other->element_count()) return false;
-#endif
-  if (stack_pointer_ != other->stack_pointer_) return false;
-  for (int i = 0; i < element_count(); i++) {
-    if (!elements_[i].Equals(other->elements_[i])) return false;
-  }
-
-  return true;
 }
 
 

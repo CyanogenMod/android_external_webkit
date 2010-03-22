@@ -1,4 +1,4 @@
-// Copyright 2007-2009 the V8 project authors. All rights reserved.
+// Copyright 2010 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -429,12 +429,22 @@ int Decoder::FormatOption(Instr* instr, const char* format) {
       return 3;
     }
     case 'o': {
-      if (format[3] == '1') {
+      if ((format[3] == '1') && (format[4] == '2')) {
         // 'off12: 12-bit offset for load and store instructions
         ASSERT(STRING_STARTS_WITH(format, "off12"));
         out_buffer_pos_ += v8i::OS::SNPrintF(out_buffer_ + out_buffer_pos_,
                                              "%d", instr->Offset12Field());
         return 5;
+      } else if ((format[3] == '1') && (format[4] == '6')) {
+        ASSERT(STRING_STARTS_WITH(format, "off16to20"));
+        out_buffer_pos_ += v8i::OS::SNPrintF(out_buffer_ + out_buffer_pos_,
+                                           "%d", instr->Bits(20, 16) +1);
+        return 9;
+      } else if (format[3] == '7') {
+        ASSERT(STRING_STARTS_WITH(format, "off7to11"));
+        out_buffer_pos_ += v8i::OS::SNPrintF(out_buffer_ + out_buffer_pos_,
+                                            "%d", instr->ShiftAmountField());
+        return 8;
       }
       // 'off8: 8-bit offset for extra load and store instructions
       ASSERT(STRING_STARTS_WITH(format, "off8"));
@@ -795,7 +805,18 @@ void Decoder::DecodeType3(Instr* instr) {
       break;
     }
     case 3: {
-      Format(instr, "'memop'cond'b 'rd, ['rn, +'shift_rm]'w");
+      if (instr->HasW() && (instr->Bits(6, 4) == 0x5)) {
+        uint32_t widthminus1 = static_cast<uint32_t>(instr->Bits(20, 16));
+        uint32_t lsbit = static_cast<uint32_t>(instr->ShiftAmountField());
+        uint32_t msbit = widthminus1 + lsbit;
+        if (msbit <= 31) {
+          Format(instr, "ubfx'cond 'rd, 'rm, #'off7to11, #'off16to20");
+        } else {
+          UNREACHABLE();
+        }
+      } else {
+        Format(instr, "'memop'cond'b 'rd, ['rn, +'shift_rm]'w");
+      }
       break;
     }
     default: {
@@ -998,29 +1019,43 @@ void Decoder::DecodeTypeVFP(Instr* instr) {
 // Decode Type 6 coprocessor instructions.
 // Dm = vmov(Rt, Rt2)
 // <Rt, Rt2> = vmov(Dm)
+// Ddst = MEM(Rbase + 4*offset).
+// MEM(Rbase + 4*offset) = Dsrc.
 void Decoder::DecodeType6CoprocessorIns(Instr* instr) {
   ASSERT((instr->TypeField() == 6));
 
-  if (instr->Bit(23) == 1) {
-     Unknown(instr);  // Not used by V8.
-  } else if (instr->Bit(22) == 1) {
-    if ((instr->Bits(27, 24) == 0xC) &&
-        (instr->Bit(22) == 1) &&
-        (instr->Bits(11, 8) == 0xB) &&
-        (instr->Bits(7, 6) == 0x0) &&
-        (instr->Bit(4) == 1)) {
-      if (instr->Bit(20) == 0) {
-        Format(instr, "vmov'cond 'Dm, 'rt, 'rn");
-      } else if (instr->Bit(20) == 1) {
-        Format(instr, "vmov'cond 'rt, 'rn, 'Dm");
-      }
-    } else {
-      Unknown(instr);  // Not used by V8.
-    }
-  } else if (instr->Bit(21) == 1) {
+  if (instr->CoprocessorField() != 0xB) {
     Unknown(instr);  // Not used by V8.
   } else {
-    Unknown(instr);  // Not used by V8.
+    switch (instr->OpcodeField()) {
+      case 0x2:
+        // Load and store double to two GP registers
+        if (instr->Bits(7, 4) != 0x1) {
+          Unknown(instr);  // Not used by V8.
+        } else if (instr->HasL()) {
+          Format(instr, "vmov'cond 'rt, 'rn, 'Dm");
+        } else {
+          Format(instr, "vmov'cond 'Dm, 'rt, 'rn");
+        }
+        break;
+      case 0x8:
+        if (instr->HasL()) {
+          Format(instr, "vldr'cond 'Dd, ['rn - 4*'off8]");
+        } else {
+          Format(instr, "vstr'cond 'Dd, ['rn - 4*'off8]");
+        }
+        break;
+      case 0xC:
+        if (instr->HasL()) {
+          Format(instr, "vldr'cond 'Dd, ['rn + 4*'off8]");
+        } else {
+          Format(instr, "vstr'cond 'Dd, ['rn + 4*'off8]");
+        }
+        break;
+      default:
+        Unknown(instr);  // Not used by V8.
+        break;
+    }
   }
 }
 

@@ -48,6 +48,18 @@ class MacroAssembler: public Assembler {
   // ---------------------------------------------------------------------------
   // GC Support
 
+
+  void RecordWriteHelper(Register object,
+                         Register addr,
+                         Register scratch);
+
+  // Check if object is in new space.
+  // scratch can be object itself, but it will be clobbered.
+  void InNewSpace(Register object,
+                  Register scratch,
+                  Condition cc,  // equal for new space, not_equal otherwise.
+                  Label* branch);
+
   // Set the remembered set bit for [object+offset].
   // object is the object being stored into, value is the object being stored.
   // If offset is zero, then the scratch register contains the array index into
@@ -69,6 +81,7 @@ class MacroAssembler: public Assembler {
   void CopyRegistersFromStackToMemory(Register base,
                                       Register scratch,
                                       RegList regs);
+  void DebugBreak();
 #endif
 
   // ---------------------------------------------------------------------------
@@ -123,6 +136,10 @@ class MacroAssembler: public Assembler {
                       const ParameterCount& actual,
                       InvokeFlag flag);
 
+  void InvokeFunction(JSFunction* function,
+                      const ParameterCount& actual,
+                      InvokeFlag flag);
+
   // Invoke specified builtin JavaScript function. Adds an entry to
   // the unresolved list if the name does not resolve.
   void InvokeBuiltin(Builtins::JavaScript id, InvokeFlag flag);
@@ -141,6 +158,14 @@ class MacroAssembler: public Assembler {
   // Compare instance type for map.
   void CmpInstanceType(Register map, InstanceType type);
 
+  // Check if the map of an object is equal to a specified map and
+  // branch to label if not. Skip the smi check if not required
+  // (object is known to be a heap object)
+  void CheckMap(Register obj,
+                Handle<Map> map,
+                Label* fail,
+                bool is_heap_object);
+
   // Check if the object in register heap_object is a string. Afterwards the
   // register map contains the object map and the register instance_type
   // contains the instance_type. The registers map and instance_type can be the
@@ -157,11 +182,18 @@ class MacroAssembler: public Assembler {
   // Smi tagging support.
   void SmiTag(Register reg) {
     ASSERT(kSmiTag == 0);
-    shl(reg, kSmiTagSize);
+    ASSERT(kSmiTagSize == 1);
+    add(reg, Operand(reg));
   }
   void SmiUntag(Register reg) {
     sar(reg, kSmiTagSize);
   }
+
+  // Abort execution if argument is not a number. Used in debug code.
+  void AbortIfNotNumber(Register object);
+
+  // Abort execution if argument is not a smi. Used in debug code.
+  void AbortIfNotSmi(Register object);
 
   // ---------------------------------------------------------------------------
   // Exception handling
@@ -185,9 +217,14 @@ class MacroAssembler: public Assembler {
   // clobbered if it the same as the holder register. The function
   // returns a register containing the holder - either object_reg or
   // holder_reg.
+  // The function can optionally (when save_at_depth !=
+  // kInvalidProtoDepth) save the object at the given depth by moving
+  // it to [esp + kPointerSize].
   Register CheckMaps(JSObject* object, Register object_reg,
                      JSObject* holder, Register holder_reg,
-                     Register scratch, Label* miss);
+                     Register scratch,
+                     int save_at_depth,
+                     Label* miss);
 
   // Generate code for checking access rights - used for security checks
   // on access to global objects across environments. The holder register
@@ -328,10 +365,9 @@ class MacroAssembler: public Assembler {
   void StubReturn(int argc);
 
   // Call a runtime routine.
-  // Eventually this should be used for all C calls.
   void CallRuntime(Runtime::Function* f, int num_arguments);
 
-  // Call a runtime function, returning the RuntimeStub object called.
+  // Call a runtime function, returning the CodeStub object called.
   // Try to generate the stub code if necessary.  Do not perform a GC
   // but instead return a retry after GC failure.
   Object* TryCallRuntime(Runtime::Function* f, int num_arguments);
@@ -339,15 +375,40 @@ class MacroAssembler: public Assembler {
   // Convenience function: Same as above, but takes the fid instead.
   void CallRuntime(Runtime::FunctionId id, int num_arguments);
 
+  // Convenience function: call an external reference.
+  void CallExternalReference(ExternalReference ref, int num_arguments);
+
   // Convenience function: Same as above, but takes the fid instead.
   Object* TryCallRuntime(Runtime::FunctionId id, int num_arguments);
 
   // Tail call of a runtime routine (jump).
-  // Like JumpToRuntime, but also takes care of passing the number
-  // of arguments.
-  void TailCallRuntime(const ExternalReference& ext,
+  // Like JumpToExternalReference, but also takes care of passing the number
+  // of parameters.
+  void TailCallExternalReference(const ExternalReference& ext,
+                                 int num_arguments,
+                                 int result_size);
+
+  // Convenience function: tail call a runtime routine (jump).
+  void TailCallRuntime(Runtime::FunctionId fid,
                        int num_arguments,
                        int result_size);
+
+  // Before calling a C-function from generated code, align arguments on stack.
+  // After aligning the frame, arguments must be stored in esp[0], esp[4],
+  // etc., not pushed. The argument count assumes all arguments are word sized.
+  // Some compilers/platforms require the stack to be aligned when calling
+  // C++ code.
+  // Needs a scratch register to do some arithmetic. This register will be
+  // trashed.
+  void PrepareCallCFunction(int num_arguments, Register scratch);
+
+  // Calls a C function and cleans up the space for arguments allocated
+  // by PrepareCallCFunction. The called function is not allowed to trigger a
+  // garbage collection, since that might move the code and invalidate the
+  // return address (unless this is somehow accounted for by the called
+  // function).
+  void CallCFunction(ExternalReference function, int num_arguments);
+  void CallCFunction(Register function, int num_arguments);
 
   void PushHandleScope(Register scratch);
 
@@ -360,7 +421,7 @@ class MacroAssembler: public Assembler {
   Object* TryPopHandleScope(Register saved, Register scratch);
 
   // Jump to a runtime routine.
-  void JumpToRuntime(const ExternalReference& ext);
+  void JumpToExternalReference(const ExternalReference& ext);
 
 
   // ---------------------------------------------------------------------------
@@ -376,13 +437,6 @@ class MacroAssembler: public Assembler {
 
   void Move(Register target, Handle<Object> value);
 
-  struct Unresolved {
-    int pc;
-    uint32_t flags;  // see Bootstrapper::FixupFlags decoders/encoders.
-    const char* name;
-  };
-  List<Unresolved>* unresolved() { return &unresolved_; }
-
   Handle<Object> CodeObject() { return code_object_; }
 
 
@@ -392,6 +446,8 @@ class MacroAssembler: public Assembler {
   void SetCounter(StatsCounter* counter, int value);
   void IncrementCounter(StatsCounter* counter, int value);
   void DecrementCounter(StatsCounter* counter, int value);
+  void IncrementCounter(Condition cc, StatsCounter* counter, int value);
+  void DecrementCounter(Condition cc, StatsCounter* counter, int value);
 
 
   // ---------------------------------------------------------------------------
@@ -413,12 +469,29 @@ class MacroAssembler: public Assembler {
   void set_allow_stub_calls(bool value) { allow_stub_calls_ = value; }
   bool allow_stub_calls() { return allow_stub_calls_; }
 
+  // ---------------------------------------------------------------------------
+  // String utilities.
+
+  // Check whether the instance type represents a flat ascii string. Jump to the
+  // label if not. If the instance type can be scratched specify same register
+  // for both instance type and scratch.
+  void JumpIfInstanceTypeIsNotSequentialAscii(Register instance_type,
+                                              Register scratch,
+                                              Label* on_not_flat_ascii_string);
+
+  // Checks if both objects are sequential ASCII strings, and jumps to label
+  // if either is not.
+  void JumpIfNotBothSequentialAsciiStrings(Register object1,
+                                           Register object2,
+                                           Register scratch1,
+                                           Register scratch2,
+                                           Label* on_not_flat_ascii_strings);
+
  private:
-  List<Unresolved> unresolved_;
   bool generating_stub_;
   bool allow_stub_calls_;
-  Handle<Object> code_object_;  // This handle will be patched with the
-                                // code object on installation.
+  // This handle will be patched with the code object on installation.
+  Handle<Object> code_object_;
 
   // Helper functions for generating invokes.
   void InvokePrologue(const ParameterCount& expected,
@@ -427,18 +500,6 @@ class MacroAssembler: public Assembler {
                       const Operand& code_operand,
                       Label* done,
                       InvokeFlag flag);
-
-  // Prepares for a call or jump to a builtin by doing two things:
-  // 1. Emits code that fetches the builtin's function object from the context
-  //    at runtime, and puts it in the register rdi.
-  // 2. Fetches the builtin's code object, and returns it in a handle, at
-  //    compile time, so that later code can emit instructions to jump or call
-  //    the builtin directly.  If the code object has not yet been created, it
-  //    returns the builtin code object for IllegalFunction, and sets the
-  //    output parameter "resolved" to false.  Code that uses the return value
-  //    should then add the address and the builtin name to the list of fixups
-  //    called unresolved_, which is fixed up by the bootstrapper.
-  Handle<Code> ResolveBuiltin(Builtins::JavaScript id, bool* resolved);
 
   // Activation support.
   void EnterFrame(StackFrame::Type type);

@@ -127,6 +127,7 @@ function FormatMessage(message) {
       malformed_regexp:             "Invalid regular expression: /%0/: %1",
       unterminated_regexp:          "Invalid regular expression: missing /",
       regexp_flags:                 "Cannot supply flags when constructing one RegExp from another",
+      incompatible_method_receiver: "Method %0 called on incompatible receiver %1",
       invalid_lhs_in_assignment:    "Invalid left-hand side in assignment",
       invalid_lhs_in_for_in:        "Invalid left-hand side in for-in",
       invalid_lhs_in_postfix_op:    "Invalid left-hand side expression in postfix operation",
@@ -162,6 +163,8 @@ function FormatMessage(message) {
       value_and_accessor:           "Invalid property.  A property cannot both have accessors and be writable or have a value: %0",
       proto_object_or_null:         "Object prototype may only be an Object or null",
       property_desc_object:         "Property description must be an object: %0",
+      redefine_disallowed:          "Cannot redefine property: %0",
+      define_disallowed:            "Cannot define property, object is not extensible: %0",
       // RangeError
       invalid_array_length:         "Invalid array length",
       stack_overflow:               "Maximum call stack size exceeded",
@@ -178,9 +181,9 @@ function FormatMessage(message) {
       result_not_primitive:         "Result of %0 must be a primitive, was %1",
       invalid_json:                 "String '%0' is not valid JSON",
       circular_structure:           "Converting circular structure to JSON",
-      object_keys_non_object:       "Object.keys called on non-object",
-      object_get_prototype_non_object: "Object.getPrototypeOf called on non-object",
-      array_indexof_not_defined:    "Array.getIndexOf: Argument undefined"
+      obj_ctor_property_non_object: "Object.%0 called on non-object",
+      array_indexof_not_defined:    "Array.getIndexOf: Argument undefined",
+      illegal_access:               "illegal access"
     };
   }
   var format = kMessages[message.type];

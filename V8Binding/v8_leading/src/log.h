@@ -116,6 +116,10 @@ class VMState BASE_EMBEDDED {
   V(CODE_CREATION_EVENT,            "code-creation",          "cc")       \
   V(CODE_MOVE_EVENT,                "code-move",              "cm")       \
   V(CODE_DELETE_EVENT,              "code-delete",            "cd")       \
+  V(FUNCTION_CREATION_EVENT,        "function-creation",      "fc")       \
+  V(FUNCTION_MOVE_EVENT,            "function-move",          "fm")       \
+  V(FUNCTION_DELETE_EVENT,          "function-delete",        "fd")       \
+  V(SNAPSHOT_POSITION_EVENT,        "snapshot-pos",           "sp")       \
   V(TICK_EVENT,                     "tick",                   "t")        \
   V(REPEAT_META_EVENT,              "repeat",                 "r")        \
   V(BUILTIN_TAG,                    "Builtin",                "bi")       \
@@ -156,12 +160,6 @@ class Logger {
 
   // Enable the computation of a sliding window of states.
   static void EnableSlidingStateWindow();
-
-  // Write a raw string to the log to be used as a preamble.
-  // No check is made that the 'preamble' is actually at the beginning
-  // of the log. The preample is used to write code events saved in the
-  // snapshot.
-  static void Preamble(const char* content);
 
   // Emits an event with a string value -> (name, value).
   static void StringEvent(const char* name, const char* value);
@@ -223,6 +221,14 @@ class Logger {
   static void CodeMoveEvent(Address from, Address to);
   // Emits a code delete event.
   static void CodeDeleteEvent(Address from);
+  // Emits a function object create event.
+  static void FunctionCreateEvent(JSFunction* function);
+  // Emits a function move event.
+  static void FunctionMoveEvent(Address from, Address to);
+  // Emits a function delete event.
+  static void FunctionDeleteEvent(Address from);
+
+  static void SnapshotPositionEvent(Address addr, int pos);
 
   // ==== Events logged by --log-gc. ====
   // Heap sampling events: start, end, and individual types.
@@ -259,14 +265,14 @@ class Logger {
   }
 
   static bool is_logging() {
-    return is_logging_;
+    return logging_nesting_ > 0;
   }
 
   // Pause/Resume collection of profiling data.
   // When data collection is paused, CPU Tick events are discarded until
   // data collection is Resumed.
-  static void PauseProfiler(int flags);
-  static void ResumeProfiler(int flags);
+  static void PauseProfiler(int flags, int tag);
+  static void ResumeProfiler(int flags, int tag);
   static int GetActiveProfilerModules();
 
   // If logging is performed into a memory buffer, allows to
@@ -275,10 +281,12 @@ class Logger {
 
   // Logs all compiled functions found in the heap.
   static void LogCompiledFunctions();
+  // Logs all compiled JSFunction objects found in the heap.
+  static void LogFunctionObjects();
   // Logs all accessor callbacks found in the heap.
   static void LogAccessorCallbacks();
   // Used for logging stubs found in the snapshot.
-  static void LogCodeObject(Object* code_object);
+  static void LogCodeObjects();
 
  private:
 
@@ -296,11 +304,23 @@ class Logger {
                                     const char* name,
                                     Address entry_point);
 
+  // Internal configurable move event.
+  static void MoveEventInternal(LogEventsAndTags event,
+                                Address from,
+                                Address to);
+
+  // Internal configurable move event.
+  static void DeleteEventInternal(LogEventsAndTags event,
+                                  Address from);
+
   // Emits aliases for compressed messages.
   static void LogAliases();
 
   // Emits the source code of a regexp. Used by regexp events.
   static void LogRegExpSource(Handle<JSRegExp> regexp);
+
+  // Used for logging stubs found in the snapshot.
+  static void LogCodeObject(Object* code_object);
 
   // Emits a profiler tick event. Used by the profiler thread.
   static void TickEvent(TickSample* sample, bool overflow);
@@ -309,6 +329,9 @@ class Logger {
 
   // Logs a StringEvent regardless of whether FLAG_log is true.
   static void UncheckedStringEvent(const char* name, const char* value);
+
+  // Logs an IntEvent regardless of whether FLAG_log is true.
+  static void UncheckedIntEvent(const char* name, int value);
 
   // Stops logging and profiling in case of insufficient resources.
   static void StopLoggingAndProfiling();
@@ -352,7 +375,9 @@ class Logger {
 
   friend class LoggerTestHelper;
 
-  static bool is_logging_;
+  static int logging_nesting_;
+  static int cpu_profiler_nesting_;
+  static int heap_profiler_nesting_;
 #else
   static bool is_logging() { return false; }
 #endif

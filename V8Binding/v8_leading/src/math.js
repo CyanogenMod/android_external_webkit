@@ -45,7 +45,8 @@ $Math.__proto__ = global.Object.prototype;
 function MathAbs(x) {
   if (%_IsSmi(x)) return x >= 0 ? x : -x;
   if (!IS_NUMBER(x)) x = ToNumber(x);
-  return %Math_abs(x);
+  if (x === 0) return 0;  // To handle -0.
+  return x > 0 ? x : -x;
 }
 
 // ECMA 262 - 15.8.2.2
@@ -84,7 +85,7 @@ function MathCeil(x) {
 // ECMA 262 - 15.8.2.7
 function MathCos(x) {
   if (!IS_NUMBER(x)) x = ToNumber(x);
-  return %Math_cos(x);
+  return %_MathCos(x);
 }
 
 // ECMA 262 - 15.8.2.8
@@ -159,7 +160,7 @@ function MathMin(arg1, arg2) {  // length == 2
 function MathPow(x, y) {
   if (!IS_NUMBER(x)) x = ToNumber(x);
   if (!IS_NUMBER(y)) y = ToNumber(y);
-  return %Math_pow(x, y);
+  return %_MathPow(x, y);
 }
 
 // ECMA 262 - 15.8.2.14
@@ -170,19 +171,19 @@ function MathRandom() {
 // ECMA 262 - 15.8.2.15
 function MathRound(x) {
   if (!IS_NUMBER(x)) x = ToNumber(x);
-  return %Math_round(x);
+  return %RoundNumber(x);
 }
 
 // ECMA 262 - 15.8.2.16
 function MathSin(x) {
   if (!IS_NUMBER(x)) x = ToNumber(x);
-  return %Math_sin(x);
+  return %_MathSin(x);
 }
 
 // ECMA 262 - 15.8.2.17
 function MathSqrt(x) {
   if (!IS_NUMBER(x)) x = ToNumber(x);
-  return %Math_sqrt(x);
+  return %_MathSqrt(x);
 }
 
 // ECMA 262 - 15.8.2.18
@@ -233,7 +234,7 @@ function SetupMath() {
                "SQRT2",
                1.4142135623730951,
                DONT_ENUM |  DONT_DELETE | READ_ONLY);
-  %TransformToFastProperties($Math);
+  %ToFastProperties($Math);
 
   // Setup non-enumerable functions of the Math object and
   // set their names.

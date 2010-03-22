@@ -70,9 +70,6 @@
 				Name="VCAppVerifierTool"
 			/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
@@ -131,9 +128,6 @@
 				Name="VCAppVerifierTool"
 			/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
-			<Tool
 				Name="VCPostBuildEventTool"
 			/>
 		</Configuration>
@@ -162,11 +156,19 @@
 			>
 		</File>
 		<File
+			RelativePath="..\..\test\cctest\test-circular-queue.cc"
+			>
+		</File>
+		<File
 			RelativePath="..\..\test\cctest\test-compiler.cc"
 			>
 		</File>
 		<File
 			RelativePath="..\..\test\cctest\test-conversions.cc"
+			>
+		</File>
+		<File
+			RelativePath="..\..\test\cctest\test-cpu-profiler.cc"
 			>
 		</File>
 		<File
@@ -215,6 +217,10 @@
 		</File>
 		<File
 			RelativePath="..\..\test\cctest\test-platform-win32.cc"
+			>
+		</File>
+		<File
+			RelativePath="..\..\test\cctest\test-profile-generator.cc"
 			>
 		</File>
 		<File

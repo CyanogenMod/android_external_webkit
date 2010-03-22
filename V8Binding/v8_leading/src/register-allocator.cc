@@ -29,6 +29,7 @@
 
 #include "codegen-inl.h"
 #include "register-allocator-inl.h"
+#include "virtual-frame-inl.h"
 
 namespace v8 {
 namespace internal {
@@ -37,10 +38,12 @@ namespace internal {
 // Result implementation.
 
 
-Result::Result(Register reg) {
+Result::Result(Register reg, NumberInfo info) {
   ASSERT(reg.is_valid() && !RegisterAllocator::IsReserved(reg));
   CodeGeneratorScope::Current()->allocator()->Use(reg);
-  value_ = TypeField::encode(REGISTER) | DataField::encode(reg.code_);
+  value_ = TypeField::encode(REGISTER)
+      | NumberInfoField::encode(info.ToInt())
+      | DataField::encode(reg.code_);
 }
 
 

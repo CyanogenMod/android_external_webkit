@@ -63,7 +63,9 @@ void IC::TraceIC(const char* type,
                  Code* new_target,
                  const char* extra_info) {
   if (FLAG_trace_ic) {
-    State new_state = StateFrom(new_target, Heap::undefined_value());
+    State new_state = StateFrom(new_target,
+                                Heap::undefined_value(),
+                                Heap::undefined_value());
     PrintF("[%s (%c->%c)%s", type,
            TransitionMarkFromState(old_state),
            TransitionMarkFromState(new_state),
@@ -132,7 +134,7 @@ Address IC::OriginalCodeAddress() {
 }
 #endif
 
-IC::State IC::StateFrom(Code* target, Object* receiver) {
+IC::State IC::StateFrom(Code* target, Object* receiver, Object* name) {
   IC::State state = target->ic_state();
 
   if (state != MONOMORPHIC) return state;
@@ -148,7 +150,7 @@ IC::State IC::StateFrom(Code* target, Object* receiver) {
   // the receiver map's code cache.  Therefore, if the current target
   // is in the receiver map's code cache, the inline cache failed due
   // to prototype check failure.
-  int index = map->IndexInCodeCache(target);
+  int index = map->IndexInCodeCache(name, target);
   if (index >= 0) {
     // For keyed load/store, the most likely cause of cache failure is
     // that the key has changed.  We do not distinguish between
@@ -160,7 +162,7 @@ IC::State IC::StateFrom(Code* target, Object* receiver) {
 
     // Remove the target from the code cache to avoid hitting the same
     // invalid stub again.
-    map->RemoveFromCodeCache(index);
+    map->RemoveFromCodeCache(String::cast(name), target, index);
 
     return MONOMORPHIC_PROTOTYPE_FAILURE;
   }
@@ -222,6 +224,7 @@ void IC::Clear(Address address) {
     case Code::STORE_IC: return StoreIC::Clear(address, target);
     case Code::KEYED_STORE_IC: return KeyedStoreIC::Clear(address, target);
     case Code::CALL_IC: return CallIC::Clear(address, target);
+    case Code::BINARY_OP_IC: return BinaryOpIC::Clear(address, target);
     default: UNREACHABLE();
   }
 }
@@ -330,10 +333,11 @@ static void LookupForRead(Object* object,
   while (true) {
     object->Lookup(name, lookup);
     // Besides normal conditions (property not found or it's not
-    // an interceptor), bail out of lookup is not cacheable: we won't
+    // an interceptor), bail out if lookup is not cacheable: we won't
     // be able to IC it anyway and regular lookup should work fine.
-    if (lookup->IsNotFound() || lookup->type() != INTERCEPTOR ||
-        !lookup->IsCacheable()) {
+    if (!lookup->IsFound()
+        || (lookup->type() != INTERCEPTOR)
+        || !lookup->IsCacheable()) {
       return;
     }
 
@@ -343,7 +347,7 @@ static void LookupForRead(Object* object,
     }
 
     holder->LocalLookupRealNamedProperty(name, lookup);
-    if (lookup->IsValid()) {
+    if (lookup->IsProperty()) {
       ASSERT(lookup->type() != INTERCEPTOR);
       return;
     }
@@ -378,6 +382,18 @@ Object* CallIC::TryCallAsFunction(Object* object) {
   return *delegate;
 }
 
+void CallIC::ReceiverToObject(Handle<Object> object) {
+  HandleScope scope;
+  Handle<Object> receiver(object);
+
+  // Change the receiver to the result of calling ToObject on it.
+  const int argc = this->target()->arguments_count();
+  StackFrameLocator locator;
+  JavaScriptFrame* frame = locator.FindJavaScriptFrame(0);
+  int index = frame->ComputeExpressionsCount() - (argc + 1);
+  frame->SetExpression(index, *Factory::ToObject(object));
+}
+
 
 Object* CallIC::LoadFunction(State state,
                              Handle<Object> object,
@@ -386,6 +402,10 @@ Object* CallIC::LoadFunction(State state,
   // of its properties; throw a TypeError in that case.
   if (object->IsUndefined() || object->IsNull()) {
     return TypeError("non_object_property_call", object, name);
+  }
+
+  if (object->IsString() || object->IsNumber() || object->IsBoolean()) {
+    ReceiverToObject(object);
   }
 
   // Check if the name is trivially convertible to an index and get
@@ -406,7 +426,7 @@ Object* CallIC::LoadFunction(State state,
   LookupResult lookup;
   LookupForRead(*object, *name, &lookup);
 
-  if (!lookup.IsValid()) {
+  if (!lookup.IsProperty()) {
     // If the object does not have the requested property, check which
     // exception we need to throw.
     if (IsContextual(object)) {
@@ -438,17 +458,6 @@ Object* CallIC::LoadFunction(State state,
   ASSERT(result != Heap::the_hole_value());
 
   if (result->IsJSFunction()) {
-    // Check if there is an optimized (builtin) version of the function.
-    // Ignored this will degrade performance for Array.prototype.{push,pop}.
-    // Please note we only return the optimized function iff
-    // the JSObject has FastElements.
-    if (object->IsJSObject() && JSObject::cast(*object)->HasFastElements()) {
-      Object* opt = Top::LookupSpecialFunction(JSObject::cast(*object),
-                                               lookup.holder(),
-                                               JSFunction::cast(result));
-      if (opt->IsJSFunction()) return opt;
-    }
-
 #ifdef ENABLE_DEBUGGER_SUPPORT
     // Handle stepping into a function if step into is active.
     if (Debug::StepInActive()) {
@@ -477,7 +486,7 @@ void CallIC::UpdateCaches(LookupResult* lookup,
                           Handle<String> name) {
   ASSERT(lookup->IsLoaded());
   // Bail out if we didn't find a result.
-  if (!lookup->IsValid() || !lookup->IsCacheable()) return;
+  if (!lookup->IsProperty() || !lookup->IsCacheable()) return;
 
   // Compute the number of arguments.
   int argc = target()->arguments_count();
@@ -626,8 +635,8 @@ Object* LoadIC::Load(State state, Handle<Object> object, Handle<String> name) {
   LookupResult lookup;
   LookupForRead(*object, *name, &lookup);
 
-  // If lookup is invalid, check if we need to throw an exception.
-  if (!lookup.IsValid()) {
+  // If we did not find a property, check if we need to throw an exception.
+  if (!lookup.IsProperty()) {
     if (FLAG_strict || IsContextual(object)) {
       return ReferenceError("not_defined", name);
     }
@@ -637,7 +646,7 @@ Object* LoadIC::Load(State state, Handle<Object> object, Handle<String> name) {
   bool can_be_inlined =
       FLAG_use_ic &&
       state == PREMONOMORPHIC &&
-      lookup.IsValid() &&
+      lookup.IsProperty() &&
       lookup.IsLoaded() &&
       lookup.IsCacheable() &&
       lookup.holder() == *object &&
@@ -665,7 +674,7 @@ Object* LoadIC::Load(State state, Handle<Object> object, Handle<String> name) {
   }
 
   PropertyAttributes attr;
-  if (lookup.IsValid() && lookup.type() == INTERCEPTOR) {
+  if (lookup.IsProperty() && lookup.type() == INTERCEPTOR) {
     // Get the property.
     Object* result = object->GetProperty(*object, &lookup, *name, &attr);
     if (result->IsFailure()) return result;
@@ -688,7 +697,7 @@ void LoadIC::UpdateCaches(LookupResult* lookup,
                           Handle<String> name) {
   ASSERT(lookup->IsLoaded());
   // Bail out if we didn't find a result.
-  if (!lookup->IsValid() || !lookup->IsCacheable()) return;
+  if (!lookup->IsProperty() || !lookup->IsCacheable()) return;
 
   // Loading properties from values is not common, so don't try to
   // deal with non-JS objects here.
@@ -841,8 +850,8 @@ Object* KeyedLoadIC::Load(State state,
     LookupResult lookup;
     LookupForRead(*object, *name, &lookup);
 
-    // If lookup is invalid, check if we need to throw an exception.
-    if (!lookup.IsValid()) {
+    // If we did not find a property, check if we need to throw an exception.
+    if (!lookup.IsProperty()) {
       if (FLAG_strict || IsContextual(object)) {
         return ReferenceError("not_defined", name);
       }
@@ -853,7 +862,7 @@ Object* KeyedLoadIC::Load(State state,
     }
 
     PropertyAttributes attr;
-    if (lookup.IsValid() && lookup.type() == INTERCEPTOR) {
+    if (lookup.IsProperty() && lookup.type() == INTERCEPTOR) {
       // Get the property.
       Object* result = object->GetProperty(*object, &lookup, *name, &attr);
       if (result->IsFailure()) return result;
@@ -880,6 +889,8 @@ Object* KeyedLoadIC::Load(State state,
       Handle<JSObject> receiver = Handle<JSObject>::cast(object);
       if (receiver->HasExternalArrayElements()) {
         stub = external_array_stub(receiver->GetElementsKind());
+      } else if (receiver->HasIndexedInterceptor()) {
+        stub = indexed_interceptor_stub();
       }
     }
     set_target(stub);
@@ -903,7 +914,7 @@ void KeyedLoadIC::UpdateCaches(LookupResult* lookup, State state,
                                Handle<Object> object, Handle<String> name) {
   ASSERT(lookup->IsLoaded());
   // Bail out if we didn't find a result.
-  if (!lookup->IsValid() || !lookup->IsCacheable()) return;
+  if (!lookup->IsProperty() || !lookup->IsCacheable()) return;
 
   if (!object->IsJSObject()) return;
   Handle<JSObject> receiver = Handle<JSObject>::cast(object);
@@ -976,7 +987,7 @@ void KeyedLoadIC::UpdateCaches(LookupResult* lookup, State state,
 
 static bool StoreICableLookup(LookupResult* lookup) {
   // Bail out if we didn't find a result.
-  if (!lookup->IsValid() || !lookup->IsCacheable()) return false;
+  if (!lookup->IsPropertyOrTransition() || !lookup->IsCacheable()) return false;
 
   // If the property is read-only, we leave the IC in its current
   // state.
@@ -1028,6 +1039,20 @@ Object* StoreIC::Store(State state,
     Handle<Object> result = SetElement(receiver, index, value);
     if (result.is_null()) return Failure::Exception();
     return *value;
+  }
+
+
+  // Use specialized code for setting the length of arrays.
+  if (receiver->IsJSArray()
+      && name->Equals(Heap::length_symbol())
+      && receiver->AllowsSetElementsLength()) {
+#ifdef DEBUG
+    if (FLAG_trace_ic) PrintF("[StoreIC : +#length /array]\n");
+#endif
+    Code* target = Builtins::builtin(Builtins::StoreIC_ArrayLength);
+    set_target(target);
+    StubCache::Set(*name, HeapObject::cast(*object)->map(), target);
+    return receiver->SetProperty(*name, *value, NONE);
   }
 
   // Lookup the property locally in the receiver.
@@ -1196,7 +1221,7 @@ void KeyedStoreIC::UpdateCaches(LookupResult* lookup,
   if (receiver->IsJSGlobalProxy()) return;
 
   // Bail out if we didn't find a result.
-  if (!lookup->IsValid() || !lookup->IsCacheable()) return;
+  if (!lookup->IsPropertyOrTransition() || !lookup->IsCacheable()) return;
 
   // If the property is read-only, we leave the IC in its current
   // state.
@@ -1266,7 +1291,7 @@ Object* CallIC_Miss(Arguments args) {
   NoHandleAllocation na;
   ASSERT(args.length() == 2);
   CallIC ic;
-  IC::State state = IC::StateFrom(ic.target(), args[0]);
+  IC::State state = IC::StateFrom(ic.target(), args[0], args[1]);
   Object* result =
       ic.LoadFunction(state, args.at<Object>(0), args.at<String>(1));
 
@@ -1286,9 +1311,9 @@ Object* CallIC_Miss(Arguments args) {
   Handle<JSFunction> function = Handle<JSFunction>(JSFunction::cast(result));
   InLoopFlag in_loop = ic.target()->ic_in_loop();
   if (in_loop == IN_LOOP) {
-    CompileLazyInLoop(function, CLEAR_EXCEPTION);
+    CompileLazyInLoop(function, args.at<Object>(0), CLEAR_EXCEPTION);
   } else {
-    CompileLazy(function, CLEAR_EXCEPTION);
+    CompileLazy(function, args.at<Object>(0), CLEAR_EXCEPTION);
   }
   return *function;
 }
@@ -1299,18 +1324,8 @@ Object* LoadIC_Miss(Arguments args) {
   NoHandleAllocation na;
   ASSERT(args.length() == 2);
   LoadIC ic;
-  IC::State state = IC::StateFrom(ic.target(), args[0]);
+  IC::State state = IC::StateFrom(ic.target(), args[0], args[1]);
   return ic.Load(state, args.at<Object>(0), args.at<String>(1));
-}
-
-
-void LoadIC::GenerateInitialize(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kLoadIC_Miss)));
-}
-
-
-void LoadIC::GeneratePreMonomorphic(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kLoadIC_Miss)));
 }
 
 
@@ -1319,18 +1334,8 @@ Object* KeyedLoadIC_Miss(Arguments args) {
   NoHandleAllocation na;
   ASSERT(args.length() == 2);
   KeyedLoadIC ic;
-  IC::State state = IC::StateFrom(ic.target(), args[0]);
+  IC::State state = IC::StateFrom(ic.target(), args[0], args[1]);
   return ic.Load(state, args.at<Object>(0), args.at<Object>(1));
-}
-
-
-void KeyedLoadIC::GenerateInitialize(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kKeyedLoadIC_Miss)));
-}
-
-
-void KeyedLoadIC::GeneratePreMonomorphic(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kKeyedLoadIC_Miss)));
 }
 
 
@@ -1339,9 +1344,22 @@ Object* StoreIC_Miss(Arguments args) {
   NoHandleAllocation na;
   ASSERT(args.length() == 3);
   StoreIC ic;
-  IC::State state = IC::StateFrom(ic.target(), args[0]);
+  IC::State state = IC::StateFrom(ic.target(), args[0], args[1]);
   return ic.Store(state, args.at<Object>(0), args.at<String>(1),
                   args.at<Object>(2));
+}
+
+
+Object* StoreIC_ArrayLength(Arguments args) {
+  NoHandleAllocation nha;
+
+  ASSERT(args.length() == 2);
+  JSObject* receiver = JSObject::cast(args[0]);
+  Object* len = args[1];
+
+  Object* result = receiver->SetElementsLength(len);
+  if (result->IsFailure()) return result;
+  return len;
 }
 
 
@@ -1379,34 +1397,120 @@ Object* SharedStoreIC_ExtendStorage(Arguments args) {
 }
 
 
-void StoreIC::GenerateInitialize(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kStoreIC_Miss)));
-}
-
-
-void StoreIC::GenerateMiss(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kStoreIC_Miss)));
-}
-
-
 // Used from ic_<arch>.cc.
 Object* KeyedStoreIC_Miss(Arguments args) {
   NoHandleAllocation na;
   ASSERT(args.length() == 3);
   KeyedStoreIC ic;
-  IC::State state = IC::StateFrom(ic.target(), args[0]);
+  IC::State state = IC::StateFrom(ic.target(), args[0], args[1]);
   return ic.Store(state, args.at<Object>(0), args.at<Object>(1),
                   args.at<Object>(2));
 }
 
 
-void KeyedStoreIC::GenerateInitialize(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kKeyedStoreIC_Miss)));
+void BinaryOpIC::patch(Code* code) {
+  set_target(code);
 }
 
 
-void KeyedStoreIC::GenerateMiss(MacroAssembler* masm) {
-  Generate(masm, ExternalReference(IC_Utility(kKeyedStoreIC_Miss)));
+void BinaryOpIC::Clear(Address address, Code* target) {
+  if (target->ic_state() == UNINITIALIZED) return;
+
+  // At the end of a fast case stub there should be a reference to
+  // a corresponding UNINITIALIZED stub, so look for the last reloc info item.
+  RelocInfo* rinfo = NULL;
+  for (RelocIterator it(target, RelocInfo::kCodeTargetMask);
+       !it.done(); it.next()) {
+    rinfo = it.rinfo();
+  }
+
+  ASSERT(rinfo != NULL);
+  Code* uninit_stub = Code::GetCodeFromTargetAddress(rinfo->target_address());
+  ASSERT(uninit_stub->ic_state() == UNINITIALIZED &&
+         uninit_stub->kind() == Code::BINARY_OP_IC);
+  SetTargetAtAddress(address, uninit_stub);
+}
+
+
+const char* BinaryOpIC::GetName(TypeInfo type_info) {
+  switch (type_info) {
+    case DEFAULT: return "Default";
+    case GENERIC: return "Generic";
+    case HEAP_NUMBERS: return "HeapNumbers";
+    case STRINGS: return "Strings";
+    default: return "Invalid";
+  }
+}
+
+
+BinaryOpIC::State BinaryOpIC::ToState(TypeInfo type_info) {
+  switch (type_info) {
+    // DEFAULT is mapped to UNINITIALIZED so that calls to DEFAULT stubs
+    // are not cleared at GC.
+    case DEFAULT: return UNINITIALIZED;
+
+    // Could have mapped GENERIC to MONOMORPHIC just as well but MEGAMORPHIC is
+    // conceptually closer.
+    case GENERIC: return MEGAMORPHIC;
+
+    default: return MONOMORPHIC;
+  }
+}
+
+
+BinaryOpIC::TypeInfo BinaryOpIC::GetTypeInfo(Object* left,
+                                             Object* right) {
+  // Patching is never requested for the two smis.
+  ASSERT(!left->IsSmi() || !right->IsSmi());
+
+  if (left->IsNumber() && right->IsNumber()) {
+    return HEAP_NUMBERS;
+  }
+
+  if (left->IsString() || right->IsString()) {
+    // Patching for fast string ADD makes sense even if only one of the
+    // arguments is a string.
+    return STRINGS;
+  }
+
+  return GENERIC;
+}
+
+
+// defined in codegen-<arch>.cc
+Handle<Code> GetBinaryOpStub(int key, BinaryOpIC::TypeInfo type_info);
+
+
+Object* BinaryOp_Patch(Arguments args) {
+  ASSERT(args.length() == 6);
+
+  Handle<Object> left = args.at<Object>(0);
+  Handle<Object> right = args.at<Object>(1);
+  Handle<Object> result = args.at<Object>(2);
+  int key = Smi::cast(args[3])->value();
+#ifdef DEBUG
+  Token::Value op = static_cast<Token::Value>(Smi::cast(args[4])->value());
+  BinaryOpIC::TypeInfo prev_type_info =
+      static_cast<BinaryOpIC::TypeInfo>(Smi::cast(args[5])->value());
+#endif  // DEBUG
+  { HandleScope scope;
+    BinaryOpIC::TypeInfo type_info = BinaryOpIC::GetTypeInfo(*left, *right);
+    Handle<Code> code = GetBinaryOpStub(key, type_info);
+    if (!code.is_null()) {
+      BinaryOpIC ic;
+      ic.patch(*code);
+#ifdef DEBUG
+      if (FLAG_trace_ic) {
+        PrintF("[BinaryOpIC (%s->%s)#%s]\n",
+            BinaryOpIC::GetName(prev_type_info),
+            BinaryOpIC::GetName(type_info),
+            Token::Name(op));
+      }
+#endif  // DEBUG
+    }
+  }
+
+  return *result;
 }
 
 

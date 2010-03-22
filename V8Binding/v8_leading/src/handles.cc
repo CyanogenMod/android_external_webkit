@@ -31,6 +31,7 @@
 #include "api.h"
 #include "arguments.h"
 #include "bootstrapper.h"
+#include "codegen.h"
 #include "compiler.h"
 #include "debug.h"
 #include "execution.h"
@@ -202,7 +203,7 @@ void TransformToFastProperties(Handle<JSObject> object,
 
 
 void FlattenString(Handle<String> string) {
-  CALL_HEAP_FUNCTION_VOID(string->TryFlattenIfNotFlat());
+  CALL_HEAP_FUNCTION_VOID(string->TryFlatten());
   ASSERT(string->IsFlat());
 }
 
@@ -282,6 +283,12 @@ Handle<Object> GetProperty(Handle<Object> obj,
 }
 
 
+Handle<Object> GetElement(Handle<Object> obj,
+                          uint32_t index) {
+  CALL_HEAP_FUNCTION(Runtime::GetElement(obj, index), Object);
+}
+
+
 Handle<Object> GetPropertyWithInterceptor(Handle<JSObject> receiver,
                                           Handle<JSObject> holder,
                                           Handle<String> name,
@@ -296,6 +303,12 @@ Handle<Object> GetPropertyWithInterceptor(Handle<JSObject> receiver,
 Handle<Object> GetPrototype(Handle<Object> obj) {
   Handle<Object> result(obj->GetPrototype());
   return result;
+}
+
+
+Handle<Object> SetPrototype(Handle<JSObject> obj, Handle<Object> value) {
+  const bool skip_hidden_prototypes = false;
+  CALL_HEAP_FUNCTION(obj->SetPrototype(*value, skip_hidden_prototypes), Object);
 }
 
 
@@ -355,8 +368,11 @@ Handle<Object> LookupSingleCharacterStringFromCode(uint32_t index) {
 }
 
 
-Handle<String> SubString(Handle<String> str, int start, int end) {
-  CALL_HEAP_FUNCTION(str->SubString(start, end), String);
+Handle<String> SubString(Handle<String> str,
+                         int start,
+                         int end,
+                         PretenureFlag pretenure) {
+  CALL_HEAP_FUNCTION(str->SubString(start, end, pretenure), String);
 }
 
 
@@ -476,25 +492,49 @@ void InitScriptLineEnds(Handle<Script> script) {
 int GetScriptLineNumber(Handle<Script> script, int code_pos) {
   InitScriptLineEnds(script);
   AssertNoAllocation no_allocation;
-  FixedArray* line_ends_array =
-      FixedArray::cast(script->line_ends());
+  FixedArray* line_ends_array = FixedArray::cast(script->line_ends());
   const int line_ends_len = line_ends_array->length();
 
-  int line = -1;
-  if (line_ends_len > 0 &&
-      code_pos <= (Smi::cast(line_ends_array->get(0)))->value()) {
-    line = 0;
-  } else {
-    for (int i = 1; i < line_ends_len; ++i) {
-      if ((Smi::cast(line_ends_array->get(i - 1)))->value() < code_pos &&
-          code_pos <= (Smi::cast(line_ends_array->get(i)))->value()) {
-        line = i;
-        break;
-      }
+  if (!line_ends_len)
+    return -1;
+
+  if ((Smi::cast(line_ends_array->get(0)))->value() >= code_pos)
+    return script->line_offset()->value();
+
+  int left = 0;
+  int right = line_ends_len;
+  while (int half = (right - left) / 2) {
+    if ((Smi::cast(line_ends_array->get(left + half)))->value() > code_pos) {
+      right -= half;
+    } else {
+      left += half;
     }
   }
+  return right + script->line_offset()->value();
+}
 
-  return line != -1 ? line + script->line_offset()->value() : line;
+
+int GetScriptLineNumberSafe(Handle<Script> script, int code_pos) {
+  AssertNoAllocation no_allocation;
+  if (!script->line_ends()->IsUndefined()) {
+    return GetScriptLineNumber(script, code_pos);
+  }
+  // Slow mode: we do not have line_ends. We have to iterate through source.
+  if (!script->source()->IsString()) {
+    return -1;
+  }
+  String* source = String::cast(script->source());
+  int line = 0;
+  int len = source->length();
+  for (int pos = 0; pos < len; pos++) {
+    if (pos == code_pos) {
+      break;
+    }
+    if (source->Get(pos) == '\n') {
+      line++;
+    }
+  }
+  return line;
 }
 
 
@@ -666,30 +706,49 @@ Handle<FixedArray> GetEnumPropertyKeys(Handle<JSObject> object,
 }
 
 
-bool CompileLazyShared(Handle<SharedFunctionInfo> shared,
-                       ClearExceptionFlag flag,
-                       int loop_nesting) {
+bool EnsureCompiled(Handle<SharedFunctionInfo> shared,
+                    ClearExceptionFlag flag) {
+  return shared->is_compiled() || CompileLazyShared(shared, flag);
+}
+
+
+static bool CompileLazyHelper(CompilationInfo* info,
+                              ClearExceptionFlag flag) {
   // Compile the source information to a code object.
-  ASSERT(!shared->is_compiled());
-  bool result = Compiler::CompileLazy(shared, loop_nesting);
+  ASSERT(!info->shared_info()->is_compiled());
+  bool result = Compiler::CompileLazy(info);
   ASSERT(result != Top::has_pending_exception());
   if (!result && flag == CLEAR_EXCEPTION) Top::clear_pending_exception();
   return result;
 }
 
 
-bool CompileLazy(Handle<JSFunction> function, ClearExceptionFlag flag) {
-  // Compile the source information to a code object.
-  Handle<SharedFunctionInfo> shared(function->shared());
-  return CompileLazyShared(shared, flag, 0);
+bool CompileLazyShared(Handle<SharedFunctionInfo> shared,
+                       ClearExceptionFlag flag) {
+  CompilationInfo info(shared);
+  return CompileLazyHelper(&info, flag);
 }
 
 
-bool CompileLazyInLoop(Handle<JSFunction> function, ClearExceptionFlag flag) {
-  // Compile the source information to a code object.
-  Handle<SharedFunctionInfo> shared(function->shared());
-  return CompileLazyShared(shared, flag, 1);
+bool CompileLazy(Handle<JSFunction> function,
+                 Handle<Object> receiver,
+                 ClearExceptionFlag flag) {
+  CompilationInfo info(function, 0, receiver);
+  bool result = CompileLazyHelper(&info, flag);
+  LOG(FunctionCreateEvent(*function));
+  return result;
 }
+
+
+bool CompileLazyInLoop(Handle<JSFunction> function,
+                       Handle<Object> receiver,
+                       ClearExceptionFlag flag) {
+  CompilationInfo info(function, 1, receiver);
+  bool result = CompileLazyHelper(&info, flag);
+  LOG(FunctionCreateEvent(*function));
+  return result;
+}
+
 
 OptimizedObjectForAddingMultipleProperties::
 OptimizedObjectForAddingMultipleProperties(Handle<JSObject> object,
@@ -744,7 +803,8 @@ void LoadLazy(Handle<JSObject> obj, bool* pending_exception) {
     Handle<String> script_name = Factory::NewStringFromAscii(name);
     bool allow_natives_syntax = FLAG_allow_natives_syntax;
     FLAG_allow_natives_syntax = true;
-    boilerplate = Compiler::Compile(source_code, script_name, 0, 0, NULL, NULL);
+    boilerplate = Compiler::Compile(source_code, script_name, 0, 0, NULL, NULL,
+                                    Handle<String>::null(), NATIVES_CODE);
     FLAG_allow_natives_syntax = allow_natives_syntax;
     // If the compilation failed (possibly due to stack overflows), we
     // should never enter the result in the natives cache. Instead we

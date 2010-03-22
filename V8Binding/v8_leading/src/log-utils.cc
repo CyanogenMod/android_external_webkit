@@ -196,6 +196,9 @@ int Log::GetLogLines(int from_pos, char* dest_buf, int max_size) {
   char* end_pos = dest_buf + actual_size - 1;
   while (end_pos >= dest_buf && *end_pos != '\n') --end_pos;
   actual_size = static_cast<int>(end_pos - dest_buf + 1);
+  // If the assertion below is hit, it means that there was no line end
+  // found --- something wrong has happened.
+  ASSERT(actual_size > 0);
   ASSERT(actual_size <= max_size);
   return actual_size;
 }
@@ -346,15 +349,6 @@ void LogMessageBuilder::WriteToLogFile() {
   ASSERT(pos_ <= Log::kMessageBufferSize);
   const int written = Log::Write(Log::message_buffer_, pos_);
   if (written != pos_ && write_failure_handler != NULL) {
-    write_failure_handler();
-  }
-}
-
-
-void LogMessageBuilder::WriteCStringToLogFile(const char* str) {
-  const int len = StrLength(str);
-  const int written = Log::Write(str, len);
-  if (written != len && write_failure_handler != NULL) {
     write_failure_handler();
   }
 }

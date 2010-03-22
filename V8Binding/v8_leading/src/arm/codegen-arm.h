@@ -1,4 +1,4 @@
-// Copyright 2006-2008 the V8 project authors. All rights reserved.
+// Copyright 2010 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -32,6 +32,7 @@ namespace v8 {
 namespace internal {
 
 // Forward declarations
+class CompilationInfo;
 class DeferredCode;
 class RegisterAllocator;
 class RegisterFile;
@@ -43,57 +44,69 @@ enum TypeofState { INSIDE_TYPEOF, NOT_INSIDE_TYPEOF };
 // -------------------------------------------------------------------------
 // Reference support
 
-// A reference is a C++ stack-allocated object that keeps an ECMA
-// reference on the execution stack while in scope. For variables
-// the reference is empty, indicating that it isn't necessary to
-// store state on the stack for keeping track of references to those.
-// For properties, we keep either one (named) or two (indexed) values
-// on the execution stack to represent the reference.
-
+// A reference is a C++ stack-allocated object that puts a
+// reference on the virtual frame.  The reference may be consumed
+// by GetValue, TakeValue, SetValue, and Codegen::UnloadReference.
+// When the lifetime (scope) of a valid reference ends, it must have
+// been consumed, and be in state UNLOADED.
 class Reference BASE_EMBEDDED {
  public:
   // The values of the types is important, see size().
-  enum Type { ILLEGAL = -1, SLOT = 0, NAMED = 1, KEYED = 2 };
-  Reference(CodeGenerator* cgen, Expression* expression);
+  enum Type { UNLOADED = -2, ILLEGAL = -1, SLOT = 0, NAMED = 1, KEYED = 2 };
+  Reference(CodeGenerator* cgen,
+            Expression* expression,
+            bool persist_after_get = false);
   ~Reference();
 
   Expression* expression() const { return expression_; }
   Type type() const { return type_; }
   void set_type(Type value) {
-    ASSERT(type_ == ILLEGAL);
+    ASSERT_EQ(ILLEGAL, type_);
     type_ = value;
   }
 
+  void set_unloaded() {
+    ASSERT_NE(ILLEGAL, type_);
+    ASSERT_NE(UNLOADED, type_);
+    type_ = UNLOADED;
+  }
   // The size the reference takes up on the stack.
-  int size() const { return (type_ == ILLEGAL) ? 0 : type_; }
+  int size() const {
+    return (type_ < SLOT) ? 0 : type_;
+  }
 
   bool is_illegal() const { return type_ == ILLEGAL; }
   bool is_slot() const { return type_ == SLOT; }
   bool is_property() const { return type_ == NAMED || type_ == KEYED; }
+  bool is_unloaded() const { return type_ == UNLOADED; }
 
   // Return the name.  Only valid for named property references.
   Handle<String> GetName();
 
   // Generate code to push the value of the reference on top of the
   // expression stack.  The reference is expected to be already on top of
-  // the expression stack, and it is left in place with its value above it.
+  // the expression stack, and it is consumed by the call unless the
+  // reference is for a compound assignment.
+  // If the reference is not consumed, it is left in place under its value.
   void GetValue();
 
-  // Generate code to push the value of a reference on top of the expression
-  // stack and then spill the stack frame.  This function is used temporarily
-  // while the code generator is being transformed.
+  // Generate code to pop a reference, push the value of the reference,
+  // and then spill the stack frame.
   inline void GetValueAndSpill();
 
   // Generate code to store the value on top of the expression stack in the
   // reference.  The reference is expected to be immediately below the value
-  // on the expression stack.  The stored value is left in place (with the
-  // reference intact below it) to support chained assignments.
+  // on the expression stack.  The  value is stored in the location specified
+  // by the reference, and is left on top of the stack, after the reference
+  // is popped from beneath it (unloaded).
   void SetValue(InitState init_state);
 
  private:
   CodeGenerator* cgen_;
   Expression* expression_;
   Type type_;
+  // Keep the reference on the stack after get, so it can be used by set later.
+  bool persist_after_get_;
 };
 
 
@@ -139,18 +152,15 @@ class CodeGenerator: public AstVisitor {
  public:
   // Takes a function literal, generates code for it. This function should only
   // be called by compiler.cc.
-  static Handle<Code> MakeCode(FunctionLiteral* fun,
-                               Handle<Script> script,
-                               bool is_eval);
+  static Handle<Code> MakeCode(CompilationInfo* info);
 
   // Printing of AST, etc. as requested by flags.
-  static void MakeCodePrologue(FunctionLiteral* fun);
+  static void MakeCodePrologue(CompilationInfo* info);
 
   // Allocate and install the code.
-  static Handle<Code> MakeCodeEpilogue(FunctionLiteral* fun,
-                                       MacroAssembler* masm,
+  static Handle<Code> MakeCodeEpilogue(MacroAssembler* masm,
                                        Code::Flags flags,
-                                       Handle<Script> script);
+                                       CompilationInfo* info);
 
 #ifdef ENABLE_LOGGING_AND_PROFILING
   static bool ShouldGenerateLog(Expression* type);
@@ -166,7 +176,7 @@ class CodeGenerator: public AstVisitor {
   // Accessors
   MacroAssembler* masm() { return masm_; }
   VirtualFrame* frame() const { return frame_; }
-  Handle<Script> script() { return script_; }
+  inline Handle<Script> script();
 
   bool has_valid_frame() const { return frame_ != NULL; }
 
@@ -187,18 +197,20 @@ class CodeGenerator: public AstVisitor {
 
   static const int kUnknownIntValue = -1;
 
+  // If the name is an inline runtime function call return the number of
+  // expected arguments. Otherwise return -1.
+  static int InlineRuntimeCallArgumentsCount(Handle<String> name);
+
  private:
   // Construction/Destruction
-  CodeGenerator(int buffer_size, Handle<Script> script, bool is_eval);
-  virtual ~CodeGenerator() { delete masm_; }
+  explicit CodeGenerator(MacroAssembler* masm);
 
   // Accessors
-  Scope* scope() const { return scope_; }
+  inline bool is_eval();
+  inline Scope* scope();
 
   // Generating deferred code.
   void ProcessDeferred();
-
-  bool is_eval() { return is_eval_; }
 
   // State
   bool has_cc() const  { return cc_reg_ != al; }
@@ -227,7 +239,7 @@ class CodeGenerator: public AstVisitor {
   inline void VisitStatementsAndSpill(ZoneList<Statement*>* statements);
 
   // Main code generation function
-  void GenCode(FunctionLiteral* fun);
+  void Generate(CompilationInfo* info);
 
   // The following are used by class Reference.
   void LoadReference(Reference* ref);
@@ -274,6 +286,9 @@ class CodeGenerator: public AstVisitor {
   void LoadFromSlot(Slot* slot, TypeofState typeof_state);
   // Store the value on top of the stack to a slot.
   void StoreToSlot(Slot* slot, InitState init_state);
+  // Load a keyed property, leaving it in r0.  The receiver and key are
+  // passed on the stack, and remain there.
+  void EmitKeyedLoad(bool is_global);
 
   void LoadFromGlobalSlotCheckExtensions(Slot* slot,
                                          TypeofState typeof_state,
@@ -304,7 +319,9 @@ class CodeGenerator: public AstVisitor {
                     bool reversed,
                     OverwriteMode mode);
 
-  void CallWithArguments(ZoneList<Expression*>* arguments, int position);
+  void CallWithArguments(ZoneList<Expression*>* arguments,
+                         CallFunctionFlags flags,
+                         int position);
 
   // Control flow
   void Branch(bool if_true, JumpTarget* target);
@@ -313,6 +330,7 @@ class CodeGenerator: public AstVisitor {
   struct InlineRuntimeLUT {
     void (CodeGenerator::*method)(ZoneList<Expression*>*);
     const char* name;
+    int nargs;
   };
 
   static InlineRuntimeLUT* FindInlineRuntimeLUT(Handle<String> name);
@@ -337,15 +355,17 @@ class CodeGenerator: public AstVisitor {
   void GenerateIsSmi(ZoneList<Expression*>* args);
   void GenerateIsNonNegativeSmi(ZoneList<Expression*>* args);
   void GenerateIsArray(ZoneList<Expression*>* args);
+  void GenerateIsRegExp(ZoneList<Expression*>* args);
   void GenerateIsObject(ZoneList<Expression*>* args);
   void GenerateIsFunction(ZoneList<Expression*>* args);
+  void GenerateIsUndetectableObject(ZoneList<Expression*>* args);
 
   // Support for construct call checks.
   void GenerateIsConstructCall(ZoneList<Expression*>* args);
 
   // Support for arguments.length and arguments[?].
   void GenerateArgumentsLength(ZoneList<Expression*>* args);
-  void GenerateArgumentsAccess(ZoneList<Expression*>* args);
+  void GenerateArguments(ZoneList<Expression*>* args);
 
   // Support for accessing the class and value fields of an object.
   void GenerateClassOf(ZoneList<Expression*>* args);
@@ -354,6 +374,9 @@ class CodeGenerator: public AstVisitor {
 
   // Fast support for charCodeAt(n).
   void GenerateFastCharCodeAt(ZoneList<Expression*>* args);
+
+  // Fast support for string.charAt(n) and string[n].
+  void GenerateCharFromCode(ZoneList<Expression*>* args);
 
   // Fast support for object equality testing.
   void GenerateObjectEquals(ZoneList<Expression*>* args);
@@ -374,6 +397,15 @@ class CodeGenerator: public AstVisitor {
 
   // Support for direct calls from JavaScript to native RegExp code.
   void GenerateRegExpExec(ZoneList<Expression*>* args);
+
+  // Fast support for number to string.
+  void GenerateNumberToString(ZoneList<Expression*>* args);
+
+  // Fast call to math functions.
+  void GenerateMathPow(ZoneList<Expression*>* args);
+  void GenerateMathSin(ZoneList<Expression*>* args);
+  void GenerateMathCos(ZoneList<Expression*>* args);
+  void GenerateMathSqrt(ZoneList<Expression*>* args);
 
   // Simple condition analysis.
   enum ConditionAnalysis {
@@ -397,16 +429,14 @@ class CodeGenerator: public AstVisitor {
   bool HasValidEntryRegisters();
 #endif
 
-  bool is_eval_;  // Tells whether code is generated for eval.
-
-  Handle<Script> script_;
   List<DeferredCode*> deferred_;
 
   // Assembler
   MacroAssembler* masm_;  // to generate code
 
+  CompilationInfo* info_;
+
   // Code generation state
-  Scope* scope_;
   VirtualFrame* frame_;
   RegisterAllocator* allocator_;
   Condition cc_reg_;
@@ -426,30 +456,10 @@ class CodeGenerator: public AstVisitor {
   friend class JumpTarget;
   friend class Reference;
   friend class FastCodeGenerator;
-  friend class CodeGenSelector;
+  friend class FullCodeGenerator;
+  friend class FullCodeGenSyntaxChecker;
 
   DISALLOW_COPY_AND_ASSIGN(CodeGenerator);
-};
-
-
-class CallFunctionStub: public CodeStub {
- public:
-  CallFunctionStub(int argc, InLoopFlag in_loop)
-      : argc_(argc), in_loop_(in_loop) {}
-
-  void Generate(MacroAssembler* masm);
-
- private:
-  int argc_;
-  InLoopFlag in_loop_;
-
-#if defined(DEBUG)
-  void Print() { PrintF("CallFunctionStub (argc %d)\n", argc_); }
-#endif  // defined(DEBUG)
-
-  Major MajorKey() { return CallFunction; }
-  int MinorKey() { return argc_; }
-  InLoopFlag InLoop() { return in_loop_; }
 };
 
 
@@ -525,6 +535,159 @@ class GenericBinaryOpStub : public CodeStub {
              Token::String(op_),
              constant_rhs_);
     }
+  }
+#endif
+};
+
+
+class StringStubBase: public CodeStub {
+ public:
+  // Generate code for copying characters using a simple loop. This should only
+  // be used in places where the number of characters is small and the
+  // additional setup and checking in GenerateCopyCharactersLong adds too much
+  // overhead. Copying of overlapping regions is not supported.
+  // Dest register ends at the position after the last character written.
+  void GenerateCopyCharacters(MacroAssembler* masm,
+                              Register dest,
+                              Register src,
+                              Register count,
+                              Register scratch,
+                              bool ascii);
+
+  // Generate code for copying a large number of characters. This function
+  // is allowed to spend extra time setting up conditions to make copying
+  // faster. Copying of overlapping regions is not supported.
+  // Dest register ends at the position after the last character written.
+  void GenerateCopyCharactersLong(MacroAssembler* masm,
+                                  Register dest,
+                                  Register src,
+                                  Register count,
+                                  Register scratch1,
+                                  Register scratch2,
+                                  Register scratch3,
+                                  Register scratch4,
+                                  Register scratch5,
+                                  int flags);
+
+
+  // Probe the symbol table for a two character string. If the string is
+  // not found by probing a jump to the label not_found is performed. This jump
+  // does not guarantee that the string is not in the symbol table. If the
+  // string is found the code falls through with the string in register r0.
+  // Contents of both c1 and c2 registers are modified. At the exit c1 is
+  // guaranteed to contain halfword with low and high bytes equal to
+  // initial contents of c1 and c2 respectively.
+  void GenerateTwoCharacterSymbolTableProbe(MacroAssembler* masm,
+                                            Register c1,
+                                            Register c2,
+                                            Register scratch1,
+                                            Register scratch2,
+                                            Register scratch3,
+                                            Register scratch4,
+                                            Register scratch5,
+                                            Label* not_found);
+
+  // Generate string hash.
+  void GenerateHashInit(MacroAssembler* masm,
+                        Register hash,
+                        Register character);
+
+  void GenerateHashAddCharacter(MacroAssembler* masm,
+                                Register hash,
+                                Register character);
+
+  void GenerateHashGetHash(MacroAssembler* masm,
+                           Register hash);
+};
+
+
+// Flag that indicates how to generate code for the stub StringAddStub.
+enum StringAddFlags {
+  NO_STRING_ADD_FLAGS = 0,
+  NO_STRING_CHECK_IN_STUB = 1 << 0  // Omit string check in stub.
+};
+
+
+class StringAddStub: public StringStubBase {
+ public:
+  explicit StringAddStub(StringAddFlags flags) {
+    string_check_ = ((flags & NO_STRING_CHECK_IN_STUB) == 0);
+  }
+
+ private:
+  Major MajorKey() { return StringAdd; }
+  int MinorKey() { return string_check_ ? 0 : 1; }
+
+  void Generate(MacroAssembler* masm);
+
+  // Should the stub check whether arguments are strings?
+  bool string_check_;
+};
+
+
+class SubStringStub: public StringStubBase {
+ public:
+  SubStringStub() {}
+
+ private:
+  Major MajorKey() { return SubString; }
+  int MinorKey() { return 0; }
+
+  void Generate(MacroAssembler* masm);
+};
+
+
+
+class StringCompareStub: public CodeStub {
+ public:
+  StringCompareStub() { }
+
+  // Compare two flat ASCII strings and returns result in r0.
+  // Does not use the stack.
+  static void GenerateCompareFlatAsciiStrings(MacroAssembler* masm,
+                                              Register left,
+                                              Register right,
+                                              Register scratch1,
+                                              Register scratch2,
+                                              Register scratch3,
+                                              Register scratch4);
+
+ private:
+  Major MajorKey() { return StringCompare; }
+  int MinorKey() { return 0; }
+
+  void Generate(MacroAssembler* masm);
+};
+
+
+class NumberToStringStub: public CodeStub {
+ public:
+  NumberToStringStub() { }
+
+  // Generate code to do a lookup in the number string cache. If the number in
+  // the register object is found in the cache the generated code falls through
+  // with the result in the result register. The object and the result register
+  // can be the same. If the number is not found in the cache the code jumps to
+  // the label not_found with only the content of register object unchanged.
+  static void GenerateLookupNumberStringCache(MacroAssembler* masm,
+                                              Register object,
+                                              Register result,
+                                              Register scratch1,
+                                              Register scratch2,
+                                              bool object_is_smi,
+                                              Label* not_found);
+
+ private:
+  Major MajorKey() { return NumberToString; }
+  int MinorKey() { return 0; }
+
+  void Generate(MacroAssembler* masm);
+
+  const char* GetName() { return "NumberToStringStub"; }
+
+#ifdef DEBUG
+  void Print() {
+    PrintF("NumberToStringStub\n");
   }
 #endif
 };

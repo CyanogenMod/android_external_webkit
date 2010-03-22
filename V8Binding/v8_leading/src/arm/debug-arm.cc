@@ -46,13 +46,23 @@ void BreakLocationIterator::SetDebugBreakAtReturn() {
   //   add sp, sp, #4
   //   bx lr
   // to a call to the debug break return code.
+  // #if USE_BLX
+  //   ldr ip, [pc, #0]
+  //   blx ip
+  // #else
   //   mov lr, pc
   //   ldr pc, [pc, #-4]
+  // #endif
   //   <debug break return code entry point address>
   //   bktp 0
   CodePatcher patcher(rinfo()->pc(), 4);
+#ifdef USE_BLX
+  patcher.masm()->ldr(v8::internal::ip, MemOperand(v8::internal::pc, 0));
+  patcher.masm()->blx(v8::internal::ip);
+#else
   patcher.masm()->mov(v8::internal::lr, v8::internal::pc);
   patcher.masm()->ldr(v8::internal::pc, MemOperand(v8::internal::pc, -4));
+#endif
   patcher.Emit(Debug::debug_break_return()->entry());
   patcher.masm()->bkpt(0);
 }
@@ -98,7 +108,7 @@ static void Generate_DebugBreakCallHelper(MacroAssembler* masm,
   __ mov(r0, Operand(0));  // no arguments
   __ mov(r1, Operand(ExternalReference::debug_break()));
 
-  CEntryDebugBreakStub ceb;
+  CEntryStub ceb(1, ExitFrame::MODE_DEBUG);
   __ CallStub(&ceb);
 
   // Restore the register values containing object pointers from the expression
@@ -128,7 +138,7 @@ void Debug::GenerateLoadICDebugBreak(MacroAssembler* masm) {
   //  -- lr    : return address
   //  -- [sp]  : receiver
   // -----------------------------------
-  // Registers r0 and r2 contain objects that needs to be pushed on the
+  // Registers r0 and r2 contain objects that need to be pushed on the
   // expression stack of the fake JS frame.
   Generate_DebugBreakCallHelper(masm, r0.bit() | r2.bit());
 }
@@ -137,14 +147,14 @@ void Debug::GenerateLoadICDebugBreak(MacroAssembler* masm) {
 void Debug::GenerateStoreICDebugBreak(MacroAssembler* masm) {
   // Calling convention for IC store (from ic-arm.cc).
   // ----------- S t a t e -------------
-  //  -- r0    : receiver
+  //  -- r0    : value
+  //  -- r1    : receiver
   //  -- r2    : name
   //  -- lr    : return address
-  //  -- [sp]  : receiver
   // -----------------------------------
-  // Registers r0 and r2 contain objects that needs to be pushed on the
+  // Registers r0, r1, and r2 contain objects that need to be pushed on the
   // expression stack of the fake JS frame.
-  Generate_DebugBreakCallHelper(masm, r0.bit() | r2.bit());
+  Generate_DebugBreakCallHelper(masm, r0.bit() | r1.bit() | r2.bit());
 }
 
 

@@ -50,12 +50,6 @@ enum ContextLookupFlags {
 // must always be allocated via Heap::AllocateContext() or
 // Factory::NewContext.
 
-// Comment for special_function_table:
-// Table for providing optimized/specialized functions.
-// The array contains triplets [object, general_function, optimized_function].
-// Primarily added to support built-in optimized variants of
-// Array.prototype.{push,pop}.
-
 #define GLOBAL_CONTEXT_FIELDS(V) \
   V(GLOBAL_PROXY_INDEX, JSObject, global_proxy_object) \
   V(SECURITY_TOKEN_INDEX, Object, security_token) \
@@ -76,14 +70,12 @@ enum ContextLookupFlags {
   V(TO_INTEGER_FUN_INDEX, JSFunction, to_integer_fun) \
   V(TO_UINT32_FUN_INDEX, JSFunction, to_uint32_fun) \
   V(TO_INT32_FUN_INDEX, JSFunction, to_int32_fun) \
-  V(TO_BOOLEAN_FUN_INDEX, JSFunction, to_boolean_fun) \
   V(GLOBAL_EVAL_FUN_INDEX, JSFunction, global_eval_fun) \
   V(INSTANTIATE_FUN_INDEX, JSFunction, instantiate_fun) \
   V(CONFIGURE_INSTANCE_FUN_INDEX, JSFunction, configure_instance_fun) \
   V(FUNCTION_MAP_INDEX, Map, function_map) \
   V(FUNCTION_INSTANCE_MAP_INDEX, Map, function_instance_map) \
   V(JS_ARRAY_MAP_INDEX, Map, js_array_map)\
-  V(SPECIAL_FUNCTION_TABLE_INDEX, FixedArray, special_function_table) \
   V(ARGUMENTS_BOILERPLATE_INDEX, JSObject, arguments_boilerplate) \
   V(MESSAGE_LISTENERS_INDEX, JSObject, message_listeners) \
   V(MAKE_MESSAGE_FUN_INDEX, JSFunction, make_message_fun) \
@@ -96,6 +88,7 @@ enum ContextLookupFlags {
     call_as_constructor_delegate) \
   V(EMPTY_SCRIPT_INDEX, Script, empty_script) \
   V(SCRIPT_FUNCTION_INDEX, JSFunction, script_function) \
+  V(OPAQUE_REFERENCE_FUNCTION_INDEX, JSFunction, opaque_reference_function) \
   V(CONTEXT_EXTENSION_FUNCTION_INDEX, JSFunction, context_extension_function) \
   V(OUT_OF_MEMORY_INDEX, Object, out_of_memory) \
   V(MAP_CACHE_INDEX, Object, map_cache) \
@@ -206,7 +199,6 @@ class Context: public FixedArray {
     GLOBAL_EVAL_FUN_INDEX,
     INSTANTIATE_FUN_INDEX,
     CONFIGURE_INSTANCE_FUN_INDEX,
-    SPECIAL_FUNCTION_TABLE_INDEX,
     MESSAGE_LISTENERS_INDEX,
     MAKE_MESSAGE_FUN_INDEX,
     GET_STACK_TRACE_LINE_INDEX,
@@ -217,6 +209,7 @@ class Context: public FixedArray {
     CALL_AS_CONSTRUCTOR_DELEGATE_INDEX,
     EMPTY_SCRIPT_INDEX,
     SCRIPT_FUNCTION_INDEX,
+    OPAQUE_REFERENCE_FUNCTION_INDEX,
     CONTEXT_EXTENSION_FUNCTION_INDEX,
     OUT_OF_MEMORY_INDEX,
     MAP_CACHE_INDEX,

@@ -30,7 +30,6 @@
 
 #include "codegen.h"
 #include "register-allocator.h"
-#include "virtual-frame.h"
 
 #if V8_TARGET_ARCH_IA32
 #include "ia32/register-allocator-ia32-inl.h"
@@ -38,6 +37,8 @@
 #include "x64/register-allocator-x64-inl.h"
 #elif V8_TARGET_ARCH_ARM
 #include "arm/register-allocator-arm-inl.h"
+#elif V8_TARGET_ARCH_MIPS
+#include "mips/register-allocator-mips-inl.h"
 #else
 #error Unsupported target architecture.
 #endif
@@ -45,6 +46,20 @@
 
 namespace v8 {
 namespace internal {
+
+Result::Result(const Result& other) {
+  other.CopyTo(this);
+}
+
+
+Result& Result::operator=(const Result& other) {
+  if (this != &other) {
+    Unuse();
+    other.CopyTo(this);
+  }
+  return *this;
+}
+
 
 Result::~Result() {
   if (is_register()) {
@@ -68,6 +83,64 @@ void Result::CopyTo(Result* destination) const {
   }
 }
 
+
+bool RegisterAllocator::is_used(Register reg) {
+  return registers_.is_used(ToNumber(reg));
+}
+
+
+int RegisterAllocator::count(Register reg) {
+  return registers_.count(ToNumber(reg));
+}
+
+
+void RegisterAllocator::Use(Register reg) {
+  registers_.Use(ToNumber(reg));
+}
+
+
+void RegisterAllocator::Unuse(Register reg) {
+  registers_.Unuse(ToNumber(reg));
+}
+
+
+NumberInfo Result::number_info() const {
+  ASSERT(is_valid());
+  if (!is_constant()) {
+    return NumberInfo::FromInt(NumberInfoField::decode(value_));
+  }
+  Handle<Object> value = handle();
+  if (value->IsSmi()) return NumberInfo::Smi();
+  if (value->IsHeapNumber()) return NumberInfo::HeapNumber();
+  return NumberInfo::Unknown();
+}
+
+
+void Result::set_number_info(NumberInfo info) {
+  ASSERT(is_valid());
+  value_ &= ~NumberInfoField::mask();
+  value_ |= NumberInfoField::encode(info.ToInt());
+}
+
+
+bool Result::is_number() const {
+  return number_info().IsNumber();
+}
+
+
+bool Result::is_smi() const {
+  return number_info().IsSmi();
+}
+
+
+bool Result::is_integer32() const {
+  return number_info().IsInteger32();
+}
+
+
+bool Result::is_heap_number() const {
+  return number_info().IsHeapNumber();
+}
 
 } }  // namespace v8::internal
 

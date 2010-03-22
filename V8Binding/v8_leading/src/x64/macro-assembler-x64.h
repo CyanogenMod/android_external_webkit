@@ -36,7 +36,7 @@ namespace internal {
 // Default scratch register used by MacroAssembler (and other code that needs
 // a spare register). The register isn't callee save, and not used by the
 // function calling convention.
-static const Register kScratchRegister = r10;
+static const Register kScratchRegister = { 10 };  // r10.
 
 // Convenience for platform-independent signatures.
 typedef Operand MemOperand;
@@ -98,6 +98,7 @@ class MacroAssembler: public Assembler {
   void CopyRegistersFromStackToMemory(Register base,
                                       Register scratch,
                                       RegList regs);
+  void DebugBreak();
 #endif
 
   // ---------------------------------------------------------------------------
@@ -148,6 +149,10 @@ class MacroAssembler: public Assembler {
                       const ParameterCount& actual,
                       InvokeFlag flag);
 
+  void InvokeFunction(JSFunction* function,
+                      const ParameterCount& actual,
+                      InvokeFlag flag);
+
   // Invoke specified builtin JavaScript function. Adds an entry to
   // the unresolved list if the name does not resolve.
   void InvokeBuiltin(Builtins::JavaScript id, InvokeFlag flag);
@@ -162,7 +167,8 @@ class MacroAssembler: public Assembler {
   // Conversions between tagged smi values and non-tagged integer values.
 
   // Tag an integer value. The result must be known to be a valid smi value.
-  // Only uses the low 32 bits of the src register.
+  // Only uses the low 32 bits of the src register. Sets the N and Z flags
+  // based on the value of the resulting integer.
   void Integer32ToSmi(Register dst, Register src);
 
   // Tag an integer value if possible, or jump the integer value cannot be
@@ -204,8 +210,14 @@ class MacroAssembler: public Assembler {
   // Is the value a positive tagged smi.
   Condition CheckPositiveSmi(Register src);
 
-  // Are both values are tagged smis.
+  // Are both values tagged smis.
   Condition CheckBothSmi(Register first, Register second);
+
+  // Are both values tagged smis.
+  Condition CheckBothPositiveSmi(Register first, Register second);
+
+  // Are either value a tagged smi.
+  Condition CheckEitherSmi(Register first, Register second);
 
   // Is the value the minimum smi value (since we are using
   // two's complement numbers, negating the value is known to yield
@@ -244,6 +256,10 @@ class MacroAssembler: public Assembler {
 
   // Jump if either or both register are not smi values.
   void JumpIfNotBothSmi(Register src1, Register src2, Label* on_not_both_smi);
+
+  // Jump if either or both register are not positive smi values.
+  void JumpIfNotBothPositiveSmi(Register src1, Register src2,
+                                Label* on_not_both_smi);
 
   // Operations on tagged smi values.
 
@@ -403,6 +419,28 @@ class MacroAssembler: public Assembler {
   void Test(const Operand& dst, Smi* source);
 
   // ---------------------------------------------------------------------------
+  // String macros.
+  void JumpIfNotBothSequentialAsciiStrings(Register first_object,
+                                           Register second_object,
+                                           Register scratch1,
+                                           Register scratch2,
+                                           Label* on_not_both_flat_ascii);
+
+  // Check whether the instance type represents a flat ascii string. Jump to the
+  // label if not. If the instance type can be scratched specify same register
+  // for both instance type and scratch.
+  void JumpIfInstanceTypeIsNotSequentialAscii(Register instance_type,
+                                              Register scratch,
+                                              Label *on_not_flat_ascii_string);
+
+  void JumpIfBothInstanceTypesAreNotSequentialAscii(
+      Register first_object_instance_type,
+      Register second_object_instance_type,
+      Register scratch1,
+      Register scratch2,
+      Label* on_fail);
+
+  // ---------------------------------------------------------------------------
   // Macro instructions.
 
   // Load a register with a long value as efficiently as possible.
@@ -441,9 +479,29 @@ class MacroAssembler: public Assembler {
   // Always use unsigned comparisons: above and below, not less and greater.
   void CmpInstanceType(Register map, InstanceType type);
 
+  // Check if the map of an object is equal to a specified map and
+  // branch to label if not. Skip the smi check if not required
+  // (object is known to be a heap object)
+  void CheckMap(Register obj,
+                Handle<Map> map,
+                Label* fail,
+                bool is_heap_object);
+
+  // Check if the object in register heap_object is a string. Afterwards the
+  // register map contains the object map and the register instance_type
+  // contains the instance_type. The registers map and instance_type can be the
+  // same in which case it contains the instance type afterwards. Either of the
+  // registers map and instance_type can be the same as heap_object.
+  Condition IsObjectStringType(Register heap_object,
+                               Register map,
+                               Register instance_type);
+
   // FCmp is similar to integer cmp, but requires unsigned
   // jcc instructions (je, ja, jae, jb, jbe, je, and jz).
   void FCmp();
+
+  // Abort execution if argument is not a number. Used in debug code.
+  void AbortIfNotNumber(Register object, const char* msg);
 
   // ---------------------------------------------------------------------------
   // Exception handling
@@ -601,34 +659,55 @@ class MacroAssembler: public Assembler {
   void StubReturn(int argc);
 
   // Call a runtime routine.
-  // Eventually this should be used for all C calls.
   void CallRuntime(Runtime::Function* f, int num_arguments);
 
   // Convenience function: Same as above, but takes the fid instead.
   void CallRuntime(Runtime::FunctionId id, int num_arguments);
 
+  // Convenience function: call an external reference.
+  void CallExternalReference(const ExternalReference& ext,
+                             int num_arguments);
+
   // Tail call of a runtime routine (jump).
-  // Like JumpToRuntime, but also takes care of passing the number
-  // of arguments.
-  void TailCallRuntime(const ExternalReference& ext,
+  // Like JumpToExternalReference, but also takes care of passing the number
+  // of parameters.
+  void TailCallExternalReference(const ExternalReference& ext,
+                                 int num_arguments,
+                                 int result_size);
+
+  // Convenience function: tail call a runtime routine (jump).
+  void TailCallRuntime(Runtime::FunctionId fid,
                        int num_arguments,
                        int result_size);
 
   // Jump to a runtime routine.
-  void JumpToRuntime(const ExternalReference& ext, int result_size);
+  void JumpToExternalReference(const ExternalReference& ext, int result_size);
 
+  // Before calling a C-function from generated code, align arguments on stack.
+  // After aligning the frame, arguments must be stored in esp[0], esp[4],
+  // etc., not pushed. The argument count assumes all arguments are word sized.
+  // The number of slots reserved for arguments depends on platform. On Windows
+  // stack slots are reserved for the arguments passed in registers. On other
+  // platforms stack slots are only reserved for the arguments actually passed
+  // on the stack.
+  void PrepareCallCFunction(int num_arguments);
+
+  // Calls a C function and cleans up the space for arguments allocated
+  // by PrepareCallCFunction. The called function is not allowed to trigger a
+  // garbage collection, since that might move the code and invalidate the
+  // return address (unless this is somehow accounted for by the called
+  // function).
+  void CallCFunction(ExternalReference function, int num_arguments);
+  void CallCFunction(Register function, int num_arguments);
+
+  // Calculate the number of stack slots to reserve for arguments when calling a
+  // C function.
+  int ArgumentStackSlotsForCFunctionCall(int num_arguments);
 
   // ---------------------------------------------------------------------------
   // Utilities
 
   void Ret();
-
-  struct Unresolved {
-    int pc;
-    uint32_t flags;  // see Bootstrapper::FixupFlags decoders/encoders.
-    const char* name;
-  };
-  List<Unresolved>* unresolved() { return &unresolved_; }
 
   Handle<Object> CodeObject() { return code_object_; }
 
@@ -661,11 +740,10 @@ class MacroAssembler: public Assembler {
   bool allow_stub_calls() { return allow_stub_calls_; }
 
  private:
-  List<Unresolved> unresolved_;
   bool generating_stub_;
   bool allow_stub_calls_;
-  Handle<Object> code_object_;  // This handle will be patched with the code
-                                // object on installation.
+  // This handle will be patched with the code object on installation.
+  Handle<Object> code_object_;
 
   // Helper functions for generating invokes.
   void InvokePrologue(const ParameterCount& expected,
@@ -674,18 +752,6 @@ class MacroAssembler: public Assembler {
                       Register code_register,
                       Label* done,
                       InvokeFlag flag);
-
-  // Prepares for a call or jump to a builtin by doing two things:
-  // 1. Emits code that fetches the builtin's function object from the context
-  //    at runtime, and puts it in the register rdi.
-  // 2. Fetches the builtin's code object, and returns it in a handle, at
-  //    compile time, so that later code can emit instructions to jump or call
-  //    the builtin directly.  If the code object has not yet been created, it
-  //    returns the builtin code object for IllegalFunction, and sets the
-  //    output parameter "resolved" to false.  Code that uses the return value
-  //    should then add the address and the builtin name to the list of fixups
-  //    called unresolved_, which is fixed up by the bootstrapper.
-  Handle<Code> ResolveBuiltin(Builtins::JavaScript id, bool* resolved);
 
   // Activation support.
   void EnterFrame(StackFrame::Type type);

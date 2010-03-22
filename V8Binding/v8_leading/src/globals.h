@@ -46,6 +46,9 @@ namespace internal {
 #elif defined(__ARMEL__)
 #define V8_HOST_ARCH_ARM 1
 #define V8_HOST_ARCH_32_BIT 1
+#elif defined(_MIPS_ARCH_MIPS32R2)
+#define V8_HOST_ARCH_MIPS 1
+#define V8_HOST_ARCH_32_BIT 1
 #else
 #error Your host architecture was not detected as supported by v8
 #endif
@@ -53,6 +56,7 @@ namespace internal {
 #if defined(V8_TARGET_ARCH_X64) || defined(V8_TARGET_ARCH_IA32)
 #define V8_TARGET_CAN_READ_UNALIGNED 1
 #elif V8_TARGET_ARCH_ARM
+#elif V8_TARGET_ARCH_MIPS
 #else
 #error Your target architecture is not supported by v8
 #endif
@@ -93,6 +97,11 @@ typedef byte* Address;
 #else  // V8_HOST_ARCH_64_BIT
 #define V8_PTR_PREFIX ""
 #endif  // V8_HOST_ARCH_64_BIT
+
+// The following macro works on both 32 and 64-bit platforms.
+// Usage: instead of writing 0x1234567890123456
+//      write V8_2PART_UINT64_C(0x12345678,90123456);
+#define V8_2PART_UINT64_C(a, b) (((static_cast<uint64_t>(a) << 32) + 0x##b##u))
 
 #define V8PRIxPTR V8_PTR_PREFIX "x"
 #define V8PRIdPTR V8_PTR_PREFIX "d"
@@ -186,6 +195,10 @@ const Address kFromSpaceZapValue = reinterpret_cast<Address>(0xbeefdad);
 // gives 8K bytes per page.
 const int kPageSizeBits = 13;
 
+// On Intel architecture, cache line size is 64 bytes.
+// On ARM it may be less (32 bytes), but as far this constant is
+// used for aligning data, it doesn't hurt to align on a greater value.
+const int kProcessorCacheLineSize = 64;
 
 // Constants relevant to double precision floating point numbers.
 
@@ -204,6 +217,7 @@ class AccessorInfo;
 class Allocation;
 class Arguments;
 class Assembler;
+class AssertNoAllocation;
 class BreakableStatement;
 class Code;
 class CodeGenerator;
@@ -256,6 +270,8 @@ template<class Allocator = FreeStoreAllocationPolicy> class ScopeInfo;
 class Script;
 class Slot;
 class Smi;
+template <typename Config, class Allocator = FreeStoreAllocationPolicy>
+    class SplayTree;
 class Statement;
 class String;
 class Struct;
@@ -308,6 +324,10 @@ enum GarbageCollector { SCAVENGER, MARK_COMPACTOR };
 enum Executability { NOT_EXECUTABLE, EXECUTABLE };
 
 enum VisitMode { VISIT_ALL, VISIT_ALL_IN_SCAVENGE, VISIT_ONLY_STRONG };
+
+
+// Flag indicating whether code is built into the VM (one of the natives files).
+enum NativesFlag { NOT_NATIVES_CODE, NATIVES_CODE };
 
 
 // A CodeDesc describes a buffer holding instructions and relocation
@@ -376,6 +396,12 @@ enum InlineCacheState {
 enum InLoopFlag {
   NOT_IN_LOOP,
   IN_LOOP
+};
+
+
+enum CallFunctionFlags {
+  NO_CALL_FUNCTION_FLAGS = 0,
+  RECEIVER_MIGHT_BE_VALUE = 1 << 0  // Receiver might not be a JSObject.
 };
 
 
@@ -556,42 +582,6 @@ F FUNCTION_CAST(Address addr) {
 #define INLINE(header) inline header
 #endif
 
-// The type-based aliasing rule allows the compiler to assume that pointers of
-// different types (for some definition of different) never alias each other.
-// Thus the following code does not work:
-//
-// float f = foo();
-// int fbits = *(int*)(&f);
-//
-// The compiler 'knows' that the int pointer can't refer to f since the types
-// don't match, so the compiler may cache f in a register, leaving random data
-// in fbits.  Using C++ style casts makes no difference, however a pointer to
-// char data is assumed to alias any other pointer.  This is the 'memcpy
-// exception'.
-//
-// Bit_cast uses the memcpy exception to move the bits from a variable of one
-// type of a variable of another type.  Of course the end result is likely to
-// be implementation dependent.  Most compilers (gcc-4.2 and MSVC 2005)
-// will completely optimize bit_cast away.
-//
-// There is an additional use for bit_cast.
-// Recent gccs will warn when they see casts that may result in breakage due to
-// the type-based aliasing rule.  If you have checked that there is no breakage
-// you can use bit_cast to cast one pointer type to another.  This confuses gcc
-// enough that it can no longer see that you have cast one pointer type to
-// another thus avoiding the warning.
-template <class Dest, class Source>
-inline Dest bit_cast(const Source& source) {
-  // Compile time assertion: sizeof(Dest) == sizeof(Source)
-  // A compile error here means your Dest and Source have different sizes.
-  typedef char VerifySizesAreEqual[sizeof(Dest) == sizeof(Source) ? 1 : -1];
-
-  Dest dest;
-  memcpy(&dest, &source, sizeof(dest));
-  return dest;
-}
-
-
 // Feature flags bit positions. They are mostly based on the CPUID spec.
 // (We assign CPUID itself to one of the currently reserved bits --
 // feel free to change this if needed.)
@@ -601,6 +591,7 @@ enum CpuFeature { SSE3 = 32,   // x86
                   RDTSC = 4,   // x86
                   CPUID = 10,  // x86
                   VFP3 = 1,    // ARM
+                  ARMv7 = 2,   // ARM
                   SAHF = 0};   // x86
 
 } }  // namespace v8::internal

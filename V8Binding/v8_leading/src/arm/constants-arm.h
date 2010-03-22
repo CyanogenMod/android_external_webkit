@@ -1,4 +1,4 @@
-// Copyright 2009 the V8 project authors. All rights reserved.
+// Copyright 2010 the V8 project authors. All rights reserved.
 // Redistribution and use in source and binary forms, with or without
 // modification, are permitted provided that the following conditions are
 // met:
@@ -70,6 +70,11 @@
 #if !defined(__arm__)
 # define CAN_USE_ARMV5_INSTRUCTIONS 1
 # define CAN_USE_THUMB_INSTRUCTIONS 1
+#endif
+
+// Using blx may yield better code, so use it when required or when available
+#if defined(USE_THUMB_INTERWORK) || defined(CAN_USE_ARMV5_INSTRUCTIONS)
+#define USE_BLX 1
 #endif
 
 namespace assembler {
@@ -237,6 +242,7 @@ class Instr {
   inline int RnField() const { return Bits(19, 16); }
   inline int RdField() const { return Bits(15, 12); }
 
+  inline int CoprocessorField() const { return Bits(11, 8); }
   // Support for VFP.
   // Vn(19-16) | Vd(15-12) |  Vm(3-0)
   inline int VnField() const { return Bits(19, 16); }
@@ -246,6 +252,8 @@ class Instr {
   inline int MField() const { return Bit(5); }
   inline int DField() const { return Bit(22); }
   inline int RtField() const { return Bits(15, 12); }
+  inline int PField() const { return Bit(24); }
+  inline int UField() const { return Bit(23); }
 
   // Fields used in Data processing instructions
   inline Opcode OpcodeField() const {
@@ -296,6 +304,7 @@ class Instr {
   inline bool HasB()    const { return BField() == 1; }
   inline bool HasW()    const { return WField() == 1; }
   inline bool HasL()    const { return LField() == 1; }
+  inline bool HasU()    const { return UField() == 1; }
   inline bool HasSign() const { return SignField() == 1; }
   inline bool HasH()    const { return HField() == 1; }
   inline bool HasLink() const { return LinkField() == 1; }

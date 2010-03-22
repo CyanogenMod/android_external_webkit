@@ -115,7 +115,7 @@ class Log : public AllStatic {
   }
 
   // Size of buffer used for formatting log messages.
-  static const int kMessageBufferSize = 2048;
+  static const int kMessageBufferSize = v8::V8::kMinimumSizeForLogLinesBuffer;
 
  private:
   typedef int (*WritePtr)(const char* msg, int length);
@@ -267,9 +267,6 @@ class LogMessageBuilder BASE_EMBEDDED {
 
   // Write the log message to the log file currently opened.
   void WriteToLogFile();
-
-  // Write a null-terminated string to to the log file currently opened.
-  void WriteCStringToLogFile(const char* str);
 
   // A handler that is called when Log::Write fails.
   typedef void (*WriteFailureHandler)();

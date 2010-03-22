@@ -59,16 +59,17 @@ class VirtualFrame : public ZoneObject {
   static const int kIllegalIndex = -1;
 
   // Construct an initial virtual frame on entry to a JS function.
-  VirtualFrame();
+  inline VirtualFrame();
 
   // Construct a virtual frame as a clone of an existing one.
-  explicit VirtualFrame(VirtualFrame* original);
+  explicit inline VirtualFrame(VirtualFrame* original);
 
   CodeGenerator* cgen() { return CodeGeneratorScope::Current(); }
   MacroAssembler* masm() { return cgen()->masm(); }
 
   // Create a duplicate of an existing valid frame element.
-  FrameElement CopyElementAt(int index);
+  FrameElement CopyElementAt(int index,
+                             NumberInfo info = NumberInfo::Unknown());
 
   // The number of elements on the virtual frame.
   int element_count() { return elements_.length(); }
@@ -287,22 +288,19 @@ class VirtualFrame : public ZoneObject {
   // Call stub given the number of arguments it expects on (and
   // removes from) the stack.
   void CallStub(CodeStub* stub, int arg_count) {
-    PrepareForCall(arg_count, arg_count);
-    RawCallStub(stub);
+    Forget(arg_count);
+    ASSERT(cgen()->HasValidEntryRegisters());
+    masm()->CallStub(stub);
   }
-
-  // Call stub that expects its argument in r0.  The argument is given
-  // as a result which must be the register r0.
-  void CallStub(CodeStub* stub, Result* arg);
-
-  // Call stub that expects its arguments in r1 and r0.  The arguments
-  // are given as results which must be the appropriate registers.
-  void CallStub(CodeStub* stub, Result* arg0, Result* arg1);
 
   // Call runtime given the number of arguments expected on (and
   // removed from) the stack.
   void CallRuntime(Runtime::Function* f, int arg_count);
   void CallRuntime(Runtime::FunctionId id, int arg_count);
+
+#ifdef ENABLE_DEBUGGER_SUPPORT
+  void DebugBreak();
+#endif
 
   // Invoke builtin given the number of arguments it expects on (and
   // removes from) the stack.
@@ -311,19 +309,10 @@ class VirtualFrame : public ZoneObject {
                      int arg_count);
 
   // Call into an IC stub given the number of arguments it removes
-  // from the stack.  Register arguments are passed as results and
-  // consumed by the call.
+  // from the stack.  Register arguments to the IC stub are implicit,
+  // and depend on the type of IC stub.
   void CallCodeObject(Handle<Code> ic,
                       RelocInfo::Mode rmode,
-                      int dropped_args);
-  void CallCodeObject(Handle<Code> ic,
-                      RelocInfo::Mode rmode,
-                      Result* arg,
-                      int dropped_args);
-  void CallCodeObject(Handle<Code> ic,
-                      RelocInfo::Mode rmode,
-                      Result* arg0,
-                      Result* arg1,
                       int dropped_args);
 
   // Drop a number of elements from the top of the expression stack.  May
@@ -355,9 +344,9 @@ class VirtualFrame : public ZoneObject {
   void EmitPushMultiple(int count, int src_regs);
 
   // Push an element on the virtual frame.
-  void Push(Register reg);
-  void Push(Handle<Object> value);
-  void Push(Smi* value) { Push(Handle<Object>(value)); }
+  inline void Push(Register reg, NumberInfo info = NumberInfo::Unknown());
+  inline void Push(Handle<Object> value);
+  inline void Push(Smi* value);
 
   // Pushing a result invalidates it (its contents become owned by the frame).
   void Push(Result* result) {
@@ -373,7 +362,10 @@ class VirtualFrame : public ZoneObject {
   // Nip removes zero or more elements from immediately below the top
   // of the frame, leaving the previous top-of-frame value on top of
   // the frame.  Nip(k) is equivalent to x = Pop(), Drop(k), Push(x).
-  void Nip(int num_dropped);
+  inline void Nip(int num_dropped);
+
+  inline void SetTypeForLocalAt(int index, NumberInfo info);
+  inline void SetTypeForParamAt(int index, NumberInfo info);
 
  private:
   static const int kLocal0Offset = JavaScriptFrameConstants::kLocal0Offset;
@@ -468,7 +460,7 @@ class VirtualFrame : public ZoneObject {
 
   // Push a copy of a frame slot (typically a local or parameter) on top of
   // the frame.
-  void PushFrameSlotAt(int index);
+  inline void PushFrameSlotAt(int index);
 
   // Push a the value of a frame slot (typically a local or parameter) on
   // top of the frame and invalidate the slot.
@@ -511,15 +503,7 @@ class VirtualFrame : public ZoneObject {
   // Register counts are correctly updated.
   int InvalidateFrameSlotAt(int index);
 
-  // Call a code stub that has already been prepared for calling (via
-  // PrepareForCall).
-  void RawCallStub(CodeStub* stub);
-
-  // Calls a code object which has already been prepared for calling
-  // (via PrepareForCall).
-  void RawCallCodeObject(Handle<Code> code, RelocInfo::Mode rmode);
-
-  bool Equals(VirtualFrame* other);
+  inline bool Equals(VirtualFrame* other);
 
   // Classes that need raw access to the elements_ array.
   friend class DeferredCode;

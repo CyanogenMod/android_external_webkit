@@ -101,6 +101,8 @@ TEST(DisasmIa320) {
   __ cmp(Operand(ebp, ecx, times_4, 0), Immediate(1000));
   Handle<FixedArray> foo2 = Factory::NewFixedArray(10, TENURED);
   __ cmp(ebx, foo2);
+  __ cmpb(ebx, Operand(ebp, ecx, times_2, 0));
+  __ cmpb(Operand(ebp, ecx, times_2, 0), ebx);
   __ or_(edx, 3);
   __ xor_(edx, 3);
   __ nop();
@@ -232,7 +234,9 @@ TEST(DisasmIa320) {
   __ imul(edx, ecx, 12);
   __ imul(edx, ecx, 1000);
 
+  __ cld();
   __ rep_movs();
+  __ rep_stos();
 
   __ sub(edx, Operand(ebx, ecx, times_4, 10000));
   __ sub(edx, Operand(ebx));
@@ -357,45 +361,47 @@ TEST(DisasmIa320) {
   __ fwait();
   __ nop();
   {
-    CHECK(CpuFeatures::IsSupported(SSE2));
-    CpuFeatures::Scope fscope(SSE2);
-    __ cvttss2si(edx, Operand(ebx, ecx, times_4, 10000));
-    __ cvtsi2sd(xmm1, Operand(ebx, ecx, times_4, 10000));
-    __ addsd(xmm1, xmm0);
-    __ mulsd(xmm1, xmm0);
-    __ subsd(xmm1, xmm0);
-    __ divsd(xmm1, xmm0);
-    __ movdbl(xmm1, Operand(ebx, ecx, times_4, 10000));
-    __ movdbl(Operand(ebx, ecx, times_4, 10000), xmm1);
-    __ comisd(xmm0, xmm1);
+    if (CpuFeatures::IsSupported(SSE2)) {
+      CpuFeatures::Scope fscope(SSE2);
+      __ cvttss2si(edx, Operand(ebx, ecx, times_4, 10000));
+      __ cvtsi2sd(xmm1, Operand(ebx, ecx, times_4, 10000));
+      __ addsd(xmm1, xmm0);
+      __ mulsd(xmm1, xmm0);
+      __ subsd(xmm1, xmm0);
+      __ divsd(xmm1, xmm0);
+      __ movdbl(xmm1, Operand(ebx, ecx, times_4, 10000));
+      __ movdbl(Operand(ebx, ecx, times_4, 10000), xmm1);
+      __ comisd(xmm0, xmm1);
 
-    // 128 bit move instructions.
-    __ movdqa(xmm0, Operand(ebx, ecx, times_4, 10000));
-    __ movdqa(Operand(ebx, ecx, times_4, 10000), xmm0);
-    __ movdqu(xmm0, Operand(ebx, ecx, times_4, 10000));
-    __ movdqu(Operand(ebx, ecx, times_4, 10000), xmm0);
+      // 128 bit move instructions.
+      __ movdqa(xmm0, Operand(ebx, ecx, times_4, 10000));
+      __ movdqa(Operand(ebx, ecx, times_4, 10000), xmm0);
+      __ movdqu(xmm0, Operand(ebx, ecx, times_4, 10000));
+      __ movdqu(Operand(ebx, ecx, times_4, 10000), xmm0);
+    }
   }
 
   // cmov.
   {
-    CHECK(CpuFeatures::IsSupported(CMOV));
-    CpuFeatures::Scope use_cmov(CMOV);
-    __ cmov(overflow, eax, Operand(eax, 0));
-    __ cmov(no_overflow, eax, Operand(eax, 1));
-    __ cmov(below, eax, Operand(eax, 2));
-    __ cmov(above_equal, eax, Operand(eax, 3));
-    __ cmov(equal, eax, Operand(ebx, 0));
-    __ cmov(not_equal, eax, Operand(ebx, 1));
-    __ cmov(below_equal, eax, Operand(ebx, 2));
-    __ cmov(above, eax, Operand(ebx, 3));
-    __ cmov(sign, eax, Operand(ecx, 0));
-    __ cmov(not_sign, eax, Operand(ecx, 1));
-    __ cmov(parity_even, eax, Operand(ecx, 2));
-    __ cmov(parity_odd, eax, Operand(ecx, 3));
-    __ cmov(less, eax, Operand(edx, 0));
-    __ cmov(greater_equal, eax, Operand(edx, 1));
-    __ cmov(less_equal, eax, Operand(edx, 2));
-    __ cmov(greater, eax, Operand(edx, 3));
+    if (CpuFeatures::IsSupported(CMOV)) {
+      CpuFeatures::Scope use_cmov(CMOV);
+      __ cmov(overflow, eax, Operand(eax, 0));
+      __ cmov(no_overflow, eax, Operand(eax, 1));
+      __ cmov(below, eax, Operand(eax, 2));
+      __ cmov(above_equal, eax, Operand(eax, 3));
+      __ cmov(equal, eax, Operand(ebx, 0));
+      __ cmov(not_equal, eax, Operand(ebx, 1));
+      __ cmov(below_equal, eax, Operand(ebx, 2));
+      __ cmov(above, eax, Operand(ebx, 3));
+      __ cmov(sign, eax, Operand(ecx, 0));
+      __ cmov(not_sign, eax, Operand(ecx, 1));
+      __ cmov(parity_even, eax, Operand(ecx, 2));
+      __ cmov(parity_odd, eax, Operand(ecx, 3));
+      __ cmov(less, eax, Operand(edx, 0));
+      __ cmov(greater_equal, eax, Operand(edx, 1));
+      __ cmov(less_equal, eax, Operand(edx, 2));
+      __ cmov(greater, eax, Operand(edx, 3));
+    }
   }
 
   __ ret(0);

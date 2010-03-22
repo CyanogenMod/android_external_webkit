@@ -253,6 +253,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\circular-queue-inl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\circular-queue.cc"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\circular-queue.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\code-stubs.cc"
 				>
 			</File>
@@ -337,6 +349,26 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\cpu-profiler.cc"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\cpu-profiler.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\cpu-profiler-inl.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\data-flow.cc"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\data-flow.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\dateparser.cc"
 				>
 			</File>
@@ -389,6 +421,18 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\x64\fast-codegen-x64.cc"
+				>
+			</File>
+                        <File
+                                RelativePath="..\..\src\fast-codegen.cc"
+                                >
+                        </File>
+                        <File
+                                RelativePath="..\..\src\fast-codegen.h"
+                                >
+                        </File>
+			<File
 				RelativePath="..\..\src\flags.cc"
 				>
 			</File>
@@ -425,6 +469,19 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\x64\full-codegen-x64.cc"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\full-codegen.cc"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\full-codegen.h"
+				>
+			</File>
+			<File
+
 				RelativePath="..\..\src\func-name-inferrer.cc"
 				>
 			</File>
@@ -545,6 +602,14 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\liveedit.cc"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\liveedit.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\log.cc"
 				>
 			</File>
@@ -601,6 +666,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\..\src\number-info.h"
+				>
+			</File>
+			<File
 				RelativePath="..\..\src\objects-debug.cc"
 				>
 				<FileConfiguration
@@ -638,6 +707,18 @@
 			</File>
 			<File
 				RelativePath="..\..\src\parser.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\profile-generator.cc"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\profile-generator.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\profile-generator-inl.h"
 				>
 			</File>
 			<File
@@ -837,14 +918,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\..\src\usage-analyzer.cc"
-				>
-			</File>
-			<File
-				RelativePath="..\..\src\usage-analyzer.h"
-				>
-			</File>
-			<File
 				RelativePath="..\..\src\utils.cc"
 				>
 			</File>
@@ -890,6 +963,10 @@
 			</File>
 			<File
 				RelativePath="..\..\src\version.h"
+				>
+			</File>
+			<File
+				RelativePath="..\..\src\virtual-frame-inl.h"
 				>
 			</File>
 			<File

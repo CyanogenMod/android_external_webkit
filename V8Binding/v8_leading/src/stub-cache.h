@@ -312,6 +312,7 @@ Object* LoadPropertyWithInterceptorForLoad(Arguments args);
 Object* LoadPropertyWithInterceptorForCall(Arguments args);
 Object* StoreInterceptorProperty(Arguments args);
 Object* CallInterceptorProperty(Arguments args);
+Object* KeyedLoadPropertyWithInterceptor(Arguments args);
 
 
 // Support function for computing call IC miss stubs.
@@ -325,8 +326,7 @@ class StubCompiler BASE_EMBEDDED {
     RECEIVER_MAP_CHECK,
     STRING_CHECK,
     NUMBER_CHECK,
-    BOOLEAN_CHECK,
-    JSARRAY_HAS_FAST_ELEMENTS_CHECK
+    BOOLEAN_CHECK
   };
 
   StubCompiler() : scope_(), masm_(NULL, 256), failure_(NULL) { }
@@ -346,6 +346,7 @@ class StubCompiler BASE_EMBEDDED {
   static void GenerateLoadGlobalFunctionPrototype(MacroAssembler* masm,
                                                   int index,
                                                   Register prototype);
+
   static void GenerateFastPropertyLoad(MacroAssembler* masm,
                                        Register dst, Register src,
                                        JSObject* holder, int index);
@@ -354,22 +355,20 @@ class StubCompiler BASE_EMBEDDED {
                                       Register receiver,
                                       Register scratch,
                                       Label* miss_label);
+
   static void GenerateLoadStringLength(MacroAssembler* masm,
                                        Register receiver,
-                                       Register scratch,
+                                       Register scratch1,
+                                       Register scratch2,
                                        Label* miss_label);
-  static void GenerateLoadStringLength2(MacroAssembler* masm,
-                                        Register receiver,
-                                        Register scratch1,
-                                        Register scratch2,
-                                        Label* miss_label);
+
   static void GenerateLoadFunctionPrototype(MacroAssembler* masm,
                                             Register receiver,
                                             Register scratch1,
                                             Register scratch2,
                                             Label* miss_label);
+
   static void GenerateStoreField(MacroAssembler* masm,
-                                 Builtins::Name storage_extend,
                                  JSObject* object,
                                  int index,
                                  Map* transition,
@@ -377,16 +376,30 @@ class StubCompiler BASE_EMBEDDED {
                                  Register name_reg,
                                  Register scratch,
                                  Label* miss_label);
+
   static void GenerateLoadMiss(MacroAssembler* masm, Code::Kind kind);
 
   // Check the integrity of the prototype chain to make sure that the
   // current IC is still valid.
+
   Register CheckPrototypes(JSObject* object,
                            Register object_reg,
                            JSObject* holder,
                            Register holder_reg,
                            Register scratch,
                            String* name,
+                           Label* miss) {
+    return CheckPrototypes(object, object_reg, holder, holder_reg, scratch,
+                           name, kInvalidProtoDepth, miss);
+  }
+
+  Register CheckPrototypes(JSObject* object,
+                           Register object_reg,
+                           JSObject* holder,
+                           Register holder_reg,
+                           Register scratch,
+                           String* name,
+                           int save_at_depth,
                            Label* miss);
 
  protected:
@@ -434,6 +447,10 @@ class StubCompiler BASE_EMBEDDED {
                                Register scratch2,
                                String* name,
                                Label* miss);
+
+  static void LookupPostInterceptor(JSObject* holder,
+                                    String* name,
+                                    LookupResult* lookup);
 
  private:
   HandleScope scope_;
@@ -531,10 +548,10 @@ class KeyedStoreStubCompiler: public StubCompiler {
 
 class CallStubCompiler: public StubCompiler {
  public:
-  explicit CallStubCompiler(int argc, InLoopFlag in_loop)
+  CallStubCompiler(int argc, InLoopFlag in_loop)
       : arguments_(argc), in_loop_(in_loop) { }
 
-  Object* CompileCallField(Object* object,
+  Object* CompileCallField(JSObject* object,
                            JSObject* holder,
                            int index,
                            String* name);
@@ -543,7 +560,7 @@ class CallStubCompiler: public StubCompiler {
                               JSFunction* function,
                               String* name,
                               CheckType check);
-  Object* CompileCallInterceptor(Object* object,
+  Object* CompileCallInterceptor(JSObject* object,
                                  JSObject* holder,
                                  String* name);
   Object* CompileCallGlobal(JSObject* object,
@@ -551,6 +568,18 @@ class CallStubCompiler: public StubCompiler {
                             JSGlobalPropertyCell* cell,
                             JSFunction* function,
                             String* name);
+
+  Object* CompileArrayPushCall(Object* object,
+                               JSObject* holder,
+                               JSFunction* function,
+                               String* name,
+                               CheckType check);
+
+  Object* CompileArrayPopCall(Object* object,
+                              JSObject* holder,
+                              JSFunction* function,
+                              String* name,
+                              CheckType check);
 
  private:
   const ParameterCount arguments_;
@@ -571,6 +600,14 @@ class ConstructStubCompiler: public StubCompiler {
  private:
   Object* GetCode();
 };
+
+
+typedef Object* (*CustomCallGenerator)(CallStubCompiler* compiler,
+                                       Object* object,
+                                       JSObject* holder,
+                                       JSFunction* function,
+                                       String* name,
+                                       StubCompiler::CheckType check);
 
 
 } }  // namespace v8::internal

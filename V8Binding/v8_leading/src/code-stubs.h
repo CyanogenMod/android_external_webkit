@@ -28,6 +28,8 @@
 #ifndef V8_CODE_STUBS_H_
 #define V8_CODE_STUBS_H_
 
+#include "globals.h"
+
 namespace v8 {
 namespace internal {
 
@@ -48,6 +50,7 @@ namespace internal {
   V(FastNewClosure)                      \
   V(FastNewContext)                      \
   V(FastCloneShallowArray)               \
+  V(TranscendentalCache)                 \
   V(GenericUnaryOp)                      \
   V(RevertToNumber)                      \
   V(ToBoolean)                           \
@@ -55,9 +58,10 @@ namespace internal {
   V(CounterOp)                           \
   V(ArgumentsAccess)                     \
   V(RegExpExec)                          \
-  V(Runtime)                             \
+  V(NumberToString)                      \
   V(CEntry)                              \
-  V(JSEntry)
+  V(JSEntry)                             \
+  V(DebuggerStatement)
 
 // List of code stubs only used on ARM platforms.
 #ifdef V8_TARGET_ARCH_ARM
@@ -100,7 +104,7 @@ class CodeStub BASE_EMBEDDED {
   static int MinorKeyFromKey(uint32_t key) {
     return MinorKeyBits::decode(key);
   };
-  static const char* MajorName(Major major_key);
+  static const char* MajorName(Major major_key, bool allow_unknown_keys);
 
   virtual ~CodeStub() {}
 
@@ -137,8 +141,16 @@ class CodeStub BASE_EMBEDDED {
   // lazily generated function should be fully optimized or not.
   virtual InLoopFlag InLoop() { return NOT_IN_LOOP; }
 
+  // GenericBinaryOpStub needs to override this.
+  virtual int GetCodeKind();
+
+  // GenericBinaryOpStub needs to override this.
+  virtual InlineCacheState GetICState() {
+    return UNINITIALIZED;
+  }
+
   // Returns a name for logging/debugging purposes.
-  virtual const char* GetName() { return MajorName(MajorKey()); }
+  virtual const char* GetName() { return MajorName(MajorKey(), false); }
 
 #ifdef DEBUG
   virtual void Print() { PrintF("%s\n", GetName()); }

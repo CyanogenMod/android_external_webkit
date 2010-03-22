@@ -261,18 +261,12 @@ static int DecodeIt(FILE* f,
             ASSERT(code->major_key() == CodeStub::MajorKeyFromKey(key));
             out.AddFormatted(" %s, %s, ",
                              Code::Kind2String(kind),
-                             CodeStub::MajorName(code->major_key()));
+                             CodeStub::MajorName(code->major_key(), false));
             switch (code->major_key()) {
               case CodeStub::CallFunction:
                 out.AddFormatted("argc = %d", minor_key);
                 break;
-              case CodeStub::Runtime: {
-                const char* name =
-                    RuntimeStub::GetNameFromMinorKey(minor_key);
-                out.AddFormatted("%s", name);
-                break;
-              }
-              default:
+            default:
                 out.AddFormatted("minor: %d", minor_key);
             }
           }

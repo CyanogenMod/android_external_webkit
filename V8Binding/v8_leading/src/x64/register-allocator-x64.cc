@@ -29,6 +29,7 @@
 
 #include "codegen-inl.h"
 #include "register-allocator-inl.h"
+#include "virtual-frame-inl.h"
 
 namespace v8 {
 namespace internal {
@@ -43,6 +44,7 @@ void Result::ToRegister() {
     ASSERT(fresh.is_valid());
     CodeGeneratorScope::Current()->masm()->Move(fresh.reg(), handle());
     // This result becomes a copy of the fresh one.
+    fresh.set_number_info(number_info());
     *this = fresh;
   }
   ASSERT(is_register());
@@ -60,6 +62,7 @@ void Result::ToRegister(Register target) {
       ASSERT(is_constant());
       CodeGeneratorScope::Current()->masm()->Move(fresh.reg(), handle());
     }
+    fresh.set_number_info(number_info());
     *this = fresh;
   } else if (is_register() && reg().is(target)) {
     ASSERT(CodeGeneratorScope::Current()->has_valid_frame());

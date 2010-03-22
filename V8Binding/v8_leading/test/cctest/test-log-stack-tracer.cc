@@ -47,10 +47,10 @@ static void InitTraceEnv(TickSample* sample) {
 
 
 static void DoTrace(Address fp) {
-  trace_env.sample->fp = reinterpret_cast<uintptr_t>(fp);
+  trace_env.sample->fp = fp;
   // sp is only used to define stack high bound
   trace_env.sample->sp =
-      reinterpret_cast<uintptr_t>(trace_env.sample) - 10240;
+      reinterpret_cast<Address>(trace_env.sample) - 10240;
   StackTracer::Trace(trace_env.sample);
 }
 
@@ -232,10 +232,12 @@ class CodeGeneratorPatcher {
  public:
   CodeGeneratorPatcher() {
     CodeGenerator::InlineRuntimeLUT genGetFramePointer =
-        {&CodeGenerator::GenerateGetFramePointer, "_GetFramePointer"};
-    // _FastCharCodeAt is not used in our tests.
+        {&CodeGenerator::GenerateGetFramePointer, "_GetFramePointer", 0};
+    // _RandomPositiveSmi is not used in our tests. The one we replace need to
+    // have the same number of arguments as the one we put in, which is zero in
+    // this case.
     bool result = CodeGenerator::PatchInlineRuntimeEntry(
-        NewString("_FastCharCodeAt"),
+        NewString("_RandomPositiveSmi"),
         genGetFramePointer, &oldInlineEntry);
     CHECK(result);
   }
@@ -315,6 +317,9 @@ TEST(PureJSStackTrace) {
       "         JSTrace();"
       "};\n"
       "OuterJSTrace();");
+  // The last JS function called.
+  CHECK_EQ(GetGlobalJSFunction("JSFuncDoTrace")->address(),
+           sample.function);
   CHECK_GT(sample.frames_count, 1);
   // Stack sampling will start from the caller of JSFuncDoTrace, i.e. "JSTrace"
   CheckRetAddrIsInJSFunction("JSTrace",

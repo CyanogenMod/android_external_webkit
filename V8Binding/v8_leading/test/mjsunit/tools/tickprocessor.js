@@ -334,7 +334,7 @@ function PrintMonitor(outputOrFileName) {
   print = function(str) {
     var strSplit = str.split('\n');
     for (var i = 0; i < strSplit.length; ++i) {
-      s = strSplit[i];
+      var s = strSplit[i];
       realOut.push(s);
       if (outputPos < expectedOut.length) {
         if (expectedOut[outputPos] != s) {
@@ -379,9 +379,7 @@ function driveTickProcessorTest(
   var tp = new TickProcessor(
       new CppEntriesProviderMock(), separateIc, ignoreUnknown, stateFilter);
   var pm = new PrintMonitor(testsPath + refOutput);
-  tp.processLogFile(testsPath + logInput);
-  // Hack file name to avoid dealing with platform specifics.
-  tp.lastLogFileName_ = 'v8.log';
+  tp.processLogFileInTest(testsPath + logInput);
   tp.printStatistics();
   pm.finish();
 };
@@ -400,7 +398,10 @@ function driveTickProcessorTest(
       'tickprocessor-test.log', 'tickprocessor-test.ignore-unknown'],
     'GcState': [
       false, false, TickProcessor.VmStates.GC,
-      'tickprocessor-test.log', 'tickprocessor-test.gc-state']
+      'tickprocessor-test.log', 'tickprocessor-test.gc-state'],
+    'FunctionInfo': [
+      false, false, null,
+      'tickprocessor-test-func-info.log', 'tickprocessor-test.func-info']
   };
   for (var testName in testData) {
     print('=== testProcessing-' + testName + ' ===');

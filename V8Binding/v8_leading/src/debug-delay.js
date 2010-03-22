@@ -1202,11 +1202,16 @@ DebugCommandProcessor.prototype.processDebugJSONRequest = function(json_request)
         throw new Error('Command not specified');
       }
 
-      // TODO(yurys): remove request.arguments.compactFormat check once
-      // ChromeDevTools are switched to 'inlineRefs'
-      if (request.arguments && (request.arguments.inlineRefs ||
-                                request.arguments.compactFormat)) {
-        response.setOption('inlineRefs', true);
+      if (request.arguments) {
+        var args = request.arguments;
+        // TODO(yurys): remove request.arguments.compactFormat check once
+        // ChromeDevTools are switched to 'inlineRefs'
+        if (args.inlineRefs || args.compactFormat) {
+          response.setOption('inlineRefs', true);
+        }
+        if (!IS_UNDEFINED(args.maxStringLength)) {
+          response.setOption('maxStringLength', args.maxStringLength);
+        }
       }
 
       if (request.command == 'continue') {
@@ -1246,7 +1251,9 @@ DebugCommandProcessor.prototype.processDebugJSONRequest = function(json_request)
       } else if (request.command == 'version') {
         this.versionRequest_(request, response);
       } else if (request.command == 'profile') {
-        this.profileRequest_(request, response);
+          this.profileRequest_(request, response);
+      } else if (request.command == 'changelive') {
+          this.changeLiveRequest_(request, response);
       } else {
         throw new Error('Unknown command "' + request.command + '" in request');
       }
@@ -1704,7 +1711,7 @@ DebugCommandProcessor.prototype.evaluateRequest_ = function(request, response) {
   if (global) {
     // Evaluate in the global context.
     response.body =
-        this.exec_state_.evaluateGlobal(expression), Boolean(disable_break);
+        this.exec_state_.evaluateGlobal(expression, Boolean(disable_break));
     return;
   }
 
@@ -1934,14 +1941,64 @@ DebugCommandProcessor.prototype.profileRequest_ = function(request, response) {
   if (isNaN(modules)) {
     return response.failed('Modules is not an integer');
   }
+  var tag = parseInt(request.arguments.tag);
+  if (isNaN(tag)) {
+    tag = 0;
+  }
   if (request.arguments.command == 'resume') {
-    %ProfilerResume(modules);
+    %ProfilerResume(modules, tag);
   } else if (request.arguments.command == 'pause') {
-    %ProfilerPause(modules);
+    %ProfilerPause(modules, tag);
   } else {
     return response.failed('Unknown command');
   }
   response.body = {};
+};
+
+
+DebugCommandProcessor.prototype.changeLiveRequest_ = function(request, response) {
+  if (!Debug.LiveEditChangeScript) {
+    return response.failed('LiveEdit feature is not supported');
+  }
+  if (!request.arguments) {
+    return response.failed('Missing arguments');
+  }
+  var script_id = request.arguments.script_id;
+  var change_pos = parseInt(request.arguments.change_pos);
+  var change_len = parseInt(request.arguments.change_len);
+  var new_string = request.arguments.new_string;
+  if (!IS_STRING(new_string)) {
+    response.failed('Argument "new_string" is not a string value');
+    return;
+  }
+  
+  var scripts = %DebugGetLoadedScripts();
+
+  var the_script = null;
+  for (var i = 0; i < scripts.length; i++) {
+    if (scripts[i].id == script_id) {
+      the_script = scripts[i];
+    }
+  }
+  if (!the_script) {
+    response.failed('Script not found');
+    return;
+  }
+  
+  var change_log = new Array();
+  try {
+    Debug.LiveEditChangeScript(the_script, change_pos, change_len, new_string,
+                               change_log);
+  } catch (e) {
+    if (e instanceof Debug.LiveEditChangeScript.Failure) {
+      // Let's treat it as a "success" so that body with change_log will be
+      // sent back. "change_log" will have "failure" field set.
+      change_log.push( { failure: true } ); 
+    } else {
+      throw e;
+    }
+  }
+  response.body = {change_log: change_log};
 };
 
 

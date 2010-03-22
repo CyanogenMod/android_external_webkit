@@ -113,56 +113,28 @@ struct Register {
     return code_ & 0x7;
   }
 
-  // (unfortunately we can't make this private in a struct when initializing
-  // by assignment.)
+  // Unfortunately we can't make this private in a struct when initializing
+  // by assignment.
   int code_;
 };
 
-extern Register rax;
-extern Register rcx;
-extern Register rdx;
-extern Register rbx;
-extern Register rsp;
-extern Register rbp;
-extern Register rsi;
-extern Register rdi;
-extern Register r8;
-extern Register r9;
-extern Register r10;
-extern Register r11;
-extern Register r12;
-extern Register r13;
-extern Register r14;
-extern Register r15;
-extern Register no_reg;
-
-
-struct MMXRegister {
-  bool is_valid() const  { return 0 <= code_ && code_ < 2; }
-  int code() const  {
-    ASSERT(is_valid());
-    return code_;
-  }
-
-  int code_;
-};
-
-extern MMXRegister mm0;
-extern MMXRegister mm1;
-extern MMXRegister mm2;
-extern MMXRegister mm3;
-extern MMXRegister mm4;
-extern MMXRegister mm5;
-extern MMXRegister mm6;
-extern MMXRegister mm7;
-extern MMXRegister mm8;
-extern MMXRegister mm9;
-extern MMXRegister mm10;
-extern MMXRegister mm11;
-extern MMXRegister mm12;
-extern MMXRegister mm13;
-extern MMXRegister mm14;
-extern MMXRegister mm15;
+const Register rax = { 0 };
+const Register rcx = { 1 };
+const Register rdx = { 2 };
+const Register rbx = { 3 };
+const Register rsp = { 4 };
+const Register rbp = { 5 };
+const Register rsi = { 6 };
+const Register rdi = { 7 };
+const Register r8 = { 8 };
+const Register r9 = { 9 };
+const Register r10 = { 10 };
+const Register r11 = { 11 };
+const Register r12 = { 12 };
+const Register r13 = { 13 };
+const Register r14 = { 14 };
+const Register r15 = { 15 };
+const Register no_reg = { -1 };
 
 
 struct XMMRegister {
@@ -186,22 +158,22 @@ struct XMMRegister {
   int code_;
 };
 
-extern XMMRegister xmm0;
-extern XMMRegister xmm1;
-extern XMMRegister xmm2;
-extern XMMRegister xmm3;
-extern XMMRegister xmm4;
-extern XMMRegister xmm5;
-extern XMMRegister xmm6;
-extern XMMRegister xmm7;
-extern XMMRegister xmm8;
-extern XMMRegister xmm9;
-extern XMMRegister xmm10;
-extern XMMRegister xmm11;
-extern XMMRegister xmm12;
-extern XMMRegister xmm13;
-extern XMMRegister xmm14;
-extern XMMRegister xmm15;
+const XMMRegister xmm0 = { 0 };
+const XMMRegister xmm1 = { 1 };
+const XMMRegister xmm2 = { 2 };
+const XMMRegister xmm3 = { 3 };
+const XMMRegister xmm4 = { 4 };
+const XMMRegister xmm5 = { 5 };
+const XMMRegister xmm6 = { 6 };
+const XMMRegister xmm7 = { 7 };
+const XMMRegister xmm8 = { 8 };
+const XMMRegister xmm9 = { 9 };
+const XMMRegister xmm10 = { 10 };
+const XMMRegister xmm11 = { 11 };
+const XMMRegister xmm12 = { 12 };
+const XMMRegister xmm13 = { 13 };
+const XMMRegister xmm14 = { 14 };
+const XMMRegister xmm15 = { 15 };
 
 enum Condition {
   // any value < 0 is considered no_condition
@@ -308,7 +280,6 @@ enum ScaleFactor {
   times_4 = 2,
   times_8 = 3,
   times_int_size = times_4,
-  times_half_pointer_size = times_4,
   times_pointer_size = times_8
 };
 
@@ -574,6 +545,13 @@ class Assembler : public Malloced {
   void movzxwq(Register dst, const Operand& src);
   void movzxwl(Register dst, const Operand& src);
 
+  // Repeated moves.
+
+  void repmovsb();
+  void repmovsw();
+  void repmovsl();
+  void repmovsq();
+
   // New x64 instruction to load from an immediate 64-bit pointer into RAX.
   void load_rax(void* ptr, RelocInfo::Mode rmode);
   void load_rax(ExternalReference ext);
@@ -738,6 +716,9 @@ class Assembler : public Malloced {
     arithmetic_op_32(0x23, dst, src);
   }
 
+  void andb(Register dst, Immediate src) {
+    immediate_arithmetic_op_8(0x4, dst, src);
+  }
 
   void decq(Register dst);
   void decq(const Operand& dst);
@@ -761,14 +742,16 @@ class Assembler : public Malloced {
   void imul(Register dst, Register src);                 // dst = dst * src.
   void imul(Register dst, const Operand& src);           // dst = dst * src.
   void imul(Register dst, Register src, Immediate imm);  // dst = src * imm.
-  // Multiply 32 bit registers
-  void imull(Register dst, Register src);                // dst = dst * src.
+  // Signed 32-bit multiply instructions.
+  void imull(Register dst, Register src);                 // dst = dst * src.
+  void imull(Register dst, Register src, Immediate imm);  // dst = src * imm.
 
   void incq(Register dst);
   void incq(const Operand& dst);
   void incl(const Operand& dst);
 
   void lea(Register dst, const Operand& src);
+  void leal(Register dst, const Operand& src);
 
   // Multiply rax by src, put the result in rdx:rax.
   void mul(Register src);
@@ -779,6 +762,7 @@ class Assembler : public Malloced {
 
   void not_(Register dst);
   void not_(const Operand& dst);
+  void notl(Register dst);
 
   void or_(Register dst, Register src) {
     arithmetic_op(0x0B, dst, src);
@@ -916,6 +900,10 @@ class Assembler : public Malloced {
     arithmetic_op_32(0x2B, dst, src);
   }
 
+  void subl(Register dst, const Operand& src) {
+    arithmetic_op_32(0x2B, dst, src);
+  }
+
   void subl(const Operand& dst, Immediate src) {
     immediate_arithmetic_op_32(0x5, dst, src);
   }
@@ -931,6 +919,7 @@ class Assembler : public Malloced {
   void testb(Register dst, Register src);
   void testb(Register reg, Immediate mask);
   void testb(const Operand& op, Immediate mask);
+  void testb(const Operand& op, Register reg);
   void testl(Register dst, Register src);
   void testl(Register reg, Immediate mask);
   void testl(const Operand& op, Immediate mask);
@@ -1047,6 +1036,7 @@ class Assembler : public Malloced {
   void fistp_d(const Operand& adr);
 
   void fisttp_s(const Operand& adr);
+  void fisttp_d(const Operand& adr);
 
   void fabs();
   void fchs();
@@ -1106,6 +1096,10 @@ class Assembler : public Malloced {
   void mulsd(XMMRegister dst, XMMRegister src);
   void divsd(XMMRegister dst, XMMRegister src);
 
+  void xorpd(XMMRegister dst, XMMRegister src);
+
+  void comisd(XMMRegister dst, XMMRegister src);
+  void ucomisd(XMMRegister dst, XMMRegister src);
 
   void emit_sse_operand(XMMRegister dst, XMMRegister src);
   void emit_sse_operand(XMMRegister reg, const Operand& adr);
@@ -1151,14 +1145,6 @@ class Assembler : public Malloced {
   // Avoid overflows for displacements etc.
   static const int kMaximalBufferSize = 512*MB;
   static const int kMinimalBufferSize = 4*KB;
-
- protected:
-  // void movsd(XMMRegister dst, const Operand& src);
-  // void movsd(const Operand& dst, XMMRegister src);
-
-  // void emit_sse_operand(XMMRegister reg, const Operand& adr);
-  // void emit_sse_operand(XMMRegister dst, XMMRegister src);
-
 
  private:
   byte* addr_at(int pos)  { return buffer_ + pos; }

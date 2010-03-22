@@ -155,6 +155,13 @@ void StackTracer::Trace(TickSample* sample) {
     return;
   }
 
+  const Address functionAddr =
+      sample->fp + JavaScriptFrameConstants::kFunctionOffset;
+  if (SafeStackFrameIterator::IsWithinBounds(sample->sp, js_entry_sp,
+                                             functionAddr)) {
+    sample->function = Memory::Address_at(functionAddr) - kHeapObjectTag;
+  }
+
   int i = 0;
   const Address callback = Logger::current_state_ != NULL ?
       Logger::current_state_->external_callback() : NULL;
@@ -162,11 +169,8 @@ void StackTracer::Trace(TickSample* sample) {
     sample->stack[i++] = callback;
   }
 
-  SafeStackTraceFrameIterator it(
-      reinterpret_cast<Address>(sample->fp),
-      reinterpret_cast<Address>(sample->sp),
-      reinterpret_cast<Address>(sample->sp),
-      js_entry_sp);
+  SafeStackTraceFrameIterator it(sample->fp, sample->sp,
+                                 sample->sp, js_entry_sp);
   while (!it.done() && i < TickSample::kMaxFramesCount) {
     sample->stack[i++] = it.frame()->pc();
     it.Advance();
@@ -325,7 +329,9 @@ VMState Logger::bottom_state_(EXTERNAL);
 SlidingStateWindow* Logger::sliding_state_window_ = NULL;
 const char** Logger::log_events_ = NULL;
 CompressionHelper* Logger::compression_helper_ = NULL;
-bool Logger::is_logging_ = false;
+int Logger::logging_nesting_ = 0;
+int Logger::cpu_profiler_nesting_ = 0;
+int Logger::heap_profiler_nesting_ = 0;
 
 #define DECLARE_LONG_EVENT(ignore1, long_name, ignore2) long_name,
 const char* kLongLogEventsNames[Logger::NUMBER_OF_LOG_EVENTS] = {
@@ -364,15 +370,6 @@ void Logger::LogAliases() {
 #endif  // ENABLE_LOGGING_AND_PROFILING
 
 
-void Logger::Preamble(const char* content) {
-#ifdef ENABLE_LOGGING_AND_PROFILING
-  if (!Log::IsEnabled() || !FLAG_log_code) return;
-  LogMessageBuilder msg;
-  msg.WriteCStringToLogFile(content);
-#endif
-}
-
-
 void Logger::StringEvent(const char* name, const char* value) {
 #ifdef ENABLE_LOGGING_AND_PROFILING
   if (FLAG_log) UncheckedStringEvent(name, value);
@@ -392,12 +389,19 @@ void Logger::UncheckedStringEvent(const char* name, const char* value) {
 
 void Logger::IntEvent(const char* name, int value) {
 #ifdef ENABLE_LOGGING_AND_PROFILING
-  if (!Log::IsEnabled() || !FLAG_log) return;
+  if (FLAG_log) UncheckedIntEvent(name, value);
+#endif
+}
+
+
+#ifdef ENABLE_LOGGING_AND_PROFILING
+void Logger::UncheckedIntEvent(const char* name, int value) {
+  if (!Log::IsEnabled()) return;
   LogMessageBuilder msg;
   msg.Append("%s,%d\n", name, value);
   msg.WriteToLogFile();
-#endif
 }
+#endif
 
 
 void Logger::HandleEvent(const char* name, Object** location) {
@@ -837,10 +841,77 @@ void Logger::RegExpCodeCreateEvent(Code* code, String* source) {
 
 void Logger::CodeMoveEvent(Address from, Address to) {
 #ifdef ENABLE_LOGGING_AND_PROFILING
+  MoveEventInternal(CODE_MOVE_EVENT, from, to);
+#endif
+}
+
+
+void Logger::CodeDeleteEvent(Address from) {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  DeleteEventInternal(CODE_DELETE_EVENT, from);
+#endif
+}
+
+
+void Logger::SnapshotPositionEvent(Address addr, int pos) {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  if (!Log::IsEnabled() || !FLAG_log_snapshot_positions) return;
+  LogMessageBuilder msg;
+  msg.Append("%s,", log_events_[SNAPSHOT_POSITION_EVENT]);
+  msg.AppendAddress(addr);
+  msg.Append(",%d", pos);
+  if (FLAG_compress_log) {
+    ASSERT(compression_helper_ != NULL);
+    if (!compression_helper_->HandleMessage(&msg)) return;
+  }
+  msg.Append('\n');
+  msg.WriteToLogFile();
+#endif
+}
+
+
+void Logger::FunctionCreateEvent(JSFunction* function) {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  static Address prev_code = NULL;
+  if (!Log::IsEnabled() || !FLAG_log_code) return;
+  LogMessageBuilder msg;
+  msg.Append("%s,", log_events_[FUNCTION_CREATION_EVENT]);
+  msg.AppendAddress(function->address());
+  msg.Append(',');
+  msg.AppendAddress(function->code()->address(), prev_code);
+  prev_code = function->code()->address();
+  if (FLAG_compress_log) {
+    ASSERT(compression_helper_ != NULL);
+    if (!compression_helper_->HandleMessage(&msg)) return;
+  }
+  msg.Append('\n');
+  msg.WriteToLogFile();
+#endif
+}
+
+
+void Logger::FunctionMoveEvent(Address from, Address to) {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  MoveEventInternal(FUNCTION_MOVE_EVENT, from, to);
+#endif
+}
+
+
+void Logger::FunctionDeleteEvent(Address from) {
+#ifdef ENABLE_LOGGING_AND_PROFILING
+  DeleteEventInternal(FUNCTION_DELETE_EVENT, from);
+#endif
+}
+
+
+#ifdef ENABLE_LOGGING_AND_PROFILING
+void Logger::MoveEventInternal(LogEventsAndTags event,
+                               Address from,
+                               Address to) {
   static Address prev_to_ = NULL;
   if (!Log::IsEnabled() || !FLAG_log_code) return;
   LogMessageBuilder msg;
-  msg.Append("%s,", log_events_[CODE_MOVE_EVENT]);
+  msg.Append("%s,", log_events_[event]);
   msg.AppendAddress(from);
   msg.Append(',');
   msg.AppendAddress(to, prev_to_);
@@ -851,15 +922,15 @@ void Logger::CodeMoveEvent(Address from, Address to) {
   }
   msg.Append('\n');
   msg.WriteToLogFile();
-#endif
 }
+#endif
 
 
-void Logger::CodeDeleteEvent(Address from) {
 #ifdef ENABLE_LOGGING_AND_PROFILING
+void Logger::DeleteEventInternal(LogEventsAndTags event, Address from) {
   if (!Log::IsEnabled() || !FLAG_log_code) return;
   LogMessageBuilder msg;
-  msg.Append("%s,", log_events_[CODE_DELETE_EVENT]);
+  msg.Append("%s,", log_events_[event]);
   msg.AppendAddress(from);
   if (FLAG_compress_log) {
     ASSERT(compression_helper_ != NULL);
@@ -867,8 +938,8 @@ void Logger::CodeDeleteEvent(Address from) {
   }
   msg.Append('\n');
   msg.WriteToLogFile();
-#endif
 }
+#endif
 
 
 void Logger::ResourceEvent(const char* name, const char* tag) {
@@ -1052,13 +1123,17 @@ void Logger::DebugEvent(const char* event_type, Vector<uint16_t> parameter) {
 void Logger::TickEvent(TickSample* sample, bool overflow) {
   if (!Log::IsEnabled() || !FLAG_prof) return;
   static Address prev_sp = NULL;
+  static Address prev_function = NULL;
   LogMessageBuilder msg;
   msg.Append("%s,", log_events_[TICK_EVENT]);
-  Address prev_addr = reinterpret_cast<Address>(sample->pc);
+  Address prev_addr = sample->pc;
   msg.AppendAddress(prev_addr);
   msg.Append(',');
-  msg.AppendAddress(reinterpret_cast<Address>(sample->sp), prev_sp);
-  prev_sp = reinterpret_cast<Address>(sample->sp);
+  msg.AppendAddress(sample->sp, prev_sp);
+  prev_sp = sample->sp;
+  msg.Append(',');
+  msg.AppendAddress(sample->function, prev_function);
+  prev_function = sample->function;
   msg.Append(",%d", static_cast<int>(sample->state));
   if (overflow) {
     msg.Append(",overflow");
@@ -1089,52 +1164,60 @@ int Logger::GetActiveProfilerModules() {
 }
 
 
-void Logger::PauseProfiler(int flags) {
+void Logger::PauseProfiler(int flags, int tag) {
   if (!Log::IsEnabled()) return;
-  const int active_modules = GetActiveProfilerModules();
-  const int modules_to_disable = active_modules & flags;
-  if (modules_to_disable == PROFILER_MODULE_NONE) return;
-
-  if (modules_to_disable & PROFILER_MODULE_CPU) {
-    profiler_->pause();
-    if (FLAG_prof_lazy) {
-      if (!FLAG_sliding_state_window) ticker_->Stop();
-      FLAG_log_code = false;
-      // Must be the same message as Log::kDynamicBufferSeal.
-      LOG(UncheckedStringEvent("profiler", "pause"));
+  if (flags & PROFILER_MODULE_CPU) {
+    // It is OK to have negative nesting.
+    if (--cpu_profiler_nesting_ == 0) {
+      profiler_->pause();
+      if (FLAG_prof_lazy) {
+        if (!FLAG_sliding_state_window) ticker_->Stop();
+        FLAG_log_code = false;
+        // Must be the same message as Log::kDynamicBufferSeal.
+        LOG(UncheckedStringEvent("profiler", "pause"));
+      }
+      --logging_nesting_;
     }
   }
-  if (modules_to_disable &
+  if (flags &
       (PROFILER_MODULE_HEAP_STATS | PROFILER_MODULE_JS_CONSTRUCTORS)) {
-    FLAG_log_gc = false;
+    if (--heap_profiler_nesting_ == 0) {
+      FLAG_log_gc = false;
+      --logging_nesting_;
+    }
   }
-  // Turn off logging if no active modules remain.
-  if ((active_modules & ~flags) == PROFILER_MODULE_NONE) {
-    is_logging_ = false;
+  if (tag != 0) {
+    UncheckedIntEvent("close-tag", tag);
   }
 }
 
 
-void Logger::ResumeProfiler(int flags) {
+void Logger::ResumeProfiler(int flags, int tag) {
   if (!Log::IsEnabled()) return;
-  const int modules_to_enable = ~GetActiveProfilerModules() & flags;
-  if (modules_to_enable != PROFILER_MODULE_NONE) {
-    is_logging_ = true;
+  if (tag != 0) {
+    UncheckedIntEvent("open-tag", tag);
   }
-  if (modules_to_enable & PROFILER_MODULE_CPU) {
-    if (FLAG_prof_lazy) {
-      profiler_->Engage();
-      LOG(UncheckedStringEvent("profiler", "resume"));
-      FLAG_log_code = true;
-      LogCompiledFunctions();
-      LogAccessorCallbacks();
-      if (!FLAG_sliding_state_window) ticker_->Start();
+  if (flags & PROFILER_MODULE_CPU) {
+    if (cpu_profiler_nesting_++ == 0) {
+      ++logging_nesting_;
+      if (FLAG_prof_lazy) {
+        profiler_->Engage();
+        LOG(UncheckedStringEvent("profiler", "resume"));
+        FLAG_log_code = true;
+        LogCompiledFunctions();
+        LogFunctionObjects();
+        LogAccessorCallbacks();
+        if (!FLAG_sliding_state_window) ticker_->Start();
+      }
+      profiler_->resume();
     }
-    profiler_->resume();
   }
-  if (modules_to_enable &
+  if (flags &
       (PROFILER_MODULE_HEAP_STATS | PROFILER_MODULE_JS_CONSTRUCTORS)) {
-    FLAG_log_gc = true;
+    if (heap_profiler_nesting_++ == 0) {
+      ++logging_nesting_;
+      FLAG_log_gc = true;
+    }
   }
 }
 
@@ -1143,7 +1226,7 @@ void Logger::ResumeProfiler(int flags) {
 // either from main or Profiler's thread.
 void Logger::StopLoggingAndProfiling() {
   Log::stop();
-  PauseProfiler(PROFILER_MODULE_CPU);
+  PauseProfiler(PROFILER_MODULE_CPU, 0);
 }
 
 
@@ -1161,9 +1244,7 @@ static int EnumerateCompiledFunctions(Handle<SharedFunctionInfo>* sfis) {
   AssertNoAllocation no_alloc;
   int compiled_funcs_count = 0;
   HeapIterator iterator;
-  while (iterator.has_next()) {
-    HeapObject* obj = iterator.next();
-    ASSERT(obj != NULL);
+  for (HeapObject* obj = iterator.next(); obj != NULL; obj = iterator.next()) {
     if (!obj->IsSharedFunctionInfo()) continue;
     SharedFunctionInfo* sfi = SharedFunctionInfo::cast(obj);
     if (sfi->is_compiled()
@@ -1186,8 +1267,12 @@ void Logger::LogCodeObject(Object* object) {
     switch (code_object->kind()) {
       case Code::FUNCTION:
         return;  // We log this later using LogCompiledFunctions.
+      case Code::BINARY_OP_IC:
+        // fall through
       case Code::STUB:
-        description = CodeStub::MajorName(code_object->major_key());
+        description = CodeStub::MajorName(code_object->major_key(), true);
+        if (description == NULL)
+          description = "A stub from the snapshot";
         tag = Logger::STUB_TAG;
         break;
       case Code::BUILTIN:
@@ -1216,6 +1301,15 @@ void Logger::LogCodeObject(Object* object) {
         break;
     }
     LOG(CodeCreateEvent(tag, code_object, description));
+  }
+}
+
+
+void Logger::LogCodeObjects() {
+  AssertNoAllocation no_alloc;
+  HeapIterator iterator;
+  for (HeapObject* obj = iterator.next(); obj != NULL; obj = iterator.next()) {
+    if (obj->IsCode()) LogCodeObject(obj);
   }
 }
 
@@ -1252,10 +1346,9 @@ void Logger::LogCompiledFunctions() {
         LOG(CodeCreateEvent(
             Logger::LAZY_COMPILE_TAG, shared->code(), *func_name));
       }
-    } else if (shared->function_data()->IsFunctionTemplateInfo()) {
+    } else if (shared->IsApiFunction()) {
       // API function.
-      FunctionTemplateInfo* fun_data =
-          FunctionTemplateInfo::cast(shared->function_data());
+      FunctionTemplateInfo* fun_data = shared->get_api_func_data();
       Object* raw_call_data = fun_data->call_code();
       if (!raw_call_data->IsUndefined()) {
         CallHandlerInfo* call_data = CallHandlerInfo::cast(raw_call_data);
@@ -1273,12 +1366,22 @@ void Logger::LogCompiledFunctions() {
 }
 
 
+void Logger::LogFunctionObjects() {
+  AssertNoAllocation no_alloc;
+  HeapIterator iterator;
+  for (HeapObject* obj = iterator.next(); obj != NULL; obj = iterator.next()) {
+    if (!obj->IsJSFunction()) continue;
+    JSFunction* jsf = JSFunction::cast(obj);
+    if (!jsf->is_compiled()) continue;
+    LOG(FunctionCreateEvent(jsf));
+  }
+}
+
+
 void Logger::LogAccessorCallbacks() {
   AssertNoAllocation no_alloc;
   HeapIterator iterator;
-  while (iterator.has_next()) {
-    HeapObject* obj = iterator.next();
-    ASSERT(obj != NULL);
+  for (HeapObject* obj = iterator.next(); obj != NULL; obj = iterator.next()) {
     if (!obj->IsAccessorInfo()) continue;
     AccessorInfo* ai = AccessorInfo::cast(obj);
     if (!ai->name()->IsString()) continue;
@@ -1386,14 +1489,16 @@ bool Logger::Setup() {
     compression_helper_ = new CompressionHelper(kCompressionWindowSize);
   }
 
-  is_logging_ = start_logging;
+  if (start_logging) {
+    logging_nesting_ = 1;
+  }
 
   if (FLAG_prof) {
     profiler_ = new Profiler();
     if (!FLAG_prof_auto) {
       profiler_->pause();
     } else {
-      is_logging_ = true;
+      logging_nesting_ = 1;
     }
     if (!FLAG_prof_lazy) {
       profiler_->Engage();

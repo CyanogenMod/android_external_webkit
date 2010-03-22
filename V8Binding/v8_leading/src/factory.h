@@ -30,11 +30,12 @@
 
 #include "globals.h"
 #include "heap.h"
-#include "zone-inl.h"
 
 namespace v8 {
 namespace internal {
 
+// Forward declarations.
+class ZoneScopeInfo;
 
 // Interface for handle based allocation.
 
@@ -229,6 +230,9 @@ class Factory : public AllStatic {
 
   static Handle<Code> CopyCode(Handle<Code> code);
 
+  static Handle<Code> CopyCode(Handle<Code> code, Vector<byte> reloc_info);
+
+  static Handle<Object> ToObject(Handle<Object> object);
   static Handle<Object> ToObject(Handle<Object> object,
                                  Handle<Context> global_context);
 
@@ -315,7 +319,7 @@ class Factory : public AllStatic {
 
 #define ROOT_ACCESSOR(type, name, camel_name)                                  \
   static inline Handle<type> name() {                                          \
-    return Handle<type>(bit_cast<type**, Object**>(                            \
+    return Handle<type>(BitCast<type**, Object**>(                             \
         &Heap::roots_[Heap::k##camel_name##RootIndex]));                       \
   }
   ROOT_LIST(ROOT_ACCESSOR)
@@ -323,7 +327,7 @@ class Factory : public AllStatic {
 
 #define SYMBOL_ACCESSOR(name, str) \
   static inline Handle<String> name() {                                        \
-    return Handle<String>(bit_cast<String**, Object**>(                        \
+    return Handle<String>(BitCast<String**, Object**>(                         \
         &Heap::roots_[Heap::k##name##RootIndex]));                             \
   }
   SYMBOL_LIST(SYMBOL_ACCESSOR)

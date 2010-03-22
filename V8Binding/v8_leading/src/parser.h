@@ -133,7 +133,8 @@ class ScriptDataImpl : public ScriptData {
 FunctionLiteral* MakeAST(bool compile_in_global_context,
                          Handle<Script> script,
                          v8::Extension* extension,
-                         ScriptDataImpl* pre_data);
+                         ScriptDataImpl* pre_data,
+                         bool is_json = false);
 
 
 ScriptDataImpl* PreParse(Handle<String> source,
@@ -167,7 +168,8 @@ FunctionLiteral* MakeLazyAST(Handle<Script> script,
 class CompileTimeValue: public AllStatic {
  public:
   enum Type {
-    OBJECT_LITERAL,
+    OBJECT_LITERAL_FAST_ELEMENTS,
+    OBJECT_LITERAL_SLOW_ELEMENTS,
     ARRAY_LITERAL
   };
 

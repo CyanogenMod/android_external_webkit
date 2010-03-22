@@ -84,32 +84,34 @@ class UTF8Buffer {
 };
 
 
+// Interface through which the scanner reads characters from the input source.
 class UTF16Buffer {
  public:
   UTF16Buffer();
   virtual ~UTF16Buffer() {}
 
   virtual void PushBack(uc32 ch) = 0;
-  // returns a value < 0 when the buffer end is reached
+  // Returns a value < 0 when the buffer end is reached.
   virtual uc32 Advance() = 0;
   virtual void SeekForward(int pos) = 0;
 
   int pos() const { return pos_; }
-  int size() const { return size_; }
-  Handle<String> SubString(int start, int end);
 
  protected:
-  Handle<String> data_;
-  int pos_;
-  int size_;
+  int pos_;  // Current position in the buffer.
+  int end_;  // Position where scanning should stop (EOF).
 };
 
 
+// UTF16 buffer to read characters from a character stream.
 class CharacterStreamUTF16Buffer: public UTF16Buffer {
  public:
   CharacterStreamUTF16Buffer();
   virtual ~CharacterStreamUTF16Buffer() {}
-  void Initialize(Handle<String> data, unibrow::CharacterStream* stream);
+  void Initialize(Handle<String> data,
+                  unibrow::CharacterStream* stream,
+                  int start_position,
+                  int end_position);
   virtual void PushBack(uc32 ch);
   virtual uc32 Advance();
   virtual void SeekForward(int pos);
@@ -123,17 +125,21 @@ class CharacterStreamUTF16Buffer: public UTF16Buffer {
 };
 
 
-class TwoByteStringUTF16Buffer: public UTF16Buffer {
+// UTF16 buffer to read characters from an external string.
+template <typename StringType, typename CharType>
+class ExternalStringUTF16Buffer: public UTF16Buffer {
  public:
-  TwoByteStringUTF16Buffer();
-  virtual ~TwoByteStringUTF16Buffer() {}
-  void Initialize(Handle<ExternalTwoByteString> data);
+  ExternalStringUTF16Buffer();
+  virtual ~ExternalStringUTF16Buffer() {}
+  void Initialize(Handle<StringType> data,
+                  int start_position,
+                  int end_position);
   virtual void PushBack(uc32 ch);
   virtual uc32 Advance();
   virtual void SeekForward(int pos);
 
  private:
-  const uint16_t* raw_data_;
+  const CharType* raw_data_;  // Pointer to the actual array of characters.
 };
 
 
@@ -252,18 +258,26 @@ class KeywordMatcher {
 };
 
 
+enum ParserMode { PARSE, PREPARSE };
+enum ParserLanguage { JAVASCRIPT, JSON };
+
+
 class Scanner {
  public:
-
   typedef unibrow::Utf8InputBuffer<1024> Utf8Decoder;
 
   // Construction
-  explicit Scanner(bool is_pre_parsing);
+  explicit Scanner(ParserMode parse_mode);
 
-  // Initialize the Scanner to scan source:
-  void Init(Handle<String> source,
-            unibrow::CharacterStream* stream,
-            int position);
+  // Initialize the Scanner to scan source.
+  void Initialize(Handle<String> source,
+                  ParserLanguage language);
+  void Initialize(Handle<String> source,
+                  unibrow::CharacterStream* stream,
+                  ParserLanguage language);
+  void Initialize(Handle<String> source,
+                  int start_position, int end_position,
+                  ParserLanguage language);
 
   // Returns the next token.
   Token::Value Next();
@@ -331,7 +345,6 @@ class Scanner {
   // tokens, which is what it is used for.
   void SeekForward(int pos);
 
-  Handle<String> SubString(int start_pos, int end_pos);
   bool stack_overflow() { return stack_overflow_; }
 
   static StaticResource<Utf8Decoder>* utf8_decoder() { return &utf8_decoder_; }
@@ -346,14 +359,28 @@ class Scanner {
   static unibrow::Predicate<unibrow::WhiteSpace, 128> kIsWhiteSpace;
 
   static const int kCharacterLookaheadBufferSize = 1;
+  static const int kNoEndPosition = 1;
 
  private:
-  CharacterStreamUTF16Buffer char_stream_buffer_;
-  TwoByteStringUTF16Buffer two_byte_string_buffer_;
+  void Init(Handle<String> source,
+            unibrow::CharacterStream* stream,
+            int start_position, int end_position,
+            ParserLanguage language);
 
-  // Source.
+
+  // Different UTF16 buffers used to pull characters from. Based on input one of
+  // these will be initialized as the actual data source.
+  CharacterStreamUTF16Buffer char_stream_buffer_;
+  ExternalStringUTF16Buffer<ExternalTwoByteString, uint16_t>
+      two_byte_string_buffer_;
+  ExternalStringUTF16Buffer<ExternalAsciiString, char> ascii_string_buffer_;
+
+  // Source. Will point to one of the buffers declared above.
   UTF16Buffer* source_;
-  int position_;
+
+  // Used to convert the source string into a character stream when a stream
+  // is not passed to the scanner.
+  SafeStringInputBuffer safe_string_input_buffer_;
 
   // Buffer to hold literal values (identifiers, strings, numbers)
   // using 0-terminated UTF-8 encoding.
@@ -377,6 +404,7 @@ class Scanner {
   TokenDesc next_;     // desc for next token (one token look-ahead)
   bool has_line_terminator_before_next_;
   bool is_pre_parsing_;
+  bool is_parsing_json_;
 
   // Literal buffer support
   void StartLiteral();
@@ -391,14 +419,57 @@ class Scanner {
     c0_ = ch;
   }
 
-  bool SkipWhiteSpace();
+  bool SkipWhiteSpace() {
+    if (is_parsing_json_) {
+      return SkipJsonWhiteSpace();
+    } else {
+      return SkipJavaScriptWhiteSpace();
+    }
+  }
+  bool SkipJavaScriptWhiteSpace();
+  bool SkipJsonWhiteSpace();
   Token::Value SkipSingleLineComment();
   Token::Value SkipMultiLineComment();
 
   inline Token::Value Select(Token::Value tok);
   inline Token::Value Select(uc32 next, Token::Value then, Token::Value else_);
 
-  void Scan();
+  inline void Scan() {
+    if (is_parsing_json_) {
+      ScanJson();
+    } else {
+      ScanJavaScript();
+    }
+  }
+
+  // Scans a single JavaScript token.
+  void ScanJavaScript();
+
+  // Scan a single JSON token. The JSON lexical grammar is specified in the
+  // ECMAScript 5 standard, section 15.12.1.1.
+  // Recognizes all of the single-character tokens directly, or calls a function
+  // to scan a number, string or identifier literal.
+  // The only allowed whitespace characters between tokens are tab,
+  // carrige-return, newline and space.
+  void ScanJson();
+
+  // A JSON number (production JSONNumber) is a subset of the valid JavaScript
+  // decimal number literals.
+  // It includes an optional minus sign, must have at least one
+  // digit before and after a decimal point, may not have prefixed zeros (unless
+  // the integer part is zero), and may include an exponent part (e.g., "e-10").
+  // Hexadecimal and octal numbers are not allowed.
+  Token::Value ScanJsonNumber();
+  // A JSON string (production JSONString) is subset of valid JavaScript string
+  // literals. The string must only be double-quoted (not single-quoted), and
+  // the only allowed backslash-escapes are ", /, \, b, f, n, r, t and
+  // four-digit hex escapes (uXXXX). Any other use of backslashes is invalid.
+  Token::Value ScanJsonString();
+  // Used to recognizes one of the literals "true", "false", or "null". These
+  // are the only valid JSON identifiers (productions JSONBooleanLiteral,
+  // JSONNullLiteral).
+  Token::Value ScanJsonIdentifier(const char* text, Token::Value token);
+
   void ScanDecimalDigits();
   Token::Value ScanNumber(bool seen_period);
   Token::Value ScanIdentifier();
@@ -412,7 +483,7 @@ class Scanner {
 
   // Return the current source position.
   int source_pos() {
-    return source_->pos() - kCharacterLookaheadBufferSize + position_;
+    return source_->pos() - kCharacterLookaheadBufferSize;
   }
 
   // Decodes a unicode escape-sequence which is part of an identifier.

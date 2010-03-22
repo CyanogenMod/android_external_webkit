@@ -43,7 +43,7 @@ bool V8::has_been_setup_ = false;
 bool V8::has_been_disposed_ = false;
 bool V8::has_fatal_error_ = false;
 
-bool V8::Initialize(Deserializer *des) {
+bool V8::Initialize(Deserializer* des) {
   bool create_heap_objects = des == NULL;
   if (has_been_disposed_ || has_fatal_error_) return false;
   if (IsRunning()) return true;
@@ -114,8 +114,11 @@ bool V8::Initialize(Deserializer *des) {
 
   OProfileAgent::Initialize();
 
-  if (FLAG_log_code) {
+  // If we are deserializing, log non-function code objects and compiled
+  // functions found in the snapshot.
+  if (des != NULL && FLAG_log_code) {
     HandleScope scope;
+    LOG(LogCodeObjects());
     LOG(LogCompiledFunctions());
   }
 

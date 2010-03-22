@@ -114,6 +114,10 @@ static ByteMnemonic zero_operands_instr[] = {
   { 0x9E, UNSET_OP_ORDER, "sahf" },
   { 0x99, UNSET_OP_ORDER, "cdq" },
   { 0x9B, UNSET_OP_ORDER, "fwait" },
+  { 0xA4, UNSET_OP_ORDER, "movs" },
+  { 0xA5, UNSET_OP_ORDER, "movs" },
+  { 0xA6, UNSET_OP_ORDER, "cmps" },
+  { 0xA7, UNSET_OP_ORDER, "cmps" },
   { -1, UNSET_OP_ORDER, "" }
 };
 
@@ -154,6 +158,16 @@ enum InstructionType {
   MOVE_REG_INSTR,
   CALL_JUMP_INSTR,
   SHORT_IMMEDIATE_INSTR
+};
+
+
+enum Prefixes {
+  ESCAPE_PREFIX = 0x0F,
+  OPERAND_SIZE_OVERRIDE_PREFIX = 0x66,
+  ADDRESS_SIZE_OVERRIDE_PREFIX = 0x67,
+  REPNE_PREFIX = 0xF2,
+  REP_PREFIX = 0xF3,
+  REPEQ_PREFIX = REP_PREFIX
 };
 
 
@@ -979,56 +993,22 @@ int DisassemblerX64::TwoByteOpcodeInstruction(byte* data) {
   byte* current = data + 2;
   // At return, "current" points to the start of the next instruction.
   const char* mnemonic = TwoByteMnemonic(opcode);
-  if (opcode == 0x1F) {
-    // NOP
+  if (operand_size_ == 0x66) {
+    // 0x66 0x0F prefix.
     int mod, regop, rm;
     get_modrm(*current, &mod, &regop, &rm);
-    current++;
-    if (regop == 4) {  // SIB byte present.
-      current++;
-    }
-    if (mod == 1) {  // Byte displacement.
-      current += 1;
-    } else if (mod == 2) {  // 32-bit displacement.
-      current += 4;
-    }  // else no immediate displacement.
-    AppendToBuffer("nop");
-
-  } else  if (opcode == 0xA2 || opcode == 0x31) {
-    // RDTSC or CPUID
-    AppendToBuffer("%s", mnemonic);
-
-  } else if ((opcode & 0xF0) == 0x40) {
-    // CMOVcc: conditional move.
-    int condition = opcode & 0x0F;
-    const InstructionDesc& idesc = cmov_instructions[condition];
-    byte_size_operand_ = idesc.byte_size_operation;
-    current += PrintOperands(idesc.mnem, idesc.op_order_, current);
-
-  } else if ((opcode & 0xF0) == 0x80) {
-    // Jcc: Conditional jump (branch).
-    current = data + JumpConditional(data);
-
-  } else if (opcode == 0xBE || opcode == 0xBF || opcode == 0xB6 ||
-             opcode == 0xB7 || opcode == 0xAF) {
-    // Size-extending moves, IMUL.
-    current += PrintOperands(mnemonic, REG_OPER_OP_ORDER, current);
-
-  } else if ((opcode & 0xF0) == 0x90) {
-    // SETcc: Set byte on condition. Needs pointer to beginning of instruction.
-    current = data + SetCC(data);
-
-  } else if (opcode == 0xAB || opcode == 0xA5 || opcode == 0xAD) {
-    // SHLD, SHRD (double-precision shift), BTS (bit set).
-    AppendToBuffer("%s ", mnemonic);
-    int mod, regop, rm;
-    get_modrm(*current, &mod, &regop, &rm);
-    current += PrintRightOperand(current);
-    if (opcode == 0xAB) {
-      AppendToBuffer(",%s", NameOfCPURegister(regop));
+    const char* mnemonic = "?";
+    if (opcode == 0x57) {
+      mnemonic = "xorpd";
+    } else if (opcode == 0x2E) {
+      mnemonic = "comisd";
+    } else if (opcode == 0x2F) {
+      mnemonic = "ucomisd";
     } else {
-      AppendToBuffer(",%s,cl", NameOfCPURegister(regop));
+      UnimplementedInstruction();
     }
+    AppendToBuffer("%s %s,", mnemonic, NameOfXMMRegister(regop));
+    current += PrintRightXMMOperand(current);
   } else if (group_1_prefix_ == 0xF2) {
     // Beginning of instructions with prefix 0xF2.
 
@@ -1066,6 +1046,55 @@ int DisassemblerX64::TwoByteOpcodeInstruction(byte* data) {
     // Assert that mod is not 3, so source is memory, not an XMM register.
     ASSERT_NE(0xC0, *current & 0xC0);
     current += PrintOperands("cvttss2si", REG_OPER_OP_ORDER, current);
+  } else if (opcode == 0x1F) {
+    // NOP
+    int mod, regop, rm;
+    get_modrm(*current, &mod, &regop, &rm);
+    current++;
+    if (regop == 4) {  // SIB byte present.
+      current++;
+    }
+    if (mod == 1) {  // Byte displacement.
+      current += 1;
+    } else if (mod == 2) {  // 32-bit displacement.
+      current += 4;
+    }  // else no immediate displacement.
+    AppendToBuffer("nop");
+  } else if (opcode == 0xA2 || opcode == 0x31) {
+    // RDTSC or CPUID
+    AppendToBuffer("%s", mnemonic);
+
+  } else if ((opcode & 0xF0) == 0x40) {
+    // CMOVcc: conditional move.
+    int condition = opcode & 0x0F;
+    const InstructionDesc& idesc = cmov_instructions[condition];
+    byte_size_operand_ = idesc.byte_size_operation;
+    current += PrintOperands(idesc.mnem, idesc.op_order_, current);
+
+  } else if ((opcode & 0xF0) == 0x80) {
+    // Jcc: Conditional jump (branch).
+    current = data + JumpConditional(data);
+
+  } else if (opcode == 0xBE || opcode == 0xBF || opcode == 0xB6 ||
+             opcode == 0xB7 || opcode == 0xAF) {
+    // Size-extending moves, IMUL.
+    current += PrintOperands(mnemonic, REG_OPER_OP_ORDER, current);
+
+  } else if ((opcode & 0xF0) == 0x90) {
+    // SETcc: Set byte on condition. Needs pointer to beginning of instruction.
+    current = data + SetCC(data);
+
+  } else if (opcode == 0xAB || opcode == 0xA5 || opcode == 0xAD) {
+    // SHLD, SHRD (double-precision shift), BTS (bit set).
+    AppendToBuffer("%s ", mnemonic);
+    int mod, regop, rm;
+    get_modrm(*current, &mod, &regop, &rm);
+    current += PrintRightOperand(current);
+    if (opcode == 0xAB) {
+      AppendToBuffer(",%s", NameOfCPURegister(regop));
+    } else {
+      AppendToBuffer(",%s,cl", NameOfCPURegister(regop));
+    }
   } else {
     UnimplementedInstruction();
   }
@@ -1128,12 +1157,12 @@ int DisassemblerX64::InstructionDecode(v8::internal::Vector<char> out_buffer,
   // Scan for prefixes.
   while (true) {
     current = *data;
-    if (current == 0x66) {  // Group 3 prefix.
+    if (current == OPERAND_SIZE_OVERRIDE_PREFIX) {  // Group 3 prefix.
       operand_size_ = current;
     } else if ((current & 0xF0) == 0x40) {  // REX prefix.
       setRex(current);
       if (rex_w()) AppendToBuffer("REX.W ");
-    } else if ((current & 0xFE) == 0xF2) {  // Group 1 prefix.
+    } else if ((current & 0xFE) == 0xF2) {  // Group 1 prefix (0xF2 or 0xF3).
       group_1_prefix_ = current;
     } else {  // Not a prefix - an opcode.
       break;
@@ -1145,7 +1174,17 @@ int DisassemblerX64::InstructionDecode(v8::internal::Vector<char> out_buffer,
   byte_size_operand_ = idesc.byte_size_operation;
   switch (idesc.type) {
     case ZERO_OPERANDS_INSTR:
-      AppendToBuffer(idesc.mnem);
+      if (current >= 0xA4 && current <= 0xA7) {
+        // String move or compare operations.
+        if (group_1_prefix_ == REP_PREFIX) {
+          // REP.
+          AppendToBuffer("rep ");
+        }
+        if (rex_w()) AppendToBuffer("REX.W ");
+        AppendToBuffer("%s%c", idesc.mnem, operand_size_code());
+      } else {
+        AppendToBuffer("%s", idesc.mnem, operand_size_code());
+      }
       data++;
       break;
 
@@ -1234,7 +1273,9 @@ int DisassemblerX64::InstructionDecode(v8::internal::Vector<char> out_buffer,
         get_modrm(*(data + 1), &mod, &regop, &rm);
         int32_t imm = *data == 0x6B ? *(data + 2)
             : *reinterpret_cast<int32_t*>(data + 2);
-        AppendToBuffer("imul %s,%s,0x%x", NameOfCPURegister(regop),
+        AppendToBuffer("imul%c %s,%s,0x%x",
+                       operand_size_code(),
+                       NameOfCPURegister(regop),
                        NameOfCPURegister(rm), imm);
         data += 2 + (*data == 0x6B ? 1 : 4);
         break;

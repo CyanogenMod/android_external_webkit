@@ -52,9 +52,16 @@ namespace internal {
   F(IsPropertyEnumerable, 2, 1) \
   F(GetPropertyNames, 1, 1) \
   F(GetPropertyNamesFast, 1, 1) \
+  F(GetLocalPropertyNames, 1, 1) \
+  F(GetLocalElementNames, 1, 1) \
+  F(GetInterceptorInfo, 1, 1) \
+  F(GetNamedInterceptorPropertyNames, 1, 1) \
+  F(GetIndexedInterceptorElementNames, 1, 1) \
   F(GetArgumentsProperty, 1, 1) \
   F(ToFastProperties, 1, 1) \
   F(ToSlowProperties, 1, 1) \
+  F(FinishArrayPrototypeSetup, 1, 1) \
+  F(SpecialArrayFunctions, 1, 1) \
   \
   F(IsInPrototypeChain, 2, 1) \
   F(SetHiddenPrototype, 2, 1) \
@@ -63,11 +70,11 @@ namespace internal {
   \
   F(GetOwnProperty, 2, 1) \
   \
+  F(IsExtensible, 1, 1) \
+  \
   /* Utilities */ \
-  F(GetCalledFunction, 0, 1) \
   F(GetFunctionDelegate, 1, 1) \
   F(GetConstructorDelegate, 1, 1) \
-  F(NewArguments, 1, 1) \
   F(NewArgumentsFast, 3, 1) \
   F(LazyCompile, 1, 1) \
   F(SetNewFunctionAttributes, 1, 1) \
@@ -86,6 +93,7 @@ namespace internal {
   F(StringParseFloat, 1, 1) \
   F(StringToLowerCase, 1, 1) \
   F(StringToUpperCase, 1, 1) \
+  F(StringSplit, 3, 1) \
   F(CharFromCode, 1, 1) \
   F(URIEscape, 1, 1) \
   F(URIUnescape, 1, 1) \
@@ -126,7 +134,6 @@ namespace internal {
   F(StringCompare, 2, 1) \
   \
   /* Math */ \
-  F(Math_abs, 1, 1) \
   F(Math_acos, 1, 1) \
   F(Math_asin, 1, 1) \
   F(Math_atan, 1, 1) \
@@ -137,7 +144,8 @@ namespace internal {
   F(Math_floor, 1, 1) \
   F(Math_log, 1, 1) \
   F(Math_pow, 2, 1) \
-  F(Math_round, 1, 1) \
+  F(Math_pow_cfunction, 2, 1) \
+  F(RoundNumber, 1, 1) \
   F(Math_sin, 1, 1) \
   F(Math_sqrt, 1, 1) \
   F(Math_tan, 1, 1) \
@@ -156,6 +164,7 @@ namespace internal {
   F(StringReplaceRegExpWithString, 4, 1) \
   F(StringMatch, 3, 1) \
   F(StringTrim, 3, 1) \
+  F(StringToArray, 1, 1) \
   \
   /* Numbers */ \
   F(NumberToRadixString, 2, 1) \
@@ -195,6 +204,8 @@ namespace internal {
   F(DateLocalTimezone, 1, 1) \
   F(DateLocalTimeOffset, 0, 1) \
   F(DateDaylightSavingsOffset, 1, 1) \
+  F(DateMakeDay, 3, 1) \
+  F(DateYMDFromTime, 2, 1) \
   \
   /* Numbers */ \
   F(NumberIsFinite, 1, 1) \
@@ -208,6 +219,8 @@ namespace internal {
   F(ResolvePossiblyDirectEval, 3, 2) \
   \
   F(SetProperty, -1 /* 3 or 4 */, 1) \
+  F(DefineOrRedefineDataProperty, 4, 1) \
+  F(DefineOrRedefineAccessorProperty, 5, 1) \
   F(IgnoreAttributesAndSetProperty, -1 /* 3 or 4 */, 1) \
   \
   /* Arrays */ \
@@ -223,11 +236,10 @@ namespace internal {
   /* Literals */ \
   F(MaterializeRegExpLiteral, 4, 1)\
   F(CreateArrayLiteralBoilerplate, 3, 1) \
-  F(CreateObjectLiteralBoilerplate, 3, 1) \
   F(CloneLiteralBoilerplate, 1, 1) \
   F(CloneShallowLiteralBoilerplate, 1, 1) \
-  F(CreateObjectLiteral, 3, 1) \
-  F(CreateObjectLiteralShallow, 3, 1) \
+  F(CreateObjectLiteral, 4, 1) \
+  F(CreateObjectLiteralShallow, 4, 1) \
   F(CreateArrayLiteral, 3, 1) \
   F(CreateArrayLiteralShallow, 3, 1) \
   \
@@ -259,7 +271,6 @@ namespace internal {
   F(InitializeConstGlobal, 2, 1) \
   F(InitializeConstContextSlot, 3, 1) \
   F(OptimizeObjectForAddingMultipleProperties, 2, 1) \
-  F(TransformToFastProperties, 1, 1) \
   \
   /* Debugging */ \
   F(DebugPrint, 1, 1) \
@@ -285,14 +296,9 @@ namespace internal {
   F(Break, 0, 1) \
   F(DebugGetPropertyDetails, 2, 1) \
   F(DebugGetProperty, 2, 1) \
-  F(DebugLocalPropertyNames, 1, 1) \
-  F(DebugLocalElementNames, 1, 1) \
   F(DebugPropertyTypeFromDetails, 1, 1) \
   F(DebugPropertyAttributesFromDetails, 1, 1) \
   F(DebugPropertyIndexFromDetails, 1, 1) \
-  F(DebugInterceptorInfo, 1, 1) \
-  F(DebugNamedInterceptorPropertyNames, 1, 1) \
-  F(DebugIndexedInterceptorElementNames, 1, 1) \
   F(DebugNamedInterceptorPropertyValue, 2, 1) \
   F(DebugIndexedInterceptorElementValue, 2, 1) \
   F(CheckExecutionState, 1, 1) \
@@ -320,15 +326,23 @@ namespace internal {
   F(SystemBreak, 0, 1) \
   F(DebugDisassembleFunction, 1, 1) \
   F(DebugDisassembleConstructor, 1, 1) \
-  F(FunctionGetInferredName, 1, 1)
+  F(FunctionGetInferredName, 1, 1) \
+  F(LiveEditFindSharedFunctionInfosForScript, 1, 1) \
+  F(LiveEditGatherCompileInfo, 2, 1) \
+  F(LiveEditReplaceScript, 3, 1) \
+  F(LiveEditReplaceFunctionCode, 2, 1) \
+  F(LiveEditRelinkFunctionToScript, 2, 1) \
+  F(LiveEditPatchFunctionPositions, 2, 1) \
+  F(LiveEditCheckStackActivations, 1, 1) \
+  F(GetFunctionCodePositionFromSource, 2, 1)
 #else
 #define RUNTIME_FUNCTION_LIST_DEBUGGER_SUPPORT(F)
 #endif
 
 #ifdef ENABLE_LOGGING_AND_PROFILING
 #define RUNTIME_FUNCTION_LIST_PROFILER_SUPPORT(F) \
-  F(ProfilerResume, 1, 1) \
-  F(ProfilerPause, 1, 1)
+  F(ProfilerResume, 2, 1) \
+  F(ProfilerPause, 2, 1)
 #else
 #define RUNTIME_FUNCTION_LIST_PROFILER_SUPPORT(F)
 #endif
@@ -371,9 +385,6 @@ class Runtime : public AllStatic {
     // The JS name of the function.
     const char* name;
 
-    // The name of the stub that calls the runtime function.
-    const char* stub_name;
-
     // The C++ (native) entry point.
     byte* entry;
 
@@ -402,6 +413,7 @@ class Runtime : public AllStatic {
   // Support getting the characters in a string using [] notation as
   // in Firefox/SpiderMonkey, Safari and Opera.
   static Object* GetElementOrCharAt(Handle<Object> object, uint32_t index);
+  static Object* GetElement(Handle<Object> object, uint32_t index);
 
   static Object* SetObjectProperty(Handle<Object> object,
                                    Handle<Object> key,

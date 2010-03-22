@@ -123,8 +123,7 @@ class RegExpMacroAssemblerIA32: public NativeRegExpMacroAssembler {
   static const int kInputStart = kStartIndex + kPointerSize;
   static const int kInputEnd = kInputStart + kPointerSize;
   static const int kRegisterOutput = kInputEnd + kPointerSize;
-  static const int kAtStart = kRegisterOutput + kPointerSize;
-  static const int kStackHighEnd = kAtStart + kPointerSize;
+  static const int kStackHighEnd = kRegisterOutput + kPointerSize;
   static const int kDirectCall = kStackHighEnd + kPointerSize;
   // Below the frame pointer - local stack variables.
   // When adding local variables remember to push space for them in
@@ -133,8 +132,9 @@ class RegExpMacroAssemblerIA32: public NativeRegExpMacroAssembler {
   static const int kBackup_edi = kBackup_esi - kPointerSize;
   static const int kBackup_ebx = kBackup_edi - kPointerSize;
   static const int kInputStartMinusOne = kBackup_ebx - kPointerSize;
+  static const int kAtStart = kInputStartMinusOne - kPointerSize;
   // First register address. Following registers are below it on the stack.
-  static const int kRegisterZero = kInputStartMinusOne - kPointerSize;
+  static const int kRegisterZero = kAtStart - kPointerSize;
 
   // Initial size of code buffer.
   static const size_t kRegExpCodeSize = 1024;
@@ -186,21 +186,6 @@ class RegExpMacroAssemblerIA32: public NativeRegExpMacroAssembler {
   // Pops a value from the backtrack stack. Reads the word at the stack pointer
   // (ecx) and increments it by a word size.
   inline void Pop(Register target);
-
-  // Before calling a C-function from generated code, align arguments on stack.
-  // After aligning the frame, arguments must be stored in esp[0], esp[4],
-  // etc., not pushed. The argument count assumes all arguments are word sized.
-  // Some compilers/platforms require the stack to be aligned when calling
-  // C++ code.
-  // Needs a scratch register to do some arithmetic. This register will be
-  // trashed.
-  inline void FrameAlign(int num_arguments, Register scratch);
-
-  // Calls a C function and cleans up the space for arguments allocated
-  // by FrameAlign. The called function is not allowed to trigger a garbage
-  // collection, since that might move the code and invalidate the return
-  // address (unless this is somehow accounted for).
-  inline void CallCFunction(ExternalReference function, int num_arguments);
 
   MacroAssembler* masm_;
 

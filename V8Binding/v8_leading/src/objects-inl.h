@@ -564,6 +564,11 @@ bool Object::IsCompilationCacheTable() {
 }
 
 
+bool Object::IsCodeCacheHashTable() {
+  return IsHashTable();
+}
+
+
 bool Object::IsMapCache() {
   return IsHashTable();
 }
@@ -840,15 +845,17 @@ Failure* Failure::OutOfMemoryException() {
 
 
 intptr_t Failure::value() const {
-  return reinterpret_cast<intptr_t>(this) >> kFailureTagSize;
+  return static_cast<intptr_t>(
+      reinterpret_cast<uintptr_t>(this) >> kFailureTagSize);
 }
 
 
 Failure* Failure::RetryAfterGC(int requested_bytes) {
   // Assert that the space encoding fits in the three bytes allotted for it.
   ASSERT((LAST_SPACE & ~kSpaceTagMask) == 0);
-  intptr_t requested = requested_bytes >> kObjectAlignmentBits;
-  int tag_bits = kSpaceTagSize + kFailureTypeTagSize;
+  uintptr_t requested =
+      static_cast<uintptr_t>(requested_bytes >> kObjectAlignmentBits);
+  int tag_bits = kSpaceTagSize + kFailureTypeTagSize + kFailureTagSize;
   if (((requested << tag_bits) >> tag_bits) != requested) {
     // No room for entire requested size in the bits. Round down to
     // maximally representable size.
@@ -861,7 +868,8 @@ Failure* Failure::RetryAfterGC(int requested_bytes) {
 
 
 Failure* Failure::Construct(Type type, intptr_t value) {
-  intptr_t info = (static_cast<intptr_t>(value) << kFailureTypeTagSize) | type;
+  uintptr_t info =
+      (static_cast<uintptr_t>(value) << kFailureTypeTagSize) | type;
   ASSERT(((info << kFailureTagSize) >> kFailureTagSize) == info);
   return reinterpret_cast<Failure*>((info << kFailureTagSize) | kFailureTag);
 }
@@ -1113,6 +1121,17 @@ void HeapNumber::set_value(double value) {
 }
 
 
+int HeapNumber::get_exponent() {
+  return ((READ_INT_FIELD(this, kExponentOffset) & kExponentMask) >>
+          kExponentShift) - kExponentBias;
+}
+
+
+int HeapNumber::get_sign() {
+  return READ_INT_FIELD(this, kExponentOffset) & kSignMask;
+}
+
+
 ACCESSORS(JSObject, properties, FixedArray, kPropertiesOffset)
 
 
@@ -1349,7 +1368,7 @@ void FixedArray::set(int index, Object* value) {
 }
 
 
-WriteBarrierMode HeapObject::GetWriteBarrierMode() {
+WriteBarrierMode HeapObject::GetWriteBarrierMode(const AssertNoAllocation&) {
   if (Heap::InNewSpace(this)) return SKIP_WRITE_BARRIER;
   return UPDATE_WRITE_BARRIER;
 }
@@ -1367,6 +1386,7 @@ void FixedArray::set(int index,
 
 void FixedArray::fast_set(FixedArray* array, int index, Object* value) {
   ASSERT(index >= 0 && index < array->length());
+  ASSERT(!Heap::InNewSpace(value));
   WRITE_FIELD(array, kHeaderSize + index * kPointerSize, value);
 }
 
@@ -1390,6 +1410,11 @@ void FixedArray::set_the_hole(int index) {
   ASSERT(index >= 0 && index < this->length());
   ASSERT(!Heap::InNewSpace(Heap::the_hole_value()));
   WRITE_FIELD(this, kHeaderSize + index * kPointerSize, Heap::the_hole_value());
+}
+
+
+Object** FixedArray::data_start() {
+  return HeapObject::RawField(this, kHeaderSize);
 }
 
 
@@ -1547,9 +1572,7 @@ uint32_t NumberDictionary::max_number_key() {
 }
 
 void NumberDictionary::set_requires_slow_elements() {
-  set(kMaxNumberKeyIndex,
-      Smi::FromInt(kRequiresSlowElementsMask),
-      SKIP_WRITE_BARRIER);
+  set(kMaxNumberKeyIndex, Smi::FromInt(kRequiresSlowElementsMask));
 }
 
 
@@ -1561,6 +1584,7 @@ CAST_ACCESSOR(FixedArray)
 CAST_ACCESSOR(DescriptorArray)
 CAST_ACCESSOR(SymbolTable)
 CAST_ACCESSOR(CompilationCacheTable)
+CAST_ACCESSOR(CodeCacheHashTable)
 CAST_ACCESSOR(MapCache)
 CAST_ACCESSOR(String)
 CAST_ACCESSOR(SeqString)
@@ -1638,13 +1662,11 @@ bool String::Equals(String* other) {
 }
 
 
-Object* String::TryFlattenIfNotFlat() {
+Object* String::TryFlatten(PretenureFlag pretenure) {
   // We don't need to flatten strings that are already flat.  Since this code
   // is inlined, it can be helpful in the flat case to not call out to Flatten.
-  if (!IsFlat()) {
-    return TryFlatten();
-  }
-  return this;
+  if (IsFlat()) return this;
+  return SlowTryFlatten(pretenure);
 }
 
 
@@ -2144,14 +2166,14 @@ int Code::arguments_count() {
 
 
 CodeStub::Major Code::major_key() {
-  ASSERT(kind() == STUB);
+  ASSERT(kind() == STUB || kind() == BINARY_OP_IC);
   return static_cast<CodeStub::Major>(READ_BYTE_FIELD(this,
                                                       kStubMajorKeyOffset));
 }
 
 
 void Code::set_major_key(CodeStub::Major major) {
-  ASSERT(kind() == STUB);
+  ASSERT(kind() == STUB || kind() == BINARY_OP_IC);
   ASSERT(0 <= major && major < 256);
   WRITE_BYTE_FIELD(this, kStubMajorKeyOffset, major);
 }
@@ -2253,7 +2275,7 @@ void Map::set_prototype(Object* value, WriteBarrierMode mode) {
 
 ACCESSORS(Map, instance_descriptors, DescriptorArray,
           kInstanceDescriptorsOffset)
-ACCESSORS(Map, code_cache, FixedArray, kCodeCacheOffset)
+ACCESSORS(Map, code_cache, Object, kCodeCacheOffset)
 ACCESSORS(Map, constructor, Object, kConstructorOffset)
 
 ACCESSORS(JSFunction, shared, SharedFunctionInfo, kSharedFunctionInfoOffset)
@@ -2350,8 +2372,7 @@ ACCESSORS(SharedFunctionInfo, construct_stub, Code, kConstructStubOffset)
 ACCESSORS(SharedFunctionInfo, name, Object, kNameOffset)
 ACCESSORS(SharedFunctionInfo, instance_class_name, Object,
           kInstanceClassNameOffset)
-ACCESSORS(SharedFunctionInfo, function_data, Object,
-          kExternalReferenceDataOffset)
+ACCESSORS(SharedFunctionInfo, function_data, Object, kFunctionDataOffset)
 ACCESSORS(SharedFunctionInfo, script, Object, kScriptOffset)
 ACCESSORS(SharedFunctionInfo, debug_info, Object, kDebugInfoOffset)
 ACCESSORS(SharedFunctionInfo, inferred_name, String, kInferredNameOffset)
@@ -2372,8 +2393,8 @@ BOOL_GETTER(SharedFunctionInfo, compiler_hints,
             kHasOnlySimpleThisPropertyAssignments)
 BOOL_ACCESSORS(SharedFunctionInfo,
                compiler_hints,
-               try_fast_codegen,
-               kTryFastCodegen)
+               try_full_codegen,
+               kTryFullCodegen)
 
 INT_ACCESSORS(SharedFunctionInfo, length, kLengthOffset)
 INT_ACCESSORS(SharedFunctionInfo, formal_parameter_count,
@@ -2390,6 +2411,9 @@ INT_ACCESSORS(SharedFunctionInfo, compiler_hints,
 INT_ACCESSORS(SharedFunctionInfo, this_property_assignments_count,
               kThisPropertyAssignmentsCountOffset)
 
+
+ACCESSORS(CodeCache, default_cache, FixedArray, kDefaultCacheOffset)
+ACCESSORS(CodeCache, normal_type_cache, Object, kNormalTypeCacheOffset)
 
 bool Script::HasValidSource() {
   Object* src = this->source();
@@ -2436,6 +2460,22 @@ void SharedFunctionInfo::set_code(Code* value, WriteBarrierMode mode) {
 bool SharedFunctionInfo::is_compiled() {
   // TODO(1242782): Create a code kind for uncompiled code.
   return code()->kind() != Code::STUB;
+}
+
+
+bool SharedFunctionInfo::IsApiFunction() {
+  return function_data()->IsFunctionTemplateInfo();
+}
+
+
+FunctionTemplateInfo* SharedFunctionInfo::get_api_func_data() {
+  ASSERT(IsApiFunction());
+  return FunctionTemplateInfo::cast(function_data());
+}
+
+
+bool SharedFunctionInfo::HasCustomCallGenerator() {
+  return function_data()->IsProxy();
 }
 
 
@@ -2774,6 +2814,13 @@ bool JSObject::HasIndexedInterceptor() {
 }
 
 
+bool JSObject::AllowsSetElementsLength() {
+  bool result = elements()->IsFixedArray();
+  ASSERT(result == (!HasPixelElements() && !HasExternalArrayElements()));
+  return result;
+}
+
+
 StringDictionary* JSObject::property_dictionary() {
   ASSERT(!HasFastProperties());
   return StringDictionary::cast(properties());
@@ -2972,7 +3019,8 @@ void Dictionary<Shape, Key>::SetEntry(int entry,
                                       PropertyDetails details) {
   ASSERT(!key->IsString() || details.IsDeleted() || details.index() > 0);
   int index = HashTable<Shape, Key>::EntryToIndex(entry);
-  WriteBarrierMode mode = FixedArray::GetWriteBarrierMode();
+  AssertNoAllocation no_gc;
+  WriteBarrierMode mode = FixedArray::GetWriteBarrierMode(no_gc);
   FixedArray::set(index, key, mode);
   FixedArray::set(index+1, value, mode);
   FixedArray::fast_set(this, index+2, details.AsSmi());
@@ -3006,8 +3054,13 @@ void JSArray::EnsureSize(int required_size) {
 }
 
 
+void JSArray::set_length(Smi* length) {
+  set_length(static_cast<Object*>(length), SKIP_WRITE_BARRIER);
+}
+
+
 void JSArray::SetContent(FixedArray* storage) {
-  set_length(Smi::FromInt(storage->length()), SKIP_WRITE_BARRIER);
+  set_length(Smi::FromInt(storage->length()));
   set_elements(storage);
 }
 
