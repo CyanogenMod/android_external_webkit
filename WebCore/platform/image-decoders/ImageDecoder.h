@@ -38,6 +38,9 @@
 // TODO(benm): ANDROID: Can we define PLATFORM(SKIA) instead of PLATFORM(SGL) before upstreaming?
 #include "NativeImageSkia.h"
 #include "SkBitmap.h"
+#ifdef ENABLE_FULL_ANIMATED_GIF
+#include "SkDither.h"
+#endif
 #endif
 
 namespace WebCore {
@@ -162,7 +165,11 @@ namespace WebCore {
                     g = static_cast<unsigned>(g * alphaPercent);
                     b = static_cast<unsigned>(b * alphaPercent);
                 }
+#ifdef ENABLE_FULL_ANIMATED_GIF
+		*dest = SkPackARGB32(a, r, g, b);
+#else
                 *dest = (a << 24 | r << 16 | g << 8 | b);
+#endif
             }
         }
 
