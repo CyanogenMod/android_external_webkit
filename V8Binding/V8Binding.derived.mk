@@ -16,11 +16,17 @@
 ##
 
 LOCAL_CFLAGS += -DWTF_USE_V8=1
+v8Include_dir := v8
+ifeq ($(USE_ALT_JS_ENGINE),true)
+  v8Include_dir := v8_leading
+  LOCAL_CFLAGS += -DV8_SVN3374_API_CHANGE
+endif  
 
 v8binding_dir := $(LOCAL_PATH)
 
+
 BINDING_C_INCLUDES := \
-  $(LOCAL_PATH)/v8/include \
+  $(LOCAL_PATH)/$(v8Include_dir)/include \
 	$(WEBCORE_PATH)/bindings/v8 \
 	$(WEBCORE_PATH)/bindings/v8/custom \
 	$(LOCAL_PATH)/binding \
