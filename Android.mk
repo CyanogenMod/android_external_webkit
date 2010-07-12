@@ -280,8 +280,12 @@ LOCAL_SHARED_LIBRARIES := \
 	libicuuc \
 	libicudata \
 	libicui18n \
-	libmedia \
-	libsurfaceflinger_client
+	libmedia
+
+ifneq ($(BOARD_USES_ECLAIR_LIBCAMERA),true)
+    LOCAL_SHARED_LIBRARIES += \
+    	libsurfaceflinger_client
+endif
 
 ifeq ($(WEBCORE_INSTRUMENTATION),true)
 LOCAL_SHARED_LIBRARIES += libhardware_legacy
