@@ -1,5 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -75,6 +76,9 @@ namespace android {
     class CachedNode;
     class CachedRoot;
     class ListBoxReply;
+#ifdef CACHED_IMAGE_DECODE
+    class ImageDecodeThread;
+#endif
 
     class WebCoreReply : public WebCoreRefObject {
     public:
@@ -378,7 +382,7 @@ namespace android {
         // send the current screen size/zoom to all of the plugins in our list
         void sendPluginVisibleScreen();
 
-	// send onLoad event to plugins who are descendents of the given frame
+        // send onLoad event to plugins who are descendants of the given frame
         void notifyPluginsOnFrameLoad(const Frame*);
 
         // send this event to all of the plugins in our list
@@ -563,6 +567,10 @@ namespace android {
 
 #if DEBUG_NAV_UI
         uint32_t m_now;
+#endif
+
+#ifdef CACHED_IMAGE_DECODE
+        WTF::OwnPtr<ImageDecodeThread> m_imageDecodeThread;
 #endif
 
     private:
