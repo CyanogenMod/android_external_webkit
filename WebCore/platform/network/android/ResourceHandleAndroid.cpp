@@ -34,6 +34,7 @@
 #include "FrameLoader.h"
 #include "MainResourceLoader.h"
 #include "NotImplemented.h"
+#include "Request.h"
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "ResourceLoaderAndroid.h"
@@ -163,6 +164,17 @@ void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
     // ResourceHandleInternal::ResourceHandleInternal(). This matches the
     // behaviour in the asynchronous case.
     ResourceLoaderAndroid::start(&h, h.getInternal()->m_request, frame->loader()->client(), false, true);
+}
+
+void ResourceHandle::propagatePriority(Request* req)
+{
+    d->m_loader->propagatePriority(req->cachedResource()->url(),
+                                   req->priority());
+}
+
+void ResourceHandle::commitPriorities()
+{
+    d->m_loader->commitPriorities();
 }
 
 } // namespace WebCore

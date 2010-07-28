@@ -57,6 +57,8 @@ static struct resourceloader_t {
     jmethodID   mDownloadFileMethodID;
     jmethodID   mWillLoadFromCacheMethodID;
     jmethodID   mPauseLoadMethodID;
+    jmethodID   mSetPriorityMethodID;
+    jmethodID   mCommitPrioritiesMethodID;
 } gResourceLoader;
 
 // ----------------------------------------------------------------------------
@@ -84,6 +86,26 @@ WebCoreResourceLoader::~WebCoreResourceLoader()
     SET_NATIVE_HANDLE(env, mJLoader, 0);
     env->DeleteGlobalRef(mJLoader);
     mJLoader = 0;
+}
+
+void WebCoreResourceLoader::propagatePriority(const WebCore::String &url,
+                                              int priority)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+
+    WebCore::String urlString = url;
+    jstring urlStr = env->NewString((unsigned short*)urlString.characters(), urlString.length());
+    env->CallVoidMethod(mJLoader, gResourceLoader.mSetPriorityMethodID,
+                        urlStr, priority);
+    checkException(env);
+    env->DeleteLocalRef(urlStr);
+}
+
+void WebCoreResourceLoader::commitPriorities()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(mJLoader, gResourceLoader.mCommitPrioritiesMethodID);
+    checkException(env);
 }
 
 void WebCoreResourceLoader::cancel()
@@ -346,6 +368,16 @@ int register_resource_loader(JNIEnv* env)
         env->GetStaticMethodID(resourceLoader, "willLoadFromCache", "(Ljava/lang/String;J)Z");
     LOG_FATAL_IF(gResourceLoader.mWillLoadFromCacheMethodID == NULL, 
         "Could not find static method willLoadFromCache on LoadListener");
+
+    gResourceLoader.mSetPriorityMethodID =
+        env->GetMethodID(resourceLoader, "setPriority", "(Ljava/lang/String;I)V");
+    LOG_FATAL_IF(gResourceLoader.mSetPriorityMethodID == NULL,
+        "Could not find static method setPriority on LoadListener");
+
+    gResourceLoader.mCommitPrioritiesMethodID =
+        env->GetMethodID(resourceLoader, "commitPriorities", "()V");
+    LOG_FATAL_IF(gResourceLoader.mCommitPrioritiesMethodID == NULL,
+        "Could not find static method commitPriorities on LoadListener");
 
     return jniRegisterNativeMethods(env, "android/webkit/LoadListener", 
                      gResourceloaderMethods, NELEM(gResourceloaderMethods));

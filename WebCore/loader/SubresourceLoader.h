@@ -35,6 +35,7 @@
 namespace WebCore {
 
     class ResourceRequest;
+    class Request;
     class SubresourceLoaderClient;
     
     class SubresourceLoader : public ResourceLoader {
@@ -42,6 +43,8 @@ namespace WebCore {
         static PassRefPtr<SubresourceLoader> create(Frame*, SubresourceLoaderClient*, const ResourceRequest&, SecurityCheckPolicy = DoSecurityCheck, bool sendResourceLoadCallbacks = true, bool shouldContentSniff = true);
 
         void clearClient() { m_client = 0; }
+        void propagatePriority(Request* request);
+        void commitPriorities();
 
     private:
         SubresourceLoader(Frame*, SubresourceLoaderClient*, bool sendResourceLoadCallbacks, bool shouldContentSniff);

@@ -130,6 +130,11 @@ namespace WebCore {
         bool reportUploadProgress() const { return m_reportUploadProgress; }
         void setReportUploadProgress(bool reportUploadProgress) { m_reportUploadProgress = reportUploadProgress; }
 
+        unsigned int priority() const;
+        void setPriority(unsigned int priority);
+        bool shouldCommit() const;
+        void setShouldCommit(bool shouldCommit);
+
         // What this request is for.
         TargetType targetType() const { return m_targetType; }
         void setTargetType(TargetType type) { m_targetType = type; }
@@ -141,6 +146,8 @@ namespace WebCore {
             , m_platformRequestUpdated(true)
             , m_reportUploadProgress(false)
             , m_targetType(TargetIsSubresource)
+            , m_priority((unsigned int)-1)
+            , m_shouldCommit(true)
         {
         }
 
@@ -154,6 +161,8 @@ namespace WebCore {
             , m_platformRequestUpdated(false)
             , m_reportUploadProgress(false)
             , m_targetType(TargetIsSubresource)
+            , m_priority((unsigned int)-1)
+            , m_shouldCommit(true)
         {
         }
 
@@ -174,6 +183,8 @@ namespace WebCore {
         mutable bool m_platformRequestUpdated;
         bool m_reportUploadProgress;
         TargetType m_targetType;
+        unsigned int m_priority;
+        bool m_shouldCommit;
 
     private:
         const ResourceRequest& asResourceRequest() const;
@@ -196,6 +207,8 @@ namespace WebCore {
         Vector<String> m_responseContentDispositionEncodingFallbackArray;
         RefPtr<FormData> m_httpBody;
         bool m_allowCookies;
+        unsigned int m_priority;
+        bool m_shouldCommit;
     };
     
     unsigned initializeMaximumHTTPConnectionCountPerHost();

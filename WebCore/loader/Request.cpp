@@ -24,7 +24,9 @@
 #include "config.h"
 #include "Request.h"
 
+#include "Cache.h"
 #include "CachedResource.h"
+#include "loader.h"
 
 namespace WebCore {
 
@@ -35,13 +37,16 @@ Request::Request(DocLoader* docLoader, CachedResource* object, bool incremental,
     , m_multipart(false)
     , m_shouldDoSecurityCheck(shouldDoSecurityCheck)
     , m_sendResourceLoadCallbacks(sendResourceLoadCallbacks)
+    , m_priority((unsigned int)-1)
 {
     m_object->setRequest(this);
 }
 
 Request::~Request()
 {
+    cache()->loader()->notifyRequestDeleted(this);
     m_object->setRequest(0);
 }
+
 
 } //namespace WebCore

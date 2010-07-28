@@ -40,6 +40,12 @@ public:
     static PassRefPtr<ResourceLoaderAndroid> start(ResourceHandle*, const ResourceRequest&, FrameLoaderClient*, bool isMainResource, bool isSync);
     virtual ~ResourceLoaderAndroid() { }
 
+    void setClient(FrameLoaderClient* client) { m_client = client; }
+    FrameLoaderClient* client() const { return m_client; }
+
+    virtual void propagatePriority(const String &url, int priority) = 0;
+    virtual void commitPriorities() = 0;
+
     virtual void cancel() = 0;
     virtual void downloadFile() = 0;
     // ANDROID TODO: This needs to be upstreamed.
@@ -49,7 +55,10 @@ public:
     // Call to java to find out if this URL is in the cache
     static bool willLoadFromCache(const WebCore::KURL&, int64_t identifier);
 protected:
-    ResourceLoaderAndroid() { }
+    ResourceLoaderAndroid() : m_client(0) { }
+
+private:
+    FrameLoaderClient* m_client;
 };
 
 }

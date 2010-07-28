@@ -25,6 +25,9 @@
 
 #include "FrameLoaderTypes.h"
 #include <wtf/Vector.h>
+#include <wtf/RefPtr.h>
+#include <wtf/PassRefPtr.h>
+#include <dom/Node.h>
 
 namespace WebCore {
 
@@ -48,7 +51,13 @@ namespace WebCore {
 
         SecurityCheckPolicy shouldDoSecurityCheck() const { return m_shouldDoSecurityCheck; }
         bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
-        
+
+        void setNode(PassRefPtr<Node> node) { m_node = node; }
+        PassRefPtr<Node> node() const { return m_node; }
+
+        void setPriority(unsigned int pri) { m_priority = pri; }
+        unsigned int priority() const { return m_priority; }
+
     private:
         Vector<char> m_buffer;
         CachedResource* m_object;
@@ -57,6 +66,9 @@ namespace WebCore {
         bool m_multipart;
         SecurityCheckPolicy m_shouldDoSecurityCheck;
         bool m_sendResourceLoadCallbacks;
+
+        RefPtr<Node> m_node;
+        unsigned int m_priority;
     };
 
 } //namespace WebCore
