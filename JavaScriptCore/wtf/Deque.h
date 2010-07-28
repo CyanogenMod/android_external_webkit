@@ -662,6 +662,19 @@ namespace WTF {
         return &m_deque->m_buffer.buffer()[m_index - 1];
     }
 
+    template<typename T>
+    inline void copyToVector(const Deque<T>& deque, Vector<T>& vector)
+    {
+        vector.clear();
+        vector.reserveCapacity(deque.size());
+        typename WTF::Deque<T>::const_iterator i = deque.begin();
+        typename WTF::Deque<T>::const_iterator end = deque.end();
+        while (i != end) {
+            vector.append(*i);
+            ++i;
+        }
+    }
+
 } // namespace WTF
 
 using WTF::Deque;

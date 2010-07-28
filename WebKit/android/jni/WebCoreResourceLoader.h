@@ -38,6 +38,9 @@ public:
     static PassRefPtr<WebCore::ResourceLoaderAndroid> create(JNIEnv *env, jobject jLoadListener);
     virtual ~WebCoreResourceLoader();
 
+    virtual void propagatePriority(const WebCore::String &url, int priority);
+    virtual void commitPriorities();
+
     /**
      * Call to java to cancel the current load.
      */

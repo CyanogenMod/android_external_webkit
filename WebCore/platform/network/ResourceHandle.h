@@ -82,6 +82,7 @@ class Credential;
 class FormData;
 class Frame;
 class KURL;
+class Request;
 class ResourceError;
 class ResourceHandleClient;
 class ResourceHandleInternal;
@@ -172,6 +173,11 @@ public:
 
 #if PLATFORM(QT) || USE(CURL) || USE(SOUP) || PLATFORM(ANDROID)
     ResourceHandleInternal* getInternal() { return d.get(); }
+#endif
+
+#if defined(ANDROID)
+    void propagatePriority(Request* req);
+    void commitPriorities();
 #endif
 
 #if USE(SOUP)

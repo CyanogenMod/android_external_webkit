@@ -211,7 +211,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
     mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
-            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;)Landroid/webkit/LoadListener;");
+            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;IZ)Landroid/webkit/LoadListener;");
     mJavaFrame->mLoadStarted = env->GetMethodID(clazz, "loadStarted",
             "(Ljava/lang/String;Landroid/graphics/Bitmap;IZ)V");
     mJavaFrame->mTransitionToCommitted = env->GetMethodID(clazz, "transitionToCommitted",
@@ -363,9 +363,9 @@ private:
 
 PassRefPtr<WebCore::ResourceLoaderAndroid>
 WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
-                                  const WebCore::ResourceRequest& request,
-                                  bool mainResource,
-                                  bool synchronous)
+                               const WebCore::ResourceRequest& request,
+                               bool mainResource,
+                               bool synchronous)
 {
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
@@ -474,6 +474,8 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
         default:
             break;
     }
+    int priority = request.priority();
+    bool shouldCommit = request.shouldCommit();
 
     LOGV("::WebCore:: startLoadingResource %s with cacheMode %d", urlStr.ascii().data(), cacheMode);
 
@@ -488,7 +490,8 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                 (int)loader, jUrlStr, jMethodStr, jHeaderMap,
                 jPostDataStr, formdata ? formdata->identifier(): 0,
                 cacheMode, mainResource, request.getUserGesture(),
-                synchronous, jUsernameString, jPasswordString);
+                synchronous, jUsernameString, jPasswordString,
+                priority, shouldCommit);
 
     env->DeleteLocalRef(jUrlStr);
     env->DeleteLocalRef(jMethodStr);
@@ -541,6 +544,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     LOGV("::WebCore:: loadStarted %s", url.string().ascii().data());
 
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
+
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
 
     if (loadType == WebCore::FrameLoadTypeReplace ||

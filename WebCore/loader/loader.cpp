@@ -32,6 +32,7 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "HTMLDocument.h"
+#include "RenderObject.h"
 #include "Request.h"
 #include "ResourceHandle.h"
 #include "ResourceRequest.h"
@@ -40,6 +41,10 @@
 #include "SubresourceLoader.h"
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
+#include <wtf/HashSet.h>
+
+#define PRIORITY_MAXIMUM (800 + 480)
+#define SCROLL_REORDER_THRESHOLD 50
 
 #define REQUEST_MANAGEMENT_ENABLED 1
 #define REQUEST_DEBUG 0
@@ -59,6 +64,7 @@ static const unsigned maxRequestsInFlightForNonHTTPProtocols = 10000;
 Loader::Loader()
     : m_requestTimer(this, &Loader::requestTimerFired)
     , m_isSuspendingPendingRequests(false)
+    , m_visible(-1, -1, -1, -1)
 {
     m_nonHTTPProtocolHost = Host::create(AtomicString(), maxRequestsInFlightForNonHTTPProtocols);
 #if REQUEST_MANAGEMENT_ENABLED
@@ -117,6 +123,113 @@ Loader::Priority Loader::determinePriority(const CachedResource* resource) const
 #endif
 }
 
+unsigned int Loader::calculateDistance(const Request* req)
+{
+    if (m_visible.x() == -1
+        || m_visible.y() == -1
+        || m_visible.width() == -1
+        || m_visible.height() == -1)
+        return 0;
+
+    RefPtr<Node> n = req->node();
+    if (!n || !n->renderer())
+        return -1;
+
+    IntPoint visible = m_visible.center();
+    IntRect abr = n->renderer()->absoluteBoundingBoxRect();
+    if (abr.x() == 0 && abr.y() == 0)
+        return -1;
+
+    IntPoint pos = abr.center();
+    // Use the manhattan length, cheaper than calculating the
+    // eucledian distance and gives the same result
+    unsigned int dist = abs(pos.x() - visible.x())
+        + abs(pos.y() - visible.y());
+    // Priorities 0 and 1 are reserved for High and Medium,
+    // see determinePriority()
+    return dist + 2;
+}
+
+inline void Loader::reorderFromVisibleRect()
+{
+    IntPoint visible = m_visible.center();
+
+    // Don't trigger a reorder before the visible area has been fully set
+    if (m_visibleTriggered.x() == 0
+        && m_visibleTriggered.y() == 0) {
+        m_visibleTriggered = visible;
+        return;
+    }
+
+    // Only trigger a reorder once the visible area has changed significantly
+    if (abs(m_visibleTriggered.x() - visible.x())
+        + abs(m_visibleTriggered.y() - visible.y()) > SCROLL_REORDER_THRESHOLD) {
+        m_visibleTriggered = visible;
+        triggerReorder();
+    }
+}
+
+void Loader::setVisiblePosition(const IntPoint& point)
+{
+    if (point.x() != -1)
+        m_visible.setX(point.x());
+    if (point.y() != -1)
+        m_visible.setY(point.y());
+
+    reorderFromVisibleRect();
+}
+
+void Loader::setVisibleSize(const IntSize& size)
+{
+    if (size.width() != -1)
+        m_visible.setWidth(size.width());
+    if (size.height() != -1)
+        m_visible.setHeight(size.height());
+
+    reorderFromVisibleRect();
+}
+
+void Loader::setVisibleRect(const IntRect &rect)
+{
+    if (rect.x() != -1)
+        m_visible.setX(rect.x());
+    if (rect.y() != -1)
+        m_visible.setY(rect.y());
+    if (rect.width() != -1)
+        m_visible.setWidth(rect.width());
+    if (rect.height() != -1)
+        m_visible.setHeight(rect.height());
+
+    reorderFromVisibleRect();
+}
+
+void Loader::notifyRequestDeleted(Request* req)
+{
+    AtomicString astr = req->cachedResource()->url();
+    m_requests.remove(astr.impl());
+}
+
+void Loader::triggerReorder()
+{
+    HostMap::iterator i = m_hosts.begin();
+    HostMap::iterator end = m_hosts.end();
+    Host* host;
+    for (;i != end; ++i) {
+        host = i->second.get();
+        host->processPriorities();
+    }
+}
+
+Request* Loader::requestForUrl(const String &url) const
+{
+    AtomicString aurl = url;
+    HashMap<AtomicStringImpl*, Request*>::const_iterator it = m_requests.find(aurl.impl());
+    HashMap<AtomicStringImpl*, Request*>::const_iterator itend = m_requests.end();
+    if (it == itend)
+        return 0;
+    return it->second;
+}
+
 void Loader::load(DocLoader* docLoader, CachedResource* resource, bool incremental, SecurityCheckPolicy securityCheck, bool sendResourceLoadCallbacks)
 {
     ASSERT(docLoader);
@@ -134,9 +247,18 @@ void Loader::load(DocLoader* docLoader, CachedResource* resource, bool increment
         }
     } else 
         host = m_nonHTTPProtocolHost;
+
+    AtomicString aurl = resource->url();
+    m_requests.set(aurl.impl(), request);
     
     bool hadRequests = host->hasRequests();
     Priority priority = determinePriority(resource);
+
+    if (priority == High)
+        request->setPriority(0);
+    else if (priority == Medium)
+        request->setPriority(1);
+
     host->addRequest(request, priority);
     docLoader->incrementRequestCount();
 
@@ -148,6 +270,8 @@ void Loader::load(DocLoader* docLoader, CachedResource* resource, bool increment
         scheduleServePendingRequests();
     }
 }
+
+
     
 void Loader::scheduleServePendingRequests()
 {
@@ -271,7 +395,77 @@ Loader::Host::~Host()
     for (unsigned p = 0; p <= High; p++)
         ASSERT(m_requestsPending[p].isEmpty());
 }
-    
+
+static bool compareHostRequests(const Request* r1, const Request* r2)
+{
+    return r1->priority() < r2->priority();
+}
+
+void Loader::Host::processPriorities()
+{
+    if (!m_requestsLoading.isEmpty()) {
+        Loader* loader = cache()->loader();
+        unsigned int priority, curPriority;
+
+        RefPtr<SubresourceLoader> subLoader(0);
+
+        RequestMap::const_iterator it = m_requestsLoading.begin();
+        RequestMap::const_iterator itend = m_requestsLoading.end();
+        for (; it != itend; ++it) {
+            curPriority = it->second->priority();
+
+            // Don't try to calculate the distance of High and Medium requests
+            if (curPriority == 0 || curPriority == 1)
+                continue;
+
+            priority = loader->calculateDistance(it->second);
+            if (priority != curPriority
+                && (priority < PRIORITY_MAXIMUM || curPriority < PRIORITY_MAXIMUM)) {
+                if (!subLoader)
+                    subLoader = it->first;
+                it->second->setPriority(priority);
+                it->first->propagatePriority(it->second);
+            }
+        }
+
+        if (subLoader)
+            subLoader->commitPriorities();
+    }
+    if (!m_requestsPending[Low].isEmpty()) {
+        Loader* loader = cache()->loader();
+        unsigned int priority;
+
+        RequestMap::const_iterator litend = m_requestsLoading.end();
+
+        RequestQueue nqueue;
+        RequestQueue &low = m_requestsPending[Low];
+
+        RequestQueue::iterator it = low.begin();
+        RequestQueue::iterator itend = low.end();
+        while (it != itend) {
+            priority = loader->calculateDistance(*it);
+            if (priority < PRIORITY_MAXIMUM) {
+                nqueue.append(*it);
+                (*it)->setPriority(priority);
+
+                low.remove(it);
+                // not nice, but needed due to problems with WTF::Deque<>
+                it = low.begin();
+                itend = low.end();
+            } else
+                ++it;
+        }
+
+        Vector<Request*> nvector;
+        WTF::copyToVector(nqueue, nvector);
+        std::sort(nvector.begin(), nvector.end(), compareHostRequests);
+        WTF::copyToDeque(nvector, nqueue);
+
+        bool lower = true;
+        servePendingRequests(nqueue, lower, true);
+    }
+}
+
 void Loader::Host::addRequest(Request* request, Priority priority)
 {
     m_requestsPending[priority].append(request);
@@ -309,8 +503,9 @@ void Loader::Host::servePendingRequests(Loader::Priority minimumPriority)
         servePendingRequests(m_requestsPending[priority], serveMore);
 }
 
-void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& serveLowerPriority)
+void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& serveLowerPriority, bool ignoreLimit)
 {
+    RefPtr<SubresourceLoader> firstLoader(0);
     while (!requestsPending.isEmpty()) {        
         Request* request = requestsPending.first();
         DocLoader* docLoader = request->docLoader();
@@ -320,15 +515,19 @@ void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& ser
         // For non-named hosts - everything but http(s) - we should only enforce the limit if the document isn't done parsing 
         // and we don't know all stylesheets yet.
         bool shouldLimitRequests = !m_name.isNull() || docLoader->doc()->parsing() || !docLoader->doc()->haveStylesheetsLoaded();
+        if (ignoreLimit && shouldLimitRequests)
+            shouldLimitRequests = false;
         if (shouldLimitRequests && m_requestsLoading.size() + m_nonCachedRequestsInFlight >= m_maxRequestsInFlight) {
             serveLowerPriority = false;
             cache()->loader()->scheduleServePendingRequests();
             return;
         }
         requestsPending.removeFirst();
-        
+
         ResourceRequest resourceRequest(request->cachedResource()->url());
         resourceRequest.setTargetType(cachedResourceTypeToTargetType(request->cachedResource()->type()));
+        resourceRequest.setPriority(request->priority());
+        resourceRequest.setShouldCommit(!ignoreLimit);
         
         if (!request->cachedResource()->accept().isEmpty())
             resourceRequest.setHTTPAccept(request->cachedResource()->accept());
@@ -355,6 +554,8 @@ void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& ser
         RefPtr<SubresourceLoader> loader = SubresourceLoader::create(docLoader->doc()->frame(),
             this, resourceRequest, request->shouldDoSecurityCheck(), request->sendResourceLoadCallbacks());
         if (loader) {
+            if (!firstLoader)
+                firstLoader = loader;
             m_requestsLoading.add(loader.release(), request);
             request->cachedResource()->setRequestedFromNetworkingLayer();
 #if REQUEST_DEBUG
@@ -366,6 +567,10 @@ void Loader::Host::servePendingRequests(RequestQueue& requestsPending, bool& ser
             request->cachedResource()->error();
             docLoader->setLoadInProgress(false);
             delete request;
+        }
+
+        if (ignoreLimit && firstLoader) {
+            firstLoader->commitPriorities();
         }
     }
 }
@@ -380,6 +585,7 @@ void Loader::Host::didFinishLoading(SubresourceLoader* loader)
     
     Request* request = i->second;
     m_requestsLoading.remove(i);
+
     DocLoader* docLoader = request->docLoader();
     // Prevent the document from being destroyed before we are done with
     // the docLoader that it will delete when the document gets deleted.

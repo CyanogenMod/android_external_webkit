@@ -109,6 +109,22 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
     return subloader.release();
 }
 
+void SubresourceLoader::propagatePriority(Request* request)
+{
+    if (!m_handle)
+        return;
+
+    m_handle->propagatePriority(request);
+}
+
+void SubresourceLoader::commitPriorities()
+{
+    if (!m_handle)
+        return;
+
+    m_handle->commitPriorities();
+}
+
 void SubresourceLoader::willSendRequest(ResourceRequest& newRequest, const ResourceResponse& redirectResponse)
 {
     // Store the previous URL because the call to ResourceLoader::willSendRequest will modify it.

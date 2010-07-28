@@ -38,6 +38,8 @@ namespace WTF {
     using std::min;
     using std::max;
 
+    template<typename T> class Deque;
+
     // WTF_ALIGN_OF / WTF_ALIGNED
     #if COMPILER(GCC) || COMPILER(MINGW) || COMPILER(RVCT) || COMPILER(WINSCW)
         #define WTF_ALIGN_OF(type) __alignof__(type)
@@ -1037,6 +1039,14 @@ namespace WTF {
         }
     };
 #endif
+
+    template<typename T>
+    inline void copyToDeque(const Vector<T>& vector, Deque<T>& deque)
+    {
+        deque.clear();
+        for (unsigned int i = 0; i < vector.size(); ++i)
+            deque.append(vector.at(i));
+    }
 
 } // namespace WTF
 

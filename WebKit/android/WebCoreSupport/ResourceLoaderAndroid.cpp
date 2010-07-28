@@ -39,7 +39,10 @@ PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(
         ResourceHandle* handle, const ResourceRequest& request, FrameLoaderClient* client, bool isMainResource, bool isSync)
 {
     FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*> (client);
-    return clientAndroid->webFrame()->startLoadingResource(handle, request, isMainResource, isSync);
+    RefPtr<ResourceLoaderAndroid> loader = clientAndroid->webFrame()->startLoadingResource(handle, request, isMainResource, isSync);
+    if (loader)
+        loader->setClient(clientAndroid);
+    return loader.release();
 }
 
 bool ResourceLoaderAndroid::willLoadFromCache(const WebCore::KURL& url, int64_t identifier)

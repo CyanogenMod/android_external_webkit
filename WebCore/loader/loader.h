@@ -25,6 +25,8 @@
 #include "AtomicString.h"
 #include "AtomicStringImpl.h"
 #include "FrameLoaderTypes.h"
+#include "IntPoint.h"
+#include "IntRect.h"
 #include "PlatformString.h"
 #include "SubresourceLoaderClient.h"
 #include "Timer.h"
@@ -58,11 +60,22 @@ namespace WebCore {
         void nonCacheRequestInFlight(const KURL&);
         void nonCacheRequestComplete(const KURL&);
 
+        void triggerReorder();
+        void notifyRequestDeleted(Request* req);
+        void setVisiblePosition(const IntPoint& point);
+        void setVisibleSize(const IntSize& size);
+        void setVisibleRect(const IntRect& rect);
+        IntRect visibleRect() const { return m_visible; }
+        unsigned int calculateDistance(const Request* req);
+        Request* requestForUrl(const String &url) const;
+
     private:
         Priority determinePriority(const CachedResource*) const;
         void scheduleServePendingRequests();
         
         void requestTimerFired(Timer<Loader>*);
+
+        void reorderFromVisibleRect();
 
         class Host : public RefCounted<Host>, private SubresourceLoaderClient {
         public:
@@ -82,6 +95,8 @@ namespace WebCore {
 
             bool processingResource() const { return m_numResourcesProcessing != 0 || m_nonCachedRequestsInFlight !=0; }
 
+            void processPriorities();
+
         private:
             Host(const AtomicString&, unsigned);
 
@@ -91,7 +106,7 @@ namespace WebCore {
             virtual void didFail(SubresourceLoader*, const ResourceError&);
             
             typedef Deque<Request*> RequestQueue;
-            void servePendingRequests(RequestQueue& requestsPending, bool& serveLowerPriority);
+            void servePendingRequests(RequestQueue& requestsPending, bool& serveLowerPriority, bool ignoreLimit = false);
             void didFail(SubresourceLoader*, bool cancelled = false);
             void cancelPendingRequests(RequestQueue& requestsPending, DocLoader*);
             
@@ -110,6 +125,10 @@ namespace WebCore {
         Timer<Loader> m_requestTimer;
 
         bool m_isSuspendingPendingRequests;
+
+        IntRect m_visible;
+        IntPoint m_visibleTriggered;
+        HashMap<AtomicStringImpl*, Request*> m_requests;
     };
 
 }

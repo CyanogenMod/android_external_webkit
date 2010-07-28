@@ -63,6 +63,8 @@ auto_ptr<ResourceRequest> ResourceRequestBase::adopt(auto_ptr<CrossThreadResourc
     }
     request->setHTTPBody(data->m_httpBody);
     request->setAllowCookies(data->m_allowCookies);
+    request->setPriority(data->m_priority);
+    request->setShouldCommit(data->m_shouldCommit);
     return request;
 }
 
@@ -84,6 +86,8 @@ auto_ptr<CrossThreadResourceRequestData> ResourceRequestBase::copyData() const
     if (m_httpBody)
         data->m_httpBody = m_httpBody->deepCopy();
     data->m_allowCookies = m_allowCookies;
+    data->m_priority = m_priority;
+    data->m_shouldCommit = m_shouldCommit;
     return data;
 }
 
@@ -298,6 +302,26 @@ void ResourceRequestBase::setAllowCookies(bool allowCookies)
     
     if (url().protocolInHTTPFamily())
         m_platformRequestUpdated = false;
+}
+
+unsigned int ResourceRequestBase::priority() const
+{
+    return m_priority;
+}
+
+void ResourceRequestBase::setPriority(unsigned int priority)
+{
+    m_priority = priority;
+}
+
+bool ResourceRequestBase::shouldCommit() const
+{
+    return m_shouldCommit;
+}
+
+void ResourceRequestBase::setShouldCommit(bool shouldCommit)
+{
+    m_shouldCommit = shouldCommit;
 }
 
 void ResourceRequestBase::addHTTPHeaderField(const AtomicString& name, const String& value) 

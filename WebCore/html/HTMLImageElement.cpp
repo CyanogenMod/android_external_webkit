@@ -22,6 +22,7 @@
 #include "config.h"
 #include "HTMLImageElement.h"
 
+#include "Cache.h"
 #include "CSSHelper.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
@@ -30,8 +31,10 @@
 #include "HTMLDocument.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
+#include "loader.h"
 #include "MappedAttribute.h"
 #include "RenderImage.h"
+#include "Request.h"
 #include "ScriptEventListener.h"
 
 using namespace std;
@@ -196,6 +199,12 @@ void HTMLImageElement::insertedIntoDocument()
         m_imageLoader.updateFromElement();
 
     HTMLElement::insertedIntoDocument();
+
+    Request* req = cache()->loader()->requestForUrl(src().string());
+    if (!req)
+        return;
+
+    req->setNode(PassRefPtr<Node>(this));
 }
 
 void HTMLImageElement::removedFromDocument()

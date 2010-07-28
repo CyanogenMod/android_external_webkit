@@ -30,6 +30,7 @@
 #include "WebViewCore.h"
 
 #include "AtomicString.h"
+#include "Cache.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
 #include "Chrome.h"
@@ -70,6 +71,7 @@
 #include "InlineTextBox.h"
 #include "KeyboardCodes.h"
 #include "Navigator.h"
+#include "loader.h"
 #include "Node.h"
 #include "NodeList.h"
 #include "Page.h"
@@ -1186,6 +1188,9 @@ void WebViewCore::setScrollOffset(int moveGeneration, int dx, int dy)
     Frame* frame = (Frame*) m_cursorFrame;
     IntPoint location = m_cursorLocation;
     gCursorBoundsMutex.unlock();
+
+    cache()->loader()->setVisiblePosition(IntPoint(dx, dy));
+
     if (!hasCursorBounds)
         return;
     moveMouseIfLatest(moveGeneration, frame, location.x(), location.y());
@@ -1195,6 +1200,8 @@ void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
 {
     DBG_NAV_LOGD("{%d,%d}", x, y);
     m_mainFrame->view()->platformWidget()->setWindowBounds(x, y, h, v);
+
+    cache()->loader()->setVisibleRect(IntRect(x, y, v, h));
 }
 
 void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
