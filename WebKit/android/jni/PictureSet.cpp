@@ -37,12 +37,12 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkStream.h"
+#include "SyncProxyCanvas.h"
 #include "TimeCounter.h"
 
 #ifdef CACHED_IMAGE_DECODE
 #include <wtf/PassOwnPtr.h>
 #include "SkPixelRef.h"
-#include "SyncProxyCanvas.h"
 #endif
 
 #define MAX_DRAW_TIME 100
@@ -247,8 +247,9 @@ class BitmapProxyCanvas: public SyncProxyCanvas, public Noncopyable
 public:
     static WTF::PassOwnPtr<BitmapProxyCanvas> create(SkCanvas* canvas,
         WTF::Vector<const SkBitmap*>* pBitmaps,
-        WTF::Vector<SkRect>* pBitmapRects) {
-        return new BitmapProxyCanvas(canvas, pBitmaps, pBitmapRects);
+        WTF::Vector<SkRect>* pBitmapRects,
+        bool invert) {
+        return new BitmapProxyCanvas(canvas, pBitmaps, pBitmapRects, invert);
     }
 
     virtual void drawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
@@ -265,6 +266,16 @@ public:
                 appendBitmap(bitmap, fastBounds);
         } else {
             target->drawBitmap(bitmap, x, y, paint);
+            if (invertBitmaps) {
+                target->save();
+                SkRect inversionRect;
+                inversionRect.set(x, y,
+                                  x + SkIntToScalar(bitmap.width()),
+                                  y + SkIntToScalar(bitmap.height()));
+                target->clipRect(inversionRect);
+                target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
+                target->restore();
+            }
         }
     }
 
@@ -278,6 +289,12 @@ public:
                 appendBitmap(bitmap, dst);
         } else {
             target->drawBitmapRect(bitmap, src, dst, paint);
+            if (invertBitmaps) {
+                target->save();
+                target->clipRect(dst);
+                target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
+                target->restore();
+            }
         }
     }
 
@@ -290,13 +307,16 @@ private:
 
     WTF::Vector<const SkBitmap*> *pBitmapsForDecoding;
     WTF::Vector<SkRect>          *pBitmapRectsForDecoding;
+    bool                          invertBitmaps;
 
     BitmapProxyCanvas(SkCanvas* canvas,
         WTF::Vector<const SkBitmap*> *pBitmaps,
-        WTF::Vector<SkRect>          *pBitmapRects)
+        WTF::Vector<SkRect>          *pBitmapRects,
+        bool                          invert)
         : SyncProxyCanvas(canvas)
         , pBitmapsForDecoding(pBitmaps)
         , pBitmapRectsForDecoding(pBitmapRects)
+        , invertBitmaps(invert)
     {
     }
 
@@ -342,9 +362,38 @@ private:
     }
 };
 
+#else
+class ImageInverter: public SyncProxyCanvas
+{
+public:
+
+    ImageInverter(SkCanvas* canvas): SyncProxyCanvas(canvas) {}
+
+    void drawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
+                    const SkPaint* paint) {
+        target->drawBitmap(bitmap, x, y, paint);
+        target->save();
+        SkRect inversionRect;
+        inversionRect.set(x, y,
+                          x + SkIntToScalar(bitmap.width()),
+                          y + SkIntToScalar(bitmap.height()));
+        target->clipRect(inversionRect);
+        target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
+        target->restore();
+    }
+
+    void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
+                        const SkRect& dst, const SkPaint* paint) {
+        target->drawBitmapRect(bitmap, src, dst, paint);
+        target->save();
+        target->clipRect(dst);
+        target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
+        target->restore();
+    }
+};
 #endif
 
-bool PictureSet::draw(SkCanvas* canvas)
+bool PictureSet::draw(SkCanvas* canvas, bool invertColor)
 {
     validate(__FUNCTION__);
     Pictures* first = mPictures.begin();
@@ -405,11 +454,14 @@ bool PictureSet::draw(SkCanvas* canvas)
         uint32_t startTime = getThreadMsec();
 #ifdef CACHED_IMAGE_DECODE
         {
-            WTF::OwnPtr<BitmapProxyCanvas> proxyCanvas = BitmapProxyCanvas::create(canvas, &mBitmapsForDecoding, &mBitmapRectsForDecoding);
+            WTF::OwnPtr<BitmapProxyCanvas> proxyCanvas = BitmapProxyCanvas::create(canvas, &mBitmapsForDecoding, &mBitmapRectsForDecoding, invertColor);
             proxyCanvas->drawPicture(*working->mPicture);
         }
 #else
-        canvas->drawPicture(*working->mPicture);
+        SkCanvas* painter = invertColor ? new ImageInverter(canvas) : canvas;
+        painter->drawPicture(*working->mPicture);
+        if (invertColor)
+            delete painter;
 #endif
         size_t elapsed = working->mElapsed = getThreadMsec() - startTime;
         working->mWroteElapsed = true;
@@ -441,6 +493,8 @@ bool PictureSet::draw(SkCanvas* canvas)
             working->mElapsed, working->mBase ? "true" : "false");
     }
  //   dump(__FUNCTION__);
+    if (invertColor)
+        canvas->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
     return maxElapsed >= MAX_DRAW_TIME;
 }
 
