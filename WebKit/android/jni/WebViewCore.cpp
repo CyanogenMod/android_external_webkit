@@ -1,6 +1,5 @@
 /*
  * Copyright 2006, The Android Open Source Project
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -134,10 +133,6 @@ FILE* gRenderTreeFile = 0;
 
 #ifdef ANDROID_INSTRUMENT
 #include "TimeCounter.h"
-#endif
-
-#ifdef CACHED_IMAGE_DECODE
-#include "ImageDecodeThread.h"
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -357,20 +352,13 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     PageGroup::setShouldTrackVisitedLinks(true);
 
     reset(true);
-#ifdef CACHED_IMAGE_DECODE
-    m_imageDecodeThread = ImageDecodeThread::create(this);
-    m_imageDecodeThread->start();
-#endif
+
     WebViewCore::addInstance(this);
 }
 
 WebViewCore::~WebViewCore()
 {
     WebViewCore::removeInstance(this);
-#ifdef CACHED_IMAGE_DECODE
-    m_imageDecodeThread->terminate();
-    m_imageDecodeThread = 0;
-#endif
 
     // Release the focused view
     Release(m_popupReply);
@@ -794,12 +782,6 @@ bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
     m_content.setDrawTimes(copyContent);
     m_contentMutex.unlock();
     DBG_SET_LOG("end");
-
-#ifdef CACHED_IMAGE_DECODE
-    WTF::Vector<const SkBitmap*> bitmaps = copyContent.getBitmapsForDecoding();
-    if (!bitmaps.isEmpty())
-        m_imageDecodeThread->scheduleDecodeBitmaps(bitmaps, copyContent.getBitmapRectsForDecoding());
-#endif
     return tookTooLong;
 }
 

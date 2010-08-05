@@ -1,6 +1,5 @@
 /*
  * Copyright 2008, The Android Open Source Project
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,7 +47,6 @@
 class SkCanvas;
 class SkPicture;
 class SkIRect;
-class SkBitmap;
 
 namespace android {
 
@@ -84,14 +82,6 @@ namespace android {
         int width() const { return mWidth; }
         void dump(const char* label) const;
         bool validate(const char* label) const;
-#ifdef CACHED_IMAGE_DECODE
-        WTF::Vector<const SkBitmap*> getBitmapsForDecoding() const {
-            return mBitmapsForDecoding;
-        }
-        WTF::Vector<SkRect> getBitmapRectsForDecoding() const {
-            return mBitmapRectsForDecoding;
-        }
-#endif
     private:
         bool emptyPicture(SkPicture* ) const; // true if no text, images, paths
         struct Pictures {
@@ -106,12 +96,6 @@ namespace android {
         };
         void add(const Pictures* temp);
         WTF::Vector<Pictures> mPictures;
-#ifdef CACHED_IMAGE_DECODE
-        void clearBitmapsForDecoding();
-        // The list of bitmaps to be queued for decoding
-        WTF::Vector<const SkBitmap*> mBitmapsForDecoding;
-        WTF::Vector<SkRect>          mBitmapRectsForDecoding;
-#endif
         int mHeight;
         int mWidth;
     };
