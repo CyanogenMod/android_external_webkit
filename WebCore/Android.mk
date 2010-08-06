@@ -398,6 +398,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/android/ClipboardAndroid.cpp \
 	platform/android/CursorAndroid.cpp \
+        platform/android/DNS.cpp \
 	platform/android/DragDataAndroid.cpp \
 	platform/android/EventLoopAndroid.cpp \
 	platform/android/FileChooserAndroid.cpp \

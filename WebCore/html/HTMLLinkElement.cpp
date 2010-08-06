@@ -4,6 +4,7 @@
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Rob Buis (rwlbuis@gmail.com)
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -213,7 +214,7 @@ void HTMLLinkElement::process()
 #endif
 
     if (m_isDNSPrefetch && m_url.isValid() && !m_url.isEmpty())
-        prefetchDNS(m_url.host());
+        prefetchDNS(m_url.host(), inDocument() ? document()->frame():0, DnsPrefetchLink);
 
     bool acceptIfTypeContainsTextCSS = document()->page() && document()->page()->settings() && document()->page()->settings()->treatsAnyTextCSSLinkAsStylesheet();
 

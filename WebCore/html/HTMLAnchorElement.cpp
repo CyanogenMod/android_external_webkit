@@ -4,6 +4,7 @@
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  * Copyright (C) 2003, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -279,7 +280,7 @@ void HTMLAnchorElement::parseMappedAttribute(MappedAttribute *attr)
             String parsedURL = deprecatedParseURL(attr->value());
             if (document()->isDNSPrefetchEnabled()) {
                 if (protocolIs(parsedURL, "http") || protocolIs(parsedURL, "https") || parsedURL.startsWith("//"))
-                    prefetchDNS(document()->completeURL(parsedURL).host());
+                    prefetchDNS(document()->completeURL(parsedURL).host(), inDocument() ? document()->frame():0, DnsPrefetchLink);
             }
             if (document()->page() && !document()->page()->javaScriptURLsAreAllowed() && protocolIsJavaScript(parsedURL)) {
                 setIsLink(false);

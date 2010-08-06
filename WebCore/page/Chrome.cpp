@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -334,7 +335,7 @@ void Chrome::mouseDidMoveOverElement(const HitTestResult& result, unsigned modif
     if (result.innerNode()) {
         Document* document = result.innerNode()->document();
         if (document && document->isDNSPrefetchEnabled())
-            prefetchDNS(result.absoluteLinkURL().host());
+            prefetchDNS(result.absoluteLinkURL().host(), m_page->mainFrame(), DnsPrefetchLink);
     }
     m_client->mouseDidMoveOverElement(result, modifierFlags);
 
