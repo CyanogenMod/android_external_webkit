@@ -1,5 +1,6 @@
 /*
  * Copyright 2009, The Android Open Source Project
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -474,11 +475,6 @@ char* dirname(const char*)
 
     // new as of SVN change 38068, Nov 5, 2008
 namespace WebCore {
-void prefetchDNS(const String&)
-{
-    notImplemented();
-}
-
 PassRefPtr<Icon> Icon::createIconForFiles(const Vector<String>&)
 {
     notImplemented();

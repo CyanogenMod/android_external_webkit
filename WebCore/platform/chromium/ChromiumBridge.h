@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -91,7 +92,7 @@ namespace WebCore {
         static bool cookiesEnabled(const KURL& url, const KURL& firstPartyForCookies);
 
         // DNS ----------------------------------------------------------------
-        static void prefetchDNS(const String& hostname);
+        static void prefetchDNS(const String& hostname, Frame*, DnsPrefetchType);
 
         // File ---------------------------------------------------------------
         static bool fileExists(const String&);

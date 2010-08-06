@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2008 Collin Jackson  <collinj@webkit.org>
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,8 +30,16 @@
 namespace WebCore {
 
     class String;
+    class Frame;
 
-    void prefetchDNS(const String& hostname);
+    enum DnsPrefetchType {
+        DnsPrefetchNotApplicable = 0,
+        DnsPrefetchLink,
+        DnsPrefetchResource,
+        DnsPrefetchHistory
+    };
+
+    void prefetchDNS(const String& hostname, Frame*, DnsPrefetchType);
 }
 
 #endif

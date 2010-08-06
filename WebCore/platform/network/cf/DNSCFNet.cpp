@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008 Collin Jackson  <collinj@webkit.org>
  * Copyright (C) 2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -144,7 +145,7 @@ void DNSResolveQueue::resolve(const String& hostname)
     host.releaseRef(); // The host will be released from clientCallback().
 }
 
-void prefetchDNS(const String& hostname)
+void prefetchDNS(const String& hostname, Frame*, DnsPrefetchType)
 {
     ASSERT(isMainThread());
     if (hostname.isEmpty())

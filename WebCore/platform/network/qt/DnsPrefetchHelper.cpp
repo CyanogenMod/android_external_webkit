@@ -1,5 +1,6 @@
 /*
     Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (c) 2010, Code Aurora Forum. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -24,7 +25,7 @@
 
 namespace WebCore {
 // this is called on mouse over a href and on page loading
-void prefetchDNS(const String& hostname)
+void prefetchDNS(const String& hostname, Frame*, DnsPrefetchType)
 {
     if (QWebSettings::globalSettings()->testAttribute(QWebSettings::DnsPrefetchEnabled)) {
         static DnsPrefetchHelper dnsPrefetchHelper;

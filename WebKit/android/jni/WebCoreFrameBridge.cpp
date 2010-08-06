@@ -189,6 +189,7 @@ struct WebFrame::JavaBrowserFrame
     jmethodID   mDensity;
     jmethodID   mGetFileSize;
     jmethodID   mGetFile;
+    jmethodID   mResolveDns;
     AutoJObject frame(JNIEnv* env) {
         return getRealObject(env, mObj);
     }
@@ -247,6 +248,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mDensity = env->GetMethodID(clazz, "density","()F");
     mJavaFrame->mGetFileSize = env->GetMethodID(clazz, "getFileSize", "(Ljava/lang/String;)I");
     mJavaFrame->mGetFile = env->GetMethodID(clazz, "getFile", "(Ljava/lang/String;[BII)I");
+    mJavaFrame->mResolveDns = env->GetMethodID(clazz, "resolveDnsForHost","(Ljava/lang/String;)V");
 
     LOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
     LOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
@@ -268,6 +270,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     LOG_ASSERT(mJavaFrame->mDensity, "Could not find method density");
     LOG_ASSERT(mJavaFrame->mGetFileSize, "Could not find method getFileSize");
     LOG_ASSERT(mJavaFrame->mGetFile, "Could not find method getFile");
+    LOG_ASSERT(mJavaFrame->mResolveDns, "Could not find method resolveDnsForHost");
 
     mUserAgent = WebCore::String();
     mUserInitiatedClick = false;
@@ -856,6 +859,17 @@ WebFrame::density() const
     jfloat dpi = env->CallFloatMethod(mJavaFrame->frame(env).get(), mJavaFrame->mDensity);
     checkException(env);
     return dpi;
+}
+
+void WebFrame::resolveDnsForHost(const WebCore::String& host)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject obj = mJavaFrame->frame(env);
+    if (!obj.get())
+        return;
+    jstring jHostNameStr = env->NewString(host.characters(), host.length());
+    env->CallVoidMethod(obj.get(), mJavaFrame->mResolveDns, jHostNameStr);
+    env->DeleteLocalRef(jHostNameStr);
 }
 
 // ----------------------------------------------------------------------------

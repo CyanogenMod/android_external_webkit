@@ -6,6 +6,7 @@
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
  * Copyright (C) 2003, 2006, 2007, 2008 Apple Inc. All rights reserved.
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -61,7 +62,7 @@ void WMLAElement::parseMappedAttribute(MappedAttribute* attr)
         if (isLink() && document()->isDNSPrefetchEnabled()) {
             String value = attr->value();
             if (protocolIs(value, "http") || protocolIs(value, "https") || value.startsWith("//"))
-                prefetchDNS(document()->completeURL(value).host());
+                prefetchDNS(document()->completeURL(value).host(), inDocument() ? document()->frame():0, DnsPrefetchLink);
         }
     } else if (attr->name() == HTMLNames::nameAttr
                || attr->name() == HTMLNames::titleAttr
