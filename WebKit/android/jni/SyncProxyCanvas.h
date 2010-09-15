@@ -79,7 +79,13 @@ public:
     }
 
     virtual int saveLayer(const SkRect* bounds, const SkPaint* paint,
-                                 SaveFlags flags) {
+                                 SaveFlags flags = kARGB_ClipLayer_SaveFlag) {
+        // saveLayer() behaves the same as save() but in addition, it allocates
+        // an offscreen bitmap where all drawing calls are directed. When the
+        // balancing call to restore() is made, that offscreen is transferred
+        // to the canvas and the bitmap is deleted. SyncProxyCanvas calls save()
+        // instead in order to avoid the bitmap allocation.
+        SkCanvas::save(flags);
         return target->saveLayer(bounds, paint, flags);
     }
 
@@ -224,6 +230,15 @@ public:
     virtual void drawData(const void* data, size_t length) {
         target->drawData(data, length);
     }
+
+    virtual void drawPicture(SkPicture& picture) {
+        // Use target canvas for save and restore operations because SyncProxyCanvas
+        // returns target's save count during calls to save() or saveLayer().
+        int saveCount = target->save();
+        picture.draw(this);
+        target->restoreToCount(saveCount);
+    }
+
 };
 
 #endif
