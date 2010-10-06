@@ -1245,10 +1245,14 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                     }
                 }
             }
+            Frame* frame = NULL;
+            if (node)
+                frame = node->document()->frame();
+
             r->setNeedsLayoutAndPrefWidthsRecalc();
             m_mainFrame->view()->forceLayout();
             // scroll to restore current screen center
-            if (node) {
+            if (node && frame && CacheBuilder::validNode(m_mainFrame, frame, node)) {
                 const WebCore::IntRect& newBounds = node->getRect();
                 DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
                     "h=%d)", newBounds.x(), newBounds.y(),
