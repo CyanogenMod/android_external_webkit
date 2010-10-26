@@ -308,7 +308,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
     jclass clazz = env->GetObjectClass(javaWebViewCore);
     m_javaGlue = new JavaGlue;
-    m_javaGlue->m_obj = env->NewWeakGlobalRef(javaWebViewCore);
+    m_javaGlue->m_obj = env->NewGlobalRef(javaWebViewCore);
     m_javaGlue->m_spawnScrollTo = GetJMethod(env, clazz, "contentSpawnScrollTo", "(II)V");
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
     m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
@@ -380,7 +380,7 @@ WebViewCore::~WebViewCore()
 
     if (m_javaGlue->m_obj) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->DeleteWeakGlobalRef(m_javaGlue->m_obj);
+        env->DeleteGlobalRef(m_javaGlue->m_obj);
         m_javaGlue->m_obj = 0;
     }
     delete m_javaGlue;
