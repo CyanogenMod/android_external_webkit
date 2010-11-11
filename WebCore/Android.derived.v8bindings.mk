@@ -368,6 +368,7 @@ GEN := \
     $(intermediates)/bindings/V8SVGZoomEvent.h
 
 ifeq ($(ENABLE_SVG), true)
+FEATURE_DEFINES += ENABLE_SVG=1
 GEN += \
     $(intermediates)/bindings/V8SVGAElement.h \
     $(intermediates)/bindings/V8SVGAltGlyphElement.h \
@@ -397,6 +398,7 @@ GEN += \
     $(intermediates)/bindings/V8SVGFEImageElement.h \
     $(intermediates)/bindings/V8SVGFEMergeElement.h \
     $(intermediates)/bindings/V8SVGFEMergeNodeElement.h \
+    $(intermediates)/bindings/V8SVGFEMorphologyElement.h \
     $(intermediates)/bindings/V8SVGFEOffsetElement.h \
     $(intermediates)/bindings/V8SVGFEPointLightElement.h \
     $(intermediates)/bindings/V8SVGFESpecularLightingElement.h \
@@ -617,6 +619,9 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 ifeq ($(ENABLE_SVG), true)
 GEN:= $(intermediates)/SVGNames.cpp $(intermediates)/SVGNames.h $(intermediates)/SVGElementFactory.cpp $(intermediates)/SVGElementFactory.h $(intermediates)/V8SVGElementWrapperFactory.cpp $(intermediates)/V8SVGElementWrapperFactory.h
 SVG_FLAGS:=ENABLE_SVG_AS_IMAGE=1 ENABLE_SVG_FILTERS=1 ENABLE_SVG_FONTS=1 ENABLE_SVG_FOREIGN_OBJECT=1 ENABLE_SVG_USE=1
+ifeq ($(ENABLE_SVG_ANIMATION), true)
+SVG_FLAGS += ENABLE_SVG_ANIMATION=1
+endif
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(PRIVATE_PATH)/svg/svgtags.in --attrs $(PRIVATE_PATH)/svg/svgattrs.in --extraDefines "$(SVG_FLAGS)" --factory --wrapperFactoryV8 --output $(dir $@)
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(LOCAL_PATH)/svg/svgtags.in $(LOCAL_PATH)/svg/svgattrs.in
