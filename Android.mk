@@ -45,7 +45,7 @@ JAVASCRIPT_ENGINE = $(JS_ENGINE)
 # default is V8. On everything else, the only choice is JSC.
 # TODO: use ARCH_ARM_HAVE_ARMV7 once that variable is added to
 # the build system.
-ifeq ($(ARCH_ARM_HAVE_ARMV7A),true)
+ifeq ($(ARCH_ARM_HAVE_VFP),true)
     DEFAULT_ENGINE = v8
     ALT_ENGINE = jsc
 else
@@ -232,10 +232,6 @@ LOCAL_CFLAGS += -DCACHED_IMAGE_DECODE
 ifeq ($(JAVASCRIPT_ENGINE),jsc)
 ifeq ($(ENABLE_JSC_JIT),true)
 LOCAL_CFLAGS += -DENABLE_ANDROID_JSC_JIT=1
-else
-  ifeq ($(ARCH_ARM_HAVE_VFP),true)
-    LOCAL_CFLAGS += -DENABLE_ANDROID_JSC_JIT=1
-  endif
 endif
 endif
 
