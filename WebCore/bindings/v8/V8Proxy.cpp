@@ -818,10 +818,12 @@ bool V8Proxy::sourceLineNumber(int& result)
     frameSourceLine = v8::Local<v8::Function>::Cast(v8UtilityContext->Global()->Get(v8::String::New("frameSourceLine")));
     if (frameSourceLine.IsEmpty())
         return false;
+#if 0 // Causes crashes on new v8
     v8::Handle<v8::Value> value = v8::Debug::Call(frameSourceLine);
     if (value.IsEmpty())
         return false;
     result = value->Int32Value();
+#endif
     return true;
 }
 
@@ -836,10 +838,12 @@ bool V8Proxy::sourceName(String& result)
     frameSourceName = v8::Local<v8::Function>::Cast(v8UtilityContext->Global()->Get(v8::String::New("frameSourceName")));
     if (frameSourceName.IsEmpty())
         return false;
+#if 0 // Causes crashes on new v8
     v8::Handle<v8::Value> value = v8::Debug::Call(frameSourceName);
     if (value.IsEmpty())
         return false;
     result = toWebCoreString(value);
+#endif
     return true;
 }
 
