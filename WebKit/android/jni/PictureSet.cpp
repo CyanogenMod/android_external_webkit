@@ -36,6 +36,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkStream.h"
+#include "SyncProxyCanvas.h"
 #include "TimeCounter.h"
 
 #define MAX_DRAW_TIME 100
@@ -217,7 +218,36 @@ void PictureSet::clear()
     mWidth = mHeight = 0;
 }
 
-bool PictureSet::draw(SkCanvas* canvas)
+class ImageInverter: public SyncProxyCanvas
+{
+public:
+
+    ImageInverter(SkCanvas* canvas): SyncProxyCanvas(canvas) {}
+
+    void drawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
+                    const SkPaint* paint) {
+        target->drawBitmap(bitmap, x, y, paint);
+        target->save();
+        SkRect inversionRect;
+        inversionRect.set(x, y,
+                          x + SkIntToScalar(bitmap.width()),
+                          y + SkIntToScalar(bitmap.height()));
+        target->clipRect(inversionRect);
+        target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
+        target->restore();
+    }
+
+    void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
+                        const SkRect& dst, const SkPaint* paint) {
+        target->drawBitmapRect(bitmap, src, dst, paint);
+        target->save();
+        target->clipRect(dst);
+        target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
+        target->restore();
+    }
+};
+
+bool PictureSet::draw(SkCanvas* canvas, bool invertColor)
 {
     validate(__FUNCTION__);
     Pictures* first = mPictures.begin();
@@ -271,7 +301,10 @@ bool PictureSet::draw(SkCanvas* canvas)
         canvas->translate(pathBounds.fLeft, pathBounds.fTop);
         canvas->save();
         uint32_t startTime = getThreadMsec();
-        canvas->drawPicture(*working->mPicture);
+        SkCanvas* painter = invertColor ? new ImageInverter(canvas) : canvas;
+        painter->drawPicture(*working->mPicture);
+        if (invertColor)
+            delete painter;
         size_t elapsed = working->mElapsed = getThreadMsec() - startTime;
         working->mWroteElapsed = true;
         if (maxElapsed < elapsed && (pathBounds.width() >= MIN_SPLITTABLE ||
@@ -302,6 +335,8 @@ bool PictureSet::draw(SkCanvas* canvas)
             working->mElapsed, working->mBase ? "true" : "false");
     }
  //   dump(__FUNCTION__);
+    if (invertColor)
+        canvas->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
     return maxElapsed >= MAX_DRAW_TIME;
 }
 

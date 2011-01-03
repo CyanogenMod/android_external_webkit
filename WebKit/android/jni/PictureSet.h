@@ -68,7 +68,7 @@ namespace android {
         // Update mWidth/mHeight, and adds any additional inval region
         void checkDimensions(int width, int height, SkRegion* inval);
         void clear();
-        bool draw(SkCanvas* );
+        bool draw(SkCanvas*, bool invertColor = false );
         static PictureSet* GetNativePictureSet(JNIEnv* env, jobject jpic);
         int height() const { return mHeight; }
         bool isEmpty() const; // returns true if empty or only trivial content

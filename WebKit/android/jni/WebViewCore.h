@@ -358,6 +358,7 @@ namespace android {
         jobject getWebViewJavaObject();
 
         void setBackgroundColor(SkColor c);
+        void setColorInversion(bool invert);
         void updateFrameCache();
         void updateCacheOnNodeChange();
         void dumpDomTree(bool);
@@ -542,6 +543,7 @@ namespace android {
         bool m_check_domtree_version;
         PageGroup* m_groupForVisitedLinks;
         bool m_isPaused;
+        bool m_invertColor;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;

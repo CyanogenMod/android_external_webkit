@@ -315,6 +315,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_forwardingTouchEvents = false;
 #endif
     m_isPaused = false;
+    m_invertColor = false;
 
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -797,7 +798,7 @@ bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
     canvas->clipRect(clip, SkRegion::kDifference_Op);
     canvas->drawColor(color);
     canvas->restoreToCount(sc);
-    bool tookTooLong = copyContent.draw(canvas);
+    bool tookTooLong = copyContent.draw(canvas, m_invertColor);
     m_contentMutex.lock();
     m_content.setDrawTimes(copyContent);
     m_contentMutex.unlock();
@@ -2448,6 +2449,17 @@ void WebViewCore::setBackgroundColor(SkColor c)
         view->setTransparent(true);
 }
 
+void WebViewCore::setColorInversion(bool invert)
+{
+    if (m_invertColor != invert) {
+        m_invertColor = invert;
+        if (invert)
+            DBG_SET_LOG("color invert active");
+        else
+            DBG_SET_LOG("no color invert");
+    }
+}
+
 jclass WebViewCore::getPluginClass(const WebCore::String& libName, const char* className)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -2969,6 +2981,14 @@ static void SetBackgroundColor(JNIEnv *env, jobject obj, jint color)
     viewImpl->setBackgroundColor((SkColor) color);
 }
 
+static void SetColorInversion(JNIEnv *env, jobject obj, jboolean invert)
+{
+    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+
+    viewImpl->setColorInversion(invert);
+}
+
 static void DumpDomTree(JNIEnv *env, jobject obj, jboolean useFile)
 {
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
@@ -3248,6 +3268,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SplitContent },
     { "nativeSetBackgroundColor", "(I)V",
         (void*) SetBackgroundColor },
+    { "nativeSetColorInversion", "(Z)V",
+        (void*) SetColorInversion },
     { "nativeRegisterURLSchemeAsLocal", "(Ljava/lang/String;)V",
         (void*) RegisterURLSchemeAsLocal },
     { "nativeDumpDomTree", "(Z)V",
