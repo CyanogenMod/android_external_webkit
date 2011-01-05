@@ -102,7 +102,7 @@ public:
 
     private:
         RenderStyle* locateSharedStyle();
-        Node* locateCousinList(Element* parent, unsigned depth = 1);
+        Node* locateCousinList(Element* parent, unsigned& visitedNodes);
         bool canShareStyleWithElement(Node*);
 
         RenderStyle* style() const { return m_style.get(); }

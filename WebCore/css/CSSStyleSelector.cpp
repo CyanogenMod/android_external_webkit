@@ -6,6 +6,7 @@
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -935,33 +936,44 @@ static int total = 0;
 #endif
 
 static const unsigned cStyleSearchThreshold = 10;
+static const unsigned cStyleSearchLevelThreshold = 10;
 
-Node* CSSStyleSelector::locateCousinList(Element* parent, unsigned depth)
+Node* CSSStyleSelector::locateCousinList(Element* parent, unsigned& visitedNodesCount)
 {
-    if (parent && parent->isStyledElement()) {
-        StyledElement* p = static_cast<StyledElement*>(parent);
-        if (!p->inlineStyleDecl() && !p->hasID()) {
-            Node* r = p->previousSibling();
-            unsigned subcount = 0;
-            RenderStyle* st = p->renderStyle();
-            while (r) {
-                if (r->renderStyle() == st)
-                    return r->lastChild();
-                if (subcount++ == cStyleSearchThreshold)
-                    return 0;
-                r = r->previousSibling();
+    if (visitedNodesCount >= (cStyleSearchThreshold * cStyleSearchLevelThreshold))
+        return 0;
+
+    if (!parent || !parent->isStyledElement())
+        return 0;
+
+    StyledElement* parentStyledElement = static_cast<StyledElement*>(parent);
+    if (parentStyledElement->inlineStyleDecl() || parentStyledElement->hasID())
+        return 0;
+
+    RenderStyle* parentStyle = parentStyledElement->renderStyle();
+    unsigned subcount = 0;
+    Node* thisCousin = parentStyledElement;
+    Node* currentNode = parentStyledElement->previousSibling();
+
+    // Reserve the tries for this level. This effectively makes sure that the algorithm
+    // will never go deeper than cStyleSearchLevelThreshold levels into recursion.
+    visitedNodesCount += cStyleSearchThreshold;
+    while (thisCousin) {
+        while (currentNode) {
+            ++subcount;
+            if (currentNode->renderStyle() == parentStyle && currentNode->lastChild()) {
+                // Adjust for unused reserved tries.
+                visitedNodesCount -= cStyleSearchThreshold - subcount;
+                return currentNode->lastChild();
             }
-            if (!r && depth < cStyleSearchThreshold)
-                r = locateCousinList(parent->parentElement(), depth + 1);
-            while (r) {
-                if (r->renderStyle() == st)
-                    return r->lastChild();
-                if (subcount++ == cStyleSearchThreshold)
-                    return 0;
-                r = r->previousSibling();
-            }
+            if (subcount >= cStyleSearchThreshold)
+                return 0;
+            currentNode = currentNode->previousSibling();
         }
+        currentNode = locateCousinList(thisCousin->parentElement(), visitedNodesCount);
+        thisCousin = currentNode;
     }
+
     return 0;
 }
 
@@ -1054,11 +1066,20 @@ bool CSSStyleSelector::canShareStyleWithElement(Node* n)
 
 RenderStyle* CSSStyleSelector::locateSharedStyle()
 {
-    if (m_styledElement && !m_styledElement->inlineStyleDecl() && !m_styledElement->hasID() && !m_styledElement->document()->usesSiblingRules()) {
-        // Check previous siblings.
-        unsigned count = 0;
-        Node* n;
-        for (n = m_element->previousSibling(); n && !n->isElementNode(); n = n->previousSibling()) { }
+    if (!m_styledElement)
+        return 0;
+
+    if (m_styledElement->inlineStyleDecl() || m_styledElement->hasID() || m_styledElement->document()->usesSiblingRules())
+        return 0;
+
+    // Check previous siblings and their cousins.
+    unsigned count = 0;
+    unsigned visitedNodesCount = 0;
+    Node* thisElement = m_element;
+    Node* n;
+    // FIXME: We should use the ElementTraversal API instead of this for-loop but we need to test the performance implication of this change.
+    for (n = thisElement->previousSibling(); n && !n->isElementNode(); n = n->previousSibling()) { }
+    while (thisElement) {
         while (n) {
             if (canShareStyleWithElement(n))
                 return n->renderStyle();
@@ -1066,15 +1087,8 @@ RenderStyle* CSSStyleSelector::locateSharedStyle()
                 return 0;
             for (n = n->previousSibling(); n && !n->isElementNode(); n = n->previousSibling()) { }
         }
-        if (!n) 
-            n = locateCousinList(m_element->parentElement());
-        while (n) {
-            if (canShareStyleWithElement(n))
-                return n->renderStyle();
-            if (count++ == cStyleSearchThreshold)
-                return 0;
-            for (n = n->previousSibling(); n && !n->isElementNode(); n = n->previousSibling()) { }
-        }        
+        n = locateCousinList(thisElement->parentElement(), visitedNodesCount);
+        thisElement = n;
     }
     return 0;
 }
