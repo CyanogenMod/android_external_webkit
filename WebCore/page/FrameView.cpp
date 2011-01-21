@@ -7,6 +7,7 @@
  *           (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,7 +29,9 @@
 #include "FrameView.h"
 
 #include "AXObjectCache.h"
+#include "BackForwardList.h"
 #include "CSSStyleSelector.h"
+#include "CString.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "DocLoader.h"
@@ -40,6 +43,7 @@
 #include "FrameLoaderClient.h"
 #include "FrameTree.h"
 #include "GraphicsContext.h"
+#include "HistoryItem.h"
 #include "HTMLDocument.h"
 #include "HTMLFrameElement.h"
 #include "HTMLFrameSetElement.h"
@@ -78,7 +82,6 @@
 #if PLATFORM(ANDROID)
 #include "WebCoreFrameBridge.h"
 #endif
-
 
 namespace WebCore {
 
@@ -133,6 +136,7 @@ FrameView::FrameView(Frame* frame)
     , m_deferSetNeedsLayouts(0)
     , m_setNeedsLayoutWasDeferred(false)
     , m_scrollCorner(0)
+    , m_historyItem(0)
 {
     init();
 }
@@ -991,7 +995,7 @@ HostWindow* FrameView::hostWindow() const
 
 const unsigned cRepaintRectUnionThreshold = 25;
 
-void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
+void FrameView::repaintContentRectangle(const IntRect& r, bool immediate, bool paintHeader)
 {
     ASSERT(!m_frame->document()->ownerElement());
 
@@ -1027,7 +1031,7 @@ void FrameView::repaintContentRectangle(const IntRect& r, bool immediate)
     if (!immediate && isOffscreen() && !shouldUpdateWhileOffscreen())
         return;
 
-    ScrollView::repaintContentRectangle(r, immediate);
+    ScrollView::repaintContentRectangle(r, immediate, paintHeader);
 }
 
 void FrameView::visibleContentsResized()
@@ -1705,10 +1709,38 @@ void FrameView::setWasScrolledByUser(bool wasScrolledByUser)
     m_wasScrolledByUser = wasScrolledByUser;
 }
 
+HistoryItem* FrameView::findCachedHeader(const KURL& originalUrl) const
+{
+    Page* page = frame()->page();
+    if (!page)
+        return 0;
+
+    BackForwardList* lst = page->backForwardList();
+    if (!lst)
+        return 0;
+
+    const WebCore::HistoryItemVector &items = lst->entries();
+    int size = items.size() - 1 ;
+    while(size >= 0) {
+        WebCore::HistoryItem *item = items[size].get();
+        if(item->isInPageCache()) {
+            if (((originalUrl == item->originalURL()) || (originalUrl == item->url())) &&   (item->userAgent() == m_frame->loader()->userAgent(m_frame->loader()->url())))
+                return item;
+        }
+        if(size == 0)
+            return 0;
+        --size;
+    }
+    return 0;
+}
+
 void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
 {
     if (!frame())
         return;
+
+    if (m_historyItem)
+        m_nodeToDraw = m_historyItem->headerDIV();
 
 #if ENABLE(INSPECTOR)
     if (InspectorTimelineAgent* timelineAgent = inspectorTimelineAgent())
@@ -1771,7 +1803,14 @@ void FrameView::paintContents(GraphicsContext* p, const IntRect& rect)
     if (document->printing())
         paintBehavior |= PaintBehaviorFlattenCompositingLayers;
 
-    contentRenderer->layer()->paint(p, rect, paintBehavior, eltRenderer);
+    if (!m_historyItem || !eltRenderer || !m_historyItem->shouldPaintHeader())
+        frame()->contentRenderer()->layer()->paint(p, rect, paintBehavior, eltRenderer);
+    else {
+        m_historyItem->contentRenderer()->layer()->paint(p, rect, paintBehavior, eltRenderer);
+        m_historyItem->setShouldPaintHeader(false);
+        m_nodeToDraw = 0;
+    }
+
     
     m_isPainting = false;
     m_lastPaintTime = currentTime();

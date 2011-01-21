@@ -1627,6 +1627,8 @@ static bool isInsideViewPort(WebCore::Element *pElem, const WebCore::IntRect & o
 static void traverseDOMForViewPort(WebCore::Element* pElem, const WebCore::IntRect & origRect,const KURL& mainURL, WTF::HashMap<WebCore::String, String>& list, int maxHostCount)
 {
     KURL url;
+    if(!pElem)
+        return;
     const WebCore::Element *parentElement = pElem;
 
     if (parentElement->hasAttribute(HTMLNames::hrefAttr)) {

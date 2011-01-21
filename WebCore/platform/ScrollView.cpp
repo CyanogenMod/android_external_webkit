@@ -705,7 +705,7 @@ void ScrollView::frameRectsChanged()
         (*current)->frameRectsChanged();
 }
 
-void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
+void ScrollView::repaintContentRectangle(const IntRect& rect, bool now, bool paintHeader)
 {
     IntRect paintRect = rect;
     if (!paintsEntireContents())
@@ -717,7 +717,7 @@ void ScrollView::repaintContentRectangle(const IntRect& rect, bool now)
     if (paintRect.isEmpty())
         return;
     if (platformWidget()) {
-        platformRepaintContentRectangle(paintRect, now);
+        platformRepaintContentRectangle(paintRect, now, paintHeader);
         return;
     }
 

@@ -131,13 +131,13 @@ namespace android {
         /**
          * Record the invalid rectangle
          */
-        void contentInvalidate(const WebCore::IntRect &rect);
+        void contentInvalidate(const WebCore::IntRect &rect, bool paintHeader = false);
 
         /**
          * Satisfy any outstanding invalidates, so that the current state
          * of the DOM is drawn.
          */
-        void contentDraw();
+        void contentDraw(bool paintHeader = false);
 
 #if USE(ACCELERATED_COMPOSITING)
         GraphicsLayerAndroid* graphicsRootLayer() const;

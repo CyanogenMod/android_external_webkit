@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,11 +37,16 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "FrameView.h"
+#include "HistoryItem.h"
 #include "HTMLFormElement.h"
+#include "IntRect.h"
 #include "Page.h"
 #if PLATFORM(QT)
 #include "PluginDatabase.h"
 #endif
+#include "RenderObject.h"
+#include "RenderView.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "Settings.h"
@@ -529,6 +535,22 @@ bool MainResourceLoader::load(const ResourceRequest& r, const SubstituteData& su
     m_substituteData = substituteData;
 
     ResourceRequest request(r);
+
+    FrameView* frameView = m_frame->view();
+    HistoryItem* item = frameView->findCachedHeader(r.url());
+    if (item) {
+        frameView->setHistoryItem(item);
+        const Element* headerDIV = item->headerDIV();
+        RenderView* headerView = item->contentRenderer();
+        if (headerDIV && headerView) {
+            item->setShouldPaintHeader(true);
+            frameView->setPaintsEntireContents(true);
+            const IntSize size(frameView->visibleContentRect(true).width(), frameView->visibleContentRect(true).height());
+            frameView->setContentsSize(size);
+            headerView->repaintViewRectangle(frameView->visibleContentRect(true), false, true);
+        }
+    }
+
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     documentLoader()->applicationCacheHost()->maybeLoadMainResource(request, m_substituteData);

@@ -4,6 +4,7 @@
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008 Alp Toker <alp@atoker.com>
  * Copyright (C) Research In Motion Limited 2009. All rights reserved.
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -854,6 +855,7 @@ void FrameLoader::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
 
     document->setURL(m_URL);
     m_frame->setDocument(document);
+    document->setUserAgent(userAgent(m_URL));
 
     if (m_pendingStateObject) {
         document->statePopped(m_pendingStateObject.get());
@@ -3719,6 +3721,27 @@ bool FrameLoader::loadProvisionalItemFromCachedPage()
     return true;
 }
 
+Element* FrameLoader::findHeaderDIV(WebCore::Element* rootElement) const
+{
+    for (Node* headerNode = rootElement->traverseNextNode(rootElement); headerNode; headerNode = headerNode->traverseNextNode(rootElement)) {
+        if (!headerNode->isElementNode())
+            continue;
+        // is element a DIV tag, get the render object.
+        Element* headerElement = static_cast<Element*>(headerNode);
+        if (((headerElement->hasTagName(HTMLNames::divTag)) || (headerElement->hasTagName(HTMLNames::tdTag)) || (headerElement->hasTagName(HTMLNames::navTag)) ) &&  (m_frame == m_frame->page()->mainFrame())) {
+            RenderObject* renderer = headerElement->renderer();
+            if(renderer) {
+                const IntRect rect(renderer->absoluteBoundingBoxRect().x(), renderer->absoluteBoundingBoxRect().y(), renderer->absoluteBoundingBoxRect().width(), renderer->absoluteBoundingBoxRect().height());
+                if ( (rect.x() >= 0) && (rect.x() <= 29) && (rect.y() >= 0) && (rect.y() <= 93) && (rect.height() > 1) && (rect.height() <= 250) && (rect.width() > 0) && (headerElement->childNodeCount() > 0) )
+                    return headerElement;
+
+            }
+        }
+
+    }
+    return 0;
+}
+
 void FrameLoader::cachePageForHistoryItem(HistoryItem* item)
 {
     if (!canCachePage() || item->isInPageCache())
@@ -3727,6 +3750,16 @@ void FrameLoader::cachePageForHistoryItem(HistoryItem* item)
     pageHidden();
     
     if (Page* page = m_frame->page()) {
+        Element* headerDIV = findHeaderDIV(m_frame->document()->documentElement());
+        if (headerDIV) {
+            item->setHeaderDIV(headerDIV);
+            item->setContentRenderer(headerDIV->document()->frame()->contentRenderer());
+            item->setUserAgent(m_frame->document()->userAgent());
+        } else {
+            item->setHeaderDIV(0);
+            item->setContentRenderer(0);
+            item->setUserAgent(String());
+        }
         RefPtr<CachedPage> cachedPage = CachedPage::create(page);
         pageCache()->add(item, cachedPage.release());
     }

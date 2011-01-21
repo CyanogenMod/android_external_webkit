@@ -252,7 +252,7 @@ bool RenderView::shouldRepaint(const IntRect& r) const
     return true;
 }
 
-void RenderView::repaintViewRectangle(const IntRect& ur, bool immediate)
+void RenderView::repaintViewRectangle(const IntRect& ur, bool immediate, bool paintHeader)
 {
     if (!shouldRepaint(ur))
         return;
@@ -261,7 +261,7 @@ void RenderView::repaintViewRectangle(const IntRect& ur, bool immediate)
     // or even invisible.
     Element* elt = document()->ownerElement();
     if (!elt)
-        m_frameView->repaintContentRectangle(ur, immediate);
+        m_frameView->repaintContentRectangle(ur, immediate, paintHeader);
     else if (RenderBox* obj = elt->renderBox()) {
         IntRect vr = viewRect();
         IntRect r = intersection(ur, vr);

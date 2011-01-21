@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -58,6 +59,9 @@ HistoryItem::HistoryItem()
     , m_isTargetItem(false)
     , m_visitCount(0)
     , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_headerDIV(0)
+    , m_contentRenderer(0)
+    , m_shouldPaintHeader(false)
 {
 }
 
@@ -71,6 +75,9 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, double ti
     , m_isTargetItem(false)
     , m_visitCount(0)
     , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_headerDIV(0)
+    , m_contentRenderer(0)
+    , m_shouldPaintHeader(false)
 {    
     iconDatabase()->retainIconForPageURL(m_urlString);
 }
@@ -86,6 +93,9 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, const Str
     , m_isTargetItem(false)
     , m_visitCount(0)
     , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_headerDIV(0)
+    , m_contentRenderer(0)
+    , m_shouldPaintHeader(false)
 {
     iconDatabase()->retainIconForPageURL(m_urlString);
 }
@@ -102,6 +112,9 @@ HistoryItem::HistoryItem(const KURL& url, const String& target, const String& pa
     , m_isTargetItem(false)
     , m_visitCount(0)
     , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_headerDIV(0)
+    , m_contentRenderer(0)
+    , m_shouldPaintHeader(false)
 {    
     iconDatabase()->retainIconForPageURL(m_urlString);
 }
@@ -135,6 +148,9 @@ inline HistoryItem::HistoryItem(const HistoryItem& item)
     , m_weeklyVisitCounts(item.m_weeklyVisitCounts)
     , m_documentSequenceNumber(generateDocumentSequenceNumber())
     , m_formContentType(item.m_formContentType)
+    , m_headerDIV(0)
+    , m_contentRenderer(0)
+    , m_shouldPaintHeader(false)
 {
     if (item.m_formData)
         m_formData = item.m_formData->copy();

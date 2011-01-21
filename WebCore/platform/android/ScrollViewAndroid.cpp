@@ -100,9 +100,9 @@ bool ScrollView::platformProhibitsScrolling()
     return !android::WebFrame::getWebFrame(view->frame())->userInitiatedClick();
 }
 
-void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now)
+void ScrollView::platformRepaintContentRectangle(const IntRect &rect, bool now, bool paintHeader)
 {
-    android::WebViewCore::getWebViewCore(this)->contentInvalidate(rect);
+    android::WebViewCore::getWebViewCore(this)->contentInvalidate(rect, paintHeader);
 }
 
 #ifdef ANDROID_CAPTURE_OFFSCREEN_PAINTS

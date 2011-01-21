@@ -198,6 +198,8 @@ public:
 
     bool isFrameViewScrollCorner(RenderScrollbarPart* scrollCorner) const { return m_scrollCorner == scrollCorner; }
     void invalidateScrollCorner();
+    HistoryItem* findCachedHeader(const KURL& originalUrl) const;
+    void setHistoryItem(HistoryItem * item) { m_historyItem = item; }
 
 private:
     FrameView(Frame*);
@@ -218,7 +220,7 @@ private:
     void dispatchScheduledEvents();
     void performPostLayoutTasks();
 
-    virtual void repaintContentRectangle(const IntRect&, bool immediate);
+    virtual void repaintContentRectangle(const IntRect&, bool paintHeader, bool immediate);
     virtual void contentsResized() { setNeedsLayout(); }
     virtual void visibleContentsResized();
 
@@ -324,6 +326,7 @@ private:
 
     // Renderer to hold our custom scroll corner.
     RenderScrollbarPart* m_scrollCorner;
+    HistoryItem * m_historyItem;
 };
 
 #if ENABLE(INSPECTOR)

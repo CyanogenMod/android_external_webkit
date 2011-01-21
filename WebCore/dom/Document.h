@@ -951,6 +951,9 @@ public:
     bool containsValidityStyleRules() const { return m_containsValidityStyleRules; }
     void setContainsValidityStyleRules() { m_containsValidityStyleRules = true; }
 
+    const String& userAgent() const { return m_userAgent; }
+    void setUserAgent(const String& userAgent) { m_userAgent = userAgent; }
+
 #if ENABLE(TOUCH_EVENTS)
     PassRefPtr<Touch> createTouch(DOMWindow*, EventTarget*, int identifier, int pageX, int pageY, int screenX, int screenY, ExceptionCode&) const;
     PassRefPtr<TouchList> createTouchList(ExceptionCode&) const;
@@ -1222,6 +1225,14 @@ private:
 #endif
 
     RefPtr<DocumentWeakReference> m_weakReference;
+
+    //FIXME: Move the user agent later to a more appropriate class
+    // need to save the user agent here for the DOM Caching feature
+    // we need to compare the user agent for the cached header
+    // with the user agent for the current url being loaded before painting the header
+    // querying the user agent function gives the current user agent, which
+    // could be different from the  user agent for a given cached header
+    String m_userAgent;
 };
 
 inline bool Document::hasElementWithId(AtomicStringImpl* id) const

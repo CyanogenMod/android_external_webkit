@@ -330,7 +330,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_spawnScrollTo = GetJMethod(env, clazz, "contentSpawnScrollTo", "(II)V");
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(II)V");
     m_javaGlue->m_scrollBy = GetJMethod(env, clazz, "contentScrollBy", "(IIZ)V");
-    m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
+    m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "(Z)V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
     m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "()Ljava/lang/String;");
     m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[II)V");
@@ -997,14 +997,14 @@ void WebViewCore::setUIRootLayer(const LayerAndroid* layer)
 
 #endif // USE(ACCELERATED_COMPOSITING)
 
-void WebViewCore::contentDraw()
+void WebViewCore::contentDraw(bool paintHeader)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
-    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_contentDraw);
+    env->CallVoidMethod(m_javaGlue->object(env).get(), m_javaGlue->m_contentDraw, paintHeader);
     checkException(env);
 }
 
-void WebViewCore::contentInvalidate(const WebCore::IntRect &r)
+void WebViewCore::contentInvalidate(const WebCore::IntRect &r, bool paintHeader)
 {
     DBG_SET_LOGD("rect={%d,%d,w=%d,h=%d}", r.x(), r.y(), r.width(), r.height());
     SkIRect rect(r);
@@ -1015,7 +1015,7 @@ void WebViewCore::contentInvalidate(const WebCore::IntRect &r)
         m_addInval.getBounds().fLeft, m_addInval.getBounds().fTop,
         m_addInval.getBounds().fRight, m_addInval.getBounds().fBottom);
     if (!m_skipContentDraw)
-        contentDraw();
+        contentDraw(paintHeader);
 }
 
 void WebViewCore::offInvalidate(const WebCore::IntRect &r)

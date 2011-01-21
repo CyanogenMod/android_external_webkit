@@ -55,6 +55,7 @@ class CachedResource;
 class DOMWrapperWorld;
 class Document;
 class DocumentLoader;
+class Element;
 class Event;
 class FormData;
 class FormState;
@@ -67,7 +68,9 @@ class HTMLFrameOwnerElement;
 class IconLoader;
 class IntSize;
 class NavigationAction;
+class RenderObject;
 class RenderPart;
+class RenderView;
 class ResourceError;
 class ResourceLoader;
 class ResourceResponse;
@@ -357,7 +360,7 @@ private:
     
     void navigateWithinDocument(HistoryItem*);
     void navigateToDifferentDocument(HistoryItem*, FrameLoadType);
-    
+    Element* findHeaderDIV(Element*) const;
     bool loadProvisionalItemFromCachedPage();
     void cachePageForHistoryItem(HistoryItem*);
     void pageHidden();
