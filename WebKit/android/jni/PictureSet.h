@@ -75,6 +75,7 @@ namespace android {
         bool reuseSubdivided(const SkRegion& );
         void set(const PictureSet& );
         void setDrawTimes(const PictureSet& );
+        void setDrawTimes(uint32_t time);
         void setPicture(size_t i, SkPicture* p);
         size_t size() const { return mPictures.size(); }
         void split(PictureSet* result) const;

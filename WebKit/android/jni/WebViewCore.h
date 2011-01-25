@@ -75,6 +75,7 @@ namespace android {
     class CachedNode;
     class CachedRoot;
     class ListBoxReply;
+    class Renderer;
 
     class WebCoreReply : public WebCoreRefObject {
     public:
@@ -379,7 +380,7 @@ namespace android {
         // send the current screen size/zoom to all of the plugins in our list
         void sendPluginVisibleScreen();
 
-	// send onLoad event to plugins who are descendents of the given frame
+        // send onLoad event to plugins who are descendents of the given frame
         void notifyPluginsOnFrameLoad(const Frame*);
 
         // send this event to all of the plugins in our list
@@ -487,6 +488,10 @@ namespace android {
         bool isPaused() const { return m_isPaused; }
         void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
         // end of shared members
+
+#if ENABLE(ACCELERATED_SCROLLING)
+        Renderer* m_scrollRenderer;
+#endif
 
         // internal functions
     private:

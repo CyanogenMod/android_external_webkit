@@ -142,6 +142,12 @@ FILE* gRenderTreeFile = 0;
 #include "RenderLayerCompositor.h"
 #endif
 
+
+
+#if ENABLE(ACCELERATED_SCROLLING)
+#include "Renderer.h"
+#endif
+
 /*  We pass this flag when recording the actual content, so that we don't spend
     time actually regionizing complex path clips, when all we really want to do
     is record them.
@@ -317,6 +323,11 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_isPaused = false;
     m_invertColor = false;
 
+
+#if ENABLE(ACCELERATED_SCROLLING)
+    m_scrollRenderer = Renderer::createRenderer();
+#endif
+
     LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
     jclass clazz = env->GetObjectClass(javaWebViewCore);
@@ -392,6 +403,10 @@ WebViewCore::~WebViewCore()
     delete m_javaGlue;
     delete m_frameCacheKit;
     delete m_navPictureKit;
+
+#if ENABLE(ACCELERATED_SCROLLING)
+    m_scrollRenderer->release();
+#endif
 }
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
@@ -764,6 +779,10 @@ void WebViewCore::clearContent()
     DBG_SET_LOG("");
     m_contentMutex.lock();
     m_content.clear();
+
+#if ENABLE(ACCELERATED_SCROLLING)
+    m_scrollRenderer->clearContent();
+#endif
     m_contentMutex.unlock();
     m_addInval.setEmpty();
     m_rebuildInval.setEmpty();
@@ -772,6 +791,10 @@ void WebViewCore::clearContent()
 void WebViewCore::copyContentToPicture(SkPicture* picture)
 {
     DBG_SET_LOG("start");
+#if ENABLE(ACCELERATED_SCROLLING)
+    if (m_scrollRenderer)
+        m_scrollRenderer->finish();
+#endif
     m_contentMutex.lock();
     PictureSet copyContent = PictureSet(m_content);
     m_contentMutex.unlock();
@@ -789,21 +812,48 @@ bool WebViewCore::drawContent(SkCanvas* canvas, SkColor color)
     TimeCounterAuto counter(TimeCounter::WebViewUIDrawTimeCounter);
 #endif
     DBG_SET_LOG("start");
+
     m_contentMutex.lock();
     PictureSet copyContent = PictureSet(m_content);
     m_contentMutex.unlock();
+
+#if ENABLE(ACCELERATED_SCROLLING)
+    bool split = false;
+    if (!m_scrollRenderer->drawContent(canvas, color,
+#if ENABLE(COLOR_INVERSION)
+        m_invertColor,
+#else
+        false,
+#endif
+        copyContent, split))
+    {
+#endif //ACCELERATED_SCROLLING
+
     int sc = canvas->save(SkCanvas::kClip_SaveFlag);
     SkRect clip;
     clip.set(0, 0, copyContent.width(), copyContent.height());
     canvas->clipRect(clip, SkRegion::kDifference_Op);
     canvas->drawColor(color);
     canvas->restoreToCount(sc);
+#if ENABLE(COLOR_INVERSION)
     bool tookTooLong = copyContent.draw(canvas, m_invertColor);
-    m_contentMutex.lock();
-    m_content.setDrawTimes(copyContent);
-    m_contentMutex.unlock();
+#else
+    bool tookTooLong = copyContent.draw(canvas);
+#endif //COLOR_INVERSION
+#if !ENABLE(ACCELERATED_SCROLLING)
     DBG_SET_LOG("end");
     return tookTooLong;
+#else //ACCELERATED_SCROLLING
+    }
+    else
+    {
+        m_contentMutex.lock();
+        m_content.setDrawTimes(copyContent);
+        m_contentMutex.unlock();
+    }
+    DBG_SET_LOG("end");
+    return split;
+#endif //ACCELERATED_SCROLLING
 }
 
 bool WebViewCore::focusBoundsChanged()
@@ -892,6 +942,11 @@ bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
     m_contentMutex.lock();
     contentCopy.setDrawTimes(m_content);
     m_content.set(contentCopy);
+
+
+#if ENABLE(ACCELERATED_SCROLLING)
+    m_scrollRenderer->setContent(m_content, region);
+#endif
     point->fX = m_content.width();
     point->fY = m_content.height();
     m_contentMutex.unlock();
@@ -913,6 +968,10 @@ void WebViewCore::splitContent()
     rebuildPictureSet(&tempPictureSet);
     m_contentMutex.lock();
     m_content.set(tempPictureSet);
+
+#if ENABLE(ACCELERATED_SCROLLING)
+    m_scrollRenderer->setContent(m_content, 0);
+#endif
     m_contentMutex.unlock();
 }
 
@@ -3126,6 +3185,10 @@ static void Pause(JNIEnv* env, jobject obj)
     GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
 
     GET_NATIVE_VIEW(env, obj)->setIsPaused(true);
+
+#if ENABLE(ACCELERATED_SCROLLING)
+    GET_NATIVE_VIEW(env, obj)->m_scrollRenderer->pause();
+#endif
 }
 
 static void Resume(JNIEnv* env, jobject obj)

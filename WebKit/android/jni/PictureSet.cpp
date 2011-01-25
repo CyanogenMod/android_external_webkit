@@ -557,6 +557,17 @@ void PictureSet::setDrawTimes(const PictureSet& src)
     }
 }
 
+void PictureSet::setDrawTimes(uint32_t time)
+{
+    validate(__FUNCTION__);
+    Pictures* last = mPictures.end();
+    Pictures* working = mPictures.begin();
+    for (; working != last; working++) {
+        working->mWroteElapsed = true;
+        working->mElapsed = time;
+    }
+}
+
 void PictureSet::setPicture(size_t i, SkPicture* p)
 {
     mPictures[i].mPicture->safeUnref();
