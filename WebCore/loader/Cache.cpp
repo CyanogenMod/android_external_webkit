@@ -3,6 +3,7 @@
     Copyright (C) 2001 Dirk Mueller (mueller@kde.org)
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+    Copyright (c) 2011, Code Aurora Forum. All rights reserved.
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -328,6 +329,18 @@ void Cache::pruneDeadResources()
                     ASSERT(!current->hasClients());
                     ASSERT(!current->isPreloaded());
                     evict(current);
+                }
+                else {
+                    // Try to remove expired resources first
+                    if (current->isExpired() && !current->hasClients() &&
+                        !current->isCacheValidator() && !current->isPreloaded()) {
+                        // Prevent pruneDeadResources from reentering while evict
+                        bool pruneEnabled = m_pruneEnabled;
+                        m_pruneEnabled = false;
+                        current->destroyDecodedData();
+                        evict(current);
+                        m_pruneEnabled = pruneEnabled;
+                    }
                 }
                 current = prev;
             }

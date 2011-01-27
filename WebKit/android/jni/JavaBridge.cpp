@@ -1,5 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
+ * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -53,6 +54,8 @@
 #include <utils/misc.h>
 #include <wtf/Platform.h>
 #include <wtf/StdLibExtras.h>
+#include <cutils/properties.h>
+
 
 namespace android {
 
@@ -344,7 +347,21 @@ void JavaBridge::SharedTimerFired(JNIEnv* env, jobject)
 
 void JavaBridge::SetCacheSize(JNIEnv* env, jobject obj, jint bytes)
 {
-    WebCore::cache()->setCapacities(0, bytes/2, bytes);
+    unsigned minDeadSize = 0;
+    unsigned maxDeadSize = bytes/2;
+    if (bytes)
+    {
+        char value[PROPERTY_VALUE_MAX] = {'\0'};
+
+        property_get("webkit.cache.mindeadsize", value, "0");
+        minDeadSize = (unsigned)atoi(value);
+        property_get("webkit.cache.maxdeadsize", value, NULL);
+        if (NULL!=value)
+        {
+            maxDeadSize = (unsigned)atoi(value);
+        }
+    }
+    WebCore::cache()->setCapacities(minDeadSize, maxDeadSize, bytes);
 }
 
 void JavaBridge::SetNetworkOnLine(JNIEnv* env, jobject obj, jboolean online)
