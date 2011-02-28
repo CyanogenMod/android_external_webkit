@@ -29,9 +29,12 @@
 #include <wtf/Platform.h>
 
 #include "ApplicationCacheStorage.h"
+#include "CString.h"
 #include "DatabaseTracker.h"
 #include "DocLoader.h"
 #include "Document.h"
+#include "EditorClientAndroid.h"
+#include "FileSystem.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
@@ -40,6 +43,7 @@
 #include "Page.h"
 #include "PageCache.h"
 #include "RenderTable.h"
+#include "SQLiteFileSystem.h"
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
@@ -51,6 +55,8 @@
 #include <utils/misc.h>
 
 namespace android {
+
+static const int permissionFlags660 = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
 
 struct FieldIds {
     FieldIds(JNIEnv* env, jclass clazz) {
@@ -332,6 +338,13 @@ public:
             WebCore::String path = to_string(env, str);
             if (path.length() && WebCore::cacheStorage().cacheDirectory().isNull()) {
                 WebCore::cacheStorage().setCacheDirectory(path);
+                // This database is created on the first load. If the file
+                // doesn't exist, we create it and set its permissions. The
+                // filename must match that in ApplicationCacheStorage.cpp.
+                String filename = pathByAppendingComponent(path, "ApplicationCache.db");
+                int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, permissionFlags660);
+                if (fd >= 0)
+                    close(fd);
             }
         }
         jlong maxsize = env->GetIntField(obj, gFieldIds->mAppCacheMaxSize);
@@ -360,8 +373,18 @@ public:
         if (flag) {
             // If the user has set the database path, sync it to the DatabaseTracker.
             str = (jstring)env->GetObjectField(obj, gFieldIds->mDatabasePath);
-            if (str)
-                WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(to_string(env, str));
+            if (str) {
+                String path = to_string(env, str);
+                WebCore::DatabaseTracker::tracker().setDatabaseDirectoryPath(path);
+                // This database is created when the first HTML5 Database object is
+                // instantiated. If the file doesn't exist, we create it and set its
+                // permissions. The filename must match that in
+                // DatabaseTracker.cpp.
+                String filename = SQLiteFileSystem::appendDatabaseFileNameToPath(path, "Databases.db");
+                int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, permissionFlags660);
+                if (fd >= 0)
+                    close(fd);
+            }
         }
 #endif
 #if ENABLE(DOM_STORAGE)
@@ -371,6 +394,11 @@ public:
         if (str) {
             WebCore::String localStorageDatabasePath = to_string(env,str);
             if (localStorageDatabasePath.length()) {
+                localStorageDatabasePath = WebCore::pathByAppendingComponent(
+                        localStorageDatabasePath, "localstorage");
+                // We need 770 for folders
+                mkdir(localStorageDatabasePath.utf8().data(),
+                        permissionFlags660 | S_IXUSR | S_IXGRP);
                 s->setLocalStorageDatabasePath(localStorageDatabasePath);
             }
         }
@@ -380,8 +408,18 @@ public:
         GeolocationPermissions::setAlwaysDeny(!flag);
         str = (jstring)env->GetObjectField(obj, gFieldIds->mGeolocationDatabasePath);
         if (str) {
-            GeolocationPermissions::setDatabasePath(to_string(env,str));
-            WebCore::GeolocationPositionCache::setDatabasePath(to_string(env,str));
+            WebCore::String path = to_string(env, str);
+            GeolocationPermissions::setDatabasePath(path);
+            WebCore::GeolocationPositionCache::setDatabasePath(path);
+            // This database is created when the first Geolocation object is
+            // instantiated. If the file doesn't exist, we create it and set its
+            // permissions. The filename must match that in
+            // GeolocationPositionCache.cpp.
+            WebCore::String filename = WebCore::SQLiteFileSystem::appendDatabaseFileNameToPath(
+                    path, "CachedGeoposition.db");
+            int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, permissionFlags660);
+            if (fd >= 0)
+                close(fd);
         }
 
         size = env->GetIntField(obj, gFieldIds->mPageCacheCapacity);
