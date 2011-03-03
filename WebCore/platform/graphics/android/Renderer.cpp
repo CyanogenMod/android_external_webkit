@@ -52,7 +52,8 @@
 #include <dlfcn.h>
 #include <stdio.h>
 
-#define DO_LOG_PERF
+//#define DO_LOG_PERF
+//#define DO_LOG_RENDER
 
 #undef LOG_PERF
 #ifdef DO_LOG_PERF
@@ -77,13 +78,17 @@ struct RendererConfig {
         : allowSplit(true)
         , splitSize(50)
         , enablePartialUpdate(true)
+        , enablePartialRender(false)
         , enableDraw(true)
     {
+        if (enablePartialRender)
+            enablePartialUpdate = false;
     }
 
     bool allowSplit; //allow the PictureSet to be split into smaller pieces for better performance
     int splitSize; // each block is 50 pages
     bool enablePartialUpdate; // allow backing store to perform partial update on new PictureSet instead of redrawing everything
+    bool enablePartialRender;
     bool enableDraw; // enable the backing store
 };
 
@@ -166,6 +171,10 @@ class RendererImpl : public Renderer, public WebTech::IBackingStore::IUpdater {
             : m_contentWidth(0)
             , m_contentHeight(0)
             , m_numIncomingContent(0)
+            , m_incomingLoading(false)
+            , m_loading(false)
+            , m_incomingInvalidateAll(false)
+            , m_invalidateAll(false)
         {
         }
 
@@ -205,6 +214,10 @@ class RendererImpl : public Renderer, public WebTech::IBackingStore::IUpdater {
             }
 
             m_numIncomingContent = 0;
+
+            m_loading = m_incomingLoading;
+            m_invalidateAll |= m_incomingInvalidateAll;
+            m_incomingInvalidateAll = false;
         }
 
         // can be called from webcore thread (webkit main thread) when setting to null content.
@@ -218,10 +231,13 @@ class RendererImpl : public Renderer, public WebTech::IBackingStore::IUpdater {
             m_incomingContentInvalidRegion.clear();
 
             ++m_numIncomingContent;
+
+            m_loading = m_incomingLoading = false;
+            m_incomingInvalidateAll = true;
         }
 
         // can be called from webcore thread (webkit main thread) when new content is available.
-        bool onNewContent(const PictureSet& content, SkRegion* region)
+        bool onNewContent(const PictureSet& content, SkRegion* region, bool loading)
         {
             MutexLocker locker(m_mutex);
             int num = content.size();
@@ -252,8 +268,10 @@ class RendererImpl : public Renderer, public WebTech::IBackingStore::IUpdater {
             } else {
                 LOG_RENDER("setContent. invalidate All");
                 m_incomingContentInvalidRegion.clear();
+                m_incomingInvalidateAll = true;
             }
             ++m_numIncomingContent;
+            m_incomingLoading = loading;
             return invalidateAll;
         }
 
@@ -265,12 +283,19 @@ class RendererImpl : public Renderer, public WebTech::IBackingStore::IUpdater {
         int m_contentWidth;
         int m_contentHeight;
         int m_numIncomingContent;
+        bool m_incomingLoading;
+        bool m_loading;
+        bool m_incomingInvalidateAll;
+        bool m_invalidateAll;
     };
 
 public:
     RendererImpl()
         : m_backingStore(0)
+        , m_loading(false)
+        , m_doPartialRender(false)
     {
+        m_doPartialRender = s_config.enablePartialRender;
     }
 
     ~RendererImpl()
@@ -285,11 +310,11 @@ public:
     }
 
     // can be called from webcore thread (webkit main thread).
-    virtual void setContent(const PictureSet& content, SkRegion* region)
+    virtual void setContent(const PictureSet& content, SkRegion* region, bool loading)
     {
-        if (m_contentData.onNewContent(content, region))
-            if (m_backingStore)
-                m_backingStore->invalidate();
+        m_contentData.onNewContent(content, region, loading);
+        if (!m_doPartialRender && m_backingStore)
+            m_backingStore->invalidate();
     }
 
     // can be called from webcore thread (webkit main thread).
@@ -297,7 +322,7 @@ public:
     {
         LOG_RENDER("client clearContent");
         m_contentData.onClearContent();
-        if (m_backingStore)
+        if (!m_doPartialRender && m_backingStore)
             m_backingStore->invalidate();
     }
 
@@ -349,13 +374,15 @@ public:
             shouldUpdate = false;
 
         bool result = false;
+        if (!m_doPartialRender || request.quality == RenderTask::HIGH)
+            handleNewContent(request);
+
         if (shouldUpdate)
             result = RenderRequest((interactiveZoom)? m_request : request);
-        if (result)
-            drawn = drawResult(canvas, request);
-        else
-            LOG_RENDER("renderer - abort - no result");
 
+        if (result && !drawn)
+            drawn = drawResult(canvas, request);
+        
         if (s_config.allowSplit) {
             int split = suggestContentSplitting(content, request);
             if (split) {
@@ -426,7 +453,7 @@ public:
         return static_cast<WebTech::IBackingStore::IBuffer*>(buffer);
     }
 
-    virtual void renderToBackingStoreRegion(WebTech::IBackingStore::IBuffer* buffer, int bufferX, int bufferY, WebTech::IBackingStore::UpdateRegion& region, bool existingRegion)
+    virtual void renderToBackingStoreRegion(WebTech::IBackingStore::IBuffer* buffer, int bufferX, int bufferY, WebTech::IBackingStore::UpdateRegion& region, WebTech::IBackingStore::UpdateQuality quality, bool existingRegion)
     {
         if (!m_contentData.m_content)
             return;
@@ -536,14 +563,6 @@ private:
             filterBitmap = tmpPaint.isFilterBitmap();
         }
 
-        task.newContent = false;
-        if (m_contentData.numContentChanged() > 0) {
-            task.newContent = true;
-            if (m_backingStore)
-                m_backingStore->finish();
-            m_contentData.changeToNewContent();
-        }
-
         task.requestArea.x1 = -matrix.getTranslateX() + clipBound.fLeft;
         task.requestArea.y1 = -matrix.getTranslateY() + clipBound.fTop;
         task.requestArea.x2 = -matrix.getTranslateX()+ clipBound.fRight;
@@ -558,16 +577,42 @@ private:
         task.invertColor = invertColor;
         task.quality = (filterBitmap)? RenderTask::HIGH : RenderTask::LOW;
         task.valid = true;
+        task.newContent = false;
     };
+
+    void handleNewContent(RenderTask& task)
+    {
+        task.newContent = false;
+        if (m_contentData.numContentChanged() > 0) {
+            task.newContent = true;
+            if (m_backingStore)
+                m_backingStore->finish();
+            m_contentData.changeToNewContent();
+            if (m_contentData.m_invalidateAll && m_doPartialRender) {
+                if (m_backingStore)
+                    m_backingStore->invalidate();
+                m_contentData.m_invalidateAll = false;
+            }
+        }
+    }
 
     bool RenderRequest(RenderTask& request)
     {
         bool result = false;
         if (!m_backingStore)
-            m_backingStore = WebTech::IBackingStore::create(static_cast<WebTech::IBackingStore::IUpdater*>(this));
+            m_backingStore = WebTech::createBackingStore(static_cast<WebTech::IBackingStore::IUpdater*>(this));
 
         if (!m_backingStore)
             return false;
+
+        if (m_backingStore->checkError()) {
+            m_backingStore->release();
+            m_backingStore = 0;
+            return false;
+        }
+
+        m_backingStore->setParam(WebTech::IBackingStore::ALLOW_PARTIAL_RENDER, m_doPartialRender? 1 : 0);
+        m_backingStore->setParam(WebTech::IBackingStore::QUALITY, request.quality == RenderTask::HIGH? 1 : 0);
 
         // see if we need to invalidate
         if (request.contentScale != m_request.contentScale
@@ -576,6 +621,11 @@ private:
             || request.viewportHeight != m_request.viewportHeight) {
             m_backingStore->invalidate();
             m_contentData.m_contentInvalidRegion.clear();
+        }
+
+        if (m_loading != m_contentData.m_loading) {
+            m_loading = m_contentData.m_loading;
+            m_backingStore->setParam(WebTech::IBackingStore::PRIORITY, (m_loading)? -1 : 0);
         }
 
         m_request = request;
@@ -654,9 +704,9 @@ private:
     // into sub-regions
     bool drawResult(SkCanvas* srcCanvas, RenderTask& request)
     {
-        bool ret = false;
+        bool ret = m_doPartialRender;
         if (!m_backingStore)
-            return false;
+            return ret;
 
         bool simpleClip = false;
         const SkRegion& clip = srcCanvas->getTotalClip();
@@ -670,7 +720,7 @@ private:
         if (m_request.contentScale != request.contentScale) {
             if (request.quality >= 1) {
                 LOG_RENDER("Renderer client can't zoom result in high quality.  should wait.");
-                return false;
+                return ret;
             }
             deltaScale = m_request.contentScale / request.contentScale;
             areaToDraw.x1 *= deltaScale;
@@ -683,12 +733,19 @@ private:
 
         LOG_RENDER("drawResult.  scale = %f", deltaScale);
 
-        bool allDrawn = m_backingStore->canDrawRegion(areaToDraw);
+        WebTech::IBackingStore::UpdateRegion areaAvailable;
+        WebTech::IBackingStore::RegionAvailability availability = m_backingStore->canDrawRegion(areaToDraw, areaAvailable);
+        bool allDrawn;
+        if (m_doPartialRender)
+            allDrawn = (availability >= WebTech::IBackingStore::FULLY_AVAILABLE);
+        else
+            allDrawn = (availability == WebTech::IBackingStore::FULLY_AVAILABLE);
+
         LOG_RENDER("drawing viewport area (%d, %d) to (%d, %d).  All valid in backing store: %d",
             areaToDraw.x1, areaToDraw.y1, areaToDraw.x2, areaToDraw.y2,
             (allDrawn)?1:0);
         if (!allDrawn)
-            return false;
+            return ret;
 
         SkPaint paint;
         paint.setFilterBitmap(false);
@@ -714,7 +771,7 @@ private:
         int outPitch = bitmap.rowBytes();
         SkBitmap::Config outConfig = bitmap.getConfig();
 
-        WebTech::IBackingStore::IDrawRegionIterator* iter = m_backingStore->beginDrawRegion(areaToDraw, contentOrigin.fX, contentOrigin.fY);
+        WebTech::IBackingStore::IDrawRegionIterator* iter = m_backingStore->beginDrawRegion(areaAvailable, contentOrigin.fX, contentOrigin.fY);
         if (iter) {
             do {
                 drawAreaToOutput(srcCanvas, outWidth, outHeight, outPitch, outPixels, outConfig,
@@ -723,7 +780,7 @@ private:
             iter->release();
             ret = true;
         } else
-            ret = false;
+            ret = m_doPartialRender;
 
         srcCanvas->restore();
 
@@ -751,6 +808,8 @@ private:
     WebTech::IBackingStore* m_backingStore;
     ContentData m_contentData;
     RenderTask m_request;
+    bool m_loading;
+    bool m_doPartialRender;
 };
 
 } // namespace RendererImplNamespace

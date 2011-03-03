@@ -48,7 +48,7 @@ public:
     static Renderer* createRenderer();
     virtual ~Renderer() {};
     virtual void release() = 0;
-    virtual void setContent(const PictureSet&, SkRegion*) = 0;
+    virtual void setContent(const PictureSet&, SkRegion*, bool) = 0;
     virtual void clearContent() = 0;
     virtual void pause() = 0;
     virtual void finish() = 0;

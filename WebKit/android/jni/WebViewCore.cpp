@@ -945,7 +945,9 @@ bool WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
 
 
 #if ENABLE(ACCELERATED_SCROLLING)
-    m_scrollRenderer->setContent(m_content, region);
+    WebCore::FrameLoader* loader = m_mainFrame->loader();
+    bool loading = (!loader)? false : loader->isLoading();
+    m_scrollRenderer->setContent(m_content, region, loading);
 #endif
     point->fX = m_content.width();
     point->fY = m_content.height();
@@ -970,7 +972,7 @@ void WebViewCore::splitContent()
     m_content.set(tempPictureSet);
 
 #if ENABLE(ACCELERATED_SCROLLING)
-    m_scrollRenderer->setContent(m_content, 0);
+    m_scrollRenderer->setContent(m_content, 0, false);
 #endif
     m_contentMutex.unlock();
 }
