@@ -41,6 +41,7 @@
 #include "VisiblePosition.h"
 #include "break_lines.h"
 #include <wtf/AlwaysInline.h>
+#include "unicode/ushape.h"
 
 using namespace std;
 using namespace WTF;
@@ -52,6 +53,47 @@ namespace WebCore {
 static inline bool charactersAreAllASCII(StringImpl* text)
 {
     return charactersAreAllASCII(text->characters(), text->length());
+}
+
+/*
+ * Process Bidi and reshape Arabic text
+ * By: Eyad Aboulouz
+ */
+RefPtr<StringImpl> RenderText::processBidi (RefPtr<StringImpl> str)
+{
+	const UChar* data = str->characters();
+
+	bool hasRTLCharacters = false;
+
+	for (uint32_t i=0; i<str->length(); i++) {
+
+		//range of RTL characters as per unicode specification
+		if ((data[i] >= 0x0590 && data[i] <= 0x05FF) ||
+			(data[i] >= 0xFB1D && data[i] <= 0xFB4F) ||
+			(data[i] >= 0x0600 && data[i] <= 0x07BF) ||
+			(data[i] >= 0xFB50 && data[i] <= 0xFDFF) ||
+			(data[i] >= 0xFE70 && data[i] <= 0xFEFF)) {
+
+			hasRTLCharacters = true;
+			break;
+		}
+	}
+
+	//if there are no right-to-left characters
+	if (!hasRTLCharacters)
+		return (str);
+
+	UChar *output = new UChar[str->length()];
+	UErrorCode status = U_ZERO_ERROR;
+
+	int32_t outputSize = u_shapeArabic(data, str->length(), output, str->length(), U_SHAPE_LETTERS_SHAPE | U_SHAPE_LENGTH_FIXED_SPACES_AT_END, &status);
+
+	if (U_SUCCESS(status))
+		str = StringImpl::create (output, outputSize);
+
+	delete [] output;
+
+	return str;
 }
 
 RenderText::RenderText(Node* node, PassRefPtr<StringImpl> str)
@@ -70,6 +112,8 @@ RenderText::RenderText(Node* node, PassRefPtr<StringImpl> str)
      , m_knownNotToUseFallbackFonts(false)
 {
     ASSERT(m_text);
+
+    m_text = RenderText::processBidi (m_text);
 
     setIsText();
 
@@ -938,6 +982,8 @@ void RenderText::setTextInternal(PassRefPtr<StringImpl> text)
     ASSERT(text);
     m_text = document()->displayStringModifiedByEncoding(text);
     ASSERT(m_text);
+
+    m_text = RenderText::processBidi (m_text);
 
 #if ENABLE(SVG)
     if (isSVGText()) {

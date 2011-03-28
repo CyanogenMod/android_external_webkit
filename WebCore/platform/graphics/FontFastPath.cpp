@@ -212,10 +212,14 @@ bool Font::canUseGlyphCache(const TextRun& run) const
         if (c < 0x0591 || c == 0x05BE)     // U+0591 through U+05CF excluding U+05BE Hebrew combining marks, Hebrew punctuation Paseq, Sof Pasuq and Nun Hafukha
             continue;
         if (c <= 0x05CF)
-            continue;
+            return false;
 
         if (c < 0x0600)     // U+0600 through U+1059 Arabic, Syriac, Thaana, Devanagari, Bengali, Gurmukhi, Gujarati, Oriya, Tamil, Telugu, Kannada, Malayalam, Sinhala, Thai, Lao, Tibetan, Myanmar
             continue;
+
+        if (c <= 0x077F)     // U+0600 through U+06FF Arabic, Arabic supplements u+0750 through u+077F
+        	return true;
+
         if (c <= 0x1059)
             return false;
 
