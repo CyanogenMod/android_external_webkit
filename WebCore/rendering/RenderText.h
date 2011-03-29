@@ -32,6 +32,7 @@ class StringImpl;
 
 class RenderText : public RenderObject {
 public:
+	static RefPtr<StringImpl> processBidi (RefPtr<StringImpl> txt);
     RenderText(Node*, PassRefPtr<StringImpl>);
 #ifndef NDEBUG
     virtual ~RenderText();
