@@ -72,7 +72,7 @@ RefPtr<StringImpl> RenderText::processBidi (RefPtr<StringImpl> str)
 			(data[i] >= 0xFB1D && data[i] <= 0xFB4F) ||
 			(data[i] >= 0x0600 && data[i] <= 0x07BF) ||
 			(data[i] >= 0xFB50 && data[i] <= 0xFDFF) ||
-			(data[i] >= 0xFE70 && data[i] <= 0xFEFF)) {
+			(data[i] >= 0xFE70 && data[i] <= 0xFEFE)) {
 
 			hasRTLCharacters = true;
 			break;
