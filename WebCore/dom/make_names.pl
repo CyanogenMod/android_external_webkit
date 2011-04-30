@@ -47,7 +47,14 @@ my %tags = ();
 my %attrs = ();
 my %parameters = ();
 my $extraDefines = 0;
-my $preprocessor = "/usr/bin/gcc -E -P -x c++";
+my $preprocessor = "";
+open( GCV, "gcc --version | head -1|");
+if ( <GCV> =~ m/(4\.)(6\.)([0-9])/) {
+  $preprocessor = "/usr/bin/gcc -E -x c++";
+} else {
+  $preprocessor = "/usr/bin/gcc -E -P -x c++";
+}
+close GCV;
 
 GetOptions(
     'tags=s' => \$tagsFile, 
