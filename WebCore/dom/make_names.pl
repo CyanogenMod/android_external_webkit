@@ -9,13 +9,13 @@
 # are met:
 #
 # 1.  Redistributions of source code must retain the above copyright
-#     notice, this list of conditions and the following disclaimer. 
+#     notice, this list of conditions and the following disclaimer.
 # 2.  Redistributions in binary form must reproduce the above copyright
 #     notice, this list of conditions and the following disclaimer in the
-#     documentation and/or other materials provided with the distribution. 
+#     documentation and/or other materials provided with the distribution.
 # 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
 #     its contributors may be used to endorse or promote products derived
-#     from this software without specific prior written permission. 
+#     from this software without specific prior written permission.
 #
 # THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
 # EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -37,9 +37,9 @@ use IO::File;
 use InFilesParser;
 use Switch;
 
-my $printFactory = 0; 
-my $printWrapperFactory = 0; 
-my $printWrapperFactoryV8 = 0; 
+my $printFactory = 0;
+my $printWrapperFactory = 0;
+my $printWrapperFactoryV8 = 0;
 my $tagsFile = "";
 my $attrsFile = "";
 my $outputDir = ".";
@@ -48,9 +48,14 @@ my %attrs = ();
 my %parameters = ();
 my $extraDefines = 0;
 my $preprocessor = "/usr/bin/gcc -E -P -x c++";
+open( GCV, "gcc --version | head -1|");
+if ( <GCV> =~ m/(4\.)(6\.)([0-9])/) {
+    $preprocessor = "/usr/bin/gcc -E -x c++";
+}
+close GCV;
 
 GetOptions(
-    'tags=s' => \$tagsFile, 
+    'tags=s' => \$tagsFile,
     'attrs=s' => \$attrsFile,
     'factory' => \$printFactory,
     'outputDir=s' => \$outputDir,
@@ -270,7 +275,7 @@ sub printConstructorSignature
     print F ")\n{\n";
 }
 
-# Helper method to dump the constructor interior and call the 
+# Helper method to dump the constructor interior and call the
 # Element constructor with the right arguments.
 # The variable names should be kept in sync with the previous method.
 sub printConstructorInterior
@@ -382,13 +387,13 @@ sub svgCapitalizationHacks
 sub upperCaseName
 {
     my $name = shift;
-    
+
     $name = svgCapitalizationHacks($name) if ($parameters{namespace} eq "SVG");
 
     while ($name =~ /^(.*?)_(.*)/) {
         $name = $1 . ucfirst $2;
     }
-    
+
     return ucfirst $name;
 }
 
@@ -449,7 +454,7 @@ sub printNamesHeaderFile
         print F "// Tags\n";
         printMacros($F, "extern const WebCore::QualifiedName", "Tag", \%tags);
     }
-    
+
     if (keys %attrs) {
         print F "// Attributes\n";
         printMacros($F, "extern const WebCore::QualifiedName", "Attr", \%attrs);
@@ -476,9 +481,9 @@ sub printNamesCppFile
     my $cppPath = shift;
     my $F;
     open F, ">$cppPath";
-    
+
     printLicenseHeader($F);
-    
+
     my $lowerNamespace = lc($parameters{namespacePrefix});
 
 print F "#include \"config.h\"\n";
@@ -505,7 +510,7 @@ DEFINE_GLOBAL(AtomicString, ${lowerNamespace}NamespaceURI, \"$parameters{namespa
         for my $name (sort keys %tags) {
             print F "DEFINE_GLOBAL(QualifiedName, ", $name, "Tag, nullAtom, \"$name\", ${lowerNamespace}NamespaceURI);\n";
         }
-        
+
         print F "\n\nWebCore::QualifiedName** get$parameters{namespace}Tags(size_t* size)\n";
         print F "{\n    static WebCore::QualifiedName* $parameters{namespace}Tags[] = {\n";
         for my $name (sort keys %tags) {
@@ -539,12 +544,12 @@ print F "\nvoid init()
     if (initialized)
         return;
     initialized = true;
-    
+
     // Use placement new to initialize the globals.
-    
+
     AtomicString::init();
 ";
-    
+
     print(F "    AtomicString ${lowerNamespace}NS(\"$parameters{namespaceURI}\");\n\n");
 
     print(F "    // Namespace\n");
@@ -598,7 +603,7 @@ sub printDefinitions
     my $shortType = substr($singularType, 0, 4);
     my $shortCamelType = ucfirst($shortType);
     my $shortUpperType = uc($shortType);
-    
+
     print F "    // " . ucfirst($type) . "\n";
 
     for my $name (sort keys %$namesRef) {
@@ -672,7 +677,7 @@ static void createFunctionMap()
 
     // Create the table.
     gFunctionMap = new FunctionMap;
-    
+
     // Populate it with constructor functions.
 END
 ;
@@ -890,7 +895,7 @@ sub printWrapperFactoryCppFile
 
     print F "\n#include <wtf/StdLibExtras.h>\n\n";
 
-    if ($wrapperFactoryType eq "JS") {    
+    if ($wrapperFactoryType eq "JS") {
         print F <<END
 using namespace JSC;
 END
@@ -898,7 +903,7 @@ END
     } elsif ($wrapperFactoryType eq "V8") {
         print F <<END
 #include "V8$parameters{namespace}Element.h"
-        
+
 #include <v8.h>
 END
 ;
@@ -1019,8 +1024,8 @@ sub printWrapperFactoryHeaderFile
 
 namespace JSC {
     class ExecState;
-}                                            
-                                             
+}
+
 namespace WebCore {
 
     class JSNode;
@@ -1030,7 +1035,7 @@ namespace WebCore {
     JSNode* createJS$parameters{namespace}Wrapper(JSC::ExecState*, JSDOMGlobalObject*, PassRefPtr<$parameters{namespace}Element>);
 
 }
- 
+
 END
 ;
     } elsif ($wrapperFactoryType eq "V8") {
