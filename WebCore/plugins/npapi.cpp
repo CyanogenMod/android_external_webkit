@@ -180,13 +180,18 @@ void NPN_PluginThreadAsyncCall(NPP instance, void (*func) (void *), void *userDa
 uint32 NPN_ScheduleTimer(NPP instance, uint32 interval, NPBool repeat,
                          void (*timerFunc)(NPP npp, uint32 timerID))
 {
-    return pluginViewForInstance(instance)->scheduleTimer(instance, interval,
+    if(pluginViewForInstance(instance)) {
+        return pluginViewForInstance(instance)->scheduleTimer(instance, interval,
                                                         repeat != 0, timerFunc);
+    }
+    return 0;
 }
 
 void NPN_UnscheduleTimer(NPP instance, uint32 timerID)
 {
-    pluginViewForInstance(instance)->unscheduleTimer(instance, timerID);
+    PluginView* view = PluginView::instanceMap().get(instance);
+    if(view)
+        pluginViewForInstance(instance)->unscheduleTimer(instance, timerID);
 }
 #endif
 

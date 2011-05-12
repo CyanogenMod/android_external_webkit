@@ -37,7 +37,8 @@ namespace WebCore {
                   m_instance(instance),
                   m_timerFunc(timerFunc),
                   m_repeat(repeat),
-                  m_unscheduled(false)
+                  m_unscheduled(false),
+                  m_fired(false)
     {
         m_timerID = ++gTimerID;
 
@@ -48,23 +49,37 @@ namespace WebCore {
         m_prev = 0;
         *list = this;
     }
-    
-    PluginTimer::~PluginTimer()
+
+    void PluginTimer::moveToNextTimer()
     {
-        if (m_next) {
+        if (m_next)
             m_next->m_prev = m_prev;
-        }
         if (m_prev) {
             m_prev->m_next = m_next;
         } else {
-            *m_list = m_next;
+            if(m_list) {
+                *m_list = m_next;
+            }
         }
+        // Since moveToNextTimer will be called either unhooking the node or deleting the node,
+        // it is safe to assign these member variables to null
+        m_list = NULL;
+        m_prev = NULL;
+        m_next = NULL;
+    }
+
+    PluginTimer::~PluginTimer()
+    {
+        moveToNextTimer();
     }
         
     void PluginTimer::fired()
     {
-        if (!m_unscheduled)
+        if (!m_unscheduled) {
+            m_fired = true;
             m_timerFunc(m_instance, m_timerID);
+            m_fired = false;
+        }
 
         if (!m_repeat || m_unscheduled)
             delete this;
@@ -88,8 +103,15 @@ namespace WebCore {
     PluginTimerList::~PluginTimerList()
     {
         while (m_list) {
-            delete m_list;
+            if(m_list->m_fired) {
+                m_list->unschedule();
+                m_list->moveToNextTimer();
+            }
+            else {
+                delete m_list;
+            }
         }
+        m_list = NULL;
     }
 
     uint32 PluginTimerList::schedule(NPP instance, uint32 interval, bool repeat,

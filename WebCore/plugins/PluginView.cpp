@@ -97,7 +97,7 @@ static int s_callingPlugin;
 
 typedef HashMap<NPP, PluginView*> InstanceMap;
 
-static InstanceMap& instanceMap()
+InstanceMap& PluginView::instanceMap()
 {
     static InstanceMap& map = *new InstanceMap;
     return map;
@@ -415,6 +415,7 @@ void PluginView::stop()
 #endif
 
     m_instance->pdata = 0;
+    m_instance->ndata = 0;
 }
 
 void PluginView::setCurrentPluginView(PluginView* pluginView)

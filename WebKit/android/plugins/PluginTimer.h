@@ -47,6 +47,7 @@ namespace WebCore {
         static PluginTimer* Find(PluginTimer* list, uint32 timerID);
 
     private:
+        void moveToNextTimer();
         // override from TimerBase
         virtual void fired();
         
@@ -61,6 +62,7 @@ namespace WebCore {
         uint32          m_timerID;
         bool            m_repeat;
         bool            m_unscheduled;
+        bool            m_fired;
     };
     
     class PluginTimerList {

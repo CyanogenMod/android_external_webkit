@@ -127,6 +127,9 @@ namespace WebCore {
         virtual void didFinishLoading() = 0;
         virtual void didFail(const ResourceError&) = 0;
     };
+    class PluginView;
+
+    typedef HashMap<NPP, PluginView*> InstanceMap;
 
     class PluginView : public Widget, private PluginStreamClient, public PluginManualLoader, private HaltablePlugin {
     public:
@@ -138,6 +141,7 @@ namespace WebCore {
 
         void setNPWindowRect(const IntRect&);
         static PluginView* currentPluginView();
+        static InstanceMap& instanceMap();
 
 #if USE(JSC)
         PassRefPtr<JSC::Bindings::Instance> bindingInstance();
