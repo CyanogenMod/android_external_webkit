@@ -277,6 +277,13 @@ ifeq ($(WEBCORE_ACCELERATED_SCROLLING),true)
 LOCAL_CFLAGS += -DENABLE_ACCELERATED_SCROLLING
 endif
 
+# USE_DEFAULT_JS_ENGINE implies using the default v8 from google. When we use
+# v8_leading we compile some webkit binding code out. To continue supporting
+# the building of the stock google provided V8 we add this new define below.
+ifeq ($(USE_DEFAULT_JS_ENGINE),true)
+LOCAL_CFLAGS += -DUSE_DEFAULT_JS_ENGINE
+endif
+
 # LOCAL_LDLIBS is used in simulator builds only and simulator builds are only
 # valid on Linux
 LOCAL_LDLIBS += -lpthread -ldl

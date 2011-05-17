@@ -135,6 +135,7 @@ public:
 
     void clearScriptObjects();
     void cleanupScriptObjectsForPlugin(void*);
+    void lowIntensityGC();
 
     void updatePlatformScriptObjects();
 

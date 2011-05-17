@@ -291,6 +291,11 @@ void ScriptController::lowMemoryNotification()
     v8::V8::LowMemoryNotification();
 }
 
+bool ScriptController::idleNotification()
+{
+    return v8::V8::IdleNotification();
+}
+
 bool ScriptController::haveInterpreter() const
 {
     return m_proxy->windowShell()->isContextInitialized();
@@ -453,6 +458,17 @@ void ScriptController::attachDebugger(void*)
 void ScriptController::updateDocument()
 {
     m_proxy->windowShell()->updateDocument();
+}
+
+void ScriptController::lowIntensityGC()
+{
+    // The Low Intensity GC api is a new feature that only we provide. If the
+    // stock Google provided V8 engine is used we just compile out the call. If
+    // JSC is used we will never land here. Only in the presence of our
+    // upgraded JS engine do we perform this idle time cleanup.
+#ifndef USE_DEFAULT_JS_ENGINE
+    v8::V8::LowIntensityGC();
+#endif
 }
 
 } // namespace WebCore

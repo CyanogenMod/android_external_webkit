@@ -49,6 +49,7 @@
 #include "RenderView.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
+#include "ScriptController.h"
 #include "Settings.h"
 
 // FIXME: More that is in common with SubresourceLoader should move up into ResourceLoader.
@@ -522,9 +523,13 @@ bool MainResourceLoader::loadNow(ResourceRequest& r)
         handleDataLoadSoon(r);
     else if (shouldLoadEmpty || frameLoader()->representationExistsForURLScheme(url.protocol()))
         handleEmptyLoad(url, !shouldLoadEmpty);
-    else
+    else {
         m_handle = ResourceHandle::create(r, this, m_frame.get(), false, true, true);
-
+        bool shouldDoLowIntensityGC = (r.cachePolicy() != WebCore::ReturnCacheDataDontLoad)
+                               && !url.isLocalFile() && !url.protocolIs("data");
+        if ((m_frame == m_frame->page()->mainFrame()) && shouldDoLowIntensityGC)
+           m_frame->script()->lowIntensityGC();
+    }
     return false;
 }
 

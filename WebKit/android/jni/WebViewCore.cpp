@@ -3181,6 +3181,13 @@ static void Pause(JNIEnv* env, jobject obj)
             geolocation->suspend();
     }
 
+    // If the current tab is about to be paused, just cancel the IDLE GC timer if
+    // it is active. We do not want GC occuring because of the background tab
+    // while the foreground tab is still loading.
+    WebFrame* webFrame = WebFrame::getWebFrame(mainFrame);
+    if (webFrame)
+        webFrame->stopIdleGCTimer();
+
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;

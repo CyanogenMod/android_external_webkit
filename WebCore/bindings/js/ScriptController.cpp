@@ -460,4 +460,10 @@ ScriptValue ScriptController::executeScriptInWorld(DOMWrapperWorld* world, const
     return result;
 }
 
+void ScriptController::lowIntensityGC()
+{
+    // We do not have a lowIntensityGC api for JSC.  So, just do not perform
+    // any cleanup if this api is invoked.
+}
+
 } // namespace WebCore

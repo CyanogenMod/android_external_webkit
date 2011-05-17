@@ -1,6 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (C) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -274,6 +274,12 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
 
     mUserAgent = WebCore::String();
     mUserInitiatedClick = false;
+
+#if USE(V8)
+      mIdleTimeActivityTimer = new IdleGCTimerHelper(this);
+#else
+      mIdleTimeActivityTimer = new WebFrameTimerHelper(this);
+#endif // USE(V8)
 }
 
 WebFrame::~WebFrame()
@@ -285,6 +291,7 @@ WebFrame::~WebFrame()
         mJavaFrame->mObj = 0;
     }
     delete mJavaFrame;
+    delete mIdleTimeActivityTimer;
 }
 
 WebFrame* WebFrame::getWebFrame(const WebCore::Frame* frame)
@@ -536,6 +543,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
+    stopIdleGCTimer();
     // activeDocumentLoader() can return null.
     DocumentLoader* documentLoader = frame->loader()->activeDocumentLoader();
     if (documentLoader == NULL)
@@ -628,6 +636,11 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
             (int)loadType, isMainFrame);
     checkException(env);
     env->DeleteLocalRef(urlStr);
+
+    if (isMainFrame) {
+        if (loadType == FrameLoadTypeStandard)
+            mIdleTimeActivityTimer->start();
+    }
 }
 
 void
@@ -870,6 +883,43 @@ void WebFrame::resolveDnsForHost(const WebCore::String& host)
     jstring jHostNameStr = env->NewString(host.characters(), host.length());
     env->CallVoidMethod(obj.get(), mJavaFrame->mResolveDns, jHostNameStr);
     env->DeleteLocalRef(jHostNameStr);
+}
+
+IdleGCTimerHelper::IdleGCTimerHelper(WebFrame *frame)
+            : mFrame(frame),
+              mIdleGCTimer(this, &IdleGCTimerHelper::TimerFired)
+{
+}
+
+void
+IdleGCTimerHelper::start()
+{
+    const double idleGCStartupDelay = 4.0;
+    mIdleGCFired = 0;
+    mIdleGCTimer.startOneShot(idleGCStartupDelay);
+}
+
+void
+IdleGCTimerHelper::stop()
+{
+    if (mIdleGCTimer.isActive())
+        mIdleGCTimer.stop();
+}
+
+void
+IdleGCTimerHelper::TimerFired(WebCore::Timer<IdleGCTimerHelper>*)
+{
+#if USE(V8)
+    const int maxIdleGCFired = 10;
+    const float idleGCInterval = 1.0;
+    mIdleGCFired++;
+    WebCore::Page* page = mFrame->page();
+    if (page && mIdleGCFired < maxIdleGCFired) {
+        Frame* mainFrame = page->mainFrame();
+        if (mainFrame && !mainFrame->script()->idleNotification())
+            mIdleGCTimer.startOneShot(idleGCInterval);
+    }
+#endif
 }
 
 // ----------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,6 +31,7 @@
 
 #include "FrameLoaderClient.h"
 #include "PlatformBridge.h"
+#include "Timer.h"
 #include "WebCoreRefObject.h"
 #include <jni.h>
 #include <wtf/RefCounted.h>
@@ -48,6 +49,35 @@ namespace WebCore {
 namespace android {
 
 class WebViewCore;
+class WebFrame;
+
+class WebFrameTimerHelper {
+  public:
+    WebFrameTimerHelper() { }
+    WebFrameTimerHelper(WebFrame* frame) { }
+    virtual ~WebFrameTimerHelper() { }
+
+    virtual void start() { }
+
+    virtual void stop() { }
+};
+
+class IdleGCTimerHelper : public WebFrameTimerHelper {
+  public:
+    IdleGCTimerHelper(WebFrame* frame);
+    virtual ~IdleGCTimerHelper() { }
+
+    virtual void start();
+
+    virtual void stop();
+
+  private:
+    WebFrame* mFrame;
+    WebCore::Timer<IdleGCTimerHelper> mIdleGCTimer;
+    int mIdleGCFired;
+
+    void TimerFired(WebCore::Timer<IdleGCTimerHelper>*);
+};
 
 // one instance of WebFrame per Page for calling into Java's BrowserFrame
 class WebFrame : public WebCoreRefObject {
@@ -125,12 +155,15 @@ class WebFrame : public WebCoreRefObject {
      */
     void resolveDnsForHost(const WebCore::String& host);
 
+    void stopIdleGCTimer() { mIdleTimeActivityTimer->stop(); }
+
 private:
     struct JavaBrowserFrame;
     JavaBrowserFrame* mJavaFrame;
     WebCore::Page* mPage;
     WebCore::String mUserAgent;
     bool mUserInitiatedClick;
+    WebFrameTimerHelper* mIdleTimeActivityTimer;
 };
 
 }   // namespace android

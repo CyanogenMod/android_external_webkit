@@ -105,6 +105,12 @@ public:
     // Notify V8 that the system is running low on memory.
     void lowMemoryNotification();
 
+    // Notify V8 that system is in a idle state so it is free to perform any needed cleanup.
+    bool idleNotification();
+
+    // Perform a Low Intensity Garbage Collection Attempt
+    void lowIntensityGC();
+
     // Creates a property of the global object of a frame.
     void bindToWindowObject(Frame*, const String& key, NPObject*);
 
