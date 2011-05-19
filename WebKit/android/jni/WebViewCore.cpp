@@ -2596,6 +2596,9 @@ jobject WebViewCore::getContext()
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject obj = m_javaGlue->object(env);
 
+    if (!obj.get())
+        return 0;
+
     jobject result = env->CallObjectMethod(obj.get(), m_javaGlue->m_getContext);
     checkException(env);
     return result;
