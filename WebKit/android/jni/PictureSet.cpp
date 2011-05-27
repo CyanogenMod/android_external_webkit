@@ -1,6 +1,5 @@
 /*
  * Copyright 2008, The Android Open Source Project
- * Copyright (c) 2010, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,13 +36,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkStream.h"
-#include "SyncProxyCanvas.h"
 #include "TimeCounter.h"
-
-#ifdef CACHED_IMAGE_DECODE
-#include <wtf/PassOwnPtr.h>
-#include "SkPixelRef.h"
-#endif
 
 #define MAX_DRAW_TIME 100
 #define MIN_SPLITTABLE 400
@@ -65,9 +58,6 @@ namespace android {
 PictureSet::PictureSet()
 {
     mWidth = mHeight = 0;
-#ifdef CACHED_IMAGE_DECODE
-    clearBitmapsForDecoding();
-#endif
 }
 
 PictureSet::~PictureSet()
@@ -223,177 +213,11 @@ void PictureSet::clear()
         working->mArea.setEmpty();
         working->mPicture->safeUnref();
     }
-#ifdef CACHED_IMAGE_DECODE
-    clearBitmapsForDecoding();
-#endif
     mPictures.clear();
     mWidth = mHeight = 0;
 }
 
-#ifdef CACHED_IMAGE_DECODE
-void PictureSet::clearBitmapsForDecoding()
-{
-    mBitmapsForDecoding.clear();
-    mBitmapRectsForDecoding.clear();
-}
-
-/*
-*   The BitmapProxyCanvas class is used to override the default draw
-*   behavior for bitmaps. If the bitmap pixels are not yet available,
-*   draw the outline of the bitmap rectangle.
-*/
-class BitmapProxyCanvas: public SyncProxyCanvas, public Noncopyable
-{
-public:
-    static WTF::PassOwnPtr<BitmapProxyCanvas> create(SkCanvas* canvas,
-        WTF::Vector<const SkBitmap*>* pBitmaps,
-        WTF::Vector<SkRect>* pBitmapRects,
-        bool invert) {
-        return new BitmapProxyCanvas(canvas, pBitmaps, pBitmapRects, invert);
-    }
-
-    virtual void drawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
-                            const SkPaint* paint) {
-        if (shouldQueueForDecoding(bitmap)) {
-            SkRect fastBounds;
-            fastBounds.set(x, y,
-                           x + SkIntToScalar(bitmap.width()),
-                           y + SkIntToScalar(bitmap.height()));
-            SkPaint myPaint(*paint);
-            myPaint.setStyle(SkPaint::kStroke_Style);
-            target->drawRect(fastBounds, myPaint);
-            if (rectIntersectsPaddedClipBounds(fastBounds, target))
-                appendBitmap(bitmap, fastBounds);
-        } else {
-            target->drawBitmap(bitmap, x, y, paint);
-            if (invertBitmaps) {
-                target->save();
-                SkRect inversionRect;
-                inversionRect.set(x, y,
-                                  x + SkIntToScalar(bitmap.width()),
-                                  y + SkIntToScalar(bitmap.height()));
-                target->clipRect(inversionRect);
-                target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
-                target->restore();
-            }
-        }
-    }
-
-    virtual void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
-                                const SkRect& dst, const SkPaint* paint) {
-        if (shouldQueueForDecoding(bitmap)) {
-            SkPaint myPaint(*paint);
-            myPaint.setStyle(SkPaint::kStroke_Style);
-            target->drawRect(dst, myPaint);
-            if (rectIntersectsPaddedClipBounds(dst, target))
-                appendBitmap(bitmap, dst);
-        } else {
-            target->drawBitmapRect(bitmap, src, dst, paint);
-            if (invertBitmaps) {
-                target->save();
-                target->clipRect(dst);
-                target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
-                target->restore();
-            }
-        }
-    }
-
-private:
-   /** This is the minimum bitmap size that will be queued for decoding
-    *   in the ImageDecodeThread.  The value is chosen based on
-    *   MIN_ASHMEM_ALLOC_SIZE in BitmapAllocatorAndroid.
-    */
-    static const size_t cachedImageDecodeMinSize = 32 * 1024;
-
-    WTF::Vector<const SkBitmap*> *pBitmapsForDecoding;
-    WTF::Vector<SkRect>          *pBitmapRectsForDecoding;
-    bool                          invertBitmaps;
-
-    BitmapProxyCanvas(SkCanvas* canvas,
-        WTF::Vector<const SkBitmap*> *pBitmaps,
-        WTF::Vector<SkRect>          *pBitmapRects,
-        bool                          invert)
-        : SyncProxyCanvas(canvas)
-        , pBitmapsForDecoding(pBitmaps)
-        , pBitmapRectsForDecoding(pBitmapRects)
-        , invertBitmaps(invert)
-    {
-    }
-
-    /** Checks if bitmap should be queued for decoding. Conditions that determine
-        whether bitmap should be queued are if bitmap pixels are not yet available
-        and if the bitmap is larger than the minimum cached decode size.
-    */
-    bool shouldQueueForDecoding(const SkBitmap& bitmap)
-    {
-        return (bitmap.pixelRef() && !bitmap.pixelRef()->pixelsAvailable() &&
-               (bitmap.getSize() >= cachedImageDecodeMinSize));
-    }
-
-    void appendBitmap(const SkBitmap& bitmap, const SkRect& rect) {
-        size_t j = 0;
-        while (j < pBitmapsForDecoding->size()) {
-            // Check if bitmap is already on the list.
-            if ((bitmap.getGenerationID() == pBitmapsForDecoding->at(j)->getGenerationID()) &&
-                (rect == pBitmapRectsForDecoding->at(j)))
-                break; // Bitmap is already on the list
-            ++j;
-        }
-        if (j == pBitmapsForDecoding->size()) {
-            pBitmapsForDecoding->append(&bitmap);
-            pBitmapRectsForDecoding->append(rect);
-        }
-    }
-
-    bool rectIntersectsPaddedClipBounds(const SkRect& rect, SkCanvas* canvas) {
-        SkRect bounds;
-        if (!canvas->getClipBounds(&bounds))
-            return false;
-
-        // adjust the clip bounds outwards by half the width or height, respectively
-        SkScalar insetX = bounds.width()/2;
-        SkScalar insetY = bounds.height()/2;
-
-        SkRect paddedBounds;
-        paddedBounds.set(bounds.fLeft - insetX, bounds.fTop - insetY,
-                         bounds.fRight + insetX, bounds.fBottom + insetY);
-
-        return SkRect::Intersects(rect, paddedBounds);
-    }
-};
-
-#else
-class ImageInverter: public SyncProxyCanvas
-{
-public:
-
-    ImageInverter(SkCanvas* canvas): SyncProxyCanvas(canvas) {}
-
-    void drawBitmap(const SkBitmap& bitmap, SkScalar x, SkScalar y,
-                    const SkPaint* paint) {
-        target->drawBitmap(bitmap, x, y, paint);
-        target->save();
-        SkRect inversionRect;
-        inversionRect.set(x, y,
-                          x + SkIntToScalar(bitmap.width()),
-                          y + SkIntToScalar(bitmap.height()));
-        target->clipRect(inversionRect);
-        target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
-        target->restore();
-    }
-
-    void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
-                        const SkRect& dst, const SkPaint* paint) {
-        target->drawBitmapRect(bitmap, src, dst, paint);
-        target->save();
-        target->clipRect(dst);
-        target->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
-        target->restore();
-    }
-};
-#endif
-
-bool PictureSet::draw(SkCanvas* canvas, bool invertColor)
+bool PictureSet::draw(SkCanvas* canvas)
 {
     validate(__FUNCTION__);
     Pictures* first = mPictures.begin();
@@ -417,11 +241,6 @@ bool PictureSet::draw(SkCanvas* canvas, bool invertColor)
             break;
         }
     }
-#ifdef CACHED_IMAGE_DECODE
-    // Clear the list of bitmaps to be decoded
-    clearBitmapsForDecoding();
-#endif
-
     DBG_SET_LOGD("%p first=%d last=%d", this, first - mPictures.begin(),
         last - mPictures.begin());
     uint32_t maxElapsed = 0;
@@ -452,17 +271,7 @@ bool PictureSet::draw(SkCanvas* canvas, bool invertColor)
         canvas->translate(pathBounds.fLeft, pathBounds.fTop);
         canvas->save();
         uint32_t startTime = getThreadMsec();
-#ifdef CACHED_IMAGE_DECODE
-        {
-            WTF::OwnPtr<BitmapProxyCanvas> proxyCanvas = BitmapProxyCanvas::create(canvas, &mBitmapsForDecoding, &mBitmapRectsForDecoding, invertColor);
-            proxyCanvas->drawPicture(*working->mPicture);
-        }
-#else
-        SkCanvas* painter = invertColor ? new ImageInverter(canvas) : canvas;
-        painter->drawPicture(*working->mPicture);
-        if (invertColor)
-            delete painter;
-#endif
+        canvas->drawPicture(*working->mPicture);
         size_t elapsed = working->mElapsed = getThreadMsec() - startTime;
         working->mWroteElapsed = true;
         if (maxElapsed < elapsed && (pathBounds.width() >= MIN_SPLITTABLE ||
@@ -493,8 +302,6 @@ bool PictureSet::draw(SkCanvas* canvas, bool invertColor)
             working->mElapsed, working->mBase ? "true" : "false");
     }
  //   dump(__FUNCTION__);
-    if (invertColor)
-        canvas->drawARGB(255, 255, 255, 255, SkXfermode::kDifference_Mode);
     return maxElapsed >= MAX_DRAW_TIME;
 }
 

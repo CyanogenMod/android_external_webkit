@@ -46,8 +46,6 @@ LOCAL_SRC_FILES := \
 	android/jni/MIMETypeRegistry.cpp \
 	android/jni/MockGeolocation.cpp \
 	android/jni/PictureSet.cpp \
-	android/jni/ImageDecodeTask.cpp \
-	android/jni/ImageDecodeThread.cpp \
 	android/jni/WebCoreFrameBridge.cpp \
 	android/jni/WebCoreJni.cpp \
 	android/jni/WebCoreResourceLoader.cpp \
