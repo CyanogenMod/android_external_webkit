@@ -35,7 +35,7 @@ use Getopt::Long;
 use File::Path;
 use IO::File;
 use InFilesParser;
-use Switch;
+use feature qw{ switch };
 
 my $printFactory = 0; 
 my $printWrapperFactory = 0; 
@@ -204,14 +204,14 @@ sub readNames
 
     my $InParser = InFilesParser->new();
 
-    switch ($type) {
-        case "tags" {
+    given ($type) {
+        when ("tags") {
             $InParser->parse($names, \&parametersHandler, \&tagsHandler);
         }
-        case "attrs" {
+        when ("attrs") {
             $InParser->parse($names, \&parametersHandler, \&attrsHandler);
         }
-        else {
+        default {
             die "Do not know how to parse $type";
         }
     }
