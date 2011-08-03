@@ -46,7 +46,7 @@ class DeviceMotionAndOrientationManager {
 public:
     DeviceMotionAndOrientationManager(WebViewCore*);
 
-    void useMock();
+    void setUseMock();
     void setMockMotion(PassRefPtr<WebCore::DeviceMotionData>);
     void onMotionChange(PassRefPtr<WebCore::DeviceMotionData>);
     void setMockOrientation(PassRefPtr<WebCore::DeviceOrientation>);
