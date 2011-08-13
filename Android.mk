@@ -232,6 +232,10 @@ LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefix.h"
 LOCAL_CFLAGS += -fvisibility=hidden
 
+ifneq ($(TARGET_WEBCORE_ENABLE_GIF),)
+LOCAL_CFLAGS += -DANDROID_GIF_MAX_SIZE=$(TARGET_WEBCORE_ENABLE_GIF)
+endif
+
 # Enable JSC JIT if JSC is used and ENABLE_JSC_JIT environment
 # variable is set to true
 ifeq ($(JAVASCRIPT_ENGINE),jsc)
