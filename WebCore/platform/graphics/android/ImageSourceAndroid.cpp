@@ -211,15 +211,17 @@ void ImageSource::setURL(const String& url)
     }
 }
 
+#ifndef ANDROID_GIF_MAX_SIZE
+#define ANDROID_GIF_MAX_SIZE 32
+#endif
+
 #ifdef ANDROID_ANIMATED_GIF
 // we only animate small GIFs for now, to save memory
-// also, we only support this in Japan, hence the Emoji check
 static bool should_use_animated_gif(int width, int height) {
 #ifdef ANDROID_LARGE_MEMORY_DEVICE
     return true;
 #else
-    return EmojiFont::IsAvailable() &&
-           width <= 32 && height <= 32;
+    return width <= ANDROID_GIF_MAX_SIZE && height <= ANDROID_GIF_MAX_SIZE;
 #endif
 }
 #endif
