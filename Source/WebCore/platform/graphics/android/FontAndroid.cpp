@@ -372,7 +372,7 @@ static int truncateFixedPointToInteger(HB_Fixed value)
 // can call |reset| to start over again.
 class TextRunWalker {
 public:
-    TextRunWalker(const TextRun&, unsigned, const Font*);
+    TextRunWalker(const TextRun&, unsigned, unsigned, const Font*);
     ~TextRunWalker();
 
     bool isWordBreak(unsigned, bool);
@@ -418,10 +418,10 @@ public:
     // Return the length of the array returned by |glyphs|
     unsigned length() const { return m_item.num_glyphs; }
 
-    // Return the x offset for each of the glyphs. Note that this is translated
+    // Return the offset for each of the glyphs. Note that this is translated
     // by the current x offset and that the x offset is updated for each script
     // run.
-    const SkScalar* xPositions() const { return m_xPositions; }
+    const SkPoint* positions() const { return m_positions; }
 
     // Get the advances (widths) for each glyph.
     const HB_Fixed* advances() const { return m_item.advances; }
@@ -464,7 +464,7 @@ private:
     void createGlyphArrays(int);
     void resetGlyphArrays();
     void shapeGlyphs();
-    void setGlyphXPositions(bool);
+    void setGlyphPositions(bool);
 
     static void normalizeSpacesAndMirrorChars(const UChar* source, bool rtl,
         UChar* destination, int length);
@@ -477,9 +477,10 @@ private:
     const Font* const m_font;
     HB_ShaperItem m_item;
     uint16_t* m_glyphs16; // A vector of 16-bit glyph ids.
-    SkScalar* m_xPositions; // A vector of x positions for each glyph.
+    SkPoint* m_positions; // A vector of positions for each glyph.
     ssize_t m_indexOfNextScriptRun; // Indexes the script run in |m_run|.
     const unsigned m_startingX; // Offset in pixels of the first script run.
+    const unsigned m_startingY; // Offset in pixels of the first script run.
     unsigned m_offsetX; // Offset in pixels to the start of the next script run.
     unsigned m_pixelWidth; // Width (in px) of the current script run.
     unsigned m_numCodePoints; // Code points in current script run.
@@ -512,9 +513,10 @@ const char* TextRunWalker::paths[] = {
 // Indexed using enum CustomScript
 const FontPlatformData* TextRunWalker::s_fallbackPlatformData[] = {};
 
-TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
+TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, unsigned startingY, const Font* font)
     : m_font(font)
     , m_startingX(startingX)
+    , m_startingY(startingY)
     , m_offsetX(m_startingX)
     , m_run(getNormalizedTextRun(run, m_normalizedRun, m_normalizedBuffer))
     , m_iterateBackwards(m_run.rtl())
@@ -643,7 +645,7 @@ bool TextRunWalker::nextScriptRun()
 
     setupFontForScriptRun();
     shapeGlyphs();
-    setGlyphXPositions(rtl());
+    setGlyphPositions(rtl());
 
     return true;
 }
@@ -744,7 +746,7 @@ void TextRunWalker::deleteGlyphArrays()
     delete[] m_item.advances;
     delete[] m_item.offsets;
     delete[] m_glyphs16;
-    delete[] m_xPositions;
+    delete[] m_positions;
 }
 
 void TextRunWalker::createGlyphArrays(int size)
@@ -755,7 +757,7 @@ void TextRunWalker::createGlyphArrays(int size)
     m_item.offsets = new HB_FixedPoint[size];
 
     m_glyphs16 = new uint16_t[size];
-    m_xPositions = new SkScalar[size];
+    m_positions = new SkPoint[size];
 
     m_item.num_glyphs = size;
     m_glyphsArrayCapacity = size; // Save the GlyphArrays size.
@@ -771,7 +773,7 @@ void TextRunWalker::resetGlyphArrays()
     memset(m_item.advances, 0, size * sizeof(m_item.advances[0]));
     memset(m_item.offsets, 0, size * sizeof(m_item.offsets[0]));
     memset(m_glyphs16, 0, size * sizeof(m_glyphs16[0]));
-    memset(m_xPositions, 0, size * sizeof(m_xPositions[0]));
+    memset(m_positions, 0, size * sizeof(m_positions[0]));
 }
 
 void TextRunWalker::shapeGlyphs()
@@ -791,7 +793,7 @@ void TextRunWalker::shapeGlyphs()
     }
 }
 
-void TextRunWalker::setGlyphXPositions(bool isRTL)
+void TextRunWalker::setGlyphPositions(bool isRTL)
 {
     int position = 0;
     // logClustersIndex indexes logClusters for the first (or last when
@@ -806,7 +808,7 @@ void TextRunWalker::setGlyphXPositions(bool isRTL)
         int i = isRTL ? m_item.num_glyphs - iter - 1 : iter;
 
         m_glyphs16[i] = m_item.glyphs[i];
-        m_xPositions[i] = SkIntToScalar(m_offsetX + position);
+        m_positions[i].set(SkIntToScalar(m_offsetX + position), m_startingY + SkIntToScalar(m_item.offsets[i].y));
 
         int advance = truncateFixedPointToInteger(m_item.advances[i]);
         // The first half of the conjunction works around the case where
@@ -928,7 +930,7 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
 {
 
     int fromX = -1, toX = -1, fromAdvance = -1, toAdvance = -1;
-    TextRunWalker walker(run, 0, this);
+    TextRunWalker walker(run, 0, 0, this);
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
 
     // Base will point to the x offset for the current script run. Note that, in
@@ -955,14 +957,14 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
             // find which glyph this code-point contributed to and find its x
             // position.
             int glyph = walker.logClusters()[from];
-            fromX = base + walker.xPositions()[glyph];
+            fromX = base + walker.positions()[glyph].x();
             fromAdvance = walker.advances()[glyph];
         } else
             from -= numCodePoints;
 
         if (toX == -1 && to < numCodePoints) {
             int glyph = walker.logClusters()[to];
-            toX = base + walker.xPositions()[glyph];
+            toX = base + walker.positions()[glyph].x();
             toAdvance = walker.advances()[glyph];
         } else
             to -= numCodePoints;
@@ -1009,7 +1011,7 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
 
     SkCanvas* canvas = gc->platformContext()->mCanvas;
     bool haveMultipleLayers = isCanvasMultiLayered(canvas);
-    TextRunWalker walker(run, point.x(), this);
+    TextRunWalker walker(run, point.x(), point.y(), this);
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
     walker.setPadding(run.expansion());
 
@@ -1017,14 +1019,14 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
         if (fill) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&fillPaint);
             adjustTextRenderMode(&fillPaint, haveMultipleLayers);
-            canvas->drawPosTextH(walker.glyphs(), walker.length() << 1,
-                                 walker.xPositions(), point.y(), fillPaint);
+            canvas->drawPosText(walker.glyphs(), walker.length() << 1,
+                                walker.positions(), fillPaint);
         }
         if (stroke) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&strokePaint);
             adjustTextRenderMode(&strokePaint, haveMultipleLayers);
-            canvas->drawPosTextH(walker.glyphs(), walker.length() << 1,
-                                 walker.xPositions(), point.y(), strokePaint);
+            canvas->drawPosText(walker.glyphs(), walker.length() << 1,
+                                walker.positions(), strokePaint);
         }
     }
 }
@@ -1032,7 +1034,7 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
 float Font::floatWidthForComplexText(const TextRun& run,
             HashSet<const SimpleFontData*>*, GlyphOverflow*) const
 {
-    TextRunWalker walker(run, 0, this);
+    TextRunWalker walker(run, 0, 0, this);
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
     return walker.widthOfFullRun();
 }
@@ -1064,7 +1066,7 @@ int Font::offsetForPositionForComplexText(const TextRun& run, float x,
 {
     // (Mac code ignores includePartialGlyphs, and they don't know what it's
     // supposed to do, so we just ignore it as well.)
-    TextRunWalker walker(run, 0, this);
+    TextRunWalker walker(run, 0, 0, this);
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
 
     // If this is RTL text, the first glyph from the left is actually the last
