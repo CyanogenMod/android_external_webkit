@@ -158,11 +158,11 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
     WTF::String mimeTypeStr;
     if (mimeType) {
         mimeTypeStr = jstringToWtfString(env, mimeType);
-        LOGV("Response setMIMEType: %s", mimeTypeStr.latin1().data());
+        ALOGV("Response setMIMEType: %s", mimeTypeStr.latin1().data());
     }
     if (encoding) {
         encodingStr = jstringToWtfString(env, encoding);
-        LOGV("Response setTextEncodingName: %s", encodingStr.latin1().data());
+        ALOGV("Response setTextEncodingName: %s", encodingStr.latin1().data());
     }
     WebCore::ResourceResponse* response = new WebCore::ResourceResponse(
             kurl, mimeTypeStr, (long long)expectedLength,
@@ -171,7 +171,7 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
     if (statusText) {
         WTF::String status = jstringToWtfString(env, statusText);
         response->setHTTPStatusText(status);
-        LOGV("Response setStatusText: %s", status.latin1().data());
+        ALOGV("Response setStatusText: %s", status.latin1().data());
     }
     return (int)response;
 }
@@ -199,7 +199,7 @@ void WebCoreResourceLoader::AddData(JNIEnv* env, jobject obj, jbyteArray dataArr
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
 #endif
-    LOGV("webcore_resourceloader data(%d)", length);
+    ALOGV("webcore_resourceloader data(%d)", length);
 
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeAddData must take a valid handle!");
@@ -222,7 +222,7 @@ void WebCoreResourceLoader::Finished(JNIEnv* env, jobject obj)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
 #endif
-    LOGV("webcore_resourceloader finished");
+    ALOGV("webcore_resourceloader finished");
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeFinished must take a valid handle!");
     // ResourceLoader::didFail() can set handle to be NULL, we need to check
@@ -239,7 +239,7 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
 #endif
-    LOGV("webcore_resourceloader redirectedToUrl");
+    ALOGV("webcore_resourceloader redirectedToUrl");
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeRedirectedToUrl must take a valid handle!");
     // ResourceLoader::didFail() can set handle to be NULL, we need to check
@@ -278,7 +278,7 @@ void WebCoreResourceLoader::Error(JNIEnv* env, jobject obj, jint id, jstring des
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
 #endif
-    LOGV("webcore_resourceloader error");
+    ALOGV("webcore_resourceloader error");
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeError must take a valid handle!");
     // ResourceLoader::didFail() can set handle to be NULL, we need to check

@@ -86,7 +86,7 @@ EGLContext DoubleBufferedTexture::producerAcquireContext()
         return EGL_NO_CONTEXT;
 
     if (m_pContext != EGL_NO_CONTEXT) {
-        LOGV("AquireContext has previously generated a context.\n");
+        ALOGV("AquireContext has previously generated a context.\n");
         return m_pContext;
     }
 
@@ -110,10 +110,10 @@ EGLContext DoubleBufferedTexture::producerAcquireContext()
         m_textureB->lock();
 
     m_textureA->initSourceTexture();
-    LOGV("Initialized Textures A (%d)", m_textureA->getSourceTextureId());
+    ALOGV("Initialized Textures A (%d)", m_textureA->getSourceTextureId());
     if (m_sharedTextureMode == EglImageMode) {
         m_textureB->initSourceTexture();
-        LOGV("Initialized Textures B (%d)", m_textureB->getSourceTextureId());
+        ALOGV("Initialized Textures B (%d)", m_textureB->getSourceTextureId());
     }
 
     m_textureA->unlock();
@@ -131,10 +131,10 @@ void DoubleBufferedTexture::producerDeleteTextures()
     if (m_sharedTextureMode == EglImageMode)
         m_textureB->lock();
 
-    LOGV("Deleting Producer Textures A (%d)", m_textureA->getSourceTextureId());
+    ALOGV("Deleting Producer Textures A (%d)", m_textureA->getSourceTextureId());
     m_textureA->deleteSourceTexture();
     if (m_sharedTextureMode == EglImageMode){
-        LOGV("Deleting Producer Textures B (%d)", m_textureB->getSourceTextureId());
+        ALOGV("Deleting Producer Textures B (%d)", m_textureB->getSourceTextureId());
         m_textureB->deleteSourceTexture();
     }
 
@@ -150,10 +150,10 @@ void DoubleBufferedTexture::consumerDeleteTextures()
     if (m_sharedTextureMode == EglImageMode)
         m_textureB->lock();
 
-    LOGV("Deleting Consumer Textures A (%d)", m_textureA->getTargetTextureId());
+    ALOGV("Deleting Consumer Textures A (%d)", m_textureA->getTargetTextureId());
     m_textureA->deleteTargetTexture();
     if (m_sharedTextureMode == EglImageMode) {
-        LOGV("Deleting Consumer Textures B (%d)", m_textureB->getTargetTextureId());
+        ALOGV("Deleting Consumer Textures B (%d)", m_textureB->getTargetTextureId());
         m_textureB->deleteTargetTexture();
     }
 
@@ -165,9 +165,9 @@ void DoubleBufferedTexture::consumerDeleteTextures()
 TextureInfo* DoubleBufferedTexture::producerLock()
 {
     SharedTexture* sharedTex = getWriteableTexture();
-    LOGV("Acquiring P Lock (%d)", sharedTex->getSourceTextureId());
+    ALOGV("Acquiring P Lock (%d)", sharedTex->getSourceTextureId());
     TextureInfo* texInfo = sharedTex->lockSource();
-    LOGV("Acquired P Lock");
+    ALOGV("Acquired P Lock");
 
     return texInfo;
 }
@@ -176,9 +176,9 @@ void DoubleBufferedTexture::producerRelease()
 {
     // get the writable texture and unlock it
     SharedTexture* sharedTex = getWriteableTexture();
-    LOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
+    ALOGV("Releasing P Lock (%d)", sharedTex->getSourceTextureId());
     sharedTex->releaseSource();
-    LOGV("Released P Lock (%d)", sharedTex->getSourceTextureId());
+    ALOGV("Released P Lock (%d)", sharedTex->getSourceTextureId());
 }
 
 void DoubleBufferedTexture::producerReleaseAndSwap()
@@ -193,14 +193,14 @@ void DoubleBufferedTexture::producerReleaseAndSwap()
 TextureInfo* DoubleBufferedTexture::consumerLock()
 {
     SharedTexture* sharedTex = getReadableTexture();
-    LOGV("Acquiring C Lock (%d)", sharedTex->getSourceTextureId());
+    ALOGV("Acquiring C Lock (%d)", sharedTex->getSourceTextureId());
     m_lockedConsumerTexture = sharedTex;
 
     TextureInfo* texInfo = sharedTex->lockTarget();
-    LOGV("Acquired C Lock");
+    ALOGV("Acquired C Lock");
 
     if (!texInfo)
-        LOGV("Released C Lock (Empty)");
+        ALOGV("Released C Lock (Empty)");
 
     return texInfo;
 }
@@ -211,7 +211,7 @@ void DoubleBufferedTexture::consumerRelease()
     // producer may have swapped out the readable buffer
     SharedTexture* sharedTex = m_lockedConsumerTexture;
     sharedTex->releaseTarget();
-    LOGV("Released C Lock (%d)", sharedTex->getSourceTextureId());
+    ALOGV("Released C Lock (%d)", sharedTex->getSourceTextureId());
 }
 
 } // namespace WebCore

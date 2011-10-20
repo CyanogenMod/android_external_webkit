@@ -1140,7 +1140,7 @@ void WebViewCore::didFirstLayout()
     const WebCore::KURL& url = m_mainFrame->document()->url();
     if (url.isEmpty())
         return;
-    LOGV("::WebCore:: didFirstLayout %s", url.string().ascii().data());
+    ALOGV("::WebCore:: didFirstLayout %s", url.string().ascii().data());
 
     WebCore::FrameLoadType loadType = m_mainFrame->loader()->loadType();
 
@@ -2506,7 +2506,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
     IntRect bounds = range->boundingBox();
     selectAt(bounds.center().x(), bounds.center().y());
     markup = formatMarkup(selection);
-    LOGV("Selection markup: %s", markup.utf8().data());
+    ALOGV("Selection markup: %s", markup.utf8().data());
 
     return markup;
 }
@@ -2765,7 +2765,7 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
         m_currentNodeDomNavigationAxis = currentNode;
         scrollNodeIntoView(m_mainFrame, currentNode);
         String selectionString = createMarkup(currentNode);
-        LOGV("Selection markup: %s", selectionString.utf8().data());
+        ALOGV("Selection markup: %s", selectionString.utf8().data());
         return selectionString;
     }
     return String();
@@ -4008,7 +4008,7 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
-    LOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
+    ALOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
     viewImpl->setSizeScreenWidthAndScale(width, height, textWrapWidth, scale,
             screenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
@@ -4134,7 +4134,7 @@ static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeSetFocusControllerActive()\n");
+    ALOGV("webviewcore::nativeSetFocusControllerActive()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
     viewImpl->setFocusControllerActive(active);
@@ -4145,7 +4145,7 @@ static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
 #endif
-    LOGV("webviewcore::nativeSaveDocumentState()\n");
+    ALOGV("webviewcore::nativeSaveDocumentState()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
     viewImpl->saveDocumentState((WebCore::Frame*) frame);

@@ -364,7 +364,7 @@ void JavaBridge::Finalize(JNIEnv* env, jobject obj)
     JavaBridge* javaBridge = (JavaBridge*)
         (env->GetIntField(obj, gJavaBridge_ObjectID));    
     LOG_ASSERT(javaBridge, "Finalize should not be called twice for the same java bridge!");
-    LOGV("webcore_javabridge::nativeFinalize(%p)\n", javaBridge);
+    ALOGV("webcore_javabridge::nativeFinalize(%p)\n", javaBridge);
     delete javaBridge;
     env->SetIntField(obj, gJavaBridge_ObjectID, 0);
 }

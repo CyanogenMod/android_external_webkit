@@ -185,7 +185,7 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
         }
     }
     if (didSetPermissions) {
-        LOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
+        ALOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
         bool res = iconDb.open(pathStr, WebCore::IconDatabase::defaultDatabaseFilename());
         if (!res)
             LOGE("Open failed!");
@@ -200,7 +200,7 @@ static void Close(JNIEnv* env, jobject obj)
 
 static void RemoveAllIcons(JNIEnv* env, jobject obj)
 {
-    LOGV("Removing all icons");
+    ALOGV("Removing all icons");
     WebCore::iconDatabase().removeAllIcons();
 }
 
@@ -212,7 +212,7 @@ static jobject IconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     // FIXME: This method should not be used from outside WebCore and will be removed.
     // http://trac.webkit.org/changeset/81484
     WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(urlStr, WebCore::IntSize(16, 16));
-    LOGV("Retrieving icon for '%s' %p", urlStr.latin1().data(), icon);
+    ALOGV("Retrieving icon for '%s' %p", urlStr.latin1().data(), icon);
     return webcoreImageToJavaBitmap(env, icon);
 }
 
@@ -221,7 +221,7 @@ static void RetainIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     LOG_ASSERT(url, "No url given to retainIconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
-    LOGV("Retaining icon for '%s'", urlStr.latin1().data());
+    ALOGV("Retaining icon for '%s'", urlStr.latin1().data());
     WebCore::iconDatabase().retainIconForPageURL(urlStr);
 }
 
@@ -230,7 +230,7 @@ static void ReleaseIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
     LOG_ASSERT(url, "No url given to releaseIconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
-    LOGV("Releasing icon for '%s'", urlStr.latin1().data());
+    ALOGV("Releasing icon for '%s'", urlStr.latin1().data());
     WebCore::iconDatabase().releaseIconForPageURL(urlStr);
 }
 

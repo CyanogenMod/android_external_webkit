@@ -425,7 +425,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    LOGV("::WebCore:: startLoadingResource(%p, %s)",
+    ALOGV("::WebCore:: startLoadingResource(%p, %s)",
             loader, request.url().string().latin1().data());
 
     JNIEnv* env = getJNIEnv();
@@ -449,7 +449,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                     + urlStr.substring(colon);
         }
     }
-    LOGV("%s lower=%s", __FUNCTION__, urlStr.latin1().data());
+    ALOGV("%s lower=%s", __FUNCTION__, urlStr.latin1().data());
     jstring jUrlStr = wtfStringToJstring(env, urlStr);
     jstring jMethodStr = NULL;
     if (!method.isEmpty())
@@ -475,7 +475,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
             break;
     }
 
-    LOGV("::WebCore:: startLoadingResource %s with cacheMode %d", urlStr.ascii().data(), cacheMode);
+    ALOGV("::WebCore:: startLoadingResource %s with cacheMode %d", urlStr.ascii().data(), cacheMode);
 
     ResourceHandleInternal* loaderInternal = loader->getInternal();
     jstring jUsernameString = loaderInternal->m_user.isEmpty() ?
@@ -513,7 +513,7 @@ WebFrame::shouldInterceptRequest(const WTF::String& url)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    LOGV("::WebCore:: shouldInterceptRequest(%s)", url.latin1().data());
+    ALOGV("::WebCore:: shouldInterceptRequest(%s)", url.latin1().data());
 
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
@@ -537,7 +537,7 @@ WebFrame::reportError(int errorCode, const WTF::String& description,
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    LOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
+    ALOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -589,7 +589,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     const WebCore::KURL& url = documentLoader->url();
     if (url.isEmpty())
         return;
-    LOGV("::WebCore:: loadStarted %s", url.string().ascii().data());
+    ALOGV("::WebCore:: loadStarted %s", url.string().ascii().data());
 
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
@@ -609,7 +609,7 @@ WebFrame::loadStarted(WebCore::Frame* frame)
         WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(urlString, WebCore::IntSize(16, 16));
         if (icon)
             favicon = webcoreImageToJavaBitmap(env, icon);
-        LOGV("favicons", "Starting load with icon %p for %s", icon, url.string().utf8().data());
+        ALOGV("favicons", "Starting load with icon %p for %s", icon, url.string().utf8().data());
     }
     jstring urlStr = wtfStringToJstring(env, urlString);
 
@@ -667,7 +667,7 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     const WebCore::KURL& url = documentLoader->url();
     if (url.isEmpty())
         return;
-    LOGV("::WebCore:: didFinishLoad %s", url.string().ascii().data());
+    ALOGV("::WebCore:: didFinishLoad %s", url.string().ascii().data());
 
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     WebCore::FrameLoadType loadType = loader->loadType();
@@ -684,7 +684,7 @@ WebFrame::addHistoryItem(WebCore::HistoryItem* item)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    LOGV("::WebCore:: addHistoryItem");
+    ALOGV("::WebCore:: addHistoryItem");
     JNIEnv* env = getJNIEnv();
     WebHistory::AddItem(mJavaFrame->history(env), item);
 }
@@ -695,7 +695,7 @@ WebFrame::removeHistoryItem(int index)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    LOGV("::WebCore:: removeHistoryItem at %d", index);
+    ALOGV("::WebCore:: removeHistoryItem at %d", index);
     JNIEnv* env = getJNIEnv();
     WebHistory::RemoveItem(mJavaFrame->history(env), index);
 }
@@ -706,7 +706,7 @@ WebFrame::updateHistoryIndex(int newIndex)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    LOGV("::WebCore:: updateHistoryIndex to %d", newIndex);
+    ALOGV("::WebCore:: updateHistoryIndex to %d", newIndex);
     JNIEnv* env = getJNIEnv();
     WebHistory::UpdateHistoryIndex(mJavaFrame->history(env), newIndex);
 }
@@ -718,7 +718,7 @@ WebFrame::setTitle(const WTF::String& title)
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
 #ifndef NDEBUG
-    LOGV("setTitle(%s)", title.ascii().data());
+    ALOGV("setTitle(%s)", title.ascii().data());
 #endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
@@ -738,7 +738,7 @@ WebFrame::windowObjectCleared(WebCore::Frame* frame)
 #ifdef ANDROID_INSTRUMENT
     TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
 #endif
-    LOGV("::WebCore:: windowObjectCleared");
+    ALOGV("::WebCore:: windowObjectCleared");
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -1362,7 +1362,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     WebCore::SecurityOrigin::setLocalLoadPolicy(
             WebCore::SecurityOrigin::AllowLocalLoadsForLocalAndSubstituteData);
 
-    LOGV("::WebCore:: createFrame %p", frame);
+    ALOGV("::WebCore:: createFrame %p", frame);
 
     // Set the mNativeFrame field in Frame
     SET_NATIVE_FRAME(env, obj, (int)frame);
@@ -1390,7 +1390,7 @@ static void DestroyFrame(JNIEnv* env, jobject obj)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeDestroyFrame must take a valid frame pointer!");
 
-    LOGV("::WebCore:: deleting frame %p", pFrame);
+    ALOGV("::WebCore:: deleting frame %p", pFrame);
 
     WebCore::FrameView* view = pFrame->view();
     view->ref();
@@ -1463,7 +1463,7 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
         env->DeleteLocalRef(set);
         env->DeleteLocalRef(mapClass);
     }
-    LOGV("LoadUrl %s", kurl.string().latin1().data());
+    ALOGV("LoadUrl %s", kurl.string().latin1().data());
     pFrame->loader()->load(request, false);
 }
 
@@ -1491,7 +1491,7 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
         env->ReleaseByteArrayElements(postData, bytes, 0);
     }
 
-    LOGV("PostUrl %s", kurl.string().latin1().data());
+    ALOGV("PostUrl %s", kurl.string().latin1().data());
     WebCore::FrameLoadRequest frameRequest(pFrame->document()->securityOrigin(), request);
     pFrame->loader()->loadFrameRequest(frameRequest, false, false, 0, 0, WebCore::SendReferrer);
 }
@@ -1531,7 +1531,7 @@ static void StopLoading(JNIEnv *env, jobject obj)
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeStopLoading must take a valid frame pointer!");
-    LOGV("::WebCore:: stopLoading %p", pFrame);
+    ALOGV("::WebCore:: stopLoading %p", pFrame);
 
     // Stop loading the page and do not send an unload event
     pFrame->loader()->stopForUserCancel();
@@ -1843,7 +1843,7 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
 
     JavaVM* vm;
     env->GetJavaVM(&vm);
-    LOGV("::WebCore:: addJSInterface: %p", pFrame);
+    ALOGV("::WebCore:: addJSInterface: %p", pFrame);
 
 #if USE(JSC)
     // Copied from qwebframe.cpp
@@ -2113,7 +2113,7 @@ static void OrientationChanged(JNIEnv *env, jobject obj, int orientation)
     TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
 #endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
-    LOGV("Sending orientation: %d", orientation);
+    ALOGV("Sending orientation: %d", orientation);
     pFrame->sendOrientationChangeEvent(orientation);
 }
 

@@ -89,7 +89,7 @@ bool AdbConnection::sendRequest(const char* fmt, ...) const {
     int res = vsnprintf(buf, MAX_COMMAND_LENGTH, fmt, args);
     va_end(args);
 
-    LOGV("Sending command: %04X%.*s", res, res, buf);
+    ALOGV("Sending command: %04X%.*s", res, res, buf);
 
     // Construct the payload length
     char payloadLen[PAYLOAD_LENGTH + 1];
@@ -156,7 +156,7 @@ bool AdbConnection::checkOkayResponse() const {
 
     // Check for a response other than OKAY/FAIL
     if ((res == ADB_RESPONSE_LENGTH) && (strncmp(buf, "OKAY", res) == 0)) {
-        LOGV("Command OKAY");
+        ALOGV("Command OKAY");
         return true;
     } else if (strncmp(buf, "FAIL", ADB_RESPONSE_LENGTH) == 0) {
         // Something happened, print out the reason for failure
@@ -224,7 +224,7 @@ const DeviceList& AdbConnection::getDeviceList() {
         static const char emulator[] = "emulator-";
         if (strncmp(serial, emulator, sizeof(emulator) - 1) == 0)
             t = Device::EMULATOR;
-        LOGV("Adding device %s (%s)", serial, state);
+        ALOGV("Adding device %s (%s)", serial, state);
         m_devices.add(new Device(serial, t, this));
 
         // Reset for the next line

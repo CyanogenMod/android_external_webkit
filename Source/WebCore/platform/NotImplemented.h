@@ -47,7 +47,7 @@
 #define notImplemented() do { \
         static bool havePrinted = false; \
         if (!havePrinted && !supressNotImplementedWarning()) { \
-            LOGV("%s: notImplemented", __PRETTY_FUNCTION__); \
+            ALOGV("%s: notImplemented", __PRETTY_FUNCTION__); \
             havePrinted = true; \
         } \
     } while (0)

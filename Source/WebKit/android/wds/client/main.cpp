@@ -141,7 +141,7 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    LOGV("Connecting to localhost port " PORT_STR);
+    ALOGV("Connecting to localhost port " PORT_STR);
 
     const char* command = argv[optind];
     int commandLen = strlen(command);

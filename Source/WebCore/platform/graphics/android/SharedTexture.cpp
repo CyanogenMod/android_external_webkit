@@ -178,7 +178,7 @@ void SharedTexture::releaseSource()
         if (m_eglImage == EGL_NO_IMAGE_KHR && m_sourceTexture->m_width
             && m_sourceTexture->m_height) {
             GLUtils::createEGLImageFromTexture(m_sourceTexture->m_textureId, &m_eglImage);
-            LOGV("Generating Image (%d) 0x%x", m_sourceTexture->m_textureId, m_eglImage);
+            ALOGV("Generating Image (%d) 0x%x", m_sourceTexture->m_textureId, m_eglImage);
 
             glFinish(); // ensures the texture is ready to be used by the consumer
         }
@@ -219,7 +219,7 @@ TextureInfo* SharedTexture::lockTarget()
             glGenTextures(1, &m_targetTexture->m_textureId);
 
         GLUtils::createTextureFromEGLImage(m_targetTexture->m_textureId, m_eglImage);
-        LOGV("Generating Consumer Texture from 0x%x", m_eglImage);
+        ALOGV("Generating Consumer Texture from 0x%x", m_eglImage);
         m_isNewImage = false;
     }
     return m_targetTexture;
