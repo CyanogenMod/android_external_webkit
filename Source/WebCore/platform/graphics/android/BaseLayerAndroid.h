@@ -65,7 +65,7 @@ public:
 private:
 #if USE(ACCELERATED_COMPOSITING)
     void prefetchBasePicture(SkRect& viewport, float currentScale,
-                             TiledPage* prefetchTiledPage);
+                             TiledPage* prefetchTiledPage, bool draw);
     bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime,
                              bool* buffersSwappedPtr);
 
