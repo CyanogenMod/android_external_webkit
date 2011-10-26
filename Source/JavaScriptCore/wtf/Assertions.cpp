@@ -66,6 +66,10 @@
 #include <execinfo.h>
 #endif
 
+#if OS(ANDROID)
+#include <utils/Log.h>
+#endif
+
 extern "C" {
 
 #if PLATFORM(BREWMP)
@@ -124,7 +128,9 @@ static void vprintf_stderr_common(const char* format, va_list args)
         vsnprintf(buffer.data(), size, format, args);
         printLog(buffer);
     }
-
+#elif OS(ANDROID)
+    LOG_PRI_VA(ANDROID_LOG_DEBUG, "WebKit", format, args);
+    return;
 #elif HAVE(ISDEBUGGERPRESENT)
     if (IsDebuggerPresent()) {
         size_t size = 1024;
