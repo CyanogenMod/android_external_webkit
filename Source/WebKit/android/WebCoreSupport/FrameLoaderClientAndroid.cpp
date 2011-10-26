@@ -1332,7 +1332,7 @@ void FrameLoaderClientAndroid::dispatchDidClearWindowObjectInWorld(DOMWrapperWor
 
     ASSERT(m_frame);
     ALOGV("::WebCore:: windowObjectCleared called on frame %p for %s\n",
-    		m_frame, m_frame->loader()->url().string().ascii().data());
+            m_frame, m_frame->document()->url().string().ascii().data());
     m_webFrame->windowObjectCleared(m_frame);
 }
 

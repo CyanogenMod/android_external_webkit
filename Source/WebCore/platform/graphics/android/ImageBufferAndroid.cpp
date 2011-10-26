@@ -195,7 +195,7 @@ void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sou
     ASSERT(destx >= 0);
     ASSERT(destx < m_size.width());
     ASSERT(originx >= 0);
-    ASSERT(originx <= sourceRect.right());
+    ASSERT(originx <= sourceRect.maxX());
 
     int endx = destPoint.x() + sourceRect.maxX();
     ASSERT(endx <= m_size.width());
@@ -207,7 +207,7 @@ void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sou
     ASSERT(desty >= 0);
     ASSERT(desty < m_size.height());
     ASSERT(originy >= 0);
-    ASSERT(originy <= sourceRect.bottom());
+    ASSERT(originy <= sourceRect.maxY());
 
     int endy = destPoint.y() + sourceRect.maxY();
     ASSERT(endy <= m_size.height());

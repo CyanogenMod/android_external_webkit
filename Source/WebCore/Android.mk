@@ -811,6 +811,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	plugins/DOMPluginArray.cpp \
 	plugins/PluginData.cpp \
 	plugins/PluginDatabase.cpp \
+	plugins/PluginDebug.cpp \
 	plugins/PluginMainThreadScheduler.cpp \
 	plugins/PluginPackage.cpp \
 	plugins/PluginStream.cpp \

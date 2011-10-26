@@ -45,6 +45,16 @@
 #undef LOG_ASSERT
 #endif
 
+// Chromium won't build without NDEBUG set, so we set it for all source files
+// that use Chromium code. This means that if NDEBUG was previously unset, we
+// have to redefine ASSERT() to a no-op, as this is enabled in debug builds.
+// Unfortunately, ASSERT() is defined from config.h, so we can't get in first.
+#ifndef NDEBUG
+#define NDEBUG 1
+#undef ASSERT
+#define ASSERT(assertion) (void(0))
+#endif
+
 #include <android/net/android_network_library_impl.h>
 #include <android/jni/jni_utils.h>
 #include <base/callback.h>

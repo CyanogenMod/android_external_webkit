@@ -113,10 +113,6 @@
 #include "WMLNames.h"
 #endif
 
-#if PLATFORM(ANDROID)
-#include "WebViewCore.h"
-#endif
-
 using namespace std;
 
 namespace WebCore {
