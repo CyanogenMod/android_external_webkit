@@ -676,7 +676,10 @@
 #if PLATFORM(ANDROID)
 #define WEBCORE_NAVIGATOR_VENDOR "Google Inc."
 
-#define LOG_DISABLED 1
+// Force LOG_ERROR() to be enabled in all builds. All other logging and
+// assertions are enabled in debug builds only.
+#define ERROR_DISABLED 0
+
 // This must be defined before we include FastMalloc.h in config.h.
 #define USE_SYSTEM_MALLOC 1
 
