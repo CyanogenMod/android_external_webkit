@@ -31,6 +31,8 @@
 #include "SVGNames.h"
 #endif
 
+#include <wtf/text/CString.h>
+
 #if ENABLE(WML)
 #include "WMLDocument.h"
 #include "WMLVariables.h"

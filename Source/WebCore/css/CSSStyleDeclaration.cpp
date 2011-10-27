@@ -27,6 +27,7 @@
 #include "CSSPropertyNames.h"
 #include "CSSRule.h"
 #include <wtf/ASCIICType.h>
+#include <wtf/text/CString.h>
 
 using namespace WTF;
 
