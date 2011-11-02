@@ -283,7 +283,6 @@ void MediaTexture::setDimensions(const ANativeWindow* window,
 void MediaTexture::setFramerateCallback(const ANativeWindow* window,
                                         FramerateCallbackProc callback)
 {
-    XLOG("Release ANW %p (%p):(%p)", this, m_surfaceTexture.get(), m_surfaceTextureClient.get());
     android::Mutex::Autolock lock(m_mediaLock);
     for (unsigned int i = 0; i < m_videoTextures.size(); i++) {
         if (m_videoTextures[i]->nativeWindow.get() == window) {

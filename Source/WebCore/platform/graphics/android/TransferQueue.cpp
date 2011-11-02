@@ -518,7 +518,7 @@ void TransferQueue::saveGLState()
     glGetIntegerv(GL_VIEWPORT, m_GLStateBeforeBlit.viewport);
     glGetBooleanv(GL_SCISSOR_TEST, m_GLStateBeforeBlit.scissor);
     glGetBooleanv(GL_DEPTH_TEST, m_GLStateBeforeBlit.depth);
-#if DEBUG
+#ifdef DEBUG
     glGetFloatv(GL_COLOR_CLEAR_VALUE, m_GLStateBeforeBlit.clearColor);
 #endif
 }
@@ -530,7 +530,7 @@ void TransferQueue::setGLStateForCopy(int width, int height)
     glDisable(GL_SCISSOR_TEST);
     glDisable(GL_DEPTH_TEST);
     // Clear the content is only for debug purpose.
-#if DEBUG
+#ifdef DEBUG
     glClearColor(0, 0, 0, 0);
     glClear(GL_COLOR_BUFFER_BIT);
 #endif
@@ -548,7 +548,7 @@ void TransferQueue::restoreGLState()
 
     if (m_GLStateBeforeBlit.depth[0])
         glEnable(GL_DEPTH_TEST);
-#if DEBUG
+#ifdef DEBUG
     glClearColor(m_GLStateBeforeBlit.clearColor[0],
                  m_GLStateBeforeBlit.clearColor[1],
                  m_GLStateBeforeBlit.clearColor[2],

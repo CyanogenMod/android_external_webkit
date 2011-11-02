@@ -131,7 +131,7 @@ void BaseLayerAndroid::prefetchBasePicture(SkRect& viewport, float currentScale,
          viewport.fTop,
          viewport.fRight,
          viewport.fBottom,
-         scale);
+         currentScale);
 
     bounds.fLeft = static_cast<int>(floorf(viewport.fLeft * invTileWidth)) - PREFETCH_X_DIST;
     bounds.fTop = static_cast<int>(floorf(viewport.fTop * invTileHeight)) - PREFETCH_Y_DIST;
@@ -141,7 +141,7 @@ void BaseLayerAndroid::prefetchBasePicture(SkRect& viewport, float currentScale,
     XLOG("prefetch rect %d %d %d %d, scale %f, preparing page %p",
          bounds.fLeft, bounds.fTop,
          bounds.fRight, bounds.fBottom,
-         scale * PREFETCH_SCALE,
+         prefetchScale,
          prefetchTiledPage);
 
     prefetchTiledPage->setScale(prefetchScale);

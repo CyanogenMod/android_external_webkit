@@ -140,7 +140,7 @@ void TiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
     if (tilesAllReady) {
         m_updateManager.swap();
         m_dirtyRegion.op(m_updateManager.getPaintingInval(), SkRegion::kUnion_Op);
-        XLOG("TT %p swapping, now painting with picture %p"
+        XLOG("TT %p swapping, now painting with picture %p",
              this, m_updateManager.getPaintingPicture());
         m_updateManager.clearPaintingInval();
     }
