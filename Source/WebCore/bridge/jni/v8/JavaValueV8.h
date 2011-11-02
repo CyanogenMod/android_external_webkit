@@ -49,7 +49,18 @@ class JavaInstance;
 // currently used only with V8.
 // See https://bugs.webkit.org/show_bug.cgi?id=57023.
 struct JavaValue {
-    JavaValue() : m_type(JavaTypeInvalid) {}
+// ANDROID
+    JavaValue()
+        : m_type(JavaTypeInvalid)
+        , m_booleanValue(false)
+        , m_byteValue(0)
+        , m_charValue(0)
+        , m_shortValue(0)
+        , m_intValue(0)
+        , m_longValue(0)
+        , m_floatValue(0.0)
+        , m_doubleValue(0.0) {}
+// ANDROID
 
     JavaType m_type;
     // We don't use a union because we want to be able to ref-count some of the
