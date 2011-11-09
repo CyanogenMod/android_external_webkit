@@ -30,6 +30,7 @@
 #include "MainThread.h"
 #include "UrlInterceptResponse.h"
 #include "WebCoreFrameBridge.h"
+#include "WebCoreJni.h"
 #include "WebRequestContext.h"
 #include "WebResourceRequest.h"
 #include "WebUrlLoaderClient.h"
@@ -58,7 +59,24 @@ while (0)
 namespace android {
 
 namespace {
-    const int kInitialReadBufSize = 32768;
+const int kInitialReadBufSize = 32768;
+const char* kXRequestedWithHeader = "X-Requested-With";
+
+struct RequestPackageName {
+    std::string value;
+    RequestPackageName();
+};
+
+RequestPackageName::RequestPackageName() {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jclass bridgeClass = env->FindClass("android/webkit/JniUtil");
+    jmethodID method = env->GetStaticMethodID(bridgeClass, "getPackageName", "()Ljava/lang/String;");
+    value = jstringToStdString(env, static_cast<jstring>(env->CallStaticObjectMethod(bridgeClass, method)));
+    env->DeleteLocalRef(bridgeClass);
+}
+
+base::LazyInstance<RequestPackageName> s_packageName(base::LINKER_INITIALIZED);
+
 }
 
 WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest)
@@ -79,6 +97,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     m_request = new net::URLRequest(gurl, this);
 
     m_request->SetExtraRequestHeaders(webResourceRequest.requestHeaders());
+    m_request->SetExtraRequestHeaderByName(kXRequestedWithHeader, s_packageName.Get().value, true);
     m_request->set_referrer(webResourceRequest.referrer());
     m_request->set_method(webResourceRequest.method());
     m_request->set_load_flags(webResourceRequest.loadFlags());
