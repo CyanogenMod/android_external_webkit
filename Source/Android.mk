@@ -224,10 +224,6 @@ ifeq ($(ENABLE_SVG_ANIMATION),true)
 LOCAL_CFLAGS += -DENABLE_SVG_ANIMATION=1
 endif
 
-ifeq ($(WEBCORE_INSTRUMENTATION),true)
-LOCAL_CFLAGS += -DANDROID_INSTRUMENT
-endif
-
 # LOCAL_LDLIBS is used in simulator builds only and simulator builds are only
 # valid on Linux
 LOCAL_LDLIBS += -lpthread -ldl
@@ -245,10 +241,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libicudata \
 	libicui18n \
 	libmedia
-
-ifeq ($(WEBCORE_INSTRUMENTATION),true)
-LOCAL_SHARED_LIBRARIES += libhardware_legacy
-endif
 
 # We have to use the android version of libdl.
 LOCAL_SHARED_LIBRARIES += libdl

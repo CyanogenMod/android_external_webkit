@@ -2498,39 +2498,6 @@ Node* Node::enclosingLinkEventParentOrSelf()
     return 0;
 }
 
-#ifdef ANDROID_INSTRUMENT
-static size_t nodeSize = 0;
-
-void* Node::operator new(size_t size)
-{
-    nodeSize += size;
-    return ::operator new(size);
-}
-
-void* Node::operator new[](size_t size)
-{
-    nodeSize += size;
-    return ::operator new[](size);
-}
-
-void Node::operator delete(void* p, size_t size)
-{
-    nodeSize -= size;
-    ::operator delete(p);
-}
-
-void Node::operator delete[](void* p, size_t size)
-{
-    nodeSize -= size;
-    ::operator delete[](p);
-}
-
-size_t Node::reportDOMNodesSize()
-{
-    return nodeSize;
-}
-#endif
-
 // --------
 
 ScriptExecutionContext* Node::scriptExecutionContext() const

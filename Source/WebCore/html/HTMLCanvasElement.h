@@ -128,22 +128,6 @@ public:
 
     void makeRenderingResultsAvailable();
 
-#ifdef ANDROID_INSTRUMENT
-    void* operator new(size_t size) {
-        return HTMLElement::operator new(size);
-    }
-    void* operator new[](size_t size) {
-        return HTMLElement::operator new[](size);
-    }
-
-    void operator delete(void* p, size_t size) {
-        HTMLElement::operator delete(p, size);
-    }
-    void operator delete[](void* p, size_t size) {
-        HTMLElement::operator delete[](p, size);
-    }
-#endif
-
 private:
     HTMLCanvasElement(const QualifiedName&, Document*);
 

@@ -134,10 +134,6 @@ void* ArenaAllocate(ArenaPool *pool, unsigned int nb);
          fastFree(a); \
          (a) = 0;
 
-#ifdef ANDROID_INSTRUMENT
-size_t ReportPoolSize(const ArenaPool* pool);
-#endif
-
 }
 
 #endif

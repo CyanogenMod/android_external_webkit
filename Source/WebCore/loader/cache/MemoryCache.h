@@ -171,12 +171,6 @@ public:
     void removeResourcesWithOrigin(SecurityOrigin*);
     void getOriginsWithCache(SecurityOriginSet& origins);
 
-#ifdef ANDROID_INSTRUMENT
-    unsigned getLiveSize() { return m_liveSize; }
-    unsigned getDeadSize() { return m_deadSize; }
-#endif
-
-
 private:
     MemoryCache();
     ~MemoryCache(); // Not implemented to make sure nobody accidentally calls delete -- WebCore does not delete singletons.

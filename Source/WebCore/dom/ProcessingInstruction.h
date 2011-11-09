@@ -56,14 +56,6 @@ public:
 private:
     ProcessingInstruction(Document*, const String& target, const String& data);
 
-#ifdef ANDROID_INSTRUMENT
-    // Overridden to resolve the ambiguous
-    void* operator new(size_t size);
-    void* operator new[](size_t size);
-    void operator delete(void* p, size_t size);
-    void operator delete[](void* p, size_t size);
-#endif
-
     virtual String nodeName() const;
     virtual NodeType nodeType() const;
     virtual String nodeValue() const;

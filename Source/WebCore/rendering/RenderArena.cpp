@@ -136,11 +136,4 @@ void RenderArena::free(size_t size, void* ptr)
 #endif
 }
 
-#ifdef ANDROID_INSTRUMENT
-size_t RenderArena::reportPoolSize() const
-{
-    return ReportPoolSize(&m_pool);
-}
-#endif
-
 } // namespace WebCore

@@ -297,26 +297,4 @@ void ProcessingInstruction::finishParsingChildren()
     ContainerNode::finishParsingChildren();
 }
 
-#ifdef ANDROID_INSTRUMENT
-void* ProcessingInstruction::operator new(size_t size)
-{
-    return Node::operator new(size);
-}
-
-void* ProcessingInstruction::operator new[](size_t size)
-{
-    return Node::operator new[](size);
-}
-
-void ProcessingInstruction::operator delete(void* p, size_t size)
-{
-    Node::operator delete(p, size);
-}
-
-void ProcessingInstruction::operator delete[](void* p, size_t size)
-{
-    Node::operator delete[](p, size);
-}
-#endif
-
 } // namespace

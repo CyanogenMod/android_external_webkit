@@ -120,14 +120,6 @@ private:
     void addPendingSheet(PendingSheetType);
     void removePendingSheet();
 
-#ifdef ANDROID_INSTRUMENT
-    // Overridden to resolve the ambiguous
-    void* operator new(size_t size);
-    void* operator new[](size_t size);
-    void operator delete(void* p, size_t size);
-    void operator delete[](void* p, size_t size);
-#endif
-
 private:
     HTMLLinkElement(const QualifiedName&, Document*, bool createdByParser);
 

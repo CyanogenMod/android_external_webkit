@@ -255,16 +255,4 @@ void FinishArenaPool(ArenaPool *pool)
     FreeArenaList(pool, &pool->first, true);
 }
 
-#ifdef ANDROID_INSTRUMENT
-size_t ReportPoolSize(const ArenaPool* pool)
-{
-    size_t total = 0;
-    for (const Arena *a = &pool->first; a; a = a->next)
-        total += (a->limit - a->base);
-    for (const Arena *fa = arena_freelist; fa; fa = fa->next )
-        total += (fa->limit - fa->base);
-    return total;
-}
-#endif
-
 }

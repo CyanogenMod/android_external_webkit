@@ -53,9 +53,6 @@
 #include "SkPicture.h"
 #include "SkRect.h"
 #include "SkTime.h"
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
 #include "TilesManager.h"
 #include "WebCoreJni.h"
 #include "WebRequestContext.h"
@@ -2141,13 +2138,6 @@ static void nativeHideCursor(JNIEnv *env, jobject obj)
     view->hideCursor();
 }
 
-static void nativeInstrumentReport(JNIEnv *env, jobject obj)
-{
-#ifdef ANDROID_INSTRUMENT
-    TimeCounter::reportNow();
-#endif
-}
-
 static void nativeSelectBestAt(JNIEnv *env, jobject obj, jobject jrect)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -2821,8 +2811,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeHitSelection },
     { "nativeImageURI", "(II)Ljava/lang/String;",
         (void*) nativeImageURI },
-    { "nativeInstrumentReport", "()V",
-        (void*) nativeInstrumentReport },
     { "nativeLayerBounds", "(I)Landroid/graphics/Rect;",
         (void*) nativeLayerBounds },
     { "nativeMotionUp", "(III)Z",

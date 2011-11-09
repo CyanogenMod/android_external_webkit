@@ -41,10 +41,6 @@
 #include "NestingLevelIncrementer.h"
 #include "Settings.h"
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -318,10 +314,6 @@ void HTMLDocumentParser::insert(const SegmentedString& source)
     if (isStopped())
         return;
 
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::ParsingTimeCounter);
-#endif
-
     // pumpTokenizer can cause this parser to be detached from the Document,
     // but we need to ensure it isn't deleted yet.
     RefPtr<HTMLDocumentParser> protect(this);
@@ -369,18 +361,12 @@ void HTMLDocumentParser::append(const SegmentedString& source)
         // We've gotten data off the network in a nested write.
         // We don't want to consume any more of the input stream now.  Do
         // not worry.  We'll consume this data in a less-nested write().
-#ifdef ANDROID_INSTRUMENT
-        android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
-#endif
         return;
     }
 
     pumpTokenizerIfPossible(AllowYield);
 
     endIfDelayed();
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::ParsingTimeCounter, __FUNCTION__);
-#endif
 }
 
 void HTMLDocumentParser::end()

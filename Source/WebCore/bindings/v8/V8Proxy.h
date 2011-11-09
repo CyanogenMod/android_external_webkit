@@ -171,10 +171,6 @@ namespace WebCore {
         // Run an already compiled script.
         v8::Local<v8::Value> runScript(v8::Handle<v8::Script>, bool isInlineCode);
 
-#ifdef ANDROID_INSTRUMENT
-        v8::Local<v8::Value> runScriptInternal(v8::Handle<v8::Script> script, bool inline_code);
-#endif
-
         // Call the function with the given receiver and arguments.
         v8::Local<v8::Value> callFunction(v8::Handle<v8::Function>, v8::Handle<v8::Object>, int argc, v8::Handle<v8::Value> argv[]);
 
@@ -243,10 +239,6 @@ namespace WebCore {
         static v8::Handle<v8::Value> checkNewLegal(const v8::Arguments&);
 
         static v8::Handle<v8::Script> compileScript(v8::Handle<v8::String> code, const String& fileName, const TextPosition0& scriptStartPosition, v8::ScriptData* = 0);
-
-#ifdef ANDROID_INSTRUMENT
-        static v8::Handle<v8::Script> compileScriptInternal(v8::Handle<v8::String> code, const String& fileName, int baseLine, v8::ScriptData* scriptData);
-#endif
 
         // If the exception code is different from zero, a DOM exception is
         // schedule to be thrown.

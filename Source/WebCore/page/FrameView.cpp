@@ -62,11 +62,6 @@
 #include "TextResourceDecoder.h"
 #include <wtf/CurrentTime.h>
 
-#ifdef ANDROID_INSTRUMENT
-#include "FrameTree.h"
-#include "TimeCounter.h"
-#endif
-
 #if USE(ACCELERATED_COMPOSITING)
 #include "RenderLayerCompositor.h"
 #endif
@@ -872,11 +867,6 @@ void FrameView::layout(bool allowSubtree)
         return;
     }
 
-#ifdef ANDROID_INSTRUMENT
-    if (!m_frame->tree() || !m_frame->tree()->parent())
-        android::TimeCounter::start(android::TimeCounter::LayoutTimeCounter);
-#endif
-
     m_nestedLayoutCount++;
 
     if (!m_layoutRoot) {
@@ -1014,10 +1004,6 @@ void FrameView::layout(bool allowSubtree)
     updateDashboardRegions();
 #endif
 
-#ifdef ANDROID_INSTRUMENT
-    if (!m_frame->tree()->parent())
-        android::TimeCounter::record(android::TimeCounter::LayoutTimeCounter, __FUNCTION__);
-#endif
     ASSERT(!root->needsLayout());
 
     updateCanBlitOnScrollRecursively();

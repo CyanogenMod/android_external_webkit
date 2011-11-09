@@ -36,7 +36,6 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "SkStream.h"
-#include "TimeCounter.h"
 
 #define MAX_DRAW_TIME 100
 #define MIN_SPLITTABLE 400
@@ -691,6 +690,22 @@ void PictureSet::clear()
     mPictures.clear();
 #endif // FAST_PICTURESET
     mWidth = mHeight = 0;
+}
+
+uint32_t getThreadMsec()
+{
+#if defined(HAVE_POSIX_CLOCKS)
+    struct timespec tm;
+
+    clock_gettime(CLOCK_THREAD_CPUTIME_ID, &tm);
+    return tm.tv_sec * 1000LL + tm.tv_nsec / 1000000;
+#else
+    struct timeval now;
+    struct timezone zone;
+
+    gettimeofday(&now, &zone);
+    return now.tv_sec * 1000LL + now.tv_usec / 1000;
+#endif
 }
 
 bool PictureSet::draw(SkCanvas* canvas)

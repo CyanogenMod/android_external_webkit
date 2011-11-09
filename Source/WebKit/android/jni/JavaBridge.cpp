@@ -41,9 +41,6 @@
 #include "PluginDatabase.h"
 #include "Timer.h"
 #include "TimerClient.h"
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
 #include "WebCache.h"
 #include "WebCoreJni.h"
 
@@ -374,14 +371,8 @@ void JavaBridge::SharedTimerFired(JNIEnv* env, jobject)
 {
     if (sSharedTimerFiredCallback)
     {
-#ifdef ANDROID_INSTRUMENT
-        TimeCounter::start(TimeCounter::SharedTimerTimeCounter);
-#endif
         SkAutoMemoryUsageProbe  mup("JavaBridge::sharedTimerFired");
         sSharedTimerFiredCallback();
-#ifdef ANDROID_INSTRUMENT
-        TimeCounter::record(TimeCounter::SharedTimerTimeCounter, __FUNCTION__);
-#endif
     }
 }
 

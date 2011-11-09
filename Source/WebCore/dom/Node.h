@@ -528,18 +528,6 @@ public:
 
     unsigned short compareDocumentPosition(Node*);
 
-#ifdef ANDROID_INSTRUMENT
-    // Overridden to prevent the normal new from being called.
-    void* operator new(size_t size);
-    void* operator new[](size_t size);
-
-    // Overridden to prevent the normal delete from being called.
-    void operator delete(void* p, size_t size);
-    void operator delete[](void* p, size_t size);
-
-    static size_t reportDOMNodesSize();
-#endif
-
     virtual Node* toNode() { return this; }
 
     virtual InputElement* toInputElement();

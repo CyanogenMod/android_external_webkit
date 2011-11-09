@@ -194,10 +194,6 @@
 #include "HTMLTextAreaElement.h"
 #endif
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
-
 #if ENABLE(TOUCH_EVENTS)
 #if USE(V8)
 #include "RuntimeEnabledFeatures.h"
@@ -1475,10 +1471,6 @@ void Document::recalcStyle(StyleChange change)
         frameView->beginDeferredRepaints();
     }
 
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::CalculateStyleTimeCounter);
-#endif
-
     ASSERT(!renderer() || renderArena());
     if (!renderer() || !renderArena())
         goto bail_out;
@@ -1499,10 +1491,6 @@ void Document::recalcStyle(StyleChange change)
     for (Node* n = firstChild(); n; n = n->nextSibling())
         if (change >= Inherit || n->childNeedsStyleRecalc() || n->needsStyleRecalc())
             n->recalcStyle(change);
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::CalculateStyleTimeCounter, __FUNCTION__);
-#endif
 
 #if USE(ACCELERATED_COMPOSITING)
     if (view()) {
