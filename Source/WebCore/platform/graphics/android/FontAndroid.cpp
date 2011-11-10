@@ -445,11 +445,13 @@ public:
 
 private:
     enum CustomScript {
-        Hindi,
-        Thai,
-        Naskh,
+        Bengali,
+        Devanagari,
         Hebrew,
         HebrewBold,
+        Naskh,
+        Tamil,
+        Thai,
         NUM_SCRIPTS
     };
 
@@ -503,11 +505,13 @@ private:
 
 // Indexed using enum CustomScript
 const char* TextRunWalker::paths[] = {
+    "/system/fonts/Lohit-Bengali.ttf",
     "/system/fonts/Lohit-Devanagari.ttf",
-    "/system/fonts/DroidSansThai.ttf",
-    "/system/fonts/DroidNaskh-Regular.ttf",
     "/system/fonts/DroidSansHebrew-Regular.ttf",
-    "/system/fonts/DroidSansHebrew-Bold.ttf"
+    "/system/fonts/DroidSansHebrew-Bold.ttf",
+    "/system/fonts/DroidNaskh-Regular.ttf",
+    "/system/fonts/Lohit-Tamil.ttf",
+    "/system/fonts/DroidSansThai.ttf"
 };
 
 // Indexed using enum CustomScript
@@ -691,14 +695,11 @@ void TextRunWalker::setupFontForScriptRun()
     const FontPlatformData* complexPlatformData = &platformData;
 
     switch (m_item.item.script) {
+      case HB_Script_Bengali:
+          complexPlatformData = setupComplexFont(Bengali, platformData);
+          break;
         case HB_Script_Devanagari:
-            complexPlatformData = setupComplexFont(Hindi, platformData);
-            break;
-        case HB_Script_Thai:
-            complexPlatformData = setupComplexFont(Thai, platformData);
-            break;
-        case HB_Script_Arabic:
-            complexPlatformData = setupComplexFont(Naskh, platformData);
+            complexPlatformData = setupComplexFont(Devanagari, platformData);
             break;
         case HB_Script_Hebrew:
             switch (platformData.typeface()->style()) {
@@ -712,6 +713,15 @@ void TextRunWalker::setupFontForScriptRun()
                     complexPlatformData = setupComplexFont(Hebrew, platformData);
                     break;
             }
+            break;
+        case HB_Script_Arabic:
+            complexPlatformData = setupComplexFont(Naskh, platformData);
+            break;
+        case HB_Script_Tamil:
+            complexPlatformData = setupComplexFont(Tamil, platformData);
+            break;
+        case HB_Script_Thai:
+            complexPlatformData = setupComplexFont(Thai, platformData);
             break;
         default:
             // HB_Script_Common; includes Ethiopic
