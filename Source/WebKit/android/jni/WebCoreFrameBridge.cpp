@@ -2127,7 +2127,8 @@ static jboolean GetShouldStartScrolledRight(JNIEnv *env, jobject obj,
         RenderStyle* style = document->renderer()->style();
         WritingMode writingMode = style->writingMode();
         LOG_ASSERT(writingMode != WebCore::BottomToTopWritingMode,
-                "BottomToTopWritingMode isn't supported");
+                "BottomToTopWritingMode isn't possible in any "
+                "language and cannot be specified in w3c writing-mode.");
         if (writingMode == WebCore::RightToLeftWritingMode)
             startScrolledRight = true; // vertical-rl pages start scrolled right
         else if (writingMode == WebCore::TopToBottomWritingMode)
