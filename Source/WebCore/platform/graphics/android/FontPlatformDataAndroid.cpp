@@ -33,6 +33,7 @@
 #ifdef SUPPORT_COMPLEX_SCRIPTS
 #include "HarfbuzzSkia.h"
 #endif
+#include "SkAdvancedTypefaceMetrics.h"
 #include "SkPaint.h"
 #include "SkTypeface.h"
 
@@ -74,7 +75,7 @@ FontPlatformData::RefCountedHarfbuzzFace::~RefCountedHarfbuzzFace()
 }
 
 FontPlatformData::FontPlatformData()
-    : mTypeface(NULL), mTextSize(0), mFakeBold(false), mFakeItalic(false),
+    : mTypeface(NULL), mTextSize(0), mEmSizeInFontUnits(0), mFakeBold(false), mFakeItalic(false),
       mOrientation(Horizontal), mTextOrientation(TextOrientationVerticalRight)
 {
     inc_count();
@@ -87,10 +88,10 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src)
         SkSafeRef(src.mTypeface);
     }
 
-    mTypeface   = src.mTypeface;
-
-    mTextSize   = src.mTextSize;
-    mFakeBold   = src.mFakeBold;
+    mTypeface = src.mTypeface;
+    mTextSize = src.mTextSize;
+    mEmSizeInFontUnits = src.mEmSizeInFontUnits;
+    mFakeBold = src.mFakeBold;
     mFakeItalic = src.mFakeItalic;
     m_harfbuzzFace = src.m_harfbuzzFace;
     mOrientation = src.mOrientation;
@@ -102,7 +103,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src)
 
 FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold, bool fakeItalic,
     FontOrientation orientation, TextOrientation textOrientation)
-    : mTypeface(tf), mTextSize(textSize), mFakeBold(fakeBold), mFakeItalic(fakeItalic),
+    : mTypeface(tf), mTextSize(textSize), mEmSizeInFontUnits(0), mFakeBold(fakeBold), mFakeItalic(fakeItalic),
       mOrientation(orientation), mTextOrientation(textOrientation)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
@@ -114,7 +115,7 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
 }
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
-    : mTypeface(src.mTypeface), mTextSize(textSize), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic),
+    : mTypeface(src.mTypeface), mTextSize(textSize), mEmSizeInFontUnits(src.mEmSizeInFontUnits), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic),
       m_harfbuzzFace(src.m_harfbuzzFace), mOrientation(src.mOrientation), mTextOrientation(src.mTextOrientation)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
@@ -126,7 +127,7 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
 }
 
 FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
-    : mTypeface(NULL), mTextSize(size), mFakeBold(bold), mFakeItalic(oblique),
+    : mTypeface(NULL), mTextSize(size),  mEmSizeInFontUnits(0), mFakeBold(bold), mFakeItalic(oblique),
       mOrientation(Horizontal), mTextOrientation(TextOrientationVerticalRight)
 {
     inc_count();
@@ -134,7 +135,7 @@ FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
 }
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src, SkTypeface* tf)
-    : mTypeface(tf), mTextSize(src.mTextSize), mFakeBold(src.mFakeBold),
+    : mTypeface(tf), mTextSize(src.mTextSize),  mEmSizeInFontUnits(0), mFakeBold(src.mFakeBold),
       mFakeItalic(src.mFakeItalic), mOrientation(src.mOrientation),
       mTextOrientation(src.mTextOrientation)
 {
@@ -158,6 +159,22 @@ FontPlatformData::~FontPlatformData()
     }
 }
 
+int FontPlatformData::emSizeInFontUnits() const
+{
+    if (mEmSizeInFontUnits)
+        return mEmSizeInFontUnits;
+
+    SkAdvancedTypefaceMetrics* metrics = 0;
+    if (mTypeface)
+        metrics = mTypeface->getAdvancedTypefaceMetrics(SkAdvancedTypefaceMetrics::kNo_PerGlyphInfo);
+    if (metrics) {
+        mEmSizeInFontUnits = metrics->fEmSize;
+        metrics->unref();
+    } else
+        mEmSizeInFontUnits = 1000;  // default value copied from Skia.
+    return mEmSizeInFontUnits;
+}
+
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
 {
     if (hashTableDeletedFontValue() != src.mTypeface) {
@@ -167,9 +184,10 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
         SkSafeUnref(mTypeface);
     }
 
-    mTypeface   = src.mTypeface;
-    mTextSize   = src.mTextSize;
-    mFakeBold   = src.mFakeBold;
+    mTypeface = src.mTypeface;
+    mEmSizeInFontUnits = src.mEmSizeInFontUnits;
+    mTextSize = src.mTextSize;
+    mFakeBold = src.mFakeBold;
     mFakeItalic = src.mFakeItalic;
     m_harfbuzzFace = src.m_harfbuzzFace;
     mOrientation = src.mOrientation;

@@ -735,6 +735,16 @@ void TextRunWalker::setupFontForScriptRun()
     }
     m_item.face = complexPlatformData->harfbuzzFace();
     m_item.font->userData = const_cast<FontPlatformData*>(complexPlatformData);
+
+    int size = complexPlatformData->size();
+    m_item.font->x_ppem = size;
+    m_item.font->y_ppem = size;
+    // x_ and y_scale are the conversion factors from font design space (fEmSize) to 1/64th of device pixels in 16.16 format.
+    const int devicePixelFraction = 64;
+    const int multiplyFor16Dot16 = 1 << 16;
+    int scale = devicePixelFraction * size * multiplyFor16Dot16 / complexPlatformData->emSizeInFontUnits();
+    m_item.font->x_scale = scale;
+    m_item.font->y_scale = scale;
 }
 
 HB_FontRec* TextRunWalker::allocHarfbuzzFont()
@@ -743,13 +753,6 @@ HB_FontRec* TextRunWalker::allocHarfbuzzFont()
     memset(font, 0, sizeof(HB_FontRec));
     font->klass = &harfbuzzSkiaClass;
     font->userData = 0;
-    // The values which harfbuzzSkiaClass returns are already scaled to
-    // pixel units, so we just set all these to one to disable further
-    // scaling.
-    font->x_ppem = 1;
-    font->y_ppem = 1;
-    font->x_scale = 1;
-    font->y_scale = 1;
 
     return font;
 }
@@ -823,7 +826,9 @@ void TextRunWalker::setGlyphPositions(bool isRTL)
         int i = isRTL ? m_item.num_glyphs - iter - 1 : iter;
 
         m_glyphs16[i] = m_item.glyphs[i];
-        m_positions[i].set(SkIntToScalar(m_offsetX + position), m_startingY + SkIntToScalar(m_item.offsets[i].y));
+        int offsetX = truncateFixedPointToInteger(m_item.offsets[i].x);
+        int offsetY = truncateFixedPointToInteger(m_item.offsets[i].y);
+        m_positions[i].set(SkIntToScalar(m_offsetX + position) + offsetX, m_startingY + offsetY);
 
         int advance = truncateFixedPointToInteger(m_item.advances[i]);
         // The first half of the conjunction works around the case where

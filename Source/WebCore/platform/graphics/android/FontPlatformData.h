@@ -82,6 +82,7 @@ public:
 
     float size() const { return mTextSize; }
     unsigned hash() const;
+    int emSizeInFontUnits() const;
     bool isFixedPitch() const;
 
 #ifndef NDEBUG
@@ -113,6 +114,7 @@ private:
 
     SkTypeface* mTypeface;
     float       mTextSize;
+    mutable int mEmSizeInFontUnits;
     bool        mFakeBold;
     bool        mFakeItalic;
     FontOrientation mOrientation;
