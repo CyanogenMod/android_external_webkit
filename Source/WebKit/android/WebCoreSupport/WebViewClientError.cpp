@@ -79,6 +79,7 @@ WebViewClientError ToWebViewClientError(net::Error error) {
         case ERR_CONNECTION_ABORTED:
         case ERR_CONNECTION_FAILED:
         case ERR_SOCKET_NOT_CONNECTED:
+        case ERR_CACHE_MISS:
             return ERROR_CONNECT;
 
         case ERR_ADDRESS_INVALID:
