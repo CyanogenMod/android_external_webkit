@@ -85,7 +85,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                 for (jsize i = 0; i < length; i++) {
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
-                    if(NPVARIANT_IS_STRING(npvValue)) {
+                    if (NPVARIANT_IS_STRING(npvValue)) {
                         NPString str = NPVARIANT_TO_STRING(npvValue);
                         env->SetObjectArrayElement(static_cast<jobjectArray>(javaArray), i, env->NewStringUTF(str.UTF8Characters));
                     }
@@ -100,11 +100,10 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
                     jbyte bVal = 0;
-                    if (NPVARIANT_IS_INT32(npvValue)) {
+                    if (NPVARIANT_IS_INT32(npvValue))
                         bVal = static_cast<jbyte>(NPVARIANT_TO_INT32(npvValue));
-                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                    else if (NPVARIANT_IS_DOUBLE(npvValue))
                         bVal = static_cast<jbyte>(NPVARIANT_TO_DOUBLE(npvValue));
-                    }
                     env->SetByteArrayRegion(static_cast<jbyteArray>(javaArray), i, 1, &bVal);
                 }
             } else if (!strcmp(javaClassName.data(), "[C")) {
@@ -115,12 +114,8 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
                     jchar cVal = 0;
-                    if (NPVARIANT_IS_INT32(npvValue)) {
+                    if (NPVARIANT_IS_INT32(npvValue))
                         cVal = static_cast<jchar>(NPVARIANT_TO_INT32(npvValue));
-                    } else if (NPVARIANT_IS_STRING(npvValue)) {
-                        NPString str = NPVARIANT_TO_STRING(npvValue);
-                        cVal = str.UTF8Characters[0];
-                    }
                     env->SetCharArrayRegion(static_cast<jcharArray>(javaArray), i, 1, &cVal);
                 }
             } else if (!strcmp(javaClassName.data(), "[D")) {
@@ -155,11 +150,10 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
                     jint iVal = 0;
-                    if (NPVARIANT_IS_INT32(npvValue)) {
+                    if (NPVARIANT_IS_INT32(npvValue))
                         iVal = NPVARIANT_TO_INT32(npvValue);
-                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                    else if (NPVARIANT_IS_DOUBLE(npvValue))
                         iVal = static_cast<jint>(NPVARIANT_TO_DOUBLE(npvValue));
-                    }
                     env->SetIntArrayRegion(static_cast<jintArray>(javaArray), i, 1, &iVal);
                 }
             } else if (!strcmp(javaClassName.data(), "[J")) {
@@ -170,11 +164,10 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
                     jlong jVal = 0;
-                    if (NPVARIANT_IS_INT32(npvValue)) {
+                    if (NPVARIANT_IS_INT32(npvValue))
                         jVal = static_cast<jlong>(NPVARIANT_TO_INT32(npvValue));
-                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                    else if (NPVARIANT_IS_DOUBLE(npvValue))
                         jVal = static_cast<jlong>(NPVARIANT_TO_DOUBLE(npvValue));
-                    }
                     env->SetLongArrayRegion(static_cast<jlongArray>(javaArray), i, 1, &jVal);
                 }
             } else if (!strcmp(javaClassName.data(), "[S")) {
@@ -185,11 +178,10 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                     NPVariant npvValue;
                     _NPN_GetProperty(0, object, _NPN_GetIntIdentifier(i), &npvValue);
                     jshort sVal = 0;
-                    if (NPVARIANT_IS_INT32(npvValue)) {
+                    if (NPVARIANT_IS_INT32(npvValue))
                         sVal = static_cast<jshort>(NPVARIANT_TO_INT32(npvValue));
-                    } else if (NPVARIANT_IS_DOUBLE(npvValue)) {
+                    else if (NPVARIANT_IS_DOUBLE(npvValue))
                         sVal = static_cast<jshort>(NPVARIANT_TO_DOUBLE(npvValue));
-                    }
                     env->SetShortArrayRegion(static_cast<jshortArray>(javaArray), i, 1, &sVal);
                 }
             } else if (!strcmp(javaClassName.data(), "[Z")) {
