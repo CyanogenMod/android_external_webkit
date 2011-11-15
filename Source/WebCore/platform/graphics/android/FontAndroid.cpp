@@ -52,6 +52,7 @@
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnArrayPtr.h>
 #include <wtf/PassOwnPtr.h>
+#include <wtf/unicode/CharacterNames.h>
 #include <wtf/unicode/Unicode.h>
 #endif
 
@@ -881,10 +882,14 @@ void TextRunWalker::normalizeSpacesAndMirrorChars(const UChar* source, bool rtl,
         UChar32 character;
         int nextPosition = position;
         U16_NEXT(source, nextPosition, length, character);
+
         if (Font::treatAsSpace(character))
-            character = ' ';
+            character = space;
+        else if (Font::treatAsZeroWidthSpace(character))
+            character = zeroWidthSpace;
         else if (rtl)
             character = u_charMirror(character);
+
         U16_APPEND(destination, position, length, character, error);
         ASSERT(!error);
         position = nextPosition;
