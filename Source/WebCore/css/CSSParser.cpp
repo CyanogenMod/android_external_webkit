@@ -1962,7 +1962,6 @@ bool CSSParser::parseValue(int propId, bool important)
     case CSSPropertyTextOverline:
     case CSSPropertyTextUnderline:
         return false;
-
 #if ENABLE(WCSS)
     case CSSPropertyWapInputFormat:
         validPrimitive = true;
