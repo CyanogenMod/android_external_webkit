@@ -72,11 +72,16 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                 break;
             }
 
-            jsize length = 0;
-            if (NPVARIANT_IS_INT32(npvLength))
-                length = static_cast<jsize>(NPVARIANT_TO_INT32(npvLength));
-            else if (NPVARIANT_IS_DOUBLE(npvLength))
-                length = static_cast<jsize>(NPVARIANT_TO_DOUBLE(npvLength));
+            // Convert to null if the length property is not a number.
+            if (!NPVARIANT_IS_INT32(npvLength) && !NPVARIANT_IS_DOUBLE(npvLength))
+                break;
+
+            // Convert to null if the length property is out of bounds.
+            double doubleLength = NPVARIANT_IS_INT32(npvLength) ? NPVARIANT_TO_INT32(npvLength) : NPVARIANT_TO_DOUBLE(npvLength);
+            if (doubleLength < 0.0 || doubleLength > INT32_MAX)
+                break;
+
+            jsize length = static_cast<jsize>(doubleLength);
 
             if (!strcmp(javaClassName.data(), "[Ljava.lang.String;")) {
                 // Match JSC behavior by only allowing Object arrays if they are Strings.
