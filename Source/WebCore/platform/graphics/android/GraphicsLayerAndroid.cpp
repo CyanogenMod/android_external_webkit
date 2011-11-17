@@ -733,7 +733,7 @@ bool GraphicsLayerAndroid::createAnimationFromKeyframes(const KeyframeValueList&
         KeyframeValueList* operationsList = new KeyframeValueList(AnimatedPropertyOpacity);
         for (unsigned int i = 0; i < valueList.size(); i++) {
             FloatAnimationValue* originalValue = (FloatAnimationValue*)valueList.at(i);
-            PassRefPtr<TimingFunction> timingFunction(const_cast<TimingFunction*>(originalValue->timingFunction()));
+            RefPtr<TimingFunction> timingFunction(const_cast<TimingFunction*>(originalValue->timingFunction()));
             FloatAnimationValue* value = new FloatAnimationValue(originalValue->keyTime(),
                                                                  originalValue->value(),
                                                                  timingFunction);
@@ -775,7 +775,7 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
     KeyframeValueList* operationsList = new KeyframeValueList(AnimatedPropertyWebkitTransform);
     for (unsigned int i = 0; i < valueList.size(); i++) {
         TransformAnimationValue* originalValue = (TransformAnimationValue*)valueList.at(i);
-        PassRefPtr<TimingFunction> timingFunction(const_cast<TimingFunction*>(originalValue->timingFunction()));
+        RefPtr<TimingFunction> timingFunction(const_cast<TimingFunction*>(originalValue->timingFunction()));
         TransformAnimationValue* value = new TransformAnimationValue(originalValue->keyTime(),
                                                                      originalValue->value(),
                                                                      timingFunction);
