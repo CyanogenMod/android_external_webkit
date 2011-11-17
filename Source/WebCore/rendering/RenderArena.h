@@ -53,10 +53,6 @@ public:
     void* allocate(size_t);
     void free(size_t, void*);
 
-#ifdef ANDROID_INSTRUMENT
-    size_t reportPoolSize() const;
-#endif
-
 private:
     // Underlying arena pool
     ArenaPool m_pool;

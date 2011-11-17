@@ -45,22 +45,6 @@ private:
     virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
     virtual void insertedIntoDocument();
 
-#ifdef ANDROID_INSTRUMENT
-    void* operator new(size_t size) {
-        return SVGElement::operator new(size);
-    }
-    void* operator new[](size_t size) {
-        return SVGElement::operator new[](size);
-    }
-
-    void operator delete(void* p, size_t size) {
-        SVGElement::operator delete(p, size);
-    }
-    void operator delete[](void* p, size_t size) {
-        SVGElement::operator delete[](p, size);
-    }
-#endif
-
     void loadFont();
 
     CachedResourceHandle<CachedFont> m_cachedFont;

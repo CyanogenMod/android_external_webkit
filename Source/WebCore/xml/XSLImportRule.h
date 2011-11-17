@@ -52,22 +52,6 @@ public:
     bool isLoading();
     void loadSheet();
     
-#ifdef ANDROID_INSTRUMENT
-    void* operator new(size_t size) {
-        return StyleBase::operator new(size);
-    }
-    void* operator new[](size_t size) {
-        return StyleBase::operator new[](size);
-    }
-
-    void operator delete(void* p, size_t size) {
-        StyleBase::operator delete(p, size);
-    }
-    void operator delete[](void* p, size_t size) {
-        StyleBase::operator delete[](p, size);
-    }
-#endif
-
 private:
     XSLImportRule(XSLStyleSheet* parentSheet, const String& href);
 

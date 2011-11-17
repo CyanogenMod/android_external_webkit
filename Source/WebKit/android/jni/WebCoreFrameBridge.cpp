@@ -116,12 +116,7 @@
 #elif USE(V8)
 #include "JavaNPObjectV8.h"
 #include "JavaInstanceJobjectV8.h"
-#include "V8Counters.h"
 #endif  // USE(JSC)
-
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
 
 #if ENABLE(WEB_AUTOFILL)
 #include "autofill/WebAutofill.h"
@@ -422,9 +417,6 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
                                   bool mainResource,
                                   bool synchronous)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     ALOGV("::WebCore:: startLoadingResource(%p, %s)",
             loader, request.url().string().latin1().data());
 
@@ -510,9 +502,6 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
 UrlInterceptResponse*
 WebFrame::shouldInterceptRequest(const WTF::String& url)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     ALOGV("::WebCore:: shouldInterceptRequest(%s)", url.latin1().data());
 
     JNIEnv* env = getJNIEnv();
@@ -534,9 +523,6 @@ void
 WebFrame::reportError(int errorCode, const WTF::String& description,
         const WTF::String& failingUrl)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     ALOGV("::WebCore:: reportError(%d, %s)", errorCode, description.ascii().data());
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
@@ -573,9 +559,6 @@ WebFrame::convertIDNToUnicode(const WebCore::KURL& url) {
 void
 WebFrame::loadStarted(WebCore::Frame* frame)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -633,9 +616,6 @@ WebFrame::loadStarted(WebCore::Frame* frame)
 void
 WebFrame::transitionToCommitted(WebCore::Frame* frame)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -650,9 +630,6 @@ WebFrame::transitionToCommitted(WebCore::Frame* frame)
 void
 WebFrame::didFinishLoad(WebCore::Frame* frame)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -681,9 +658,6 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
 void
 WebFrame::addHistoryItem(WebCore::HistoryItem* item)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     ALOGV("::WebCore:: addHistoryItem");
     JNIEnv* env = getJNIEnv();
     WebHistory::AddItem(mJavaFrame->history(env), item);
@@ -692,9 +666,6 @@ WebFrame::addHistoryItem(WebCore::HistoryItem* item)
 void
 WebFrame::removeHistoryItem(int index)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     ALOGV("::WebCore:: removeHistoryItem at %d", index);
     JNIEnv* env = getJNIEnv();
     WebHistory::RemoveItem(mJavaFrame->history(env), index);
@@ -703,9 +674,6 @@ WebFrame::removeHistoryItem(int index)
 void
 WebFrame::updateHistoryIndex(int newIndex)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     ALOGV("::WebCore:: updateHistoryIndex to %d", newIndex);
     JNIEnv* env = getJNIEnv();
     WebHistory::UpdateHistoryIndex(mJavaFrame->history(env), newIndex);
@@ -714,9 +682,6 @@ WebFrame::updateHistoryIndex(int newIndex)
 void
 WebFrame::setTitle(const WTF::String& title)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
 #ifndef NDEBUG
     ALOGV("setTitle(%s)", title.ascii().data());
 #endif
@@ -735,9 +700,6 @@ WebFrame::setTitle(const WTF::String& title)
 void
 WebFrame::windowObjectCleared(WebCore::Frame* frame)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     ALOGV("::WebCore:: windowObjectCleared");
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
@@ -751,9 +713,6 @@ WebFrame::windowObjectCleared(WebCore::Frame* frame)
 void
 WebFrame::setProgress(float newProgress)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -773,9 +732,6 @@ WebFrame::userAgentForURL(const WebCore::KURL* url)
 void
 WebFrame::didReceiveIcon(WebCore::Image* icon)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     LOG_ASSERT(icon, "DidReceiveIcon called without an image!");
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
@@ -794,9 +750,6 @@ WebFrame::didReceiveIcon(WebCore::Image* icon)
 void
 WebFrame::didReceiveTouchIconURL(const WTF::String& url, bool precomposed)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -812,9 +765,6 @@ WebFrame::didReceiveTouchIconURL(const WTF::String& url, bool precomposed)
 void
 WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -831,9 +781,6 @@ WebFrame::updateVisitedHistory(const WebCore::KURL& url, bool reload)
 bool
 WebFrame::canHandleRequest(const WebCore::ResourceRequest& request)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -874,9 +821,6 @@ WebFrame::shouldSaveFormData()
 WebCore::Frame*
 WebFrame::createWindow(bool dialog, bool userGesture)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -890,9 +834,6 @@ WebFrame::createWindow(bool dialog, bool userGesture)
 void
 WebFrame::requestFocus() const
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -904,9 +845,6 @@ WebFrame::requestFocus() const
 void
 WebFrame::closeWindow(WebViewCore* webViewCore)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     assert(webViewCore);
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
@@ -925,9 +863,6 @@ struct PolicyFunctionWrapper {
 void
 WebFrame::decidePolicyForFormResubmission(WebCore::FramePolicyFunction func)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -965,9 +900,6 @@ WebFrame::density() const
 void
 WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const std::string& host, const std::string& realm, bool useCachedCredentials, bool suppressDialog)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -985,9 +917,6 @@ WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const st
 void
 WebFrame::reportSslCertError(WebUrlLoaderClient* client, int error, const std::string& cert, const std::string& url)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -1008,9 +937,6 @@ WebFrame::reportSslCertError(WebUrlLoaderClient* client, int error, const std::s
 void
 WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& hostAndPort)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     int jHandle = reinterpret_cast<int>(client);
 
@@ -1024,9 +950,6 @@ WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& hostA
 void
 WebFrame::downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -1047,9 +970,6 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
 
 void
 WebFrame::didReceiveData(const char* data, int size) {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -1064,9 +984,6 @@ WebFrame::didReceiveData(const char* data, int size) {
 
 void
 WebFrame::didFinishLoading() {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -1078,9 +995,6 @@ WebFrame::didFinishLoading() {
 
 void WebFrame::setCertificate(const std::string& cert)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -1098,9 +1012,6 @@ void WebFrame::setCertificate(const std::string& cert)
 
 void WebFrame::autoLogin(const std::string& loginHeader)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimerCoutner::JavaCallbackTimeCounter);
-#endif
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
     if (!javaFrame.get())
@@ -1271,9 +1182,6 @@ jbyteArray WebFrame::getPostData(const WebCore::ResourceRequest& request)
 
 static void CallPolicyFunction(JNIEnv* env, jobject obj, jint func, jint decision)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeCallPolicyFunction must take a valid frame pointer!");
     PolicyFunctionWrapper* pFunc = (PolicyFunctionWrapper*)func;
@@ -1295,12 +1203,6 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     initChromium();
 #endif
 
-#ifdef ANDROID_INSTRUMENT
-#if USE(V8)
-    V8Counters::initCounters();
-#endif
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     // Create a new page
     ChromeClientAndroid* chromeC = new ChromeClientAndroid;
     EditorClientAndroid* editorC = new EditorClientAndroid;
@@ -1384,9 +1286,6 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 
 static void DestroyFrame(JNIEnv* env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeDestroyFrame must take a valid frame pointer!");
 
@@ -1415,9 +1314,6 @@ static void DestroyFrame(JNIEnv* env, jobject obj)
 
 static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeLoadUrl must take a valid frame pointer!");
 
@@ -1469,9 +1365,6 @@ static void LoadUrl(JNIEnv *env, jobject obj, jstring url, jobject headers)
 
 static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativePostUrl must take a valid frame pointer!");
 
@@ -1499,9 +1392,6 @@ static void PostUrl(JNIEnv *env, jobject obj, jstring url, jbyteArray postData)
 static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
         jstring mimeType, jstring encoding, jstring failUrl)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeLoadData must take a valid frame pointer!");
 
@@ -1526,9 +1416,6 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
 
 static void StopLoading(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeStopLoading must take a valid frame pointer!");
     ALOGV("::WebCore:: stopLoading %p", pFrame);
@@ -1626,9 +1513,6 @@ static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
 
 static jstring ExternalRepresentation(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeExternalRepresentation must take a valid frame pointer!");
 
@@ -1661,9 +1545,6 @@ static StringBuilder FrameAsText(WebCore::Frame *pFrame, jboolean dumpChildFrame
 
 static jstring DocumentAsText(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
 
@@ -1673,9 +1554,6 @@ static jstring DocumentAsText(JNIEnv *env, jobject obj)
 
 static jstring ChildFramesAsText(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "android_webcore_nativeDocumentAsText must take a valid frame pointer!");
 
@@ -1689,9 +1567,6 @@ static jstring ChildFramesAsText(JNIEnv *env, jobject obj)
 
 static void Reload(JNIEnv *env, jobject obj, jboolean allowStale)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeReload must take a valid frame pointer!");
 
@@ -1709,9 +1584,6 @@ static void Reload(JNIEnv *env, jobject obj, jboolean allowStale)
 
 static void GoBackOrForward(JNIEnv *env, jobject obj, jint pos)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "nativeGoBackOrForward must take a valid frame pointer!");
 
@@ -1725,9 +1597,6 @@ static void GoBackOrForward(JNIEnv *env, jobject obj, jint pos)
 
 static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, jstring script)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "stringByEvaluatingJavaScriptFromString must take a valid frame pointer!");
 
@@ -1831,9 +1700,6 @@ private:
 static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePointer,
         jobject javascriptObj, jstring interfaceName)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = 0;
     if (nativeFramePointer == 0)
         pFrame = GET_NATIVE_FRAME(env, obj);
@@ -1893,17 +1759,11 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
 
 static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::memoryCache()->setDisabled(disabled);
 }
 
 static jboolean CacheDisabled(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     return WebCore::memoryCache()->disabled();
 }
 
@@ -1936,17 +1796,6 @@ static void ClearWebViewCache()
 
 static void ClearCache(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#if USE(JSC)
-    JSC::JSLock lock(false);
-    JSC::Heap::Statistics jsHeapStatistics = WebCore::JSDOMWindow::commonJSGlobalData()->heap.statistics();
-    LOGD("About to gc and JavaScript heap size is %d and has %d bytes free",
-            jsHeapStatistics.size, jsHeapStatistics.free);
-#endif  // USE(JSC)
-    LOGD("About to clear cache and current cache has %d bytes live and %d bytes dead",
-            memoryCache()->getLiveSize(), memoryCache()->getDeadSize());
-#endif  // ANDROID_INSTRUMENT
     ClearWebCoreCache();
     ClearWebViewCache();
 #if USE(JSC)
@@ -1960,9 +1809,6 @@ static void ClearCache(JNIEnv *env, jobject obj)
 
 static jboolean DocumentHasImages(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "DocumentHasImages must take a valid frame pointer!");
 
@@ -1971,9 +1817,6 @@ static jboolean DocumentHasImages(JNIEnv *env, jobject obj)
 
 static jboolean HasPasswordField(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "HasPasswordField must take a valid frame pointer!");
 
@@ -2001,9 +1844,6 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
 
 static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "GetUsernamePassword must take a valid frame pointer!");
     jobjectArray strArray = NULL;
@@ -2022,9 +1862,6 @@ static jobjectArray GetUsernamePassword(JNIEnv *env, jobject obj)
 static void SetUsernamePassword(JNIEnv *env, jobject obj,
     jstring username, jstring password)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     LOG_ASSERT(pFrame, "SetUsernamePassword must take a valid frame pointer!");
 
@@ -2109,9 +1946,6 @@ WebFrame::saveFormData(HTMLFormElement* form)
 
 static void OrientationChanged(JNIEnv *env, jobject obj, int orientation)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::NativeCallbackTimeCounter);
-#endif
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     ALOGV("Sending orientation: %d", orientation);
     pFrame->sendOrientationChangeEvent(orientation);

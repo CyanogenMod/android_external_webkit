@@ -34,9 +34,6 @@
 #include "ResourceHandleInternal.h"
 #include "ResourceResponse.h"
 #include "SkUtils.h"
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
 #include "WebCoreJni.h"
 
 #include <JNIHelp.h>
@@ -133,10 +130,6 @@ bool WebCoreResourceLoader::willLoadFromCache(const WebCore::KURL& url, int64_t 
 // ----------------------------------------------------------------------------
 void WebCoreResourceLoader::SetResponseHeader(JNIEnv* env, jobject obj, jint nativeResponse, jstring key, jstring val)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
-#endif
-    
     WebCore::ResourceResponse* response = (WebCore::ResourceResponse*)nativeResponse;
     LOG_ASSERT(response, "nativeSetResponseHeader must take a valid response pointer!");
 
@@ -149,9 +142,6 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
                                                     jstring statusText, jstring mimeType, jlong expectedLength,
                                                     jstring encoding)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
-#endif
     LOG_ASSERT(url, "Must have a url in the response!");
     WebCore::KURL kurl(WebCore::ParsedURLString, jstringToWtfString(env, url));
     WTF::String encodingStr;
@@ -178,9 +168,6 @@ jint WebCoreResourceLoader::CreateResponse(JNIEnv* env, jobject obj, jstring url
    
 void WebCoreResourceLoader::ReceivedResponse(JNIEnv* env, jobject obj, jint nativeResponse)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
-#endif
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeReceivedResponse must take a valid handle!");
     // ResourceLoader::didFail() can set handle to be NULL, we need to check
@@ -196,9 +183,6 @@ void WebCoreResourceLoader::ReceivedResponse(JNIEnv* env, jobject obj, jint nati
 
 void WebCoreResourceLoader::AddData(JNIEnv* env, jobject obj, jbyteArray dataArray, jint length)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
-#endif
     ALOGV("webcore_resourceloader data(%d)", length);
 
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
@@ -219,9 +203,6 @@ void WebCoreResourceLoader::AddData(JNIEnv* env, jobject obj, jbyteArray dataArr
 
 void WebCoreResourceLoader::Finished(JNIEnv* env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
-#endif
     ALOGV("webcore_resourceloader finished");
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeFinished must take a valid handle!");
@@ -236,9 +217,6 @@ void WebCoreResourceLoader::Finished(JNIEnv* env, jobject obj)
 jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
         jstring baseUrl, jstring redirectTo, jint nativeResponse)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
-#endif
     ALOGV("webcore_resourceloader redirectedToUrl");
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeRedirectedToUrl must take a valid handle!");
@@ -275,9 +253,6 @@ jstring WebCoreResourceLoader::RedirectedToUrl(JNIEnv* env, jobject obj,
 void WebCoreResourceLoader::Error(JNIEnv* env, jobject obj, jint id, jstring description,
         jstring failingUrl)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::ResourceTimeCounter);
-#endif
     ALOGV("webcore_resourceloader error");
     WebCore::ResourceHandle* handle = GET_NATIVE_HANDLE(env, obj);
     LOG_ASSERT(handle, "nativeError must take a valid handle!");

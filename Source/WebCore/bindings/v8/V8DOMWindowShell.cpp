@@ -76,10 +76,6 @@
 #include <wtf/UnusedParam.h>
 #include <wtf/text/CString.h>
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
-
 namespace WebCore {
 
 static void handleFatalErrorInV8()
@@ -283,10 +279,6 @@ bool V8DOMWindowShell::initContextIfNeeded()
     if (!m_context.IsEmpty())
         return false;
 
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::JavaScriptInitTimeCounter);
-#endif
-
     // Create a handle scope for all local handles.
     v8::HandleScope handleScope;
 
@@ -351,10 +343,6 @@ bool V8DOMWindowShell::initContextIfNeeded()
     // FIXME: This is wrong. We should actually do this for the proper world once
     // we do isolated worlds the WebCore way.
     m_frame->loader()->dispatchDidClearWindowObjectInWorld(0);
-
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::JavaScriptInitTimeCounter, __FUNCTION__);
-#endif
 
     return true;
 }

@@ -27,17 +27,10 @@
 #include "JSParser.h"
 #include "Lexer.h"
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#endif
-
 namespace JSC {
 
 void Parser::parse(JSGlobalData* globalData, FunctionParameters* parameters, JSParserStrictness strictness, JSParserMode mode, int* errLine, UString* errMsg)
 {
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::start(android::TimeCounter::JavaScriptParseTimeCounter);
-#endif
     ASSERT(globalData);
     m_sourceElements = 0;
 
@@ -65,9 +58,6 @@ void Parser::parse(JSGlobalData* globalData, FunctionParameters* parameters, JSP
         *errMsg = parseError ? parseError : "Parse error";
         m_sourceElements = 0;
     }
-#ifdef ANDROID_INSTRUMENT
-    android::TimeCounter::record(android::TimeCounter::JavaScriptParseTimeCounter, __FUNCTION__);
-#endif
 }
 
 void Parser::didFinishParsing(SourceElements* sourceElements, ParserArenaData<DeclarationStacks::VarStack>* varStack, 

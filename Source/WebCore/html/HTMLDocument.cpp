@@ -438,26 +438,4 @@ bool HTMLDocument::isFrameSet() const
     return bodyElement && bodyElement->hasTagName(framesetTag);
 }
 
-#ifdef ANDROID_INSTRUMENT
-void* HTMLDocument::operator new(size_t size)
-{
-    return Node::operator new(size);
-}
-
-void* HTMLDocument::operator new[](size_t size)
-{
-    return Node::operator new[](size);
-}
-
-void HTMLDocument::operator delete(void* p, size_t size)
-{
-    Node::operator delete(p, size);
-}
-
-void HTMLDocument::operator delete[](void* p, size_t size)
-{
-    Node::operator delete[](p, size);
-}
-#endif
-
 }

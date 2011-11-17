@@ -31,7 +31,6 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/PlatformBridge.cpp \
 	android/WebCoreSupport/ResourceLoaderAndroid.cpp \
 	android/WebCoreSupport/UrlInterceptResponse.cpp \
-	android/WebCoreSupport/V8Counters.cpp
 
 ifeq ($(HTTP_STACK),chrome)
 LOCAL_SRC_FILES += \
@@ -55,7 +54,6 @@ LOCAL_SRC_FILES += \
 	android/RenderSkinMediaButton.cpp \
 	android/RenderSkinNinePatch.cpp \
 	android/RenderSkinRadio.cpp \
-	android/TimeCounter.cpp \
 	\
 	android/benchmark/Intercept.cpp \
 	android/benchmark/MyJavaVM.cpp \

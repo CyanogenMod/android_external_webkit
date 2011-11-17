@@ -119,11 +119,6 @@
 #include "ArchiveFactory.h"
 #endif
 
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
-#include "RenderArena.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -1115,10 +1110,6 @@ void FrameLoader::handleFallbackContent()
 
 void FrameLoader::provisionalLoadStarted()
 {    
-#ifdef ANDROID_INSTRUMENT
-    if (!m_frame->tree()->parent())
-        android::TimeCounter::reset();
-#endif
     if (m_stateMachine.firstLayoutDone())
         m_stateMachine.advanceTo(FrameLoaderStateMachine::CommittedFirstRealLoad);
     m_frame->navigationScheduler()->cancel(true);
@@ -2499,12 +2490,6 @@ void FrameLoader::checkLoadCompleteForThisFrame()
 
             if (Page* page = m_frame->page())
                 page->progress()->progressCompleted(m_frame);
-
-#ifdef ANDROID_INSTRUMENT
-            if (!m_frame->tree()->parent() && m_frame->document()->renderArena())
-                android::TimeCounter::report(m_URL, cache()->getLiveSize(), cache()->getDeadSize(),
-                        m_frame->document()->renderArena()->reportPoolSize());
-#endif
             return;
         }
         

@@ -352,10 +352,6 @@ ifeq ($(ENABLE_WTF_USE_ACCELERATED_COMPOSITING),true)
 LOCAL_CFLAGS += -DWTF_USE_ACCELERATED_COMPOSITING=1
 endif
 
-ifeq ($(WEBCORE_INSTRUMENTATION),true)
-LOCAL_CFLAGS += -DANDROID_INSTRUMENT
-endif
-
 # LOCAL_LDLIBS is used in simulator builds only and simulator builds are only
 # valid on Linux
 LOCAL_LDLIBS += -lpthread -ldl
@@ -379,10 +375,6 @@ LOCAL_SHARED_LIBRARIES := \
 
 ifeq ($(PLATFORM_VERSION),3.1.4.1.5.9.2.6.5)
 LOCAL_SHARED_LIBRARIES += libsurfaceflinger_client
-endif
-
-ifeq ($(WEBCORE_INSTRUMENTATION),true)
-LOCAL_SHARED_LIBRARIES += libhardware_legacy
 endif
 
 # We have to use the android version of libdl

@@ -82,14 +82,6 @@ public:
 protected:
     HTMLDocument(Frame*, const KURL&);
 
-#ifdef ANDROID_INSTRUMENT
-    // Overridden to resolve the ambiguous
-    void* operator new(size_t size);
-    void* operator new[](size_t size);
-    void operator delete(void* p, size_t size);
-    void operator delete[](void* p, size_t size);
-#endif
-
 private:
     virtual PassRefPtr<Element> createElement(const AtomicString& tagName, ExceptionCode&);
 

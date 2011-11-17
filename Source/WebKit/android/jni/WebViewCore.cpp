@@ -131,7 +131,6 @@
 
 #if USE(V8)
 #include "ScriptController.h"
-#include "V8Counters.h"
 #include <wtf/text/CString.h>
 #endif
 
@@ -150,10 +149,6 @@
 
 FILE* gDomTreeFile = 0;
 FILE* gRenderTreeFile = 0;
-#endif
-
-#ifdef ANDROID_INSTRUMENT
-#include "TimeCounter.h"
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -588,11 +583,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     if (!success)
         return;
 
-    {   // collect WebViewCoreRecordTimeCounter after layoutIfNeededRecursive
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreRecordTimeCounter);
-#endif
-
     // if the webkit page dimensions changed, discard the pictureset and redraw.
     WebCore::FrameView* view = m_mainFrame->view();
     int width = view->contentsWidth();
@@ -709,8 +699,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         m_addInval.setRect(r);
     }
 #endif
-
-    } // WebViewCoreRecordTimeCounter
 
     WebCore::Node* oldFocusNode = currentFocus();
     m_frameCacheOutOfDate = true;
@@ -1599,9 +1587,6 @@ void WebViewCore::updateFrameCache()
         LOGW("updateFrameCache: pending style recalc, ignoring.");
         return;
     }
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreBuildNavTimeCounter);
-#endif
     m_frameCacheOutOfDate = false;
     m_temp = new CachedRoot();
     m_temp->init(m_mainFrame, &m_history);
@@ -3937,9 +3922,6 @@ static jstring RequestLabel(JNIEnv *env, jobject obj, int framePointer,
 
 static void ClearContent(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->clearContent();
 }
@@ -3953,9 +3935,6 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
         jint textWrapWidth, jfloat scale, jint screenWidth, jint screenHeight,
         jint anchorX, jint anchorY, jboolean ignoreHeight)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     ALOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
@@ -3965,9 +3944,6 @@ static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
 
 static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jboolean sendScrollEvent, jint x, jint y)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
@@ -3977,9 +3953,6 @@ static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jboolean sendScr
 static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
                             jint v)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
@@ -3990,18 +3963,12 @@ static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
         jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isSym,
         jboolean isDown)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     return GET_NATIVE_VIEW(env, obj)->key(PlatformKeyboardEvent(keyCode,
         unichar, repeatCount, isDown, isShift, isAlt, isSym));
 }
 
 static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr, jboolean fake)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in Click");
 
@@ -4017,27 +3984,18 @@ static void ContentInvalidateAll(JNIEnv *env, jobject obj)
 static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end,
         jint textGeneration)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->deleteSelection(start, end, textGeneration);
 }
 
 static void SetSelection(JNIEnv *env, jobject obj, jint start, jint end)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->setSelection(start, end);
 }
 
 static jstring ModifySelection(JNIEnv *env, jobject obj, jint direction, jint granularity)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     String selectionString = viewImpl->modifySelection(direction, granularity);
     return wtfStringToJstring(env, selectionString);
@@ -4047,9 +4005,6 @@ static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
     jint oldStart, jint oldEnd, jstring replace, jint start, jint end,
     jint textGeneration)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     WTF::String webcoreString = jstringToWtfString(env, replace);
     viewImpl->replaceTextfieldText(oldStart,
@@ -4060,9 +4015,6 @@ static void PassToJs(JNIEnv *env, jobject obj,
     jint generation, jstring currentText, jint keyCode,
     jint keyValue, jboolean down, jboolean cap, jboolean fn, jboolean sym)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WTF::String current = jstringToWtfString(env, currentText);
     GET_NATIVE_VIEW(env, obj)->passToJs(generation, current,
         PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
@@ -4071,18 +4023,12 @@ static void PassToJs(JNIEnv *env, jobject obj,
 static void ScrollFocusedTextInput(JNIEnv *env, jobject obj, jfloat xPercent,
     jint y)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->scrollFocusedTextInput(xPercent, y);
 }
 
 static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     ALOGV("webviewcore::nativeSetFocusControllerActive()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
@@ -4091,9 +4037,6 @@ static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
 
 static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     ALOGV("webviewcore::nativeSaveDocumentState()\n");
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
@@ -4120,9 +4063,6 @@ static bool UpdateLayers(JNIEnv *env, jobject obj, jint jbaseLayer)
 
 static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
     SkIPoint nativePt;
@@ -4133,18 +4073,12 @@ static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
 
 static void SplitContent(JNIEnv *env, jobject obj, jint content)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     viewImpl->splitContent(reinterpret_cast<PictureSet*>(content));
 }
 
 static void SendListBoxChoice(JNIEnv* env, jobject obj, jint choice)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoice");
     viewImpl->popupReply(choice);
@@ -4159,9 +4093,6 @@ static void SendListBoxChoice(JNIEnv* env, jobject obj, jint choice)
 static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
         jint size)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoices");
     jboolean* ptrArray = env->GetBooleanArrayElements(jArray, 0);
@@ -4180,9 +4111,6 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
 static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     jboolean caseInsensitive)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     if (!addr)
         return 0;
     int length = env->GetStringLength(addr);
@@ -4203,9 +4131,6 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArra
                                  jintArray xArray, jintArray yArray,
                                  jint count, jint actionIndex, jint metaState)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     jint* ptrIdArray = env->GetIntArrayElements(idArray, 0);
@@ -4228,9 +4153,6 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArra
 static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
         jint frame, jint node, jint x, jint y)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->touchUp(touchGeneration,
@@ -4239,9 +4161,6 @@ static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
 
 static jstring RetrieveHref(JNIEnv *env, jobject obj, jint x, jint y)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveHref(x, y);
@@ -4252,9 +4171,6 @@ static jstring RetrieveHref(JNIEnv *env, jobject obj, jint x, jint y)
 
 static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint x, jint y)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveAnchorText(x, y);
@@ -4276,9 +4192,6 @@ static void StopPaintingCaret(JNIEnv *env, jobject obj)
 
 static void MoveFocus(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveFocus((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr);
@@ -4287,9 +4200,6 @@ static void MoveFocus(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
 static void MoveMouse(JNIEnv *env, jobject obj, jint frame,
         jint x, jint y)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveMouse((WebCore::Frame*) frame, x, y);
@@ -4298,9 +4208,6 @@ static void MoveMouse(JNIEnv *env, jobject obj, jint frame,
 static void MoveMouseIfLatest(JNIEnv *env, jobject obj, jint moveGeneration,
         jint frame, jint x, jint y)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveMouseIfLatest(moveGeneration,
@@ -4309,9 +4216,6 @@ static void MoveMouseIfLatest(JNIEnv *env, jobject obj, jint moveGeneration,
 
 static void UpdateFrameCache(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->updateFrameCache();
@@ -4319,9 +4223,6 @@ static void UpdateFrameCache(JNIEnv *env, jobject obj)
 
 static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -4340,9 +4241,6 @@ static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
 
 static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -4363,9 +4261,6 @@ static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
 
 static void SetBackgroundColor(JNIEnv *env, jobject obj, jint color)
 {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
@@ -4394,15 +4289,6 @@ static void DumpNavTree(JNIEnv *env, jobject obj)
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpNavTree();
-}
-
-static void DumpV8Counters(JNIEnv*, jobject)
-{
-#if USE(V8)
-#ifdef ANDROID_INSTRUMENT
-    V8Counters::dumpCounters();
-#endif
-#endif
 }
 
 static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
@@ -4440,9 +4326,6 @@ static void GeolocationPermissionsProvide(JNIEnv* env, jobject obj, jstring orig
 }
 
 static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
-#ifdef ANDROID_INSTRUMENT
-    TimeCounterAuto counter(TimeCounter::WebViewCoreTimeCounter);
-#endif
     WebCore::SchemeRegistry::registerURLSchemeAsLocal(jstringToWtfString(env, scheme));
 }
 
@@ -4715,8 +4598,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DumpRenderTree },
     { "nativeDumpNavTree", "()V",
         (void*) DumpNavTree },
-    { "nativeDumpV8Counters", "()V",
-        (void*) DumpV8Counters },
     { "nativeSetNewStorageLimit", "(J)V",
         (void*) SetNewStorageLimit },
     { "nativeGeolocationPermissionsProvide", "(Ljava/lang/String;ZZ)V",
