@@ -1109,7 +1109,7 @@ void FrameLoader::handleFallbackContent()
 }
 
 void FrameLoader::provisionalLoadStarted()
-{    
+{
     if (m_stateMachine.firstLayoutDone())
         m_stateMachine.advanceTo(FrameLoaderStateMachine::CommittedFirstRealLoad);
     m_frame->navigationScheduler()->cancel(true);
@@ -2299,7 +2299,7 @@ void FrameLoader::finishedLoadingDocument(DocumentLoader* loader)
     if (m_stateMachine.creatingInitialEmptyDocument())
         return;
 #endif
-    
+
 #if !ENABLE(WEB_ARCHIVE)
     m_client->finishedLoading(loader);
 #else

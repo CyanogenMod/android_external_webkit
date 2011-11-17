@@ -83,10 +83,6 @@
 #include <wtf/UnusedParam.h>
 #include <wtf/text/StringConcatenate.h>
 
-#if PLATFORM(ANDROID)
-#include <wtf/text/CString.h>
-#endif
-
 namespace WebCore {
 
 // Static list of registered extensions
