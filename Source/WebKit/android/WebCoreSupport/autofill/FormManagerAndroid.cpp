@@ -562,7 +562,7 @@ void FormManager::ExtractForms(Frame* frame) {
 
     ResetFrame(frame);
 
-    WTF::PassRefPtr<HTMLCollection> web_forms = frame->document()->forms();
+    WTF::RefPtr<HTMLCollection> web_forms = frame->document()->forms();
 
     for (size_t i = 0; i < web_forms->length(); ++i) {
         // Owned by |form_elements|.

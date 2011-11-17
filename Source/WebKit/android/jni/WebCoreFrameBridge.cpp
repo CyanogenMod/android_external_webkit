@@ -500,7 +500,7 @@ WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
     if (checkException(env))
         return 0;
 
-    PassRefPtr<WebCore::ResourceLoaderAndroid> h;
+    RefPtr<WebCore::ResourceLoaderAndroid> h;
     if (jLoadListener)
         h = WebCoreResourceLoader::create(env, jLoadListener);
     env->DeleteLocalRef(jLoadListener);
@@ -1174,7 +1174,7 @@ void WebFrame::maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceR
 bool WebFrame::getUsernamePasswordFromDom(WebCore::Frame* frame, WTF::String& username, WTF::String& password)
 {
     bool found = false;
-    WTF::PassRefPtr<WebCore::HTMLCollection> form = frame->document()->forms();
+    WTF::RefPtr<WebCore::HTMLCollection> form = frame->document()->forms();
     WebCore::Node* node = form->firstItem();
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {
@@ -1510,7 +1510,7 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
 
     // Setup the substituteData
     const char* dataStr = env->GetStringUTFChars(data, NULL);
-    WTF::PassRefPtr<WebCore::SharedBuffer> sharedBuffer =
+    WTF::RefPtr<WebCore::SharedBuffer> sharedBuffer =
         WebCore::SharedBuffer::create();
     LOG_ASSERT(dataStr, "nativeLoadData has a null data string.");
     sharedBuffer->append(dataStr, strlen(dataStr));
@@ -1978,7 +1978,7 @@ static jboolean HasPasswordField(JNIEnv *env, jobject obj)
     LOG_ASSERT(pFrame, "HasPasswordField must take a valid frame pointer!");
 
     bool found = false;
-    WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
+    WTF::RefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
     // Null/Empty namespace means that node is not created in HTMLFormElement
     // class, but just normal Element class.
@@ -2031,7 +2031,7 @@ static void SetUsernamePassword(JNIEnv *env, jobject obj,
     WebCore::HTMLInputElement* usernameEle = NULL;
     WebCore::HTMLInputElement* passwordEle = NULL;
     bool found = false;
-    WTF::PassRefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
+    WTF::RefPtr<WebCore::HTMLCollection> form = pFrame->document()->forms();
     WebCore::Node* node = form->firstItem();
     while (node && !found && !node->namespaceURI().isNull() &&
            !node->namespaceURI().isEmpty()) {

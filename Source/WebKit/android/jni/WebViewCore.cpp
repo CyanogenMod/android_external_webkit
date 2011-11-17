@@ -2233,7 +2233,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
         if (m_currentNodeDomNavigationAxis
                 && CacheBuilder::validNode(m_mainFrame,
                 m_mainFrame, m_currentNodeDomNavigationAxis)) {
-            PassRefPtr<Range> rangeRef =
+            RefPtr<Range> rangeRef =
                 selection->frame()->document()->createRange();
             rangeRef->selectNode(m_currentNodeDomNavigationAxis, ec);
             m_currentNodeDomNavigationAxis = 0;
@@ -2245,7 +2245,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
         } else if (m_cursorNode
                 && CacheBuilder::validNode(m_mainFrame,
                 m_mainFrame, m_cursorNode)) {
-            PassRefPtr<Range> rangeRef =
+            RefPtr<Range> rangeRef =
                 selection->frame()->document()->createRange();
             rangeRef->selectNode(reinterpret_cast<Node*>(m_cursorNode), ec);
             if (ec)
@@ -2449,7 +2449,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
         scrollNodeIntoView(m_mainFrame, selection->anchorNode());
 
     // format markup for the visible content
-    PassRefPtr<Range> range = selection->getRangeAt(0, ec);
+    RefPtr<Range> range = selection->getRangeAt(0, ec);
     if (ec)
         return String();
     IntRect bounds = range->boundingBox();
@@ -2776,7 +2776,7 @@ String WebViewCore::formatMarkup(DOMSelection* selection)
 {
     ExceptionCode ec = 0;
     String markup = String();
-    PassRefPtr<Range> wholeRange = selection->getRangeAt(0, ec);
+    RefPtr<Range> wholeRange = selection->getRangeAt(0, ec);
     if (ec)
         return String();
     if (!wholeRange->startContainer() || !wholeRange->startContainer())
@@ -2786,7 +2786,7 @@ String WebViewCore::formatMarkup(DOMSelection* selection)
     Node* firstNode = wholeRange->firstNode();
     Node* pastLastNode = wholeRange->pastLastNode();
     Node* currentNode = firstNode;
-    PassRefPtr<Range> currentRange;
+    RefPtr<Range> currentRange;
 
     while (currentNode != pastLastNode) {
         Node* nextNode = currentNode->traverseNextNode();
