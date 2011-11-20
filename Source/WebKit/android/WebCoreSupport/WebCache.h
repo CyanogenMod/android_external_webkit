@@ -1,5 +1,6 @@
 /*
  * Copyright 2010, The Android Open Source Project
+ * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -68,6 +69,7 @@ private:
     void onGetEntryDone(int);
 
     OwnPtr<net::HostResolver> m_hostResolver;
+    OwnPtr<net::HostResolver::HostnameResolverExt> m_hostPreresolver;
     OwnPtr<net::HttpCache> m_cache;
     // This is owned by the ProxyService, which is owned by the HttpNetworkLayer,
     // which is owned by the HttpCache, which is owned by this class.

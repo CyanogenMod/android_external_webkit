@@ -1,5 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
+ * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -108,9 +109,15 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
 
+#include <cutils/properties.h>
+
+extern "C" void SetCloseUnUsedSocketsFlag();
+
 #if ENABLE(WEB_AUTOFILL)
 #include "autofill/WebAutofill.h"
 #endif
+
+#include <StatHubCmdApi.h>
 
 using namespace JSC::Bindings;
 
@@ -118,6 +125,8 @@ static String* gUploadFileLabel;
 static String* gResetLabel;
 static String* gSubmitLabel;
 static String* gNoFileChosenLabel;
+
+static int gPageLoadCounter = 0;
 
 String* WebCore::PlatformBridge::globalLocalizedName(
         WebCore::PlatformBridge::rawResId resId)
@@ -319,6 +328,14 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mUserAgent = WTF::String();
     mBlockNetworkLoads = false;
     m_renderSkins = 0;
+
+    mPageLoadStarted = false;
+    mCloseUnusedSocketsEnabled = false;
+    char netCloseUnusedSocketsSystemProperty[PROPERTY_VALUE_MAX];
+    if(property_get("net.close.unused.sockets",
+                    netCloseUnusedSocketsSystemProperty, "1")) {
+        mCloseUnusedSocketsEnabled = (bool)atoi(netCloseUnusedSocketsSystemProperty);
+    }
 }
 
 WebFrame::~WebFrame()
@@ -473,6 +490,16 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     bool isMainFrame = (!frame->tree() || !frame->tree()->parent());
     WebCore::FrameLoadType loadType = frame->loader()->loadType();
 
+    if (isMainFrame) {
+        StatHubCmd(INPUT_CMD_WK_START_PAGE_LOAD, (void*)url.string().utf8().data(), strlen( url.string().utf8().data())+1, (void*)frame, 0);
+        if (true == mCloseUnusedSocketsEnabled) {
+            if (false == mPageLoadStarted) {
+                gPageLoadCounter++;
+                mPageLoadStarted = true;
+            }
+        }
+    }
+
     if (loadType == WebCore::FrameLoadTypeReplace ||
             (loadType == WebCore::FrameLoadTypeRedirectWithLockedBackForwardList &&
              !isMainFrame))
@@ -543,6 +570,19 @@ WebFrame::didFinishLoad(WebCore::Frame* frame)
     env->CallVoidMethod(javaFrame.get(), mJavaFrame->mLoadFinished, urlStr, static_cast<int>(loadType), isMainFrame);
     checkException(env);
     env->DeleteLocalRef(urlStr);
+
+    if (isMainFrame) {
+        StatHubCmd(INPUT_CMD_WK_FINISH_PAGE_LOAD, (void*)url.string().utf8().data(), strlen( url.string().utf8().data())+1, (void*)frame, 0);
+        if (true == mCloseUnusedSocketsEnabled) {
+            if ((gPageLoadCounter > 0) && (true == mPageLoadStarted)) {
+                mPageLoadStarted = false;
+                gPageLoadCounter--;
+                if(0 == gPageLoadCounter) {
+                    SetCloseUnUsedSocketsFlag();
+                }
+            }
+        }
+    }
 }
 
 void

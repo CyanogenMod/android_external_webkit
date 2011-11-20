@@ -1,5 +1,6 @@
 /*
  * Copyright 2010, The Android Open Source Project
+ * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -40,6 +41,7 @@
 #include <openssl/x509.h>
 #include <string>
 #include <androidfw/AssetManager.h>
+#include <cutils/properties.h>
 
 extern android::AssetManager* globalAssetManager();
 
@@ -79,6 +81,25 @@ base::LazyInstance<RequestPackageName> s_packageName(base::LINKER_INITIALIZED);
 
 }
 
+static bool ShouldSetRequestPriority()
+{
+    static bool isInitialized = false;
+    static int setPriority = 0;
+
+    if (isInitialized == false)
+    {
+        char value[10] = {'0', '\0'};
+        property_get("net.webkit.setpri", value, "1");
+        setPriority = (unsigned)atoi(value);
+
+        isInitialized = true;
+
+        __android_log_print(ANDROID_LOG_DEBUG, "netstack",  "netstack: Request Priority is %s", setPriority?"ON":"OFF");
+    }
+
+    return (setPriority != 0);
+}
+
 WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest)
     : m_urlLoader(loader)
     , m_url(webResourceRequest.url())
@@ -101,6 +122,12 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     m_request->set_referrer(webResourceRequest.referrer());
     m_request->set_method(webResourceRequest.method());
     m_request->set_load_flags(webResourceRequest.loadFlags());
+
+    if (ShouldSetRequestPriority())
+    {
+        ResourceType::Type chromiumTargetType = convertWebkitTargetTypeToChromiumTargetType(webResourceRequest.target_type());
+        m_request->set_priority(net::DetermineRequestPriority(chromiumTargetType));
+    }
 }
 
 // This is a special URL for Android. Query the Java InputStream
@@ -567,6 +594,53 @@ void WebRequest::OnReadCompleted(net::URLRequest* request, int bytesRead)
         startReading();
     } else {
         finish(false);
+    }
+}
+
+// Webkit and Chromium Network Stack target type enums are not ordered in the same manner
+// An explicit conversion is needed
+ResourceType::Type WebRequest::convertWebkitTargetTypeToChromiumTargetType(WebCore::ResourceRequestBase::TargetType webkitType)
+{
+    switch (webkitType)
+    {
+        case WebCore::ResourceRequestBase::TargetIsMainFrame:
+            return ResourceType::MAIN_FRAME;
+
+        case WebCore::ResourceRequestBase::TargetIsSubframe:
+            return ResourceType::SUB_FRAME;
+
+        case WebCore::ResourceRequestBase::TargetIsSubresource:
+            return ResourceType::SUB_RESOURCE;
+
+        case WebCore::ResourceRequestBase::TargetIsStyleSheet:
+            return ResourceType::STYLESHEET;
+
+        case WebCore::ResourceRequestBase::TargetIsScript:
+            return ResourceType::SCRIPT;
+
+        case WebCore::ResourceRequestBase::TargetIsFontResource:
+            return ResourceType::FONT_RESOURCE;
+
+        case WebCore::ResourceRequestBase::TargetIsImage:
+            return ResourceType::IMAGE;
+
+        case WebCore::ResourceRequestBase::TargetIsObject:
+            return ResourceType::OBJECT;
+
+        case WebCore::ResourceRequestBase::TargetIsMedia:
+            return ResourceType::MEDIA;
+
+        case WebCore::ResourceRequestBase::TargetIsWorker:
+            return ResourceType::WORKER;
+
+        case WebCore::ResourceRequestBase::TargetIsSharedWorker:
+            return ResourceType::SHARED_WORKER;
+
+        case WebCore::ResourceRequestBase::TargetIsPrefetch:
+            return ResourceType::PREFETCH;
+
+        default:
+            return ResourceType::SUB_RESOURCE;
     }
 }
 

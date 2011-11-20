@@ -1,5 +1,6 @@
 /*
  * Copyright 2010, The Android Open Source Project
+ * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,6 +28,7 @@
 #define WebResourceRequest_h
 
 #include "ChromiumIncludes.h"
+#include "ResourceRequestBase.h"
 
 #include <string>
 
@@ -71,6 +73,11 @@ public:
         return m_loadFlags;
     }
 
+    WebCore::ResourceRequestBase::TargetType target_type() const
+    {
+        return m_type;
+    }
+
 private:
     std::string m_method;
     std::string m_referrer;
@@ -78,6 +85,7 @@ private:
     net::HttpRequestHeaders m_requestHeaders;
     std::string m_url;
     int m_loadFlags;
+    WebCore::ResourceRequestBase::TargetType m_type;
 };
 
 } // namespace android

@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -51,8 +52,11 @@
 #include "SchemeRegistry.h"
 #include "Settings.h"
 #include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
 // FIXME: More that is in common with SubresourceLoader should move up into ResourceLoader.
+
+#include <StatHubCmdApi.h>
 
 namespace WebCore {
 
@@ -478,6 +482,8 @@ void MainResourceLoader::didFinishLoading(double finishTime)
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     dl->applicationCacheHost()->finishedLoadingMainResource();
 #endif
+
+    StatHubMainUrlLoaded(url().string().latin1().data());
 }
 
 void MainResourceLoader::didFail(const ResourceError& error)

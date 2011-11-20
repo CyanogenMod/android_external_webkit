@@ -1,5 +1,6 @@
 /*
  * Copyright 2010, The Android Open Source Project
+ * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +33,8 @@
 #include "WebUrlLoaderClient.h"
 #include "net/http/http_network_session.h"
 #include <wtf/text/CString.h>
+#include <net/host_resolver_helper/dyn_lib_loader.h>
+#include <net/host_resolver_helper/host_resolver_helper.h>
 
 using namespace WTF;
 using namespace disk_cache;
@@ -96,8 +99,10 @@ WebCache::WebCache(bool isPrivateBrowsing)
     scoped_refptr<base::MessageLoopProxy> cacheMessageLoopProxy = ioThread->message_loop_proxy();
 
     static const int kMaximumCacheSizeBytes = 20 * 1024 * 1024;
-    m_hostResolver = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0);
-
+    m_hostResolver = net::CreateSystemHostResolver(net::HostResolver::kDefaultParallelism, 0, 0,ioThread->message_loop());
+    if (!isPrivateBrowsing) {
+        m_hostPreresolver = CreateResolverIPObserver(m_hostResolver.get());
+    }
     m_proxyConfigService = new ProxyConfigServiceAndroid();
     net::HttpCache::BackendFactory* backendFactory;
     if (isPrivateBrowsing)
