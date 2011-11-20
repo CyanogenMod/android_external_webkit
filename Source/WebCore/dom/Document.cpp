@@ -7,6 +7,7 @@
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
+ * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -156,6 +157,8 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/text/StringBuffer.h>
+#include <wtf/text/CString.h>
+#include <cutils/properties.h>
 
 #if ENABLE(SHARED_WORKERS)
 #include "SharedWorkerRepository.h"
@@ -225,6 +228,8 @@
 using namespace std;
 using namespace WTF;
 using namespace Unicode;
+
+#include <StatHubCmdApi.h>
 
 namespace WebCore {
 
@@ -440,6 +445,9 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_writingModeSetOnDocumentElement(false)
     , m_writeRecursionIsTooDeep(false)
     , m_writeRecursionDepth(0)
+    , m_externalJs(0)
+    , m_doObjPrfth(true)
+    , m_doJsCssPrfth(false)
 {
     m_document = this;
 
@@ -512,6 +520,12 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
 #if ENABLE(XHTMLMP)
     m_shouldProcessNoScriptElement = !(m_frame && m_frame->script()->canExecuteScripts(NotAboutToExecuteScript));
 #endif
+
+    m_doObjPrfth = StatHubIsProcReady("pp_plugin");
+    char value[PROPERTY_VALUE_MAX] = {'\0'};
+    property_get("stathub.pp.prfthmod", value, "0");
+    if (atoi(value) == 1)
+        m_doJsCssPrfth = true;
 }
 
 Document::~Document()
@@ -570,6 +584,7 @@ Document::~Document()
 
     if (m_implementation)
         m_implementation->ownerDocumentDestroyed();
+    m_externalJs = 0;
 }
 
 void Document::removedLastRef()
@@ -2319,11 +2334,22 @@ void Document::logExceptionToConsole(const String& errorMessage, int lineNumber,
     addMessage(JSMessageSource, messageType, ErrorMessageLevel, errorMessage, lineNumber, sourceURL, callStack);
 }
 
+static void updateDocumentUrl(const KURL& url) {
+
+    unsigned short main_url_len = url.string().length();
+
+    if (main_url_len && url.protocolInHTTPFamily()) {
+        StatHubUpdateMainUrl(url.string().latin1().data());
+    }
+}
+
 void Document::setURL(const KURL& url)
 {
     const KURL& newURL = url.isEmpty() ? blankURL() : url;
     if (newURL == m_url)
         return;
+
+    updateDocumentUrl(url);
 
     m_url = newURL;
     m_documentURI = m_url.string();

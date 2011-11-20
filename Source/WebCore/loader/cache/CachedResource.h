@@ -3,6 +3,7 @@
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
     Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+    Copyright (c) 2011, 2012  Code Aurora Forum. All rights reserved
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -150,7 +151,7 @@ public:
     // while still being referenced. This means the object should delete itself
     // if the number of clients observing it ever drops to 0.
     // The resource can be brought back to cache after successful revalidation.
-    void setInCache(bool inCache) { m_inCache = inCache; }
+    void setInCache(bool inCache);
     bool inCache() const { return m_inCache; }
     
     void setInLiveDecodedResourcesList(bool b) { m_inLiveDecodedResourcesList = b; }
@@ -210,7 +211,7 @@ public:
     // triggering a load. We should make it protected again if we can find a
     // better way to handle the archive case.
     bool makePurgeable(bool purgeable);
-    
+
     // HTTP revalidation support methods for CachedResourceLoader.
     void setResourceToRevalidate(CachedResource*);
     void switchClientsToRevalidatedResource();
@@ -293,6 +294,8 @@ private:
 
     // These handles will need to be updated to point to the m_resourceToRevalidate in case we get 304 response.
     HashSet<CachedResourceHandleBase*> m_handlesToRevalidate;
+
+    unsigned int m_statHubHash;
 };
 
 }
