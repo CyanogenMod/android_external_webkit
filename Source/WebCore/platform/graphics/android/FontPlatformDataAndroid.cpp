@@ -116,7 +116,7 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     : mTypeface(src.mTypeface), mTextSize(textSize), mEmSizeInFontUnits(src.mEmSizeInFontUnits), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic),
-      m_harfbuzzFace(src.m_harfbuzzFace), mOrientation(src.mOrientation), mTextOrientation(src.mTextOrientation)
+      mOrientation(src.mOrientation), mTextOrientation(src.mTextOrientation), m_harfbuzzFace(src.m_harfbuzzFace)
 {
     if (hashTableDeletedFontValue() != mTypeface) {
         SkSafeRef(mTypeface);
