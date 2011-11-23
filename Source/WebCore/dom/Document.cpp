@@ -2729,8 +2729,8 @@ void Document::processArguments(const String& features, void* data, ArgumentsCal
 #ifdef ANDROID_META_SUPPORT
         if (frame())
             frame()->settings()->setMetadataSettings(keyString, valueString);
-#endif
         if (callback && data)
+#endif
             callback(keyString, valueString, this, data);
     }
 }
