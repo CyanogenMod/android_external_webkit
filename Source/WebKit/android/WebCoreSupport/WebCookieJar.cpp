@@ -98,7 +98,7 @@ static std::string databaseDirectory(bool isPrivateBrowsing)
     return databaseFilePath;
 }
 
-scoped_refptr<WebCookieJar>* instance(bool isPrivateBrowsing)
+static scoped_refptr<WebCookieJar>* instance(bool isPrivateBrowsing)
 {
     static scoped_refptr<WebCookieJar> regularInstance;
     static scoped_refptr<WebCookieJar> privateInstance;
@@ -123,14 +123,23 @@ void WebCookieJar::cleanup(bool isPrivateBrowsing)
     MutexLocker lock(instanceMutex);
     scoped_refptr<WebCookieJar>* instancePtr = instance(isPrivateBrowsing);
     *instancePtr = 0;
-    removeFileOrDirectory(databaseDirectory(isPrivateBrowsing).c_str());
 }
 
 WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
-    : m_allowCookies(true)
-{
+    : m_cookieStoreInitialized(false)
+    , m_databaseFilePath(databaseFilePath)
+    , m_allowCookies(true) {}
+
+WebCookieJar::~WebCookieJar() {
+    removeFileOrDirectory(m_databaseFilePath.c_str());
+}
+
+void WebCookieJar::initCookieStore() {
+    MutexLocker lock(m_cookieStoreInitializeMutex);
+    if (m_cookieStoreInitialized)
+        return;
     // Setup the permissions for the file
-    const char* cDatabasePath = databaseFilePath.c_str();
+    const char* cDatabasePath = m_databaseFilePath.c_str();
     mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP;
     if (access(cDatabasePath, F_OK) == 0)
         chmod(cDatabasePath, mode);
@@ -140,9 +149,10 @@ WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
             close(fd);
     }
 
-    FilePath cookiePath(databaseFilePath.c_str());
+    FilePath cookiePath(cDatabasePath);
     m_cookieDb = new SQLitePersistentCookieStore(cookiePath);
     m_cookieStore = new net::CookieMonster(m_cookieDb.get(), 0);
+    m_cookieStoreInitialized = true;
 }
 
 bool WebCookieJar::allowCookies()
@@ -157,13 +167,6 @@ void WebCookieJar::setAllowCookies(bool allow)
     m_allowCookies = allow;
 }
 
-int WebCookieJar::getNumCookiesInDatabase()
-{
-    if (!m_cookieStore)
-        return 0;
-    return m_cookieStore->GetCookieMonster()->GetAllCookies().size();
-}
-
 // From CookiePolicy in chromium
 int WebCookieJar::CanGetCookies(const GURL&, const GURL&) const
 {
@@ -176,6 +179,18 @@ int WebCookieJar::CanSetCookie(const GURL&, const GURL&, const std::string&) con
 {
     MutexLocker lock(m_allowCookiesMutex);
     return m_allowCookies ? net::OK : net::ERR_ACCESS_DENIED;
+}
+
+net::CookieStore* WebCookieJar::cookieStore()
+{
+    if (!m_cookieStoreInitialized)
+        initCookieStore();
+    return m_cookieStore.get();
+}
+
+int WebCookieJar::getNumCookiesInDatabase()
+{
+    return cookieStore()->GetCookieMonster()->GetAllCookies().size();
 }
 
 class FlushSemaphore : public base::RefCounted<FlushSemaphore>
