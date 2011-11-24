@@ -36,6 +36,7 @@
 #include <libxml/tree.h>
 #include <libxml/xmlstring.h>
 #include <libxml/xmlwriter.h>
+#include <utils/Log.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {

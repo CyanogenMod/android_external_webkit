@@ -38,21 +38,7 @@
     #define supressNotImplementedWarning() false
 #endif
 
-#if OS(ANDROID)
-
-#include <cutils/log.h>
-#ifndef LOG_TAG
-#define LOG_TAG "WebCore"
-#endif
-#define notImplemented() do { \
-        static bool havePrinted = false; \
-        if (!havePrinted && !supressNotImplementedWarning()) { \
-            ALOGV("%s: notImplemented", __PRETTY_FUNCTION__); \
-            havePrinted = true; \
-        } \
-    } while (0)
-
-#elif defined(NDEBUG)
+#if defined(NDEBUG)
     #define notImplemented() ((void)0)
 #else
 

@@ -37,6 +37,7 @@
 #include "WebRequest.h"
 #include "WebResourceRequest.h"
 
+#include <utils/Log.h>
 #include <wtf/text/CString.h>
 
 using base::Lock;

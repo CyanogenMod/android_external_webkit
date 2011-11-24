@@ -27,6 +27,7 @@
 #define AndroidLog_h
 
 #ifdef ANDROID_DOM_LOGGING
+#include <utils/Log.h>
 #include <stdio.h>
 extern FILE* gDomTreeFile;
 #define DOM_TREE_LOG_FILE "/sdcard/domTree.txt"
