@@ -380,7 +380,7 @@ static int truncateFixedPointToInteger(HB_Fixed value)
 // can call |reset| to start over again.
 class TextRunWalker {
 public:
-    TextRunWalker(const TextRun&, unsigned, unsigned, const Font*);
+    TextRunWalker(const TextRun&, int, int, const Font*);
     ~TextRunWalker();
 
     bool isWordBreak(unsigned, bool);
@@ -488,9 +488,9 @@ private:
     uint16_t* m_glyphs16; // A vector of 16-bit glyph ids.
     SkPoint* m_positions; // A vector of positions for each glyph.
     ssize_t m_indexOfNextScriptRun; // Indexes the script run in |m_run|.
-    const unsigned m_startingX; // Offset in pixels of the first script run.
-    const unsigned m_startingY; // Offset in pixels of the first script run.
-    unsigned m_offsetX; // Offset in pixels to the start of the next script run.
+    const int m_startingX; // Offset in pixels of the first script run.
+    const int m_startingY; // Offset in pixels of the first script run.
+    int m_offsetX; // Offset in pixels to the start of the next script run.
     unsigned m_pixelWidth; // Width (in px) of the current script run.
     unsigned m_numCodePoints; // Code points in current script run.
     unsigned m_glyphsArrayCapacity; // Current size of all the Harfbuzz arrays.
@@ -521,7 +521,7 @@ const char* TextRunWalker::paths[] = {
     "/system/fonts/DroidSansThai.ttf"
 };
 
-TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, unsigned startingY, const Font* font)
+TextRunWalker::TextRunWalker(const TextRun& run, int startingX, int startingY, const Font* font)
     : m_font(font)
     , m_startingX(startingX)
     , m_startingY(startingY)
