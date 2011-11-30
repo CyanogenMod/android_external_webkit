@@ -203,6 +203,7 @@ void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
     m_programInverted = createProgram(gVertexShader, gFragmentShaderInverted);
+
     m_videoProgram = createProgram(gVideoVertexShader, gVideoFragmentShader);
     m_surfTexOESProgram =
         createProgram(gVertexShader, gSurfaceTextureOESFragmentShader);
@@ -211,9 +212,12 @@ void ShaderProgram::init()
 
     if (m_program == -1
         || m_programInverted == -1
+#ifndef BOARD_GL_OES_EGL_IMG_EXTERNAL_HACK
         || m_videoProgram == -1
         || m_surfTexOESProgram == -1
-        || m_surfTexOESProgramInverted == -1)
+        || m_surfTexOESProgramInverted == -1
+#endif
+    )
         return;
 
     m_hProjectionMatrix = glGetUniformLocation(m_program, "projectionMatrix");
@@ -227,6 +231,7 @@ void ShaderProgram::init()
     m_hTexSamplerInverted = glGetUniformLocation(m_programInverted, "s_texture");
     m_hPositionInverted = glGetAttribLocation(m_programInverted, "vPosition");
 
+#ifndef BOARD_GL_OES_EGL_IMG_EXTERNAL_HACK
     m_hVideoProjectionMatrix =
         glGetUniformLocation(m_videoProgram, "projectionMatrix");
     m_hVideoTextureMatrix = glGetUniformLocation(m_videoProgram, "textureMatrix");
@@ -245,7 +250,7 @@ void ShaderProgram::init()
     m_hSTOESContrastInverted = glGetUniformLocation(m_surfTexOESProgramInverted, "contrast");
     m_hSTOESTexSamplerInverted = glGetUniformLocation(m_surfTexOESProgramInverted, "s_texture");
     m_hSTOESPositionInverted = glGetAttribLocation(m_surfTexOESProgramInverted, "vPosition");
-
+#endif
 
     const GLfloat coord[] = {
         0.0f, 0.0f, // C
@@ -357,6 +362,9 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
 void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
                              GLenum textureTarget, GLint texFilter)
 {
+#ifdef BOARD_GL_OES_EGL_IMG_EXTERNAL_HACK
+    textureTarget = GL_TEXTURE_2D;
+#endif
     if (textureTarget == GL_TEXTURE_2D) {
         if (!TilesManager::instance()->invertedScreen()) {
             drawQuadInternal(geometry, textureId, opacity, m_program,
@@ -547,6 +555,9 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                                   float opacity, bool forceBlending,
                                   GLenum textureTarget)
 {
+#ifdef BOARD_GL_OES_EGL_IMG_EXTERNAL_HACK
+    textureTarget = GL_TEXTURE_2D;
+#endif
 
     TransformationMatrix modifiedDrawMatrix = drawMatrix;
     // move the drawing depending on where the texture is on the layer
@@ -609,6 +620,7 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
 
     glActiveTexture(GL_TEXTURE0);
     glUniform1i(m_hVideoTexSampler, 0);
+
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
