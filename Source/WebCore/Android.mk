@@ -23,6 +23,10 @@
 ## OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ##
 
+ifeq ($(BOARD_GL_OES_EGL_IMG_EXTERNAL_HACK),true)
+LOCAL_CFLAGS += -DBOARD_GL_OES_EGL_IMG_EXTERNAL_HACK
+endif
+
 LOCAL_SRC_FILES := \
 	bindings/generic/ActiveDOMCallback.cpp \
 	bindings/generic/BindingSecurityBase.cpp \

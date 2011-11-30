@@ -175,6 +175,12 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
 
     // Use empty rect to set up the special matrix to draw.
     SkRect rect  = SkRect::MakeEmpty();
+#ifdef BOARD_GL_OES_EGL_IMG_EXTERNAL_HACK
+    if (srcTexTarget != GL_TEXTURE_2D) {
+        XLOG("Info: using GL_TEXTURE_2D for %x", srcTexTarget);
+        srcTexTarget = GL_TEXTURE_2D;
+    }
+#endif
     TilesManager::instance()->shader()->drawQuad(rect, srcTexId, 1.0,
                        srcTexTarget, GL_NEAREST);
 
