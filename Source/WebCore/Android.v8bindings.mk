@@ -25,9 +25,15 @@
 
 LOCAL_CFLAGS += -DWTF_USE_V8=1
 
+ifeq ($(DYNAMIC_SHARED_LIBV8SO),true)
 BINDING_C_INCLUDES := \
-	external/v8/include \
-	\
+	vendor/qcom/opensource/v8/include
+else
+BINDING_C_INCLUDES := \
+	external/v8/include
+endif
+
+BINDING_C_INCLUDES += \
 	$(LOCAL_PATH)/bindings/v8 \
 	$(LOCAL_PATH)/bindings/v8/custom \
 	$(LOCAL_PATH)/bindings/v8/specialization \
