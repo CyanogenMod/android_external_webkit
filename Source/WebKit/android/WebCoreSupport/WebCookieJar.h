@@ -66,9 +66,7 @@ public:
     int getNumCookiesInDatabase();
 
 private:
-    friend class base::RefCountedThreadSafe<WebCookieJar>;
     WebCookieJar(const std::string& databaseFilePath);
-    ~WebCookieJar();
     void initCookieStore();
 
 private:
