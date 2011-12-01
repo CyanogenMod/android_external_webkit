@@ -412,7 +412,11 @@ endif
 # Build the list of static libraries
 LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu
 ifeq ($(JAVASCRIPT_ENGINE),v8)
+ifeq ($(DYNAMIC_SHARED_LIBV8SO),true)
+LOCAL_SHARED_LIBRARIES += libv8
+else
 LOCAL_STATIC_LIBRARIES += libv8
+endif
 endif
 
 ifeq ($(HTTP_STACK),chrome)
