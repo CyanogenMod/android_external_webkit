@@ -130,6 +130,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/custom/V8EventSourceConstructor.cpp \
 	bindings/v8/custom/V8FileReaderCustom.cpp \
 	bindings/v8/custom/V8Float32ArrayCustom.cpp \
+	bindings/v8/custom/V8Float64ArrayCustom.cpp \
 	bindings/v8/custom/V8GeolocationCustom.cpp \
 	bindings/v8/custom/V8HistoryCustom.cpp \
 	bindings/v8/custom/V8HTMLAllCollectionCustom.cpp \
