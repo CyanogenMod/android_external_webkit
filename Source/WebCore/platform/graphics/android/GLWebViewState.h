@@ -254,6 +254,8 @@ public:
 
 private:
     void inval(const IntRect& rect);
+    void showFrameInfo(const IntRect& rect);
+    double m_prevDrawTime;
 
     ZoomManager m_zoomManager;
     android::Mutex m_tiledPageLock;

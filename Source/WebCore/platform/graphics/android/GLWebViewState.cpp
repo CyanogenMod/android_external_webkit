@@ -69,6 +69,11 @@
 #define MIN_SCALE_WARNING 0.1
 #define MAX_SCALE_WARNING 10
 
+// fps indicator is FPS_INDICATOR_HEIGHT pixels high.
+// The max width is equal to MAX_FPS_VALUE fps.
+#define FPS_INDICATOR_HEIGHT 10
+#define MAX_FPS_VALUE 60
+
 namespace WebCore {
 
 using namespace android;
@@ -566,6 +571,31 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         resetFrameworkInval();
     }
 
+    showFrameInfo(rect);
+
+#ifdef DEBUG
+    TilesManager::instance()->getTilesTracker()->showTrackTextures();
+    ImagesManager::instance()->showImages();
+#endif
+
+    return ret;
+}
+
+void GLWebViewState::showFrameInfo(const IntRect& rect)
+{
+    bool showVisualIndicator = TilesManager::instance()->getShowVisualIndicator();
+
+    bool drawOrDumpFrameInfo = showVisualIndicator;
+#ifdef MEASURES_PERF
+    drawOrDumpFrameInfo |= m_measurePerfs;
+#endif
+    if (!drawOrDumpFrameInfo)
+        return;
+
+    double currentDrawTime = WTF::currentTime();
+    double delta = currentDrawTime - m_prevDrawTime;
+    m_prevDrawTime = currentDrawTime;
+
 #ifdef MEASURES_PERF
     if (m_measurePerfs) {
         m_delayTimes[m_timeCounter++] = delta;
@@ -574,12 +604,13 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     }
 #endif
 
-#ifdef DEBUG
-    TilesManager::instance()->getTilesTracker()->showTrackTextures();
-    ImagesManager::instance()->showImages();
-#endif
-
-    return ret;
+    IntRect fpsIndicatorRect = rect;
+    fpsIndicatorRect.setHeight(FPS_INDICATOR_HEIGHT);
+    double ratio = (1.0 / delta) / MAX_FPS_VALUE;
+    glScissor(fpsIndicatorRect.x(), fpsIndicatorRect.y(),
+              fpsIndicatorRect.width() * ratio, fpsIndicatorRect.height());
+    glClearColor(1, 0, 0, 1);
+    glClear(GL_COLOR_BUFFER_BIT);
 }
 
 } // namespace WebCore
