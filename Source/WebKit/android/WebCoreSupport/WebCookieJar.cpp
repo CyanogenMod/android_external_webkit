@@ -123,16 +123,13 @@ void WebCookieJar::cleanup(bool isPrivateBrowsing)
     MutexLocker lock(instanceMutex);
     scoped_refptr<WebCookieJar>* instancePtr = instance(isPrivateBrowsing);
     *instancePtr = 0;
+    removeFileOrDirectory(databaseDirectory(isPrivateBrowsing).c_str());
 }
 
 WebCookieJar::WebCookieJar(const std::string& databaseFilePath)
     : m_cookieStoreInitialized(false)
     , m_databaseFilePath(databaseFilePath)
     , m_allowCookies(true) {}
-
-WebCookieJar::~WebCookieJar() {
-    removeFileOrDirectory(m_databaseFilePath.c_str());
-}
 
 void WebCookieJar::initCookieStore() {
     MutexLocker lock(m_cookieStoreInitializeMutex);
@@ -183,8 +180,7 @@ int WebCookieJar::CanSetCookie(const GURL&, const GURL&, const std::string&) con
 
 net::CookieStore* WebCookieJar::cookieStore()
 {
-    if (!m_cookieStoreInitialized)
-        initCookieStore();
+    initCookieStore();
     return m_cookieStore.get();
 }
 
