@@ -378,6 +378,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/CanvasStyle.cpp \
 	html/canvas/DataView.cpp \
 	html/canvas/Float32Array.cpp \
+	html/canvas/Float64Array.cpp \
 	html/canvas/Int16Array.cpp \
 	html/canvas/Int32Array.cpp \
 	html/canvas/Int8Array.cpp \

@@ -301,6 +301,7 @@ GEN := \
     $(intermediates)/bindings/V8CanvasRenderingContext2D.h \
     $(intermediates)/bindings/V8DataView.h \
     $(intermediates)/bindings/V8Float32Array.h \
+    $(intermediates)/bindings/V8Float64Array.h \
     $(intermediates)/bindings/V8Int8Array.h \
     $(intermediates)/bindings/V8Int16Array.h \
     $(intermediates)/bindings/V8Int32Array.h \
