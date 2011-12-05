@@ -254,7 +254,9 @@ public:
 
 private:
     void inval(const IntRect& rect);
-    void showFrameInfo(const IntRect& rect);
+    void showFrameInfo(const IntRect& rect, bool treesSwapped);
+    void clearRectWithColor(const IntRect& rect, float r, float g,
+                            float b, float a);
     double m_prevDrawTime;
 
     ZoomManager m_zoomManager;
