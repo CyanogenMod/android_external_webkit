@@ -131,7 +131,6 @@ struct JavaGlue {
     jmethodID   m_viewInvalidateRect;
     jmethodID   m_postInvalidateDelayed;
     jmethodID   m_pageSwapCallback;
-    jmethodID   m_inFullScreenMode;
     jfieldID    m_rectLeft;
     jfieldID    m_rectTop;
     jmethodID   m_rectWidth;
@@ -170,7 +169,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
     m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "(Z)V");
-    m_javaGlue.m_inFullScreenMode = GetJMethod(env, clazz, "inFullScreenMode", "()Z");
     m_javaGlue.m_getTextHandleScale = GetJMethod(env, clazz, "getTextHandleScale", "()F");
     env->DeleteLocalRef(clazz);
 
@@ -448,7 +446,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
         WebCore::IntRect& clip, float scale, int extras)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    if (!m_baseLayer || inFullScreenMode())
+    if (!m_baseLayer)
         return false;
 
     if (!m_glWebViewState) {
@@ -1400,17 +1398,6 @@ void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
     checkException(env);
 }
 
-bool inFullScreenMode()
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return false;
-    jboolean result = env->CallBooleanMethod(javaObject.get(), m_javaGlue.m_inFullScreenMode);
-    checkException(env);
-    return result;
-}
-
 int moveGeneration()
 {
     return m_viewImpl->m_moveGeneration;
@@ -1565,8 +1552,7 @@ class GLDrawFunctor : Functor {
     public:
     GLDrawFunctor(WebView* _wvInstance,
             bool(WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
-                    WebCore::IntRect&, int, WebCore::IntRect&,
-                    jfloat, jint),
+                    WebCore::IntRect&, int, WebCore::IntRect&, jfloat, jint),
             WebCore::IntRect _viewRect, float _scale, int _extras) {
         wvInstance = _wvInstance;
         funcPtr = _funcPtr;
