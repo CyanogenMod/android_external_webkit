@@ -74,6 +74,8 @@
 #define FPS_INDICATOR_HEIGHT 10
 #define MAX_FPS_VALUE 60
 
+#define TREE_SWAPPED_COUNTER_MODULE 10
+
 namespace WebCore {
 
 using namespace android;
@@ -573,7 +575,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         resetFrameworkInval();
     }
 
-    showFrameInfo(rect);
+    showFrameInfo(rect, *treesSwappedPtr);
 
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->showTrackTextures();
@@ -583,7 +585,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     return ret;
 }
 
-void GLWebViewState::showFrameInfo(const IntRect& rect)
+void GLWebViewState::showFrameInfo(const IntRect& rect, bool treesSwapped)
 {
     bool showVisualIndicator = TilesManager::instance()->getShowVisualIndicator();
 
@@ -606,12 +608,36 @@ void GLWebViewState::showFrameInfo(const IntRect& rect)
     }
 #endif
 
-    IntRect fpsIndicatorRect = rect;
-    fpsIndicatorRect.setHeight(FPS_INDICATOR_HEIGHT);
+    IntRect frameInfoRect = rect;
+    frameInfoRect.setHeight(FPS_INDICATOR_HEIGHT);
     double ratio = (1.0 / delta) / MAX_FPS_VALUE;
-    glScissor(fpsIndicatorRect.x(), fpsIndicatorRect.y(),
-              fpsIndicatorRect.width() * ratio, fpsIndicatorRect.height());
-    glClearColor(1, 0, 0, 1);
+
+    clearRectWithColor(frameInfoRect, 1, 1, 1, 1);
+    frameInfoRect.setWidth(frameInfoRect.width() * ratio);
+    clearRectWithColor(frameInfoRect, 1, 0, 0, 1);
+
+    // Draw the tree swap counter as a circling progress bar.
+    // This will basically show how fast we are updating the tree.
+    static int swappedCounter = 0;
+    if (treesSwapped)
+        swappedCounter = (swappedCounter + 1) % TREE_SWAPPED_COUNTER_MODULE;
+
+    frameInfoRect = rect;
+    frameInfoRect.setHeight(FPS_INDICATOR_HEIGHT);
+    frameInfoRect.move(0, FPS_INDICATOR_HEIGHT);
+
+    clearRectWithColor(frameInfoRect, 1, 1, 1, 1);
+    ratio = (swappedCounter + 1.0) / TREE_SWAPPED_COUNTER_MODULE;
+
+    frameInfoRect.setWidth(frameInfoRect.width() * ratio);
+    clearRectWithColor(frameInfoRect, 0, 1, 0, 1);
+}
+
+void GLWebViewState::clearRectWithColor(const IntRect& rect, float r, float g,
+                                      float b, float a)
+{
+    glScissor(rect.x(), rect.y(), rect.width(), rect.height());
+    glClearColor(r, g, b, a);
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
