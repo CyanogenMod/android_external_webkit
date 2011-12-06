@@ -289,8 +289,8 @@ bool BaseLayerAndroid::prepareBasePictureInGL(SkRect& viewport, float scale,
         tiledPage->prepare(goingDown, goingLeft, preZoomBounds,
                            TiledPage::ExpandedBounds);
 
-    XLOG("scrolling %d, zooming %d, needsRedraw %d",
-         scrolling, zooming, needsRedraw);
+    XLOG("scrollState %d, zooming %d, needsRedraw %d",
+         m_scrollState, zooming, needsRedraw);
 
     // prefetch in the nextTiledPage if unused by zooming (even if not scrolling
     // since we want the tiles to be ready before they're needed)

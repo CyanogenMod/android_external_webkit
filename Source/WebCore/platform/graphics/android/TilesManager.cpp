@@ -185,8 +185,8 @@ void TilesManager::deallocateTexturesVector(unsigned long long sparedDrawCount,
             dealloc++;
         }
     }
-    XLOG("Deallocated %d gl textures (out of %d base tiles and %d layer tiles)",
-         dealloc, max, maxLayer);
+    XLOG("Deallocated %d gl textures (out of %d %s tiles)",
+         dealloc, max, (textures == m_textures) ? "base" : "layer");
 }
 
 void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
