@@ -276,8 +276,8 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
         nbTilesHeight += firstTileY;
         firstTileY = 0;
     }
-    nbTilesWidth = std::min(nbTilesWidth, maxX - firstTileX);
-    nbTilesHeight = std::min(nbTilesHeight, maxY - firstTileY);
+    nbTilesWidth = std::min(nbTilesWidth, maxX - firstTileX + 1);
+    nbTilesHeight = std::min(nbTilesHeight, maxY - firstTileY + 1);
 
     // check against corrupted scale values giving bad height/width (use float to avoid overflow)
     float numTiles = static_cast<float>(nbTilesHeight) * static_cast<float>(nbTilesWidth);
