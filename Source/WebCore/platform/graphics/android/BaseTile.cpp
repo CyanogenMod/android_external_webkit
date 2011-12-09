@@ -204,6 +204,7 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
         }
         cliperator.next();
     }
+
     if (!intersect)
         return;
 
