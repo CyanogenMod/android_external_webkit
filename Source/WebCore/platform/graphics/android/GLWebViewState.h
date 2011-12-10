@@ -202,7 +202,7 @@ public:
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
 
     void setIsScrolling(bool isScrolling) { m_isScrolling = isScrolling; }
-    bool isScrolling() { return m_isScrolling; }
+    bool isScrolling() { return m_isScrolling || m_isViewportScrolling; }
 
     void drawBackground(Color& backgroundColor);
     double setupDrawing(IntRect& viewRect, SkRect& visibleRect,
@@ -283,6 +283,7 @@ private:
     GLExtras m_glExtras;
 
     bool m_isScrolling;
+    bool m_isViewportScrolling;
     bool m_goingDown;
     bool m_goingLeft;
 

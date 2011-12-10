@@ -87,6 +87,7 @@ GLWebViewState::GLWebViewState()
     , m_frameworkInval(0, 0, 0, 0)
     , m_frameworkLayersInval(0, 0, 0, 0)
     , m_isScrolling(false)
+    , m_isViewportScrolling(false)
     , m_goingDown(true)
     , m_goingLeft(false)
     , m_expandedTileBoundsX(0)
@@ -246,11 +247,16 @@ int GLWebViewState::baseContentHeight()
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
 {
     if ((m_viewport == viewport) &&
-        (zoomManager()->futureScale() == scale))
+        (zoomManager()->futureScale() == scale)) {
+        m_isViewportScrolling = false;
         return;
+    }
 
     m_goingDown = m_viewport.fTop - viewport.fTop <= 0;
     m_goingLeft = m_viewport.fLeft - viewport.fLeft >= 0;
+
+    // detect viewport scrolling from short programmatic scrolls/jumps
+    m_isViewportScrolling = m_viewport != viewport && SkRect::Intersects(m_viewport, viewport);
     m_viewport = viewport;
 
     XLOG("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f currentScale: %.2f futureScale: %.2f)",
