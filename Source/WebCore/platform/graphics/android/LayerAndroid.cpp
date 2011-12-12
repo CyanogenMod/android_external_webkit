@@ -117,6 +117,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_fixedMarginBottom = layer.m_fixedMarginBottom;
     m_fixedRect = layer.m_fixedRect;
     m_iframeOffset = layer.m_iframeOffset;
+    m_offset = layer.m_offset;
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 
@@ -610,7 +611,7 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     m_atomicSync.lock();
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
-    FloatPoint position(getPosition().fX, getPosition().fY);
+    FloatPoint position(getPosition().fX - m_offset.x(), getPosition().fY - m_offset.y());
     float centerOffsetX = (0.5f - anchorPoint.x()) * layerSize.width();
     float centerOffsetY = (0.5f - anchorPoint.y()) * layerSize.height();
     float originX = anchorPoint.x() * layerSize.width();

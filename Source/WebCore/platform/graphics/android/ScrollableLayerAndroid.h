@@ -71,6 +71,9 @@ public:
     friend LayerAndroid* android::deserializeLayer(SkStream* stream);
 
 private:
+
+    void getScrollBounds(IntRect*) const;
+
     // The position of the visible area of the layer, relative to the parent
     // layer. This is fixed during scrolling. We acheive scrolling by modifying
     // the position of the layer.

@@ -199,6 +199,7 @@ public:
         setShouldInheritFromRootTransform(true);
     }
 
+    void setScrollOffset(IntPoint offset) { m_offset = offset; }
     void setBackgroundColor(SkColor color);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool masksToBounds)
@@ -315,7 +316,7 @@ public:
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
-
+    IntPoint m_offset;
     TransformationMatrix m_drawTransform;
 
 private:

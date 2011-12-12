@@ -123,6 +123,8 @@ public:
 
     static int instancesCount();
 
+    virtual void updateScrollOffset();
+
 private:
 
     void askForSync();

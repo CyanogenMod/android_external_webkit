@@ -64,6 +64,7 @@
 #include "HTMLNames.h"
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
 #include "HTMLTextAreaElement.h"
+#include "GraphicsLayerAndroid.h"
 #endif
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
@@ -1424,6 +1425,8 @@ void RenderLayer::scrollTo(int x, int y)
     // do not need to repaint simply because we are scrolling
     if (view && !hasOverflowScroll())
         renderer()->repaintUsingContainer(repaintContainer, rectForRepaint);
+    if (view && hasOverflowScroll() && backing() && backing()->graphicsLayer())
+        static_cast<GraphicsLayerAndroid*>(backing()->graphicsLayer())->updateScrollOffset();
 #else
     if (view)
         renderer()->repaintUsingContainer(repaintContainer, rectForRepaint);

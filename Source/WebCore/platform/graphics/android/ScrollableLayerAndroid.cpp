@@ -9,27 +9,34 @@ namespace WebCore {
 
 bool ScrollableLayerAndroid::scrollTo(int x, int y)
 {
-    SkIRect scrollBounds;
-    getScrollRect(&scrollBounds);
-    if (!scrollBounds.fRight && !scrollBounds.fBottom)
+    IntRect scrollBounds;
+    getScrollBounds(&scrollBounds);
+    if (!scrollBounds.width() && !scrollBounds.height())
         return false;
-
-    SkScalar newX = SkScalarPin(x, 0, scrollBounds.fRight);
-    SkScalar newY = SkScalarPin(y, 0, scrollBounds.fBottom);
+    SkScalar newX = SkScalarPin(x, scrollBounds.x(), scrollBounds.width());
+    SkScalar newY = SkScalarPin(y, scrollBounds.y(), scrollBounds.height());
     // Check for no change.
-    if (newX == scrollBounds.fLeft && newY == scrollBounds.fTop)
+    if (newX == m_offset.x() && newY == m_offset.y())
         return false;
-
-    setPosition(m_scrollLimits.fLeft - newX, m_scrollLimits.fTop - newY);
-
+    setScrollOffset(IntPoint(newX, newY));
     return true;
+}
+
+void ScrollableLayerAndroid::getScrollBounds(IntRect* out) const
+{
+    const SkPoint& pos = getPosition();
+    out->setX(m_scrollLimits.fLeft - pos.fX);
+    out->setY(m_scrollLimits.fTop - pos.fY);
+    out->setWidth(getSize().width() - m_scrollLimits.width());
+    out->setHeight(getSize().height() - m_scrollLimits.height());
+
 }
 
 void ScrollableLayerAndroid::getScrollRect(SkIRect* out) const
 {
     const SkPoint& pos = getPosition();
-    out->fLeft = m_scrollLimits.fLeft - pos.fX;
-    out->fTop = m_scrollLimits.fTop - pos.fY;
+    out->fLeft = m_scrollLimits.fLeft - pos.fX + m_offset.x();
+    out->fTop = m_scrollLimits.fTop - pos.fY + m_offset.y();
     out->fRight = getSize().width() - m_scrollLimits.width();
     out->fBottom = getSize().height() - m_scrollLimits.height();
 }

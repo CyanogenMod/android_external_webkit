@@ -555,6 +555,15 @@ void GraphicsLayerAndroid::updateScrollingLayers()
 #endif
 }
 
+void GraphicsLayerAndroid::updateScrollOffset() {
+    RenderLayer* layer = renderLayerFromClient(m_client);
+    if (!layer || !m_foregroundLayer)
+        return;
+    IntSize scroll = layer->scrolledContentOffset();
+    m_foregroundLayer->setScrollOffset(IntPoint(scroll.width(), scroll.height()));
+    askForSync();
+}
+
 bool GraphicsLayerAndroid::repaint()
 {
     LOG("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
@@ -610,9 +619,11 @@ bool GraphicsLayerAndroid::repaint()
             if (!layer->renderer()->style()->isLeftToRightDirection()) {
                 rtlOffset = layer->scrollWidth() - clip.width(); // Scroll all the way right.
             }
+            m_foregroundLayer->setScrollOffset(IntPoint(scroll.width() + rtlOffset,
+                    scroll.height()));
             // Need to offset the foreground layer by the clip layer in order
             // for the contents to be in the correct position.
-            m_foregroundLayer->setPosition(-x - rtlOffset, -y);
+            m_foregroundLayer->setPosition(-x, -y);
             // Set the scrollable bounds of the layer.
             m_foregroundLayer->setScrollLimits(-x, -y, m_size.width(), m_size.height());
 
