@@ -30,6 +30,7 @@
 
 #include "GLUtils.h"
 #include "LayerAndroid.h"
+#include "ShaderProgram.h"
 #include <jni.h>
 
 namespace android {
@@ -62,10 +63,14 @@ public:
     GLuint createSpinnerOuterTexture();
     GLuint createSpinnerInnerTexture();
     GLuint createPosterTexture();
+    GLuint createPlayTexture();
+    GLuint createPauseTexture();
 
 private:
     GLuint createTextureFromImage(int buttonType);
     void init();
+    void showPreparingAnimation(const SkRect& rect,
+                                const SkRect innerRect);
     // Surface texture for showing the video is actually allocated in Java side
     // and passed into this native code.
     sp<android::SurfaceTexture> m_surfaceTexture;
@@ -78,6 +83,8 @@ private:
     static GLuint m_posterTextureId;
     static GLuint m_spinnerOuterTextureId;
     static GLuint m_spinnerInnerTextureId;
+    static GLuint m_playTextureId;
+    static GLuint m_pauseTextureId;
 
     static double m_rotateDegree;
 

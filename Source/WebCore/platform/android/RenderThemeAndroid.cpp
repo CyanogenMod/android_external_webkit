@@ -336,7 +336,9 @@ bool RenderThemeAndroid::paintMediaControlsBackground(RenderObject* o, const Pai
       bool translucent = false;
       if (o && toParentMediaElement(o) && toParentMediaElement(o)->hasTagName(HTMLNames::videoTag))
           translucent = true;
-      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::BACKGROUND_SLIDER, translucent);
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect,
+                                  RenderSkinMediaButton::BACKGROUND_SLIDER,
+                                  translucent, 0, false);
       return false;
 }
 
@@ -355,7 +357,9 @@ bool RenderThemeAndroid::paintMediaSliderThumb(RenderObject* o, const PaintInfo&
       bool translucent = false;
       if (o && toParentMediaElement(o) && toParentMediaElement(o)->hasTagName(HTMLNames::videoTag))
           translucent = true;
-      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect, RenderSkinMediaButton::SLIDER_THUMB, translucent);
+      RenderSkinMediaButton::Draw(getCanvasFromInfo(paintInfo), rect,
+                                  RenderSkinMediaButton::SLIDER_THUMB,
+                                  translucent, 0, false);
       return false;
 }
 

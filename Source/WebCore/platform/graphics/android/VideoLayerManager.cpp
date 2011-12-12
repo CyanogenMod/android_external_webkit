@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "VideoLayerManager.h"
+#include <wtf/CurrentTime.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -41,6 +42,10 @@
 #define XLOG(...)
 
 #endif // DEBUG
+
+// The animation of the play/pause icon will last for PLAY_PAUSE_ICON_SHOW_TIME
+// seconds.
+#define PLAY_PAUSE_ICON_SHOW_TIME 1
 
 // Define the max sum of all the video's sizes.
 // Note that video_size = width * height. If there is no compression, then the
@@ -105,6 +110,8 @@ void VideoLayerManager::registerTexture(const int layerId, const GLuint textureI
     pInfo->videoSize = 0;
     m_currentTimeStamp++;
     pInfo->timeStamp = m_currentTimeStamp;
+    pInfo->lastIconShownTime = 0;
+    pInfo->iconState = Registered;
 
     m_videoLayerInfoMap.add(layerId, pInfo);
     XLOG("GL texture %d regisered for layerId %d", textureId, layerId);
@@ -236,6 +243,35 @@ void VideoLayerManager::removeLayerInternal(const int layerId)
         m_videoLayerInfoMap.remove(layerId);
     }
     return;
+}
+
+double VideoLayerManager::drawIcon(const int layerId, IconType type)
+{
+    // When ratio 0 is returned, the Icon should not be drawn.
+    double ratio = 0;
+
+    android::Mutex::Autolock lock(m_videoLayerInfoMapLock);
+    if (m_videoLayerInfoMap.contains(layerId)) {
+        VideoLayerInfo* pInfo = m_videoLayerInfoMap.get(layerId);
+        // If this is state switching moment, reset the time and state
+        if ((type == PlayIcon && pInfo->iconState != PlayIconShown)
+            ||(type == PauseIcon && pInfo->iconState != PauseIconShown)) {
+            pInfo->lastIconShownTime = WTF::currentTime();
+            pInfo->iconState = (type == PlayIcon) ? PlayIconShown : PauseIconShown;
+        }
+
+        // After switching the state, we calculate the ratio depending on the
+        // time interval.
+        if ((type == PlayIcon && pInfo->iconState == PlayIconShown)
+            || (type == PauseIcon && pInfo->iconState == PauseIconShown)) {
+            double delta = WTF::currentTime() - pInfo->lastIconShownTime;
+            ratio = 1.0 - (delta / PLAY_PAUSE_ICON_SHOW_TIME);
+        }
+    }
+
+    if (ratio > 1 || ratio < 0 )
+        ratio = 0;
+    return ratio;
 }
 
 }
