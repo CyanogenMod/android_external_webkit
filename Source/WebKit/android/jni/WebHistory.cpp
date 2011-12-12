@@ -375,7 +375,7 @@ static void write_string(WTF::Vector<char>& v, const WTF::String& str)
         char* data = v.begin() + vectorLen;
         // Write the actual string
         int l = SkUTF16_ToUTF8(str.characters(), strLen, data);
-        LOG_VERBOSE("Writing string       %d %.*s", l, l, data);
+        LOG_VERBOSE(History, "Writing string       %d %.*s", l, l, data);
         // Go back and write the utf8 length. Subtract sizeof(unsigned) from
         // data to get the position to write the length.
         memcpy(data - sizeof(unsigned), (char*)&l, sizeof(unsigned));
@@ -417,10 +417,10 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     LOG_ASSERT(bridge, "We should have a bridge here!");
     // Screen scale
     const float scale = bridge->scale();
-    LOG_VERBOSE("Writing scale %f", scale);
+    LOG_VERBOSE(History, "Writing scale %f", scale);
     v.append((char*)&scale, sizeof(float));
     const float textWrapScale = bridge->textWrapScale();
-    LOG_VERBOSE("Writing text wrap scale %f", textWrapScale);
+    LOG_VERBOSE(History, "Writing text wrap scale %f", textWrapScale);
     v.append((char*)&textWrapScale, sizeof(float));
 
     // Scroll position.
@@ -433,19 +433,19 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     const WTF::Vector<WTF::String>& docState = item->documentState();
     WTF::Vector<WTF::String>::const_iterator end = docState.end();
     unsigned stateSize = docState.size();
-    LOG_VERBOSE("Writing docState     %d", stateSize);
+    LOG_VERBOSE(History, "Writing docState     %d", stateSize);
     v.append((char*)&stateSize, sizeof(unsigned));
     for (WTF::Vector<WTF::String>::const_iterator i = docState.begin(); i != end; ++i) {
         write_string(v, *i);
     }
 
     // Is target item
-    LOG_VERBOSE("Writing isTargetItem %d", item->isTargetItem());
+    LOG_VERBOSE(History, "Writing isTargetItem %d", item->isTargetItem());
     v.append((char)item->isTargetItem());
 
     // Children count
     unsigned childCount = item->children().size();
-    LOG_VERBOSE("Writing childCount   %d", childCount);
+    LOG_VERBOSE(History, "Writing childCount   %d", childCount);
     v.append((char*)&childCount, sizeof(unsigned));
 }
 
@@ -495,7 +495,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     // Increment data pointer by the size of an unsigned int.
     data += sizeofUnsigned;
     if (l) {
-        LOG_VERBOSE("Original url    %d %.*s", l, l, data);
+        LOG_VERBOSE(History, "Original url    %d %.*s", l, l, data);
         // If we have a length, check if that length exceeds the data length
         // and return null if there is not enough data.
         if (data + l < end)
@@ -513,7 +513,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     memcpy(&l, data, sizeofUnsigned);
     data += sizeofUnsigned;
     if (l) {
-        LOG_VERBOSE("Url             %d %.*s", l, l, data);
+        LOG_VERBOSE(History, "Url             %d %.*s", l, l, data);
         if (data + l < end)
             newItem->setURLString(e.decode(data, l));
         else
@@ -527,7 +527,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     memcpy(&l, data, sizeofUnsigned);
     data += sizeofUnsigned;
     if (l) {
-        LOG_VERBOSE("Title           %d %.*s", l, l, data);
+        LOG_VERBOSE(History, "Title           %d %.*s", l, l, data);
         if (data + l < end)
             newItem->setTitle(e.decode(data, l));
         else
@@ -545,7 +545,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     memcpy(&l, data, sizeofUnsigned);
     data += sizeofUnsigned;
     if (l) {
-        LOG_VERBOSE("Content type    %d %.*s", l, l, data);
+        LOG_VERBOSE(History, "Content type    %d %.*s", l, l, data);
         if (data + l < end)
             formContentType = e.decode(data, l);
         else
@@ -559,7 +559,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     memcpy(&l, data, sizeofUnsigned);
     data += sizeofUnsigned;
     if (l) {
-        LOG_VERBOSE("Form data       %d %.*s", l, l, data);
+        LOG_VERBOSE(History, "Form data       %d %.*s", l, l, data);
         if (data + l < end)
             formData = WebCore::FormData::create(data, l);
         else
@@ -591,7 +591,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     memcpy(&l, data, sizeofUnsigned);
     data += sizeofUnsigned;
     if (l) {
-        LOG_VERBOSE("Target          %d %.*s", l, l, data);
+        LOG_VERBOSE(History, "Target          %d %.*s", l, l, data);
         if (data + l < end)
             newItem->setTarget(e.decode(data, l));
         else
@@ -606,11 +606,11 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     float fValue;
     // Read the screen scale
     memcpy(&fValue, data, sizeof(float));
-    LOG_VERBOSE("Screen scale    %f", fValue);
+    LOG_VERBOSE(History, "Screen scale    %f", fValue);
     bridge->setScale(fValue);
     data += sizeof(float);
     memcpy(&fValue, data, sizeofUnsigned);
-    LOG_VERBOSE("Text wrap scale    %f", fValue);
+    LOG_VERBOSE(History, "Text wrap scale    %f", fValue);
     bridge->setTextWrapScale(fValue);
     data += sizeof(float);
 
@@ -631,7 +631,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
 
     // Read the document state
     memcpy(&l, data, sizeofUnsigned);
-    LOG_VERBOSE("Document state  %d", l);
+    LOG_VERBOSE(History, "Document state  %d", l);
     data += sizeofUnsigned;
     if (l) {
         // Check if we have enough data to at least parse the sizes of each
@@ -653,7 +653,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
                 docState.append(e.decode(data, strLen));
             else
                 return false;
-            LOG_VERBOSE("\t\t%d %.*s", strLen, strLen, data);
+            LOG_VERBOSE(History, "\t\t%d %.*s", strLen, strLen, data);
             data += strLen;
         }
         newItem->setDocumentState(docState);
@@ -668,7 +668,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
     unsigned char c = (unsigned char)data[0];
     if (c > 1)
         return false;
-    LOG_VERBOSE("Target item     %d", c);
+    LOG_VERBOSE(History, "Target item     %d", c);
     newItem->setIsTargetItem((bool)c);
     data++;
     if (end - data < sizeofUnsigned)
@@ -676,7 +676,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
 
     // Read the child count
     memcpy(&l, data, sizeofUnsigned);
-    LOG_VERBOSE("Child count     %d", l);
+    LOG_VERBOSE(History, "Child count     %d", l);
     data += sizeofUnsigned;
     *pData = data;
     if (l) {
