@@ -556,9 +556,7 @@ void CacheBuilder::Debug::groups() {
                     continue;
             } else {
                 IntRect nodeBounds = node->getRect();
-                if (CacheBuilder::ConstructPartRects(node, nodeBounds, rectPtr, 
-                        globalOffsetX, globalOffsetY, &rects, &imageCount) == false)
-                    continue;
+                continue;
             }
             unsigned arraySize = rects.size();
             if (arraySize > 1 || (arraySize == 1 && (rectPtr->width() != rect.width())) || 
@@ -1330,13 +1328,8 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         computeCursorRings = true;
     keepNode:
         cachedNode.init(node);
-        if (computeCursorRings == false) {
-            cachedNode.setBounds(bounds);
-            cachedNode.mCursorRing.append(bounds);
-        } else if (ConstructPartRects(node, bounds, &cachedNode.mBounds,
-                globalOffsetX, globalOffsetY, &cachedNode.mCursorRing,
-                &imageCount) == false)
-            continue;
+        cachedNode.setBounds(bounds);
+        cachedNode.mCursorRing.append(bounds);
     keepTextNode:
         if (nodeRenderer) { // area tags' node->renderer() == 0
             RenderStyle* style = nodeRenderer->style();
@@ -3024,100 +3017,6 @@ bool CacheBuilder::AddPartRect(IntRect& bounds, int x, int y,
         *focusBounds = bounds;
     else
         focusBounds->unite(bounds);
-    return true;
-}
-
-bool CacheBuilder::ConstructPartRects(Node* node, const IntRect& bounds, 
-    IntRect* focusBounds, int x, int y, WTF::Vector<IntRect>* result,
-    int* imageCountPtr)
-{
-    WTF::Vector<ClipColumnTracker> clipTracker(1);
-    ClipColumnTracker* baseTracker = clipTracker.data(); // sentinel
-    bzero(baseTracker, sizeof(ClipColumnTracker));
-    if (node->hasChildNodes() && node->hasTagName(HTMLNames::buttonTag) == false
-            && node->hasTagName(HTMLNames::selectTag) == false) {
-        // collect all text rects from first to last child
-        Node* test = node->firstChild();
-        Node* last = NULL;
-        Node* prior = node;
-        while ((prior = prior->lastChild()) != NULL)
-            last = prior;
-        ASSERT(last != NULL);
-        bool nodeIsAnchor = node->hasTagName(HTMLNames::aTag);
-        do {
-            do {
-                const ClipColumnTracker* lastClip = &clipTracker.last();
-                if (test != lastClip->mLastChild)
-                    break;
-                clipTracker.removeLast();
-            } while (true);
-            RenderObject* renderer = test->renderer();
-            if (renderer == NULL)
-                continue;
-            EVisibility vis = renderer->style()->visibility();
-            if (vis == HIDDEN)
-                continue;
-            bool hasClip = renderer->hasOverflowClip();
-            size_t clipIndex = clipTracker.size();
-            IntRect clipBounds = IntRect(0, 0, INT_MAX, INT_MAX);
-            if (hasClip || --clipIndex > 0) {
-                clipBounds = hasClip ? renderer->absoluteBoundingBoxRect() :
-                    clipTracker.at(clipIndex).mBounds; // x, y fixup done by ConstructTextRect
-            }
-            if (test->isTextNode()) {
-                RenderText* renderText = (RenderText*) renderer;
-                InlineTextBox *textBox = renderText->firstTextBox();
-                if (textBox == NULL)
-                    continue;
-                if (ConstructTextRect((Text*) test, textBox, 0, INT_MAX, 
-                        x, y, focusBounds, clipBounds, result) == false) {
-                    return false;
-                }
-                continue;
-            }
-            if (test->hasTagName(HTMLNames::imgTag)) {
-                IntRect bounds = test->getRect();
-                bounds.intersect(clipBounds);
-                if (AddPartRect(bounds, x, y, result, focusBounds) == false)
-                    return false;
-                *imageCountPtr += 1;
-                continue;
-            } 
-            if (hasClip == false) {
-                if (nodeIsAnchor && test->hasTagName(HTMLNames::divTag)) {
-                    IntRect bounds = renderer->absoluteBoundingBoxRect();  // x, y fixup done by AddPartRect
-                    RenderBox* renderBox = static_cast<RenderBox*>(renderer);
-                    int left = bounds.x() + renderBox->paddingLeft() + renderBox->borderLeft();
-                    int top = bounds.y() + renderBox->paddingTop() + renderBox->borderTop();
-                    int right = bounds.maxX() - renderBox->paddingRight() - renderBox->borderRight();
-                    int bottom = bounds.maxY() - renderBox->paddingBottom() - renderBox->borderBottom();
-                    if (left >= right || top >= bottom)
-                        continue;
-                    bounds = IntRect(left, top, right - left, bottom - top);
-                    if (AddPartRect(bounds, x, y, result, focusBounds) == false)
-                        return false;
-                }
-                continue;
-            }
-            Node* lastChild = test->lastChild();
-            if (lastChild == NULL)
-                continue;
-            clipTracker.grow(clipTracker.size() + 1);
-            ClipColumnTracker& clip = clipTracker.last();
-            clip.mBounds = renderer->absoluteBoundingBoxRect(); // x, y fixup done by ConstructTextRect
-            clip.mLastChild = OneAfter(lastChild);
-            clip.mNode = test;
-        } while (test != last && (test = test->traverseNextNode()) != NULL);
-    }
-    if (result->size() == 0 || focusBounds->width() < MINIMUM_FOCUSABLE_WIDTH
-            || focusBounds->height() < MINIMUM_FOCUSABLE_HEIGHT) {
-        if (bounds.width() < MINIMUM_FOCUSABLE_WIDTH)
-            return false;
-        if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)
-            return false;
-        result->append(bounds);
-        *focusBounds = bounds;
-    }
     return true;
 }
 
