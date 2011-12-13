@@ -119,8 +119,8 @@ public:
 
     void allocateTiles();
 
-    // Called when webview is hidden to discard graphics memory
-    void deallocateTextures(bool allTextures);
+    // remove all tiles from textures (and optionally deallocate gl memory)
+    void discardTextures(bool allTextures, bool glTextures);
 
     bool getShowVisualIndicator()
     {
@@ -209,8 +209,9 @@ private:
             m_generatorReadyCond.wait(m_generatorLock);
     }
 
-    void deallocateTexturesVector(unsigned long long sparedDrawCount,
-                                  WTF::Vector<BaseTileTexture*>& textures);
+    void discardTexturesVector(unsigned long long sparedDrawCount,
+                               WTF::Vector<BaseTileTexture*>& textures,
+                               bool deallocateGLTextures);
 
     Vector<BaseTileTexture*> m_textures;
     Vector<BaseTileTexture*> m_availableTextures;

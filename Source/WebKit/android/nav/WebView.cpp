@@ -1907,7 +1907,7 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint native
     return false;
 }
 
-static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inval,
+static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint layer, jobject inval,
                                 jboolean showVisualIndicator,
                                 jboolean isPictureAfterFirstLayout,
                                 jboolean registerPageSwapCallback)
@@ -1916,7 +1916,7 @@ static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inv
     SkRegion invalRegion;
     if (inval)
         invalRegion = *GraphicsJNI::getNativeRegion(env, inval);
-    GET_NATIVE_VIEW(env, obj)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
+    ((WebView*)nativeView)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
                                             isPictureAfterFirstLayout,
                                             registerPageSwapCallback);
 }
@@ -2494,9 +2494,16 @@ static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jint nativeView,
     ((WebView*)nativeView)->setSelectionPointer(set, scale, x, y);
 }
 
-static void nativeRegisterPageSwapCallback(JNIEnv *env, jobject obj)
+static void nativeRegisterPageSwapCallback(JNIEnv *env, jobject obj, jint nativeView)
 {
-    GET_NATIVE_VIEW(env, obj)->registerPageSwapCallback();
+    ((WebView*)nativeView)->registerPageSwapCallback();
+}
+
+static void nativeDiscardAllTextures(JNIEnv *env, jobject obj)
+{
+    //discard all textures for debugging/test purposes, but not gl backing memory
+    bool allTextures = true, deleteGLTextures = false;
+    TilesManager::instance()->discardTextures(allTextures, deleteGLTextures);
 }
 
 static void nativeTileProfilingStart(JNIEnv *env, jobject obj)
@@ -2593,8 +2600,8 @@ static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring key)
 static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
 {
     if (TilesManager::hardwareAccelerationEnabled()) {
-        bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN);
-        TilesManager::instance()->deallocateTextures(freeAllTextures);
+        bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN), glTextures = true;
+        TilesManager::instance()->discardTextures(freeAllTextures, glTextures);
     }
 }
 
@@ -2850,7 +2857,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(ILandroid/graphics/Region;ZZZ)V",
+    { "nativeSetBaseLayer", "(IILandroid/graphics/Region;ZZZ)V",
         (void*) nativeSetBaseLayer },
     { "nativeGetTextSelectionRegion", "(ILandroid/graphics/Region;)V",
         (void*) nativeGetTextSelectionRegion },
@@ -2868,8 +2875,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetSelectionPointer },
     { "nativeShowCursorTimed", "()V",
         (void*) nativeShowCursorTimed },
-    { "nativeRegisterPageSwapCallback", "()V",
+    { "nativeRegisterPageSwapCallback", "(I)V",
         (void*) nativeRegisterPageSwapCallback },
+    { "nativeDiscardAllTextures", "()V",
+        (void*) nativeDiscardAllTextures },
     { "nativeTileProfilingStart", "()V",
         (void*) nativeTileProfilingStart },
     { "nativeTileProfilingStop", "()F",

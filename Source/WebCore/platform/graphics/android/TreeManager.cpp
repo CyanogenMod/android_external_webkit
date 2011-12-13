@@ -245,6 +245,10 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
     if (m_drawingTree) {
         bool drawingReady = didTreeSwap || m_drawingTree->isReady();
 
+        // call the page swap callback if registration happened without more trees enqueued
+        if (treesSwappedPtr && drawingReady && !m_paintingTree)
+            *treesSwappedPtr = true;
+
         if (didTreeSwap || m_fastSwapMode || (drawingReady && !m_paintingTree))
             m_drawingTree->swapTiles();
 

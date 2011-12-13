@@ -83,9 +83,6 @@ public:
     bool acquire(TextureOwner* owner, bool force = false);
     bool release(TextureOwner* owner);
 
-    // removes Tile->Texture, and Texture->Tile links to fully discard the texture
-    void releaseAndRemoveFromTile();
-
     // set the texture owner if not busy. Return false if busy, true otherwise.
     bool setOwner(TextureOwner* owner, bool force = false);
 
