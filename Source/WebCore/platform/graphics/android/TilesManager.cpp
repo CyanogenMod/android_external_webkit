@@ -155,7 +155,7 @@ void TilesManager::allocateTiles()
          m_tilesTextures.size() * LAYER_TILE_WIDTH * LAYER_TILE_HEIGHT * 4 / 1024 / 1024);
 }
 
-void TilesManager::deallocateTextures(bool allTextures)
+void TilesManager::discardTextures(bool allTextures, bool glTextures)
 {
     const unsigned int max = m_textures.size();
 
@@ -169,24 +169,32 @@ void TilesManager::deallocateTextures(bool allTextures)
                 sparedDrawCount = std::max(sparedDrawCount, owner->drawCount());
         }
     }
-    deallocateTexturesVector(sparedDrawCount, m_textures);
-    deallocateTexturesVector(sparedDrawCount, m_tilesTextures);
+    discardTexturesVector(sparedDrawCount, m_textures, glTextures);
+    discardTexturesVector(sparedDrawCount, m_tilesTextures, glTextures);
 }
 
-void TilesManager::deallocateTexturesVector(unsigned long long sparedDrawCount,
-                                            WTF::Vector<BaseTileTexture*>& textures)
+void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
+                                         WTF::Vector<BaseTileTexture*>& textures,
+                                         bool deallocateGLTextures)
 {
     const unsigned int max = textures.size();
     int dealloc = 0;
     for (unsigned int i = 0; i < max; i++) {
         TextureOwner* owner = textures[i]->owner();
         if (!owner || owner->drawCount() < sparedDrawCount) {
-            textures[i]->discardGLTexture();
+            if (deallocateGLTextures) {
+                // deallocate textures' gl memory
+                textures[i]->discardGLTexture();
+            } else if (owner) {
+                // simply detach textures from owner
+                static_cast<BaseTile*>(owner)->discardTextures();
+            }
             dealloc++;
         }
     }
-    XLOG("Deallocated %d gl textures (out of %d %s tiles)",
-         dealloc, max, (textures == m_textures) ? "base" : "layer");
+    XLOG("Discarded %d %s textures (out of %d %s tiles)",
+         dealloc, (deallocateGLTextures ? "gl" : ""),
+         max, (textures == m_textures) ? "base" : "layer");
 }
 
 void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
@@ -390,7 +398,8 @@ void TilesManager::setMaxLayerTextureCount(int max)
         double secondsSinceLayersUsed = WTF::currentTime() - m_lastTimeLayersUsed;
         if (secondsSinceLayersUsed > LAYER_TEXTURES_DESTROY_TIMEOUT) {
             unsigned long long sparedDrawCount = ~0; // by default, spare no textures
-            deallocateTexturesVector(sparedDrawCount, m_tilesTextures);
+            bool deleteGLTextures = true;
+            discardTexturesVector(sparedDrawCount, m_tilesTextures, deleteGLTextures);
             m_hasLayerTextures = false;
         }
         return;
