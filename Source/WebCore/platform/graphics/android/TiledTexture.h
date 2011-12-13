@@ -57,12 +57,12 @@ public:
 
     virtual ~TiledTexture();
 
-    IntRect computeTilesArea(IntRect& visibleArea, float scale);
+    IntRect computeTilesArea(IntRect& contentArea, float scale);
 
     void prepare(GLWebViewState* state, float scale, bool repaint,
-                 bool startFastSwap, IntRect& visibleArea);
+                 bool startFastSwap, IntRect& prepareArea);
     void swapTiles();
-    bool draw();
+    bool draw(IntRect& visibleArea);
 
     void prepareTile(bool repaint, int x, int y);
     void update(const SkRegion& dirtyArea, SkPicture* picture);
@@ -114,7 +114,7 @@ public:
                  bool startFastSwap, IntRect& area);
     void swapTiles();
     void swap();
-    bool draw();
+    bool draw(IntRect& visibleArea);
     void update(const SkRegion& dirtyArea, SkPicture* picture);
     bool owns(BaseTileTexture* texture);
     bool isReady()
@@ -142,7 +142,7 @@ private:
     float m_futureScale;
     double m_zoomUpdateTime;
     bool m_zooming;
-    IntRect m_preZoomVisibleArea;
+    IntRect m_preZoomPrepareArea;
 };
 
 } // namespace WebCore

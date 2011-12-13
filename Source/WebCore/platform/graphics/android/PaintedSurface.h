@@ -67,7 +67,7 @@ public:
     bool owns(BaseTileTexture* texture);
 
     void computeTexturesAmount(TexturesResult*);
-    IntRect computeVisibleArea(LayerAndroid*);
+    IntRect computePrepareArea(LayerAndroid*);
 
     // TilePainter methods for TiledTexture
     virtual const TransformationMatrix* transform();

@@ -99,7 +99,7 @@ void PaintedSurface::prepare(GLWebViewState* state)
          paintingLayer->uniqueId(), paintingLayer,
          paintingLayer->getScale());
 
-    IntRect visibleArea = computeVisibleArea(paintingLayer);
+    IntRect prepareArea = computePrepareArea(paintingLayer);
 
     m_scale = state->scale();
 
@@ -109,7 +109,7 @@ void PaintedSurface::prepare(GLWebViewState* state)
         m_scale = 1;
 
     m_tiledTexture->prepare(state, m_scale, m_pictureUsed != paintingLayer->pictureUsed(),
-                            startFastSwap, visibleArea);
+                            startFastSwap, prepareArea);
 }
 
 bool PaintedSurface::draw()
@@ -118,8 +118,10 @@ bool PaintedSurface::draw()
         return false;
 
     bool askRedraw = false;
-    if (m_tiledTexture)
-        askRedraw = m_tiledTexture->draw();
+    if (m_tiledTexture) {
+        IntRect visibleArea = m_drawingLayer->visibleArea();
+        askRedraw = m_tiledTexture->draw(visibleArea);
+    }
 
     return askRedraw;
 }
@@ -196,7 +198,7 @@ void PaintedSurface::computeTexturesAmount(TexturesResult* result)
         result->full += nbTexturesUnclipped;
 }
 
-IntRect PaintedSurface::computeVisibleArea(LayerAndroid* layer) {
+IntRect PaintedSurface::computePrepareArea(LayerAndroid* layer) {
     IntRect area;
     if (!layer)
         return area;
