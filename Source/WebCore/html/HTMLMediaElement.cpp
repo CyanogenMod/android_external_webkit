@@ -2402,6 +2402,12 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
     }
 #endif
 
+#if PLATFORM(ANDROID)
+    // It is really hard to hit the play/pause button on mobile devices.
+    // This allows user to click the video area to toggle play/pause state.
+    if (event->type() == eventNames().clickEvent)
+        togglePlayState();
+#endif
     HTMLElement::defaultEventHandler(event);
 #endif
 }

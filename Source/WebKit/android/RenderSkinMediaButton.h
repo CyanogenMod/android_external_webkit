@@ -42,7 +42,7 @@ public:
      * State to determine which skin to use, i.e. focused or not focused.
      */
     static void Draw(SkCanvas* , const IntRect& , int buttonType, bool translucent = false,
-                     RenderObject* o = 0);
+                     RenderObject* o = 0, bool drawBackground = true);
     /**
      * Button types
      */

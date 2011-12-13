@@ -53,6 +53,8 @@ GLuint VideoLayerAndroid::m_spinnerOuterTextureId = 0;
 GLuint VideoLayerAndroid::m_spinnerInnerTextureId = 0;
 GLuint VideoLayerAndroid::m_posterTextureId = 0;
 GLuint VideoLayerAndroid::m_backgroundTextureId = 0;
+GLuint VideoLayerAndroid::m_playTextureId = 0;
+GLuint VideoLayerAndroid::m_pauseTextureId = 0;
 bool VideoLayerAndroid::m_createdTexture = false;
 
 double VideoLayerAndroid::m_rotateDegree = 0;
@@ -102,6 +104,16 @@ GLuint VideoLayerAndroid::createPosterTexture()
     return createTextureFromImage(RenderSkinMediaButton::VIDEO);
 }
 
+GLuint VideoLayerAndroid::createPlayTexture()
+{
+    return createTextureFromImage(RenderSkinMediaButton::PLAY);
+}
+
+GLuint VideoLayerAndroid::createPauseTexture()
+{
+    return createTextureFromImage(RenderSkinMediaButton::PAUSE);
+}
+
 GLuint VideoLayerAndroid::createTextureFromImage(int buttonType)
 {
     SkRect rect = SkRect(buttonRect);
@@ -112,7 +124,8 @@ GLuint VideoLayerAndroid::createTextureFromImage(int buttonType)
 
     SkCanvas canvas(bitmap);
     canvas.drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
-    RenderSkinMediaButton::Draw(&canvas, buttonRect, buttonType, true);
+    RenderSkinMediaButton::Draw(&canvas, buttonRect, buttonType, true, 0,
+                                false);
 
     GLuint texture;
     glGenTextures(1, &texture);
@@ -142,6 +155,31 @@ GLuint VideoLayerAndroid::createBackgroundTexture()
     return texture;
 }
 
+void VideoLayerAndroid::showPreparingAnimation(const SkRect& rect,
+                                               const SkRect innerRect)
+{
+    ShaderProgram* shader = TilesManager::instance()->shader();
+    shader->drawLayerQuad(m_drawTransform, rect, m_backgroundTextureId, 1, true);
+
+    TransformationMatrix addReverseRotation;
+    TransformationMatrix addRotation = m_drawTransform;
+    addRotation.translate(innerRect.fLeft, innerRect.fTop);
+    addRotation.translate(IMAGESIZE / 2, IMAGESIZE / 2);
+    addReverseRotation = addRotation;
+    addRotation.rotate(m_rotateDegree);
+    addRotation.translate(-IMAGESIZE / 2, -IMAGESIZE / 2);
+
+    SkRect size = SkRect::MakeWH(innerRect.width(), innerRect.height());
+    shader->drawLayerQuad(addRotation, size, m_spinnerOuterTextureId, 1, true);
+
+    addReverseRotation.rotate(-m_rotateDegree);
+    addReverseRotation.translate(-IMAGESIZE / 2, -IMAGESIZE / 2);
+
+    shader->drawLayerQuad(addReverseRotation, size, m_spinnerInnerTextureId, 1, true);
+
+    m_rotateDegree += ROTATESTEP;
+}
+
 bool VideoLayerAndroid::drawGL()
 {
     // Lazily allocated the textures.
@@ -150,6 +188,8 @@ bool VideoLayerAndroid::drawGL()
         m_spinnerOuterTextureId = createSpinnerOuterTexture();
         m_spinnerInnerTextureId = createSpinnerInnerTexture();
         m_posterTextureId = createPosterTexture();
+        m_playTextureId = createPlayTexture();
+        m_pauseTextureId = createPauseTexture();
         m_createdTexture = true;
     }
 
@@ -162,69 +202,63 @@ bool VideoLayerAndroid::drawGL()
 
     innerRect.offset((rect.width() - IMAGESIZE) / 2 , (rect.height() - IMAGESIZE) / 2);
 
+    ShaderProgram* shader = TilesManager::instance()->shader();
+    VideoLayerManager* manager =  TilesManager::instance()->videoLayerManager();
+
+    // When we are drawing the animation of the play/pause button in the
+    // middle of the video, we need to ask for redraw.
+    bool needRedraw = false;
+
     // Draw the poster image, the progressing image or the Video depending
     // on the player's state.
     if (m_playerState == PREPARING) {
         // Show the progressing animation, with two rotating circles
-        TilesManager::instance()->shader()->drawLayerQuad(m_drawTransform, rect,
-                                                          m_backgroundTextureId,
-                                                          1, true);
-
-        TransformationMatrix addReverseRotation;
-        TransformationMatrix addRotation = m_drawTransform;
-        addRotation.translate(innerRect.fLeft, innerRect.fTop);
-        addRotation.translate(IMAGESIZE / 2, IMAGESIZE / 2);
-        addReverseRotation = addRotation;
-        addRotation.rotate(m_rotateDegree);
-        addRotation.translate(-IMAGESIZE / 2, -IMAGESIZE / 2);
-
-        SkRect size = SkRect::MakeWH(innerRect.width(), innerRect.height());
-        TilesManager::instance()->shader()->drawLayerQuad(addRotation, size,
-                                                          m_spinnerOuterTextureId,
-                                                          1, true);
-
-        addReverseRotation.rotate(-m_rotateDegree);
-        addReverseRotation.translate(-IMAGESIZE / 2, -IMAGESIZE / 2);
-
-        TilesManager::instance()->shader()->drawLayerQuad(addReverseRotation, size,
-                                                          m_spinnerInnerTextureId,
-                                                          1, true);
-
-        m_rotateDegree += ROTATESTEP;
-
+        showPreparingAnimation(rect, innerRect);
     } else if (m_playerState == PLAYING && m_surfaceTexture.get()) {
         // Show the real video.
         m_surfaceTexture->updateTexImage();
         m_surfaceTexture->getTransformMatrix(surfaceMatrix);
-        GLuint textureId =
-            TilesManager::instance()->videoLayerManager()->getTextureId(uniqueId());
-        TilesManager::instance()->shader()->drawVideoLayerQuad(m_drawTransform,
-                                                               surfaceMatrix,
-                                                               rect, textureId);
-        TilesManager::instance()->videoLayerManager()->updateMatrix(uniqueId(),
-                                                                    surfaceMatrix);
+        GLuint textureId = manager->getTextureId(uniqueId());
+        shader->drawVideoLayerQuad(m_drawTransform, surfaceMatrix,
+                                   rect, textureId);
+        manager->updateMatrix(uniqueId(), surfaceMatrix);
+
+        // Use the scale to control the fading the sizing during animation
+        double scale = manager->drawIcon(uniqueId(), PlayIcon);
+        if (scale != 0) {
+            innerRect.inset(IMAGESIZE / 4 * scale, IMAGESIZE / 4 * scale);
+            shader->drawLayerQuad(m_drawTransform, innerRect,
+                                  m_playTextureId, scale, true);
+            needRedraw = true;
+        }
+
     } else {
-        GLuint textureId =
-            TilesManager::instance()->videoLayerManager()->getTextureId(uniqueId());
-        GLfloat* matrix =
-            TilesManager::instance()->videoLayerManager()->getMatrix(uniqueId());
+        GLuint textureId = manager->getTextureId(uniqueId());
+        GLfloat* matrix = manager->getMatrix(uniqueId());
         if (textureId && matrix) {
             // Show the screen shot for each video.
-            TilesManager::instance()->shader()->drawVideoLayerQuad(m_drawTransform,
-                                                               matrix,
-                                                               rect, textureId);
+            shader->drawVideoLayerQuad(m_drawTransform, matrix,
+                                       rect, textureId);
         } else {
             // Show the static poster b/c there is no screen shot available.
-            TilesManager::instance()->shader()->drawLayerQuad(m_drawTransform, rect,
-                                                              m_backgroundTextureId,
-                                                              1, true);
-            TilesManager::instance()->shader()->drawLayerQuad(m_drawTransform, innerRect,
-                                                              m_posterTextureId,
-                                                              1, true);
+            shader->drawLayerQuad(m_drawTransform, rect, m_backgroundTextureId,
+                                  1, true);
+            shader->drawLayerQuad(m_drawTransform, innerRect, m_posterTextureId,
+                                  1, true);
         }
-    }
 
-    return drawChildrenGL();
+        // Use the scale to control the fading and the sizing during animation.
+        double scale = manager->drawIcon(uniqueId(), PauseIcon);
+        if (scale != 0) {
+            innerRect.inset(IMAGESIZE / 4 * scale, IMAGESIZE / 4 * scale);
+            shader->drawLayerQuad(m_drawTransform, innerRect,
+                                  m_pauseTextureId, scale, true);
+            needRedraw = true;
+        }
+
+    }
+    // Don't short circuit here since we still want to draw the children.
+    return drawChildrenGL() || needRedraw;
 }
 
 }

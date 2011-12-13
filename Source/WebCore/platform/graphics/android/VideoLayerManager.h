@@ -34,6 +34,17 @@
 
 namespace WebCore {
 
+enum IconState {
+    Registered,
+    PlayIconShown,
+    PauseIconShown
+};
+
+enum IconType {
+    PlayIcon,
+    PauseIcon
+};
+
 // Every video layer can use its uniqueId to query VideoLayerManager about such
 // info globally.
 struct VideoLayerInfo {
@@ -41,6 +52,9 @@ struct VideoLayerInfo {
     int videoSize; // The size of the video.
     int timeStamp; // Used to decide which VideoLayerInfo is the oldest one.
     GLfloat surfaceMatrix[16];
+
+    double lastIconShownTime;
+    IconState iconState;
 };
 
 
@@ -68,6 +82,7 @@ public:
     // Delete the GL textures
     void deleteUnusedTextures();
 
+    double drawIcon(const int layerId, IconType type);
 private:
     // Get the sum of all the video size stored in m_videoLayerInfoMap.
     int getTotalMemUsage();
