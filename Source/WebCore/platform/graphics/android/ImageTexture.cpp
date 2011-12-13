@@ -240,8 +240,10 @@ void ImageTexture::drawGL(LayerAndroid* layer)
     // TiledTexture::draw() will call us back to know the
     // transform and opacity, so we need to set m_layer
     m_layer = layer;
-    if (m_texture)
-        m_texture->draw();
+    if (m_texture) {
+        IntRect visibleArea = m_layer->visibleArea();
+        m_texture->draw(visibleArea);
+    }
     m_layer = 0;
 }
 

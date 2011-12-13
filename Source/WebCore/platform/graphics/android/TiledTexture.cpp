@@ -99,13 +99,13 @@ void TiledTexture::swapTiles()
     XLOG("TT %p swapping, swaps = %d", this, swaps);
 }
 
-IntRect TiledTexture::computeTilesArea(IntRect& visibleArea, float scale)
+IntRect TiledTexture::computeTilesArea(IntRect& contentArea, float scale)
 {
     IntRect computedArea;
-    IntRect area(visibleArea.x() * scale,
-                 visibleArea.y() * scale,
-                 ceilf(visibleArea.width() * scale),
-                 ceilf(visibleArea.height() * scale));
+    IntRect area(contentArea.x() * scale,
+                 contentArea.y() * scale,
+                 ceilf(contentArea.width() * scale),
+                 ceilf(contentArea.height() * scale));
 
     XLOG("TT %p prepare, scale %f, area %d x %d", this, scale, area.width(), area.height());
 
@@ -128,21 +128,21 @@ IntRect TiledTexture::computeTilesArea(IntRect& visibleArea, float scale)
 }
 
 void TiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
-                           bool startFastSwap, IntRect& visibleArea)
+                           bool startFastSwap, IntRect& prepareArea)
 {
     if (!m_surface)
         return;
 
     // first, how many tiles do we need
-    m_area = computeTilesArea(visibleArea, scale);
+    m_area = computeTilesArea(prepareArea, scale);
     if (m_area.isEmpty())
         return;
 
-    XLOG("for TiledTexture %p, we prepare with scale %.2f, have a visible area of "
+    XLOG("for TiledTexture %p, we prepare with scale %.2f, have a prepare area of "
          " %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
          this, scale,
-         visibleArea.x(), visibleArea.y(),
-         visibleArea.width(), visibleArea.height(),
+         prepareArea.x(), prepareArea.y(),
+         prepareArea.width(), prepareArea.height(),
          m_area.x(), m_area.y(),
          m_area.width(), m_area.height());
 
@@ -239,7 +239,7 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
     return numberTextures;
 }
 
-bool TiledTexture::draw()
+bool TiledTexture::draw(IntRect& visibleArea)
 {
     if (!m_surface)
         return true;
@@ -250,6 +250,7 @@ bool TiledTexture::draw()
     TilesManager::instance()->getTilesTracker()->trackLayer();
 #endif
 
+    m_area = computeTilesArea(visibleArea, m_scale);
     if (m_area.width() == 0 || m_area.height() == 0)
         return false;
 
@@ -358,12 +359,12 @@ DualTiledTexture::~DualTiledTexture()
 }
 
 void DualTiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
-                               bool startFastSwap, IntRect& visibleArea)
+                               bool startFastSwap, IntRect& prepareArea)
 {
     // If we are zooming, we will use the previously used area, to prevent the
     // frontTexture to try to allocate more tiles than what it has already
     if (!m_zooming)
-        m_preZoomVisibleArea = visibleArea;
+        m_preZoomPrepareArea = prepareArea;
 
     if (m_futureScale != scale) {
         m_futureScale = scale;
@@ -375,11 +376,11 @@ void DualTiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
           this, scale, m_scale, m_futureScale, m_zooming);
 
     if (m_scale > 0)
-        m_frontTexture->prepare(state, m_scale, repaint, startFastSwap, m_preZoomVisibleArea);
+        m_frontTexture->prepare(state, m_scale, repaint, startFastSwap, m_preZoomPrepareArea);
 
     // If we had a scheduled update
     if (m_zooming && m_zoomUpdateTime < WTF::currentTime()) {
-        m_backTexture->prepare(state, m_futureScale, repaint, startFastSwap, visibleArea);
+        m_backTexture->prepare(state, m_futureScale, repaint, startFastSwap, prepareArea);
         if (m_backTexture->ready()) {
             m_backTexture->swapTiles();
             swap();
@@ -396,9 +397,9 @@ void DualTiledTexture::swap()
     m_backTexture->discardTextures();
 }
 
-bool DualTiledTexture::draw()
+bool DualTiledTexture::draw(IntRect& visibleArea)
 {
-    bool needsRepaint = m_frontTexture->draw();
+    bool needsRepaint = m_frontTexture->draw(visibleArea);
     needsRepaint |= m_zooming;
     needsRepaint |= (m_scale <= 0);
     return needsRepaint;
