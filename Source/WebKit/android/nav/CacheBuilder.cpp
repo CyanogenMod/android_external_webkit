@@ -1121,7 +1121,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         bool more = walk.mMore;
         walk.reset();
      //   GetGlobalBounds(node, &bounds, false);
-        bool computeCursorRings = false;
         bool hasClip = false;
         bool hasMouseOver = false;
         bool isUnclipped = false;
@@ -1228,7 +1227,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 continue;
             if (bounds.height() < MINIMUM_FOCUSABLE_HEIGHT)
                 continue;
-            computeCursorRings = true;
             isUnclipped = true;  // FIXME: to hide or partially occlude synthesized links, each
                                  // focus ring will also need the offset and length of characters
                                  // used to produce it
@@ -1325,7 +1323,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
                 takesFocus = hasTrigger;
             }
         }
-        computeCursorRings = true;
     keepNode:
         cachedNode.init(node);
         cachedNode.setBounds(bounds);
