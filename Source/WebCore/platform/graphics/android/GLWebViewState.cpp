@@ -138,6 +138,7 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
 {
     if (!layer || isPictureAfterFirstLayout) {
         // TODO: move this into TreeManager
+        m_zoomManager.swapPages(); // reset zoom state
         m_tiledPageA->discardTextures();
         m_tiledPageB->discardTextures();
         m_layersRenderingMode = kAllTextures;
