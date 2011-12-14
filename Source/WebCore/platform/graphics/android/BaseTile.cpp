@@ -68,6 +68,7 @@ BaseTile::BaseTile(bool isLayerTile)
     , m_dirty(true)
     , m_repaintPending(false)
     , m_lastDirtyPicture(0)
+    , m_fullRepaint(true)
     , m_isTexturePainted(false)
     , m_isLayerTile(isLayerTile)
     , m_drawCount(0)
@@ -76,20 +77,6 @@ BaseTile::BaseTile(bool isLayerTile)
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTile");
 #endif
-    m_currentDirtyAreaIndex = 0;
-
-    // For EglImage Mode, the internal buffer should be 2.
-    // For Surface Texture mode, we only need one.
-    if (TilesManager::instance()->getSharedTextureMode() == EglImageMode)
-        m_maxBufferNumber = 2;
-    else
-        m_maxBufferNumber = 1;
-
-    m_dirtyArea = new SkRegion[m_maxBufferNumber];
-    m_fullRepaint = new bool[m_maxBufferNumber];
-    for (int i = 0; i < m_maxBufferNumber; i++)
-        m_fullRepaint[i] = true;
-
     m_renderer = BaseRenderer::createRenderer();
 }
 
@@ -101,8 +88,6 @@ BaseTile::~BaseTile()
         m_frontTexture->release(this);
 
     delete m_renderer;
-    delete[] m_dirtyArea;
-    delete[] m_fullRepaint;
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BaseTile");
@@ -181,8 +166,7 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
         return;
     android::AutoMutex lock(m_atomicSync);
     m_lastDirtyPicture = pictureCount;
-    for (int i = 0; i < m_maxBufferNumber; i++)
-        m_dirtyArea[i].op(dirtyArea, SkRegion::kUnion_Op);
+    m_dirtyArea.op(dirtyArea, SkRegion::kUnion_Op);
 
     // Check if we actually intersect with the area
     bool intersect = false;
@@ -262,12 +246,6 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     if (!isTexturePainted)
         return;
 
-    TextureInfo* textureInfo = m_frontTexture->consumerLock();
-    if (!textureInfo) {
-        m_frontTexture->consumerRelease();
-        return;
-    }
-
     if (m_frontTexture->readyFor(this)) {
         if (isLayerTile() && m_painter && m_painter->transform())
             TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
@@ -279,8 +257,6 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     } else {
         XLOG("tile %p at %d, %d not readyfor (at draw),", this, m_x, m_y);
     }
-
-    m_frontTexture->consumerRelease();
 }
 
 bool BaseTile::isTileReady()
@@ -301,9 +277,7 @@ bool BaseTile::isTileReady()
     if (m_state != ReadyToSwap && m_state != UpToDate)
         return false;
 
-    texture->consumerLock();
     bool ready = texture->readyFor(this);
-    texture->consumerRelease();
 
     if (ready)
         return true;
@@ -350,7 +324,7 @@ void BaseTile::paintBitmap()
     m_atomicSync.lock();
     bool dirty = m_dirty;
     BaseTileTexture* texture = m_backTexture;
-    SkRegion dirtyArea = m_dirtyArea[m_currentDirtyAreaIndex];
+    SkRegion dirtyArea = m_dirtyArea;
     float scale = m_scale;
     const int x = m_x;
     const int y = m_y;
@@ -365,15 +339,12 @@ void BaseTile::paintBitmap()
               this, m_state, m_frontTexture, m_backTexture);
     }
     m_state = PaintingStarted;
-
-    texture->producerAcquireContext();
-    TextureInfo* textureInfo = texture->producerLock();
+    TextureInfo* textureInfo = texture->getTextureInfo();
     m_atomicSync.unlock();
 
     // at this point we can safely check the ownership (if the texture got
     // transferred to another BaseTile under us)
     if (texture->owner() != this) {
-        texture->producerRelease();
         return;
     }
 
@@ -381,7 +352,6 @@ void BaseTile::paintBitmap()
 
     // swap out the renderer if necessary
     BaseRenderer::swapRendererIfNeeded(m_renderer);
-
     // setup the common renderInfo fields;
     TileRenderInfo renderInfo;
     renderInfo.x = x;
@@ -399,16 +369,16 @@ void BaseTile::paintBitmap()
 
     bool fullRepaint = false;
 
-    if (m_fullRepaint[m_currentDirtyAreaIndex]
+    if (m_fullRepaint
         || textureInfo->m_width != tileWidth
         || textureInfo->m_height != tileHeight) {
         fullRepaint = true;
     }
 
-    bool surfaceTextureMode = textureInfo->getSharedTextureMode() == SurfaceTextureMode;
-
-    if (surfaceTextureMode)
-        fullRepaint = true;
+    // With SurfaceTexture, just repaint the entire tile if we intersect.
+    // TODO: Implement the partial invalidate in Surface Texture Mode.
+    // Such that the code of partial invalidation below is preserved.
+    fullRepaint = true;
 
     while (!fullRepaint && !cliperator.done()) {
         SkRect realTileRect;
@@ -417,14 +387,7 @@ void BaseTile::paintBitmap()
         bool intersect = intersectWithRect(x, y, tileWidth, tileHeight,
                                            scale, dirtyRect, realTileRect);
 
-        // With SurfaceTexture, just repaint the entire tile if we intersect
-        // TODO: Implement the partial invalidate in Surface Texture Mode
-        if (intersect && surfaceTextureMode) {
-            fullRepaint = true;
-            break;
-        }
-
-        if (intersect && !surfaceTextureMode) {
+        if (intersect) {
             // initialize finalRealRect to the rounded values of realTileRect
             SkIRect finalRealRect;
             realTileRect.roundOut(&finalRealRect);
@@ -466,15 +429,11 @@ void BaseTile::paintBitmap()
 
     m_atomicSync.lock();
 
-#if DEPRECATED_SURFACE_TEXTURE_MODE
-    texture->setTile(textureInfo, x, y, scale, painter, pictureCount);
-#endif
-    texture->producerReleaseAndSwap();
     if (texture == m_backTexture) {
         m_isTexturePainted = true;
 
         // set the fullrepaint flags
-        m_fullRepaint[m_currentDirtyAreaIndex] = false;
+        m_fullRepaint = false;
 
         // The various checks to see if we are still dirty...
 
@@ -484,19 +443,11 @@ void BaseTile::paintBitmap()
             m_dirty = true;
 
         if (fullRepaint)
-            m_dirtyArea[m_currentDirtyAreaIndex].setEmpty();
+            m_dirtyArea.setEmpty();
         else
-            m_dirtyArea[m_currentDirtyAreaIndex].op(dirtyArea, SkRegion::kDifference_Op);
+            m_dirtyArea.op(dirtyArea, SkRegion::kDifference_Op);
 
-        if (!m_dirtyArea[m_currentDirtyAreaIndex].isEmpty())
-            m_dirty = true;
-
-        // Now we can swap the dirty areas
-        // TODO: For surface texture in Async mode, the index will be updated
-        // according to the current buffer just dequeued.
-        m_currentDirtyAreaIndex = (m_currentDirtyAreaIndex+1) % m_maxBufferNumber;
-
-        if (!m_dirtyArea[m_currentDirtyAreaIndex].isEmpty())
+        if (!m_dirtyArea.isEmpty())
             m_dirty = true;
 
         XLOG("painted tile %p (%d, %d), texture %p, dirty=%d", this, x, y, texture, m_dirty);
@@ -522,10 +473,9 @@ void BaseTile::discardTextures() {
         m_backTexture->release(this);
         m_backTexture = 0;
     }
-    for (int i = 0; i < m_maxBufferNumber; i++) {
-        m_dirtyArea[i].setEmpty();
-        m_fullRepaint[i] = true;
-    }
+    m_dirtyArea.setEmpty();
+    m_fullRepaint = true;
+
     m_dirty = true;
     m_state = Unpainted;
 }

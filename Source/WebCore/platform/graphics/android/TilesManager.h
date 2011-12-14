@@ -132,11 +132,6 @@ public:
         m_showVisualIndicator = showVisualIndicator;
     }
 
-    SharedTextureMode getSharedTextureMode()
-    {
-        return SurfaceTextureMode;
-    }
-
     TilesProfiler* getProfiler()
     {
         return &m_profiler;

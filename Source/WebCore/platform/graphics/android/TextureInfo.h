@@ -34,8 +34,6 @@
 #include "BaseTile.h"
 using android::sp;
 
-#define DEPRECATED_SURFACE_TEXTURE_MODE 0
-
 namespace android {
 class SurfaceTexture;
 }
@@ -47,20 +45,14 @@ static const GLuint GL_NO_TEXTURE = 0;
  * TextureInfo is a class that stores both the texture and metadata about the
  * texture.
  */
-enum SharedTextureMode {
-    EglImageMode,
-    SurfaceTextureMode
-};
 
 class TextureInfo {
 public:
-
-    TextureInfo(SharedTextureMode mode);
+    TextureInfo();
 
     bool equalsAttributes(const TextureInfo* otherTexture);
     void copyAttributes(const TextureInfo* sourceTexture);
 
-    SharedTextureMode getSharedTextureMode() { return m_sharedTextureMode; }
     bool operator==(const TextureInfo& otherTexture);
 
     GLuint m_textureId;
@@ -68,18 +60,12 @@ public:
     int32_t m_height;
     GLenum m_internalFormat;
 
-    // Surface Texture specific data
-#if DEPRECATED_SURFACE_TEXTURE_MODE
-    sp<android::SurfaceTexture> m_surfaceTexture;
-#endif
     // TODO: Delete this after the Ganesh code path get fixed.
     sp<ANativeWindow> m_ANW;
     // The EGLSurface wraps the m_ANW to enable direct OpenGL rendering (e.g. Ganesh)
     EGLSurface m_eglSurface;
 
     int m_pictureCount;
-private:
-    SharedTextureMode m_sharedTextureMode;
 };
 
 } // namespace WebCore

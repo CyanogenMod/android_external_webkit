@@ -95,11 +95,7 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
         contextNeedsReset = true;
     }
 
-    SkDevice* device = 0;
-    if (renderInfo.textureInfo->getSharedTextureMode() == SurfaceTextureMode)
-        device = getDeviceForBaseTileSurface(renderInfo);
-    else if (renderInfo.textureInfo->getSharedTextureMode() == EglImageMode)
-        device = getDeviceForBaseTileFBO(renderInfo);
+    SkDevice* device = getDeviceForBaseTileSurface(renderInfo);
 
     // We must reset the Ganesh context only after we are sure we have
     // re-established our EGLContext as the current context.

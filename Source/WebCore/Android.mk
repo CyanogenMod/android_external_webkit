@@ -639,7 +639,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/BaseTileTexture.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
 	platform/graphics/android/ClassTracker.cpp \
-	platform/graphics/android/DoubleBufferedTexture.cpp \
 	platform/graphics/android/FontAndroid.cpp \
 	platform/graphics/android/FontCacheAndroid.cpp \
 	platform/graphics/android/FontCustomPlatformData.cpp \
@@ -673,7 +672,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/ScrollableLayerAndroid.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/ShaderProgram.cpp \
-	platform/graphics/android/SharedTexture.cpp \
 	platform/graphics/android/TextureInfo.cpp \
 	platform/graphics/android/TexturesGenerator.cpp \
 	platform/graphics/android/TilesManager.cpp \

@@ -84,20 +84,16 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
     GaneshContext* ganesh = GaneshContext::instance();
 
-#if !DEPRECATED_SURFACE_TEXTURE_MODE
-    if (renderInfo.textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
-        TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
+    TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
 
-        tileQueue->lockQueue();
+    tileQueue->lockQueue();
 
-        bool ready = tileQueue->readyForUpdate();
-        if (!ready) {
-            XLOG("!ready");
-            tileQueue->unlockQueue();
-            return;
-        }
+    bool ready = tileQueue->readyForUpdate();
+    if (!ready) {
+        XLOG("!ready");
+        tileQueue->unlockQueue();
+        return;
     }
-#endif
 
     SkDevice* device = NULL;
     if (renderInfo.tileSize.width() == TilesManager::tileWidth()
@@ -118,12 +114,6 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     // set the GPU device to the canvas
     canvas->setDevice(device);
     canvas->setDeviceFactory(device->getDeviceFactory());
-
-    // invert canvas contents
-    if (renderInfo.textureInfo->getSharedTextureMode() == EglImageMode) {
-        canvas->scale(SK_Scalar1, -SK_Scalar1);
-        canvas->translate(0, -renderInfo.tileSize.height());
-    }
 }
 
 void GaneshRenderer::setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas)
@@ -149,14 +139,10 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
 
     // In SurfaceTextureMode we must call swapBuffers to unlock and post the
     // tile's ANativeWindow (i.e. SurfaceTexture) buffer
-    if (renderInfo.textureInfo->getSharedTextureMode() == SurfaceTextureMode) {
-#if !DEPRECATED_SURFACE_TEXTURE_MODE
-        TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
-        eglSwapBuffers(eglGetCurrentDisplay(), tileQueue->m_eglSurface);
-        tileQueue->addItemInTransferQueue(&renderInfo, GpuUpload, 0);
-        tileQueue->unlockQueue();
-#endif
-    }
+    TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
+    eglSwapBuffers(eglGetCurrentDisplay(), tileQueue->m_eglSurface);
+    tileQueue->addItemInTransferQueue(&renderInfo, GpuUpload, 0);
+    tileQueue->unlockQueue();
 
     if (renderInfo.measurePerf)
         m_perfMon.stop(TAG_UPDATE_TEXTURE);

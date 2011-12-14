@@ -78,10 +78,6 @@ public:
     static void createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter = GL_LINEAR);
 
     static void paintTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap);
-#if DEPRECATED_SURFACE_TEXTURE_MODE
-    static void createSurfaceTextureWithBitmap(const TileRenderInfo* , const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
-    static void updateSurfaceTextureWithBitmap(const TileRenderInfo* , int x, int y, const SkBitmap& bitmap, GLint filter  = GL_LINEAR);
-#endif
     static void updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* , int x, int y, const SkBitmap& bitmap);
     static void convertToTransformationMatrix(const float* matrix, TransformationMatrix& transformMatrix);
 };
