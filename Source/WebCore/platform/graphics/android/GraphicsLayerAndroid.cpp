@@ -606,9 +606,13 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundClipLayer->setPosition(x, y);
             m_foregroundClipLayer->setSize(width, height);
 
+            int rtlOffset = 0; // LTR uses no offset.
+            if (!layer->renderer()->style()->isLeftToRightDirection()) {
+                rtlOffset = layer->scrollWidth() - clip.width(); // Scroll all the way right.
+            }
             // Need to offset the foreground layer by the clip layer in order
             // for the contents to be in the correct position.
-            m_foregroundLayer->setPosition(-x, -y);
+            m_foregroundLayer->setPosition(-x - rtlOffset, -y);
             // Set the scrollable bounds of the layer.
             m_foregroundLayer->setScrollLimits(-x, -y, m_size.width(), m_size.height());
             m_foregroundLayer->markAsDirty(m_dirtyRegion);
