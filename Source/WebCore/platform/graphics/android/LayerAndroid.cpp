@@ -8,11 +8,11 @@
 #include "DrawExtra.h"
 #include "GLUtils.h"
 #include "ImagesManager.h"
+#include "InspectorCanvas.h"
 #include "MediaLayer.h"
 #include "PaintedSurface.h"
 #include "ParseCanvas.h"
 #include "SkBitmapRef.h"
-#include "SkBounder.h"
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
 #include "SkPicture.h"
@@ -53,87 +53,6 @@ public:
     }
 private:
     int m_opacity;
-};
-
-class HasTextBounder : public SkBounder {
-    virtual bool onIRect(const SkIRect& rect)
-    {
-        return false;
-    }
-};
-
-class HasTextCanvas : public SkCanvas {
-public:
-    HasTextCanvas(SkBounder* bounder, SkPicture* picture)
-        : m_picture(picture)
-        , m_hasText(false)
-    {
-        setBounder(bounder);
-    }
-
-    void setHasText()
-    {
-        m_hasText = true;
-        m_picture->abortPlayback();
-    }
-
-    bool hasText()
-    {
-        return m_hasText;
-    }
-
-    virtual bool clipPath(const SkPath&, SkRegion::Op) {
-        return true;
-    }
-
-    virtual void commonDrawBitmap(const SkBitmap& bitmap,
-                                  const SkIRect* rect,
-                                  const SkMatrix&,
-                                  const SkPaint&) {}
-
-    virtual void drawPaint(const SkPaint& paint) {}
-    virtual void drawPath(const SkPath&, const SkPaint& paint) {}
-    virtual void drawPoints(PointMode, size_t,
-                            const SkPoint [], const SkPaint& paint) {}
-
-    virtual void drawRect(const SkRect& , const SkPaint& paint) {}
-    virtual void drawSprite(const SkBitmap& , int , int ,
-                            const SkPaint* paint = NULL) {}
-
-    virtual void drawText(const void*, size_t byteLength, SkScalar,
-                          SkScalar, const SkPaint& paint)
-    {
-        setHasText();
-    }
-
-    virtual void drawPosText(const void* , size_t byteLength,
-                             const SkPoint [], const SkPaint& paint)
-    {
-        setHasText();
-    }
-
-    virtual void drawPosTextH(const void*, size_t byteLength,
-                              const SkScalar [], SkScalar,
-                              const SkPaint& paint)
-    {
-        setHasText();
-    }
-
-    virtual void drawTextOnPath(const void*, size_t byteLength,
-                                const SkPath&, const SkMatrix*,
-                                const SkPaint& paint)
-    {
-        setHasText();
-    }
-
-    virtual void drawPicture(SkPicture& picture) {
-        SkCanvas::drawPicture(picture);
-    }
-
-private:
-
-    SkPicture* m_picture;
-    bool m_hasText;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -226,13 +145,13 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 #endif
 }
 
-void LayerAndroid::checkTextPresence()
+void LayerAndroid::checkForPictureOptimizations()
 {
     if (m_recordingPicture) {
         // Let's check if we have text or not. If we don't, we can limit
         // ourselves to scale 1!
-        HasTextBounder hasTextBounder;
-        HasTextCanvas checker(&hasTextBounder, m_recordingPicture);
+        InspectorBounder inspectorBounder;
+        InspectorCanvas checker(&inspectorBounder, m_recordingPicture);
         SkBitmap bitmap;
         bitmap.setConfig(SkBitmap::kARGB_8888_Config,
                          m_recordingPicture->width(),
@@ -240,6 +159,12 @@ void LayerAndroid::checkTextPresence()
         checker.setBitmapDevice(bitmap);
         checker.drawPicture(*m_recordingPicture);
         m_hasText = checker.hasText();
+        if (!checker.hasContent()) {
+            // no content to draw, discard picture so UI / tile generation
+            // doesn't bother with it
+            SkSafeUnref(m_recordingPicture);
+            m_recordingPicture = 0;
+        }
     }
 }
 

@@ -302,7 +302,7 @@ public:
     int type() { return m_type; }
 
     bool hasText() { return m_hasText; }
-    void checkTextPresence();
+    void checkForPictureOptimizations();
 
     void copyAnimationStartTimesRecursive(LayerAndroid* oldTree);
 

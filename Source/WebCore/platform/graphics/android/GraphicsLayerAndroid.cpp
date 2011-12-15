@@ -573,7 +573,7 @@ bool GraphicsLayerAndroid::repaint()
             phase.set(GraphicsLayerPaintBackground);
             if (!paintContext(m_contentLayer->recordContext(), layerBounds))
                 return false;
-            m_contentLayer->checkTextPresence();
+            m_contentLayer->checkForPictureOptimizations();
 
             // Construct the foreground layer and draw.
             RenderBox* box = layer->renderBox();
@@ -592,7 +592,7 @@ bool GraphicsLayerAndroid::repaint()
             layer->scrollToOffset(0, 0);
             // At this point, it doesn't matter if painting failed.
             (void) paintContext(m_foregroundLayer->recordContext(), contentsRect);
-            m_foregroundLayer->checkTextPresence();
+            m_foregroundLayer->checkForPictureOptimizations();
             layer->scrollToOffset(scroll.width(), scroll.height());
 
             // Construct the clip layer for masking the contents.
@@ -625,7 +625,7 @@ bool GraphicsLayerAndroid::repaint()
             // picture.
             if (!paintContext(m_contentLayer->recordContext(), layerBounds))
                 return false;
-            m_contentLayer->checkTextPresence();
+            m_contentLayer->checkForPictureOptimizations();
             // Check for a scrollable iframe and report the scrolling
             // limits based on the view size.
             if (m_contentLayer->contentIsScrollable()) {
