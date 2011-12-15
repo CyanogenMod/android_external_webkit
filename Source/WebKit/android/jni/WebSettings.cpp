@@ -420,22 +420,38 @@ public:
 #endif
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-        flag = env->GetBooleanField(obj, gFieldIds->mAppCacheEnabled);
-        s->setOfflineWebApplicationCacheEnabled(flag);
-        str = (jstring)env->GetObjectField(obj, gFieldIds->mAppCachePath);
-        if (str) {
-            String path = jstringToWtfString(env, str);
-            if (path.length() && cacheStorage().cacheDirectory().isNull()) {
-                cacheStorage().setCacheDirectory(path);
+        // We only enable AppCache if it's been enabled with a call to
+        // setAppCacheEnabled() and if a valid path has been supplied to
+        // setAppCachePath(). Note that the path is applied to all WebViews
+        // whereas enabling is applied per WebView.
+
+        // WebCore asserts that the path is only set once. Since the path is
+        // shared between WebViews, we can't do the required checks to guard
+        // against this in the Java WebSettings.
+        bool isPathValid = false;
+        if (cacheStorage().cacheDirectory().isNull()) {
+            str = static_cast<jstring>(env->GetObjectField(obj, gFieldIds->mAppCachePath));
+            // Check for non-null string as an optimization, as this is the common case.
+            if (str) {
+                String path = jstringToWtfString(env, str);
+                LOG_ASSERT(!path.empty(), "Java side should never send empty string for AppCache path");
                 // This database is created on the first load. If the file
                 // doesn't exist, we create it and set its permissions. The
                 // filename must match that in ApplicationCacheStorage.cpp.
                 String filename = pathByAppendingComponent(path, "ApplicationCache.db");
-                int fd = open(filename.utf8().data(), O_CREAT | O_EXCL, permissionFlags660);
-                if (fd >= 0)
+                int fd = open(filename.utf8().data(), O_CREAT, permissionFlags660);
+                if (fd >= 0) {
                     close(fd);
+                    cacheStorage().setCacheDirectory(path);
+                    isPathValid = true;
+              }
             }
-        }
+        } else
+            isPathValid = true;
+
+        flag = env->GetBooleanField(obj, gFieldIds->mAppCacheEnabled);
+        s->setOfflineWebApplicationCacheEnabled(flag && isPathValid);
+
         jlong maxsize = env->GetLongField(obj, gFieldIds->mAppCacheMaxSize);
         cacheStorage().setMaximumSize(maxsize);
 #endif
