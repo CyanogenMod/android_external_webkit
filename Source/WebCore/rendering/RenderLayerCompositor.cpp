@@ -650,7 +650,7 @@ bool RenderLayerCompositor::checkForFixedLayers(Vector<RenderLayer*>* list, bool
                     IntRect bounds = aLayer->renderer()->localToAbsoluteQuad(
                         FloatRect(aLayer->localBoundingBox())).enclosingBoundingBox();
                     if (bounds.contains(currentLayerBounds)
-                        && needsToBeComposited(aLayer)) {
+                        && needsToBeComposited(aLayer) && aLayer->isStackingContext()) {
                         needComposite = false;
                         break;
                     }
@@ -724,15 +724,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (layer->isFixed())
         compositingState.m_hasFixedElement = true;
 #endif
-
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    // we don't want to signal that the subtree is compositing if the reason
-    // is because the layer is an overflow layer -- doing so would trigger
-    // all the above layers to be composited unnecessarily
-    if (willBeComposited && !layer->hasOverflowScroll() && !layer->isFixed()) {
-#else
     if (willBeComposited) {
-#endif
         // Tell the parent it has compositing descendants.
         compositingState.m_subtreeIsCompositing = true;
         // This layer now acts as the ancestor for kids.
@@ -764,7 +756,18 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
                 // If we have to make a layer for this child, make one now so we can have a contents layer
                 // (since we need to ensure that the -ve z-order child renders underneath our contents).
+#ifdef ANDROID
+                // Normally we try to reduce the number of layers by not promoting all fixed
+                // or scrollable elements to their own compositing layer. But in the case that
+                // we have such an element in the negative z-order, we must make it a layer
+                // otherwise the content will be painted at a higher z-index. This breaks pages
+                // that set a large image with a z-index of -1 to implement a background image,
+                // for example.
+                bool childRequiresCompositing = childState.m_hasFixedElement || childState.m_hasScrollableElement;
+                if (!willBeComposited && (childState.m_subtreeIsCompositing || childRequiresCompositing)) {
+#else
                 if (!willBeComposited && childState.m_subtreeIsCompositing) {
+#endif
                     // make layer compositing
                     layer->setMustOverlapCompositedLayers(true);
                     childState.m_compositingAncestor = layer;
@@ -1573,7 +1576,12 @@ bool RenderLayerCompositor::requiresCompositingForAnimation(RenderObject* render
         return false;
 
     if (AnimationController* animController = renderer->animation()) {
+#if PLATFORM(ANDROID)
+        // android renders an opacity animation much faster if it's composited
+        return (animController->isRunningAnimationOnRenderer(renderer, CSSPropertyOpacity))
+#else
         return (animController->isRunningAnimationOnRenderer(renderer, CSSPropertyOpacity) && inCompositingMode())
+#endif
             || animController->isRunningAnimationOnRenderer(renderer, CSSPropertyWebkitTransform);
     }
     return false;

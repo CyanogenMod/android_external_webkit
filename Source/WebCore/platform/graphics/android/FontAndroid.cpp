@@ -59,6 +59,9 @@ using namespace android;
 
 namespace WebCore {
 
+typedef std::pair<int, float> FallbackFontKey;
+typedef HashMap<FallbackFontKey, FontPlatformData*> FallbackHash;
+
 static void updateForFont(SkPaint* paint, const SimpleFontData* font) {
     font->platformData().setupPaint(paint);
     paint->setTextEncoding(SkPaint::kGlyphID_TextEncoding);
@@ -94,6 +97,10 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     if (hasShadow || hasBothStrokeAndFill) {
         SkLayerDrawLooper* looper = new SkLayerDrawLooper;
         paint->setLooper(looper)->unref();
+
+        // The layerDrawLooper uses at the root paint to determine the text
+        // encoding so we need to make sure it is properly configured.
+        updateForFont(paint, font);
 
         // Specify the behavior of the looper
         SkLayerDrawLooper::LayerInfo info;
@@ -183,8 +190,10 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     SkScalar                    y = SkFloatToScalar(point.y());
     const GlyphBufferGlyph*     glyphs = glyphBuffer.glyphs(from);
     const GlyphBufferAdvance*   adv = glyphBuffer.advances(from);
-    SkAutoSTMalloc<32, SkPoint> storage(numGlyphs);
+    SkAutoSTMalloc<32, SkPoint> storage(numGlyphs), storage2(numGlyphs), storage3(numGlyphs);
     SkPoint*                    pos = storage.get();
+    SkPoint*                    vPosBegin = storage2.get();
+    SkPoint*                    vPosEnd = storage3.get();
 
     SkCanvas* canvas = gc->platformContext()->mCanvas;
 
@@ -221,12 +230,27 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                                 localCount * sizeof(uint16_t),
                                 &pos[localIndex], paint);
     } else {
+        bool isVertical = font->platformData().orientation() == Vertical;
         for (int i = 0; i < numGlyphs; i++) {
             pos[i].set(x, y);
-            x += SkFloatToScalar(adv[i].width());
             y += SkFloatToScalar(adv[i].height());
+            if (isVertical) {
+                SkScalar myWidth = SkFloatToScalar(adv[i].width());
+                vPosBegin[i].set(x + myWidth, y);
+                vPosEnd[i].set(x + myWidth, y - myWidth);
+                x += myWidth;
+
+                SkPath path;
+                path.reset();
+                path.moveTo(vPosBegin[i]);
+                path.lineTo(vPosEnd[i]);
+                canvas->drawTextOnPath(glyphs + i, 2, path, 0, paint);
+            }
+            else
+                x += SkFloatToScalar(adv[i].width());
         }
-        canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
+        if (!isVertical)
+            canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
     }
 }
 
@@ -428,16 +452,17 @@ public:
 
 private:
     enum CustomScript {
-        Hindi,
-        Thai,
-        Naskh,
+        Bengali,
+        Devanagari,
         Hebrew,
         HebrewBold,
+        Naskh,
+        Tamil,
+        Thai,
         NUM_SCRIPTS
     };
 
     static const char* paths[NUM_SCRIPTS];
-    static const FontPlatformData* s_fallbackPlatformData[NUM_SCRIPTS];
 
     void setupFontForScriptRun();
     const FontPlatformData* setupComplexFont(CustomScript script,
@@ -485,15 +510,14 @@ private:
 
 // Indexed using enum CustomScript
 const char* TextRunWalker::paths[] = {
+    "/system/fonts/Lohit-Bengali.ttf",
     "/system/fonts/Lohit-Devanagari.ttf",
-    "/system/fonts/DroidSansThai.ttf",
-    "/system/fonts/DroidNaskh-Regular.ttf",
     "/system/fonts/DroidSansHebrew-Regular.ttf",
-    "/system/fonts/DroidSansHebrew-Bold.ttf"
+    "/system/fonts/DroidSansHebrew-Bold.ttf",
+    "/system/fonts/DroidNaskh-Regular.ttf",
+    "/system/fonts/Lohit-Tamil.ttf",
+    "/system/fonts/DroidSansThai.ttf"
 };
-
-// Indexed using enum CustomScript
-const FontPlatformData* TextRunWalker::s_fallbackPlatformData[] = {};
 
 TextRunWalker::TextRunWalker(const TextRun& run, unsigned startingX, const Font* font)
     : m_font(font)
@@ -651,17 +675,23 @@ const FontPlatformData* TextRunWalker::setupComplexFont(
         CustomScript script,
         const FontPlatformData& platformData)
 {
-    if (!s_fallbackPlatformData[script]) {
+    static FallbackHash fallbackPlatformData;
+
+    FallbackFontKey key(script, platformData.size());
+    FontPlatformData* newPlatformData = 0;
+
+    if (!fallbackPlatformData.contains(key)) {
         SkTypeface* typeface = SkTypeface::CreateFromFile(paths[script]);
-        s_fallbackPlatformData[script] = new FontPlatformData(platformData, typeface);
+        newPlatformData = new FontPlatformData(platformData, typeface);
         SkSafeUnref(typeface);
+        fallbackPlatformData.set(key, newPlatformData);
     }
 
-    // If we couldn't allocate a new FontPlatformData, revert to the one passed
-    if (!s_fallbackPlatformData[script])
-        return &platformData;
+    if (!newPlatformData)
+        newPlatformData = fallbackPlatformData.get(key);
 
-    return s_fallbackPlatformData[script];
+    // If we couldn't allocate a new FontPlatformData, revert to the one passed
+    return newPlatformData ? newPlatformData : &platformData;
 }
 
 void TextRunWalker::setupFontForScriptRun()
@@ -672,14 +702,11 @@ void TextRunWalker::setupFontForScriptRun()
     const FontPlatformData* complexPlatformData = &platformData;
 
     switch (m_item.item.script) {
+      case HB_Script_Bengali:
+          complexPlatformData = setupComplexFont(Bengali, platformData);
+          break;
         case HB_Script_Devanagari:
-            complexPlatformData = setupComplexFont(Hindi, platformData);
-            break;
-        case HB_Script_Thai:
-            complexPlatformData = setupComplexFont(Thai, platformData);
-            break;
-        case HB_Script_Arabic:
-            complexPlatformData = setupComplexFont(Naskh, platformData);
+            complexPlatformData = setupComplexFont(Devanagari, platformData);
             break;
         case HB_Script_Hebrew:
             switch (platformData.typeface()->style()) {
@@ -693,6 +720,15 @@ void TextRunWalker::setupFontForScriptRun()
                     complexPlatformData = setupComplexFont(Hebrew, platformData);
                     break;
             }
+            break;
+        case HB_Script_Arabic:
+            complexPlatformData = setupComplexFont(Naskh, platformData);
+            break;
+        case HB_Script_Tamil:
+            complexPlatformData = setupComplexFont(Tamil, platformData);
+            break;
+        case HB_Script_Thai:
+            complexPlatformData = setupComplexFont(Thai, platformData);
             break;
         default:
             // HB_Script_Common; includes Ethiopic

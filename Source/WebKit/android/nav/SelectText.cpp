@@ -51,6 +51,11 @@
 #define VERBOSE_LOGGING 0
 // #define EXTRA_NOISY_LOGGING 1
 #define DEBUG_TOUCH_HANDLES 0
+#if DEBUG_TOUCH_HANDLES
+#define DBG_HANDLE_LOG(format, ...) LOGD("%s " format, __FUNCTION__, __VA_ARGS__)
+#else
+#define DBG_HANDLE_LOG(...)
+#endif
 
 // TextRunIterator has been copied verbatim from GraphicsContext.cpp
 namespace WebCore {
@@ -1311,6 +1316,7 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 // from the drawable itself
 #define CONTROL_HEIGHT 47
 #define CONTROL_WIDTH 26
+#define CONTROL_SLOP 5
 #define STROKE_WIDTH 1.0f
 #define STROKE_OUTSET 3.5f
 #define STROKE_I_OUTSET 4 // (int) ceil(STROKE_OUTSET)
@@ -1321,6 +1327,7 @@ static WTF::String text(const SkPicture& picture, const SkIRect& area,
 SelectText::SelectText()
     : m_controlWidth(CONTROL_WIDTH)
     , m_controlHeight(CONTROL_HEIGHT)
+    , m_controlSlop(CONTROL_SLOP)
 {
     m_picture = 0;
     reset();
@@ -1478,7 +1485,8 @@ static void addEnd(SkRegion* diff, const SkIRect& rect)
     diff->op(bounds, SkRegion::kUnion_Op);
 }
 
-void SelectText::getSelectionRegion(const IntRect& vis, SkRegion *region)
+void SelectText::getSelectionRegion(const IntRect& vis, SkRegion *region,
+                                    LayerAndroid* root)
 {
     SkIRect ivisBounds = vis;
     ivisBounds.join(m_selStart);
@@ -1486,6 +1494,14 @@ void SelectText::getSelectionRegion(const IntRect& vis, SkRegion *region)
     region->setEmpty();
     buildSelection(*m_picture, ivisBounds, m_selStart, m_startBase,
         m_selEnd, m_endBase, region);
+    if (root && m_layerId) {
+        Layer* layer = root->findById(m_layerId);
+        while (layer) {
+            const SkPoint& pos = layer->getPosition();
+            region->translate(pos.fX, pos.fY);
+            layer = layer->getParent();
+        }
+    }
 }
 
 void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
@@ -1529,14 +1545,18 @@ void SelectText::drawSelectionRegion(SkCanvas* canvas, IntRect* inval)
 
 #if DEBUG_TOUCH_HANDLES
     SkRect touchHandleRect;
-    paint.setColor(SkColorSetARGB(0xA0, 0xFF, 0x00, 0x00));
+    paint.setColor(SkColorSetARGB(0x60, 0xFF, 0x00, 0x00));
     touchHandleRect.set(0, m_selStart.fBottom, m_selStart.fLeft, 0);
     touchHandleRect.fBottom = touchHandleRect.fTop + m_controlHeight;
     touchHandleRect.fLeft = touchHandleRect.fRight - m_controlWidth;
     canvas->drawRect(touchHandleRect, paint);
+    touchHandleRect.inset(-m_controlSlop, -m_controlSlop);
+    canvas->drawRect(touchHandleRect, paint);
     touchHandleRect.set(m_selEnd.fRight, m_selEnd.fBottom, 0, 0);
     touchHandleRect.fBottom = touchHandleRect.fTop + m_controlHeight;
     touchHandleRect.fRight = touchHandleRect.fLeft + m_controlWidth;
+    canvas->drawRect(touchHandleRect, paint);
+    touchHandleRect.inset(-m_controlSlop, -m_controlSlop);
     canvas->drawRect(touchHandleRect, paint);
 #endif
 
@@ -1780,6 +1800,9 @@ bool SelectText::hitCorner(int cx, int cy, int x, int y) const
 {
     SkIRect test;
     test.set(cx, cy, cx + m_controlWidth, cy + m_controlHeight);
+    test.inset(-m_controlSlop, -m_controlSlop);
+    DBG_HANDLE_LOG("checking if %dx%d,%d-%d contains %dx%d",
+                   cx, cy, m_controlWidth, m_controlHeight, x,  y);
     return test.contains(x, y);
 }
 
@@ -1804,6 +1827,25 @@ bool SelectText::hitSelection(int x, int y) const
     if (hitEndHandle(x, y))
         return true;
     return m_selRegion.contains(x, y);
+}
+
+void SelectText::getSelectionHandles(int* handles, LayerAndroid* root)
+{
+    handles[0] = m_selStart.fLeft;
+    handles[1] = m_selStart.fBottom;
+    handles[2] = m_selEnd.fRight;
+    handles[3] = m_selEnd.fBottom;
+    if (root && m_layerId) {
+        Layer* layer = root->findById(m_layerId);
+        while (layer) {
+            const SkPoint& pos = layer->getPosition();
+            handles[0] += pos.fX;
+            handles[2] += pos.fX;
+            handles[1] += pos.fY;
+            handles[3] += pos.fY;
+            layer = layer->getParent();
+        }
+    }
 }
 
 void SelectText::moveSelection(const IntRect& vis, int x, int y)
@@ -1944,6 +1986,7 @@ void SelectText::updateHandleScale(float handleScale)
 {
     m_controlHeight = CONTROL_HEIGHT * handleScale;
     m_controlWidth = CONTROL_WIDTH * handleScale;
+    m_controlSlop = CONTROL_SLOP * handleScale;
 }
 
 /* selects the word at (x, y)

@@ -30,11 +30,9 @@
 #include "SkColor.h"
 #include "SkRegion.h"
 #include "SkStream.h"
-#include "TextureOwner.h"
 #include "TransformationMatrix.h"
 
 #include <wtf/HashMap.h>
-#include <wtf/text/StringHash.h>
 
 #ifndef BZERO_DEFINED
 #define BZERO_DEFINED
@@ -94,21 +92,37 @@ namespace WebCore {
 
 class AndroidAnimation;
 class BaseTileTexture;
+class GLWebViewState;
 class LayerAndroidFindState;
 class RenderLayer;
 class TiledPage;
 class PaintedSurface;
 
-class LayerAndroid : public Layer {
+class TexturesResult {
+public:
+    TexturesResult()
+        : fixed(0)
+        , scrollable(0)
+        , clipped(0)
+        , full(0)
+    {}
+
+    int fixed;
+    int scrollable;
+    int clipped;
+    int full;
+};
+
+class TEST_EXPORT LayerAndroid : public Layer {
 public:
     enum LayerType { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer };
+
     LayerAndroid(RenderLayer* owner);
     LayerAndroid(const LayerAndroid& layer);
     LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
 
     virtual TiledPage* page() { return 0; }
-    virtual GLWebViewState* state() { return m_state; }
 
     void setBackfaceVisibility(bool value) { m_backfaceVisibility = value; }
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
@@ -121,22 +135,29 @@ public:
     IntRect clippedRect() const;
     bool outsideViewport();
 
+    IntRect unclippedArea();
+    IntRect visibleArea();
+
     virtual bool needsTexture();
     void removeTexture(PaintedSurface*);
 
     // Debug helper methods
     int nbLayers();
     int nbTexturedLayers();
-    void showLayer(int indent);
+    void showLayer(int indent = 0);
+
+    void computeTexturesAmount(TexturesResult*);
 
     float getScale() { return m_scale; }
 
     // draw layer and its children via Z, pre-order traversal
-    virtual bool drawGL(GLWebViewState*, SkMatrix&);
-    bool drawChildrenGL(GLWebViewState*, SkMatrix&);
+    virtual bool drawGL();
+    bool drawChildrenGL();
+    virtual bool drawCanvas(SkCanvas*);
+    bool drawChildrenCanvas(SkCanvas*);
 
     // prepare layer and its children via reverse-Z, post-order traversal
-    void prepare(GLWebViewState*);
+    void prepare();
 
     void updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                    const FloatRect& clip, float opacity, float scale);
@@ -193,8 +214,9 @@ public:
     void removeAnimationsForKeyframes(const String& name);
     bool evaluateAnimations();
     bool evaluateAnimations(double time);
+    void initAnimations();
     bool hasAnimations() const;
-    void addDirtyArea(GLWebViewState*);
+    void addDirtyArea();
 
     SkPicture* picture() const { return m_recordingPicture; }
 
@@ -212,7 +234,7 @@ public:
         This call is recursive, so it should be called on the root of the
         hierarchy.
     */
-    void updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
+    bool updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
 
     /** Call this to update the position attribute, so that later calls
         like bounds() will report the corrected position.
@@ -233,14 +255,13 @@ public:
     {
         return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
     }
-    void setExtra(DrawExtra* extra); // does not assign ownership
     int uniqueId() const { return m_uniqueId; }
     bool isFixed() { return m_isFixed; }
 
     /** This sets a content image -- calling it means we will use
         the image directly when drawing the layer instead of using
         the content painted by WebKit.
-        Images are handled in TilesManager, as they can be shared
+        Images are handled in ImagesManager, as they can be shared
         between layers.
     */
     void setContentsImage(SkBitmapRef* img);
@@ -252,12 +273,9 @@ public:
     void needsRepaint() { m_pictureUsed++; }
     unsigned int pictureUsed() { return m_pictureUsed; }
 
-    void markAsDirty(const SkRegion& dirtyArea);
     void clearDirtyRegion();
-    const SkRegion& dirtyRegion() { return m_dirtyRegion; }
 
     void contentDraw(SkCanvas*);
-    void extraDraw(SkCanvas*);
 
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
@@ -273,8 +291,7 @@ public:
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
     PaintedSurface* texture() { return m_texture; }
-    void assignTextureTo(LayerAndroid* newTree);
-    void createTexture();
+    void obtainTextureForPainting(LayerAndroid* drawingLayer);
 
     // Update layers using another tree. Only works for basic properties
     // such as the position, the transform. Return true if anything more
@@ -282,9 +299,19 @@ public:
     bool updateWithTree(LayerAndroid*);
     virtual bool updateWithLayer(LayerAndroid*);
 
-    SkBitmapRef* imageRef() { return m_imageRef; }
-    ImageTexture* imageTexture() { return m_imageTexture; }
     int type() { return m_type; }
+
+    bool hasText() { return m_hasText; }
+    void checkTextPresence();
+
+    void copyAnimationStartTimesRecursive(LayerAndroid* oldTree);
+
+// rendering asset management
+    void swapTiles();
+    void setIsDrawing(bool isDrawing);
+    void setIsPainting(Layer* drawingTree);
+    void mergeInvalsInto(Layer* replacementTree);
+    bool isReady();
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity);
@@ -297,6 +324,7 @@ private:
     friend class CachedLayer::Debug; // debugging access only
 #endif
 
+    void copyAnimationStartTimes(LayerAndroid* oldLayer);
     void findInner(FindState&) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
@@ -357,25 +385,15 @@ private:
 
     FloatRect m_clippingRect;
 
-    SkPicture* m_extra;
     int m_uniqueId;
 
     PaintedSurface* m_texture;
-    SkBitmapRef* m_imageRef;
-    ImageTexture* m_imageTexture;
+    unsigned m_imageCRC;
 
-    // used to signal that the tile is out-of-date and needs to be redrawn
-    bool m_dirty;
     unsigned int m_pictureUsed;
-
-    // dirty regions
-    SkRegion m_dirtyRegion;
 
     // used to signal the framework we need a repaint
     bool m_hasRunningAnimations;
-
-    // painting request sent
-    bool m_requestSent;
 
     float m_scale;
 
@@ -390,8 +408,10 @@ private:
 
     RenderLayer* m_owningLayer;
 
-    GLWebViewState* m_state;
     int m_type;
+
+    bool m_hasText;
+
     typedef Layer INHERITED;
 };
 

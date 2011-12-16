@@ -782,6 +782,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
 
 void GraphicsContext::fillRect(const FloatRect& rect)
 {
+    save();
     SkPaint paint;
 
     m_data->setupPaintFill(&paint);
@@ -791,6 +792,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
                  m_state.fillGradient.get());
 
     GC2CANVAS(this)->drawRect(rect, paint);
+    restore();
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace)
@@ -799,6 +801,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
         return;
 
     if (color.rgb() & 0xFF000000) {
+        save();
         SkPaint paint;
 
         m_data->setupPaintCommon(&paint);
@@ -828,6 +831,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
         paint.setAntiAlias(false);
 
         GC2CANVAS(this)->drawRect(rect, paint);
+        restore();
     }
 }
 
@@ -1203,10 +1207,11 @@ AffineTransform GraphicsContext::getCTM() const
 
 void GraphicsContext::setCTM(const AffineTransform& transform)
 {
-    if (paintingDisabled())
-        return;
-
-    GC2CANVAS(this)->setMatrix(transform);
+    // The SkPicture mode of Skia does not support SkCanvas::setMatrix(), so we
+    // can not simply use that method here. We could calculate the transform
+    // required to achieve the desired matrix and use SkCanvas::concat(), but
+    // there's currently no need for this.
+    ASSERT_NOT_REACHED();
 }
 
 ///////////////////////////////////////////////////////////////////////////////

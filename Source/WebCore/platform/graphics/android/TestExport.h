@@ -1,5 +1,5 @@
 /*
- * Copyright 2006, The Android Open Source Project
+ * Copyright 2011, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,29 +23,10 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "config.h"
-#include "Node.h"
-#include "PlatformGraphicsContext.h"
-#include "SkCanvas.h"
+#ifndef TestExport_h
+#define TestExport_h
 
-namespace WebCore {
+// classes used outside of the .so, in tests, are declared with this attribute
+#define TEST_EXPORT __attribute__((visibility("default")))
 
-PlatformGraphicsContext::PlatformGraphicsContext(SkCanvas* canvas)
-        : mCanvas(canvas), m_deleteCanvas(false)
-{
-}
-
-PlatformGraphicsContext::PlatformGraphicsContext()
-        : mCanvas(new SkCanvas), m_deleteCanvas(true)
-{
-}
-
-PlatformGraphicsContext::~PlatformGraphicsContext()
-{
-    if (m_deleteCanvas) {
-//        printf("-------------------- deleting offscreen canvas\n");
-        delete mCanvas;
-    }
-}
-
-}   // WebCore
+#endif // #define TestExport_h

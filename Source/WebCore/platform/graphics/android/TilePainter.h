@@ -27,6 +27,7 @@
 #define TilePainter_h
 
 #include "TransformationMatrix.h"
+#include "SkRefCnt.h"
 
 class SkCanvas;
 
@@ -38,8 +39,16 @@ class TilePainter {
 public:
    virtual ~TilePainter() { }
    virtual bool paint(BaseTile* tile, SkCanvas*, unsigned int*) = 0;
-   virtual void paintExtra(SkCanvas*) = 0;
    virtual const TransformationMatrix* transform() { return 0; }
+};
+
+class SurfacePainter : public SkRefCnt {
+public:
+   virtual ~SurfacePainter() { }
+   virtual const TransformationMatrix* transform() { return 0; }
+   virtual float opacity() { return 1.0; }
+   enum SurfaceType { PaintedSurface, ImageSurface };
+   virtual SurfaceType type() { return PaintedSurface; }
 };
 
 }

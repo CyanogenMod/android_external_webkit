@@ -65,11 +65,20 @@ static const String TAGS[] = {
     TAG_UPDATE_TEXTURE,
 };
 
+SkBitmap* RasterRenderer::g_bitmap = 0;
+
 RasterRenderer::RasterRenderer() : BaseRenderer(BaseRenderer::Raster)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("RasterRenderer");
 #endif
+    if (!g_bitmap) {
+        g_bitmap = new SkBitmap();
+        g_bitmap->setConfig(SkBitmap::kARGB_8888_Config,
+                           TilesManager::instance()->tileWidth(),
+                           TilesManager::instance()->tileHeight());
+        g_bitmap->allocPixels();
+    }
 }
 
 RasterRenderer::~RasterRenderer()
@@ -84,20 +93,15 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     if (renderInfo.measurePerf)
         m_perfMon.start(TAG_CREATE_BITMAP);
 
-
-    SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-            renderInfo.invalRect->width(), renderInfo.invalRect->height());
-    bitmap.allocPixels();
     if (renderInfo.baseTile->isLayerTile()) {
-        bitmap.setIsOpaque(false);
-        bitmap.eraseARGB(0, 0, 0, 0);
+        g_bitmap->setIsOpaque(false);
+        g_bitmap->eraseARGB(0, 0, 0, 0);
     } else {
-        bitmap.setIsOpaque(true);
-        bitmap.eraseARGB(255, 255, 255, 255);
+        g_bitmap->setIsOpaque(true);
+        g_bitmap->eraseARGB(255, 255, 255, 255);
     }
 
-    SkDevice* device = new SkDevice(NULL, bitmap, false);
+    SkDevice* device = new SkDevice(NULL, *g_bitmap, false);
 
     if (renderInfo.measurePerf) {
         m_perfMon.stop(TAG_CREATE_BITMAP);

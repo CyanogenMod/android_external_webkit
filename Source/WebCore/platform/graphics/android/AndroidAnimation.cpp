@@ -49,6 +49,8 @@
 
 namespace WebCore {
 
+static int gUniqueId;
+
 static long gDebugAndroidAnimationInstances;
 
 long AndroidAnimation::instancesCount()
@@ -69,27 +71,11 @@ AndroidAnimation::AndroidAnimation(AnimatedPropertyID type,
     , m_timingFunction(animation->timingFunction())
     , m_type(type)
     , m_operations(operations)
+    , m_uniqueId(++gUniqueId)
+    , m_hasFinished(false)
 {
     ASSERT(m_timingFunction);
 
-    if (!static_cast<int>(beginTime)) // time not set
-        m_beginTime = WTF::currentTime();
-
-    gDebugAndroidAnimationInstances++;
-}
-
-AndroidAnimation::AndroidAnimation(AndroidAnimation* anim)
-    : m_beginTime(anim->m_beginTime)
-    , m_duration(anim->m_duration)
-    , m_fillsBackwards(anim->m_fillsBackwards)
-    , m_fillsForwards(anim->m_fillsForwards)
-    , m_iterationCount(anim->m_iterationCount)
-    , m_direction(anim->m_direction)
-    , m_timingFunction(anim->m_timingFunction)
-    , m_name(anim->name())
-    , m_type(anim->m_type)
-    , m_operations(anim->m_operations)
-{
     gDebugAndroidAnimationInstances++;
 }
 
@@ -98,20 +84,23 @@ AndroidAnimation::~AndroidAnimation()
     gDebugAndroidAnimationInstances--;
 }
 
+void AndroidAnimation::suggestBeginTime(double time)
+{
+    if (m_beginTime <= 0.000001) // overflow or not yet set
+        m_beginTime = time;
+}
+
 double AndroidAnimation::elapsedTime(double time)
 {
-    if (m_beginTime <= 0.000001) // overflow or not correctly set
-        m_beginTime = time;
-
-    m_elapsedTime = time - m_beginTime;
+    double elapsedTime = (m_beginTime < 0.000001) ? 0 : time - m_beginTime;
 
     if (m_duration <= 0)
       m_duration = 0.000001;
 
-    if (m_elapsedTime < 0) // animation not yet started.
+    if (elapsedTime < 0) // animation not yet started.
         return 0;
 
-    return m_elapsedTime;
+    return elapsedTime;
 }
 
 bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgress)
@@ -127,6 +116,13 @@ bool AndroidAnimation::checkIterationsAndProgress(double time, float* finalProgr
     // If not infinite, return false if we are done
     if (m_iterationCount > 0 && progress > dur) {
         *finalProgress = 1.0;
+        if (!m_hasFinished) {
+            // first time past duration, continue with progress 1.0 so the
+            // element's final position lines up with it's last keyframe
+            m_hasFinished = true;
+            return true;
+        }
+
         return false;
     }
 
@@ -187,7 +183,7 @@ bool AndroidAnimation::evaluate(LayerAndroid* layer, double time)
 
     if (progress < 0) {
         // The animation hasn't started yet
-        if (m_fillsBackwards) {
+        if (m_fillsBackwards || m_beginTime <= 0.000001) {
             // in this case we want to apply the initial keyframe to the layer
             applyForProgress(layer, 0);
         }
@@ -195,7 +191,7 @@ bool AndroidAnimation::evaluate(LayerAndroid* layer, double time)
         return true;
     }
 
-    if (progress >= 1) {
+    if (progress > 1) {
         if (!m_fillsForwards)
             return false;
         progress = 1;
@@ -223,16 +219,6 @@ AndroidOpacityAnimation::AndroidOpacityAnimation(const Animation* animation,
                                                  double beginTime)
     : AndroidAnimation(AnimatedPropertyOpacity, animation, operations, beginTime)
 {
-}
-
-AndroidOpacityAnimation::AndroidOpacityAnimation(AndroidOpacityAnimation* anim)
-    : AndroidAnimation(anim)
-{
-}
-
-PassRefPtr<AndroidAnimation> AndroidOpacityAnimation::copy()
-{
-    return adoptRef(new AndroidOpacityAnimation(this));
 }
 
 void AndroidAnimation::pickValues(double progress, int* start, int* end)
@@ -296,16 +282,6 @@ AndroidTransformAnimation::AndroidTransformAnimation(const Animation* animation,
                                                      double beginTime)
     : AndroidAnimation(AnimatedPropertyWebkitTransform, animation, operations, beginTime)
 {
-}
-
-AndroidTransformAnimation::AndroidTransformAnimation(AndroidTransformAnimation* anim)
-    : AndroidAnimation(anim)
-{
-}
-
-PassRefPtr<AndroidAnimation> AndroidTransformAnimation::copy()
-{
-    return adoptRef(new AndroidTransformAnimation(this));
 }
 
 void AndroidTransformAnimation::applyForProgress(LayerAndroid* layer, float progress)

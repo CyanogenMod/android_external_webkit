@@ -68,6 +68,7 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_latestPictureInval(0)
     , m_prepare(false)
     , m_isPrefetchPage(false)
+    , m_willDraw(false)
 {
     m_baseTiles = new BaseTile[TilesManager::getMaxTextureAllocation() + 1];
 #ifdef DEBUG_COUNT
@@ -241,9 +242,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     int nbTilesWidth = tileBounds.width();
     int nbTilesHeight = tileBounds.height();
 
-    int lastTileX = tileBounds.fRight - 1;
-    int lastTileY = tileBounds.fBottom - 1;
-
     // Expand number of tiles to allow tiles outside of viewport to be prepared for
     // smoother scrolling.
     int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
@@ -255,26 +253,31 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
         int expandY = m_glWebViewState->expandedTileBoundsY();
 
         firstTileX -= expandX;
-        lastTileX += expandX;
         nbTilesWidth += expandX * 2;
 
         firstTileY -= expandY;
-        lastTileY += expandY;
         nbTilesHeight += expandY * 2;
     }
 
-    // crop the prepared region to the contents of the base layer
-    float maxWidthTiles = m_glWebViewState->baseContentWidth() * m_scale / TilesManager::tileWidth();
-    float maxHeightTiles = m_glWebViewState->baseContentHeight() * m_scale / TilesManager::tileHeight();
-    firstTileX = std::max(0, firstTileX);
-    firstTileY = std::max(0, firstTileY);
-    lastTileX = std::min(lastTileX, static_cast<int>(ceilf(maxWidthTiles)) - 1);
-    lastTileY = std::min(lastTileY, static_cast<int>(ceilf(maxHeightTiles)) - 1);
+    // crop the tile bounds in each dimension to the larger of the base layer or viewport
+    float maxBaseX = m_glWebViewState->baseContentWidth() * m_scale / TilesManager::tileWidth();
+    float maxBaseY = m_glWebViewState->baseContentHeight() * m_scale / TilesManager::tileHeight();
+    int maxX = std::max(static_cast<int>(ceilf(maxBaseX)),
+                        m_glWebViewState->viewportTileBounds().width());
+    int maxY = std::max(static_cast<int>(ceilf(maxBaseY)),
+                        m_glWebViewState->viewportTileBounds().height());
 
-    m_expandedTileBounds.fLeft = firstTileX;
-    m_expandedTileBounds.fTop = firstTileY;
-    m_expandedTileBounds.fRight = lastTileX;
-    m_expandedTileBounds.fBottom = lastTileY;
+    // adjust perimeter to not go outside cropped region
+    if (firstTileX < 0) {
+        nbTilesWidth += firstTileX;
+        firstTileX = 0;
+    }
+    if (firstTileY < 0) {
+        nbTilesHeight += firstTileY;
+        firstTileY = 0;
+    }
+    nbTilesWidth = std::min(nbTilesWidth, maxX - firstTileX);
+    nbTilesHeight = std::min(nbTilesHeight, maxY - firstTileY);
 
     // check against corrupted scale values giving bad height/width (use float to avoid overflow)
     float numTiles = static_cast<float>(nbTilesHeight) * static_cast<float>(nbTilesWidth);
@@ -290,7 +293,35 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     m_prepare = true;
 }
 
-bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapMethod swap)
+bool TiledPage::hasMissingContent(const SkIRect& tileBounds)
+{
+    int neededTiles = tileBounds.width() * tileBounds.height();
+    for (int j = 0; j < m_baseTileSize; j++) {
+        BaseTile& tile = m_baseTiles[j];
+        if (tileBounds.contains(tile.x(), tile.y())) {
+            if (tile.frontTexture())
+                neededTiles--;
+        }
+    }
+    return neededTiles > 0;
+}
+
+bool TiledPage::isReady(const SkIRect& tileBounds)
+{
+    int neededTiles = tileBounds.width() * tileBounds.height();
+    XLOG("tiled page %p needs %d ready tiles", this, neededTiles);
+    for (int j = 0; j < m_baseTileSize; j++) {
+        BaseTile& tile = m_baseTiles[j];
+        if (tileBounds.contains(tile.x(), tile.y())) {
+            if (tile.isTileReady())
+                neededTiles--;
+        }
+    }
+    XLOG("tiled page %p still needs %d ready tiles", this, neededTiles);
+    return neededTiles == 0;
+}
+
+bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale)
 {
     if (!m_glWebViewState)
         return false;
@@ -303,21 +334,11 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapM
 
     int swaps = 0;
     bool fullSwap = true;
-    if (swap == SwapWholePage) {
-        for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
-            for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
-                BaseTile* t = getBaseTile(x, y);
-                if (!t || !t->isTileReady())
-                    return false;
-            }
-        }
-    } else { // SwapWhateveryIsReady
-        for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
-            for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
-                BaseTile* t = getBaseTile(x, y);
-                if (!t || !t->isTileReady())
-                    fullSwap = false;
-            }
+    for (int x = tileBounds.fLeft; x < tileBounds.fRight; x++) {
+        for (int y = tileBounds.fTop; y < tileBounds.fBottom; y++) {
+            BaseTile* t = getBaseTile(x, y);
+            if (!t || !t->isTileReady())
+                fullSwap = false;
         }
     }
 
@@ -328,32 +349,28 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapM
             swaps++;
     }
 
-    XLOG("%p %s swapped %d textures, returning true",
-         this, (swap == SwapWholePage) ? "whole page" : "greedy swap", swaps);
+    XLOG("%p greedy swapped %d textures, returning true", this, swaps);
     return fullSwap;
 }
 
-
-void TiledPage::draw(float transparency, const SkIRect& tileBounds)
+void TiledPage::prepareForDrawGL(float transparency, const SkIRect& tileBounds)
 {
-    if (!m_glWebViewState)
+    m_willDraw = true;
+    m_transparency = transparency;
+    m_tileBounds = tileBounds;
+}
+
+void TiledPage::drawGL()
+{
+    if (!m_glWebViewState || m_transparency == 0 || !m_willDraw)
         return;
 
     const float tileWidth = TilesManager::tileWidth() * m_invScale;
     const float tileHeight = TilesManager::tileHeight() * m_invScale;
 
-    SkIRect actualTileBounds = tileBounds;
-    actualTileBounds.fTop -= m_glWebViewState->expandedTileBoundsY();
-    actualTileBounds.fBottom += m_glWebViewState->expandedTileBoundsY();
-    actualTileBounds.fLeft -= m_glWebViewState->expandedTileBoundsX();
-    actualTileBounds.fRight += m_glWebViewState->expandedTileBoundsX();
-
-    actualTileBounds.fTop = std::max(0, actualTileBounds.fTop);
-    actualTileBounds.fLeft = std::max(0, actualTileBounds.fLeft);
-
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
-        bool tileInView = actualTileBounds.contains(tile.x(), tile.y());
+        bool tileInView = m_tileBounds.contains(tile.x(), tile.y());
         if (tileInView) {
             SkRect rect;
             rect.fLeft = tile.x() * tileWidth;
@@ -361,17 +378,18 @@ void TiledPage::draw(float transparency, const SkIRect& tileBounds)
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
 
-            tile.draw(transparency, rect, m_scale);
+            tile.draw(m_transparency, rect, m_scale);
         }
 
         TilesManager::instance()->getProfiler()->nextTile(tile, m_invScale, tileInView);
     }
+    m_willDraw = false; // don't redraw until re-prepared
 }
 
 bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
 {
-    // TODO: consider other flags so the pre-rendered tiles aren't so ugly
-    static SkPaintFlagsDrawFilter prefetchFilter(SkPaint::kAllFlags, 0);
+    static SkPaintFlagsDrawFilter prefetchFilter(SkPaint::kAllFlags,
+                                                 SkPaint::kAntiAlias_Flag);
 
     if (!m_glWebViewState)
         return false;
@@ -381,10 +399,6 @@ bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUse
 
     *pictureUsed = m_glWebViewState->paintBaseLayerContent(canvas);
     return true;
-}
-
-void TiledPage::paintExtra(SkCanvas* canvas)
-{
 }
 
 TiledPage* TiledPage::sibling()

@@ -119,7 +119,6 @@ enum DrawExtras { // keep this in sync with WebView.java
 
 struct JavaGlue {
     jweak       m_obj;
-    jmethodID   m_calcOurContentVisibleRectF;
     jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
     jmethodID   m_sendMoveFocus;
@@ -150,14 +149,15 @@ struct JavaGlue {
     }
 } m_javaGlue;
 
-WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir) :
+WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
+        bool isHighEndGfx) :
     m_ring((WebViewCore*) viewImpl)
+    , m_isHighEndGfx(isHighEndGfx)
 {
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
-    m_javaGlue.m_calcOurContentVisibleRectF = GetJMethod(env, clazz, "calcOurContentVisibleRectF", "(Landroid/graphics/RectF;)V");
     m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
     m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
     m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
@@ -172,7 +172,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir)
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
-    m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "()V");
+    m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "(Z)V");
     m_javaGlue.m_inFullScreenMode = GetJMethod(env, clazz, "inFullScreenMode", "()Z");
     m_javaGlue.m_getTextHandleScale = GetJMethod(env, clazz, "getTextHandleScale", "()F");
     env->DeleteLocalRef(clazz);
@@ -204,6 +204,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir)
     m_ringAnimationEnd = 0;
     m_baseLayer = 0;
     m_glDrawFunctor = 0;
+    m_isDrawingPaused = false;
     m_buttonSkin = drawableDir.isEmpty() ? 0 : new RenderSkinButton(drawableDir);
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
@@ -303,58 +304,6 @@ void debugDump()
 }
 #endif
 
-// Traverse our stored array of buttons that are in our picture, and update
-// their subpictures according to their current state.
-// Called from the UI thread.  This is the one place in the UI thread where we
-// access the buttons stored in the WebCore thread.
-// hasFocus keeps track of whether the WebView has focus && windowFocus.
-// If not, we do not want to draw the button in a selected or pressed state
-void nativeRecordButtons(bool hasFocus, bool pressed, bool invalidate)
-{
-    bool cursorIsOnButton = false;
-    const CachedFrame* cachedFrame;
-    const CachedNode* cachedCursor = 0;
-    // Lock the mutex, since we now share with the WebCore thread.
-    m_viewImpl->gButtonMutex.lock();
-    if (m_viewImpl->m_buttons.size() && m_buttonSkin) {
-        // FIXME: In a future change, we should keep track of whether the selection
-        // has changed to short circuit (note that we would still need to update
-        // if we received new buttons from the WebCore thread).
-        WebCore::Node* cursor = 0;
-        CachedRoot* root = getFrameCache(DontAllowNewer);
-        if (root) {
-            cachedCursor = root->currentCursor(&cachedFrame);
-            if (cachedCursor)
-                cursor = (WebCore::Node*) cachedCursor->nodePointer();
-        }
-
-        // Traverse the array, and update each button, depending on whether it
-        // is selected.
-        Container* end = m_viewImpl->m_buttons.end();
-        for (Container* ptr = m_viewImpl->m_buttons.begin(); ptr != end; ptr++) {
-            RenderSkinAndroid::State state = RenderSkinAndroid::kNormal;
-            if (ptr->matches(cursor)) {
-                cursorIsOnButton = true;
-                // If the WebView is out of focus/window focus, set the state to
-                // normal, but still keep track of the fact that the selected is a
-                // button
-                if (hasFocus) {
-                    if (pressed || m_ring.m_isPressed)
-                        state = RenderSkinAndroid::kPressed;
-                    else if (SkTime::GetMSecs() < m_ringAnimationEnd)
-                        state = RenderSkinAndroid::kFocused;
-                }
-            }
-            ptr->updateFocusState(state, m_buttonSkin);
-        }
-    }
-    m_viewImpl->gButtonMutex.unlock();
-    if (invalidate && cachedCursor && cursorIsOnButton) {
-        const WebCore::IntRect& b = cachedCursor->bounds(cachedFrame);
-        viewInvalidateRect(b.x(), b.y(), b.maxX(), b.maxY());
-    }
-}
-
 void scrollToCurrentMatch()
 {
     if (!m_findOnPage.currentMatchIsInLayer()) {
@@ -420,48 +369,27 @@ void scrollRectOnScreen(const IntRect& rect)
 {
     if (rect.isEmpty())
         return;
-    SkRect visible;
-    calcOurContentVisibleRect(&visible);
     int dx = 0;
     int left = rect.x();
     int right = rect.maxX();
-    if (left < visible.fLeft) {
-        dx = left - visible.fLeft;
+    if (left < m_visibleRect.fLeft)
+        dx = left - m_visibleRect.fLeft;
     // Only scroll right if the entire width can fit on screen.
-    } else if (right > visible.fRight && right - left < visible.width()) {
-        dx = right - visible.fRight;
-    }
+    else if (right > m_visibleRect.fRight
+            && right - left < m_visibleRect.width())
+        dx = right - m_visibleRect.fRight;
     int dy = 0;
     int top = rect.y();
     int bottom = rect.maxY();
-    if (top < visible.fTop) {
-        dy = top - visible.fTop;
+    if (top < m_visibleRect.fTop)
+        dy = top - m_visibleRect.fTop;
     // Only scroll down if the entire height can fit on screen
-    } else if (bottom > visible.fBottom && bottom - top < visible.height()) {
-        dy = bottom - visible.fBottom;
-    }
+    else if (bottom > m_visibleRect.fBottom
+            && bottom - top < m_visibleRect.height())
+        dy = bottom - m_visibleRect.fBottom;
     if ((dx|dy) == 0 || !scrollBy(dx, dy))
         return;
     viewInvalidate();
-}
-
-void calcOurContentVisibleRect(SkRect* r)
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return;
-    jclass rectClass = env->FindClass("android/graphics/RectF");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(FFFF)V");
-    jobject jRect = env->NewObject(rectClass, init, 0, 0, 0, 0);
-    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_calcOurContentVisibleRectF, jRect);
-    r->fLeft = env->GetFloatField(jRect, m_javaGlue.m_rectFLeft);
-    r->fTop = env->GetFloatField(jRect, m_javaGlue.m_rectFTop);
-    r->fRight = r->fLeft + env->CallFloatMethod(jRect, m_javaGlue.m_rectFWidth);
-    r->fBottom = r->fTop + env->CallFloatMethod(jRect, m_javaGlue.m_rectFHeight);
-    env->DeleteLocalRef(rectClass);
-    env->DeleteLocalRef(jRect);
-    checkException(env);
 }
 
 void resetCursorRing()
@@ -489,9 +417,7 @@ bool drawCursorPreamble(CachedRoot* root)
 #if USE(ACCELERATED_COMPOSITING)
     if (node->isInLayer() && root->rootLayer()) {
         LayerAndroid* layer = root->rootLayer();
-        SkRect visible;
-        calcOurContentVisibleRect(&visible);
-        layer->updateFixedLayersPositions(visible);
+        layer->updateFixedLayersPositions(m_visibleRect);
         layer->updatePositions();
     }
 #endif
@@ -520,15 +446,17 @@ void drawCursorPostamble()
     }
 }
 
-bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::IntRect& webViewRect,
-            int titleBarHeight, WebCore::IntRect& clip, float scale, int extras)
+bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
+        WebCore::IntRect& webViewRect, int titleBarHeight,
+        WebCore::IntRect& clip, float scale, int extras)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_baseLayer || inFullScreenMode())
         return false;
 
     if (!m_glWebViewState) {
-        m_glWebViewState = new GLWebViewState(&m_viewImpl->gButtonMutex);
+        m_glWebViewState = new GLWebViewState();
+        m_glWebViewState->setHighEndGfx(m_isHighEndGfx);
         m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
         m_glWebViewState->glExtras()->setFindOnPageExtra(&m_findOnPage);
         if (m_baseLayer->content()) {
@@ -572,33 +500,28 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect, WebCore::In
     unsigned int pic = m_glWebViewState->currentPictureCounter();
     m_glWebViewState->glExtras()->setDrawExtra(extra);
 
-    LayerAndroid* compositeLayer = compositeRoot();
-    if (compositeLayer)
-        compositeLayer->setExtra(0);
-
-    SkRect visibleRect;
-    calcOurContentVisibleRect(&visibleRect);
     // Make sure we have valid coordinates. We might not have valid coords
     // if the zoom manager is still initializing. We will be redrawn
     // once the correct scale is set
-    if (!visibleRect.hasValidCoordinates())
+    if (!m_visibleRect.hasValidCoordinates())
         return false;
-    bool pagesSwapped = false;
-    bool ret = m_glWebViewState->drawGL(viewRect, visibleRect, invalRect,
+    bool treesSwapped = false;
+    bool newTreeHasAnim = false;
+    bool ret = m_glWebViewState->drawGL(viewRect, m_visibleRect, invalRect,
                                         webViewRect, titleBarHeight, clip, scale,
-                                        &pagesSwapped);
-    if (m_pageSwapCallbackRegistered && pagesSwapped) {
+                                        &treesSwapped, &newTreeHasAnim);
+    if (treesSwapped && (m_pageSwapCallbackRegistered || newTreeHasAnim)) {
         m_pageSwapCallbackRegistered = false;
         LOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         AutoJObject javaObject = m_javaGlue.object(env);
         if (javaObject.get()) {
-            env->CallVoidMethod(javaObject.get(), m_javaGlue.m_pageSwapCallback);
+            env->CallVoidMethod(javaObject.get(), m_javaGlue.m_pageSwapCallback, newTreeHasAnim);
             checkException(env);
         }
     }
     if (ret || m_glWebViewState->currentPictureCounter() != pic)
-        return true;
+        return !m_isDrawingPaused;
 #endif
     return false;
 }
@@ -642,36 +565,32 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
             break;
         case DrawExtrasCursorRing:
             if (drawCursorPreamble(root) && m_ring.setup()) {
-                if (!m_ring.m_isButton)
-                    extra = &m_ring;
+                extra = &m_ring;
                 drawCursorPostamble();
             }
             break;
         default:
             ;
     }
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* compositeLayer = compositeRoot();
+    if (compositeLayer) {
+        // call this to be sure we've adjusted for any scrolling or animations
+        // before we actually draw
+        compositeLayer->updateFixedLayersPositions(m_visibleRect);
+        compositeLayer->updatePositions();
+        // We have to set the canvas' matrix on the base layer
+        // (to have fixed layers work as intended)
+        SkAutoCanvasRestore restore(canvas, true);
+        m_baseLayer->setMatrix(canvas->getTotalMatrix());
+        canvas->resetMatrix();
+        m_baseLayer->draw(canvas);
+    }
+#endif
     if (extra) {
         IntRect dummy; // inval area, unused for now
         extra->draw(canvas, &mainPicture, &dummy);
     }
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* compositeLayer = compositeRoot();
-    if (!compositeLayer)
-        return ret;
-    compositeLayer->setExtra(extra);
-    SkRect visible;
-    calcOurContentVisibleRect(&visible);
-    // call this to be sure we've adjusted for any scrolling or animations
-    // before we actually draw
-    compositeLayer->updateFixedLayersPositions(visible);
-    compositeLayer->updatePositions();
-    // We have to set the canvas' matrix on the base layer
-    // (to have fixed layers work as intended)
-    SkAutoCanvasRestore restore(canvas, true);
-    m_baseLayer->setMatrix(canvas->getTotalMatrix());
-    canvas->resetMatrix();
-    m_baseLayer->draw(canvas);
-#endif
     return ret;
 }
 
@@ -800,12 +719,10 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
         m_frameCacheUI->setRootLayer(compositeRoot());
 #if USE(ACCELERATED_COMPOSITING)
     if (layerId >= 0) {
-        SkRect visible;
-        calcOurContentVisibleRect(&visible);
         LayerAndroid* layer = const_cast<LayerAndroid*>(
                                                 m_frameCacheUI->rootLayer());
         if (layer) {
-            layer->updateFixedLayersPositions(visible);
+            layer->updateFixedLayersPositions(m_visibleRect);
             layer->updatePositions();
         }
     }
@@ -1176,6 +1093,12 @@ int scrollableLayer(int x, int y, SkIRect* layerRect, SkIRect* bounds)
     return 0;
 }
 
+void scrollLayer(int layerId, int x, int y)
+{
+    if (m_glWebViewState)
+        m_glWebViewState->scrollLayer(layerId, x, y);
+}
+
 int getBlockLeftEdge(int x, int y, float scale)
 {
     CachedRoot* root = getFrameCache(AllowNewer);
@@ -1542,6 +1465,7 @@ void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (layer) {
+        // TODO: the below tree copies are only necessary in software rendering
         LayerAndroid* newCompositeRoot = static_cast<LayerAndroid*>(layer->getChild(0));
         copyScrollPositionRecursive(compositeRoot(), newCompositeRoot);
     }
@@ -1557,7 +1481,12 @@ void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
 
 void getTextSelectionRegion(SkRegion *region)
 {
-    m_selectText.getSelectionRegion(getVisibleRect(), region);
+    m_selectText.getSelectionRegion(getVisibleRect(), region, compositeRoot());
+}
+
+void getTextSelectionHandles(int* handles)
+{
+    m_selectText.getSelectionHandles(handles, compositeRoot());
 }
 
 void replaceBaseContent(PictureSet* set)
@@ -1597,6 +1526,11 @@ BaseLayerAndroid* getBaseLayer() {
     return m_baseLayer;
 }
 
+void setVisibleRect(SkRect& visibleRect) {
+    m_visibleRect = visibleRect;
+}
+
+    bool m_isDrawingPaused;
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
     CachedRoot* m_frameCacheUI; // navigation data ready for use
@@ -1618,6 +1552,8 @@ private: // local state for WebView
     bool m_pageSwapCallbackRegistered;
 #endif
     RenderSkinButton* m_buttonSkin;
+    SkRect m_visibleRect;
+    bool m_isHighEndGfx;
 }; // end of WebView class
 
 
@@ -1629,7 +1565,9 @@ private: // local state for WebView
 class GLDrawFunctor : Functor {
     public:
     GLDrawFunctor(WebView* _wvInstance,
-            bool(WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*, WebCore::IntRect&, int, WebCore::IntRect&, jfloat, jint),
+            bool(WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
+                    WebCore::IntRect&, int, WebCore::IntRect&,
+                    jfloat, jint),
             WebCore::IntRect _viewRect, float _scale, int _extras) {
         wvInstance = _wvInstance;
         funcPtr = _funcPtr;
@@ -1654,8 +1592,10 @@ class GLDrawFunctor : Functor {
         WebCore::IntRect clip(info->clipLeft, info->clipTop,
                               info->clipRight - info->clipLeft,
                               info->clipBottom - info->clipTop);
+        TilesManager::instance()->shader()->setWebViewMatrix(info->transform, info->isLayer);
 
-        bool retVal = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect, titlebarHeight, clip, scale, extras);
+        bool retVal = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect,
+                titlebarHeight, clip, scale, extras);
         if (retVal) {
             IntRect finalInval;
             if (inval.isEmpty()) {
@@ -1683,7 +1623,8 @@ class GLDrawFunctor : Functor {
     }
     private:
     WebView* wvInstance;
-    bool (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*, WebCore::IntRect&, int, WebCore::IntRect&, float, int);
+    bool (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
+            WebCore::IntRect&, int, WebCore::IntRect&, float, int);
     WebCore::IntRect viewRect;
     WebCore::IntRect webViewRect;
     jfloat scale;
@@ -1734,10 +1675,11 @@ static void nativeClearCursor(JNIEnv *env, jobject obj)
     view->clearCursor();
 }
 
-static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl, jstring drawableDir)
+static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl,
+                         jstring drawableDir, jboolean isHighEndGfx)
 {
     WTF::String dir = jstringToWtfString(env, drawableDir);
-    WebView* webview = new WebView(env, obj, viewImpl, dir);
+    WebView* webview = new WebView(env, obj, viewImpl, dir, isHighEndGfx);
     // NEED THIS OR SOMETHING LIKE IT!
     //Release(obj);
 }
@@ -1867,9 +1809,20 @@ static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
 
 static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
 {
-    int L, T, R, B;
-    GraphicsJNI::get_jrect(env, obj, &L, &T, &R, &B);
-    return WebCore::IntRect(L, T, R - L, B - T);
+    if (obj) {
+        int L, T, R, B;
+        GraphicsJNI::get_jrect(env, obj, &L, &T, &R, &B);
+        return WebCore::IntRect(L, T, R - L, B - T);
+    } else
+        return WebCore::IntRect();
+}
+
+static SkRect jrectf_to_rect(JNIEnv* env, jobject obj)
+{
+    SkRect rect = SkRect::MakeEmpty();
+    if (obj)
+        GraphicsJNI::jrectf_to_rect(env, obj, &rect);
+    return rect;
 }
 
 static bool nativeCursorIntersects(JNIEnv *env, jobject obj, jobject visRect)
@@ -1910,56 +1863,49 @@ static void nativeDebugDump(JNIEnv *env, jobject obj)
 #endif
 }
 
-static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv, jint color,
+static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv,
+        jobject visible, jint color,
         jint extras, jboolean split) {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
-    return reinterpret_cast<jint>(GET_NATIVE_VIEW(env, obj)->draw(canvas, color, extras, split));
+    WebView* webView = GET_NATIVE_VIEW(env, obj);
+    SkRect visibleRect = jrectf_to_rect(env, visible);
+    webView->setVisibleRect(visibleRect);
+    PictureSet* pictureSet = webView->draw(canvas, color, extras, split);
+    return reinterpret_cast<jint>(pictureSet);
 }
 
 static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
                                     jobject jrect, jobject jviewrect,
+                                    jobject jvisiblerect,
                                     jfloat scale, jint extras) {
-    WebCore::IntRect viewRect;
-    if (jrect == NULL) {
-        viewRect = WebCore::IntRect();
-    } else {
-        viewRect = jrect_to_webrect(env, jrect);
-    }
+    WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
     WebView *wvInstance = (WebView*) nativeView;
-    GLDrawFunctor* functor = new GLDrawFunctor(wvInstance, &android::WebView::drawGL,
-            viewRect, scale, extras);
+    SkRect visibleRect = jrectf_to_rect(env, jvisiblerect);
+    wvInstance->setVisibleRect(visibleRect);
+
+    GLDrawFunctor* functor = new GLDrawFunctor(wvInstance,
+            &android::WebView::drawGL, viewRect, scale, extras);
     wvInstance->setFunctor((Functor*) functor);
 
-    WebCore::IntRect webViewRect;
-    if (jviewrect == NULL) {
-        webViewRect = WebCore::IntRect();
-    } else {
-        webViewRect = jrect_to_webrect(env, jviewrect);
-    }
+    WebCore::IntRect webViewRect = jrect_to_webrect(env, jviewrect);
     functor->updateViewRect(webViewRect);
 
     return (jint)functor;
 }
 
-static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect, jobject jviewrect) {
+static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
+        jobject jviewrect, jobject jvisiblerect) {
     WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
-    if (wvInstance != NULL) {
+    if (wvInstance) {
         GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
-        if (functor != NULL) {
-            WebCore::IntRect viewRect;
-            if (jrect == NULL) {
-                viewRect = WebCore::IntRect();
-            } else {
-                viewRect = jrect_to_webrect(env, jrect);
-            }
+        if (functor) {
+            WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
             functor->updateRect(viewRect);
 
-            WebCore::IntRect webViewRect;
-            if (jviewrect == NULL) {
-                webViewRect = WebCore::IntRect();
-            } else {
-                webViewRect = jrect_to_webrect(env, jviewrect);
-            }
+            SkRect visibleRect = jrectf_to_rect(env, jvisiblerect);
+            wvInstance->setVisibleRect(visibleRect);
+
+            WebCore::IntRect webViewRect = jrect_to_webrect(env, jviewrect);
             functor->updateViewRect(webViewRect);
         }
     }
@@ -1967,10 +1913,13 @@ static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect, 
 
 static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint nativeView)
 {
+    // only call in software rendering, initialize and evaluate animations
 #if USE(ACCELERATED_COMPOSITING)
     LayerAndroid* root = ((WebView*)nativeView)->compositeRoot();
-    if (root)
+    if (root) {
+        root->initAnimations();
         return root->evaluateAnimations();
+    }
 #endif
     return false;
 }
@@ -1989,12 +1938,22 @@ static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint layer, jobject inv
                                             registerPageSwapCallback);
 }
 
-static void nativeGetTextSelectionRegion(JNIEnv *env, jobject obj, jobject region)
+static void nativeGetTextSelectionRegion(JNIEnv *env, jobject obj, jint view,
+                                         jobject region)
 {
     if (!region)
         return;
     SkRegion* nregion = GraphicsJNI::getNativeRegion(env, region);
-    GET_NATIVE_VIEW(env, obj)->getTextSelectionRegion(nregion);
+    ((WebView*)view)->getTextSelectionRegion(nregion);
+}
+
+static void nativeGetSelectionHandles(JNIEnv *env, jobject obj, jint view,
+                                      jintArray arr)
+{
+    int handles[4];
+    ((WebView*)view)->getTextSelectionHandles(handles);
+    env->SetIntArrayRegion(arr, 0, 4, handles);
+    checkException(env);
 }
 
 static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
@@ -2083,12 +2042,12 @@ static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
 {
     const CachedFrame* frame;
     const CachedNode* node = getFocusCandidate(env, obj, &frame);
-    WebCore::IntRect bounds = node ? node->bounds(frame)
+    WebCore::IntRect bounds = node ? node->originalAbsoluteBounds()
         : WebCore::IntRect(0, 0, 0, 0);
     // Inset the rect by 1 unit, so that the focus candidate's border can still
     // be seen behind it.
-    return createJavaRect(env, bounds.x() + 1, bounds.y() + 1,
-                          bounds.maxX() - 1, bounds.maxY() - 1);
+    return createJavaRect(env, bounds.x(), bounds.y(),
+                          bounds.maxX(), bounds.maxY());
 }
 
 static jobject nativeFocusCandidatePaddingRect(JNIEnv *env, jobject obj)
@@ -2145,6 +2104,18 @@ static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
         return CachedInput::TEXT_AREA;
 
     return input->getType();
+}
+
+static int nativeFocusCandidateLayerId(JNIEnv *env, jobject obj)
+{
+    const CachedFrame* frame = 0;
+    const CachedNode* node = getFocusNode(env, obj, &frame);
+    if (!node || !frame)
+        return -1;
+    const CachedLayer* layer = frame->layer(node);
+    if (!layer)
+        return -1;
+    return layer->uniqueId();
 }
 
 static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
@@ -2284,14 +2255,6 @@ static bool nativeMoveCursor(JNIEnv *env, jobject obj,
     DBG_NAV_LOGD("env=%p obj=%p view=%p", env, obj, view);
     LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     return view->moveCursor(key, count, ignoreScroll);
-}
-
-static void nativeRecordButtons(JNIEnv* env, jobject obj, jint nativeView,
-                                bool hasFocus, bool pressed, bool invalidate)
-{
-    WebView* view = (WebView*) nativeView;
-    LOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->nativeRecordButtons(hasFocus, pressed, invalidate);
 }
 
 static void nativeSetFindIsUp(JNIEnv *env, jobject obj, jboolean isUp)
@@ -2629,14 +2592,18 @@ static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
             TilesManager::instance()->setInvertedScreen(false);
         return true;
     }
-    if (key == "inverted_contrast") {
+    else if (key == "inverted_contrast") {
         float contrast = value.toFloat();
         TilesManager::instance()->setInvertedScreenContrast(contrast);
         return true;
     }
-    if (key == "enable_cpu_upload_path") {
+    else if (key == "enable_cpu_upload_path") {
         TilesManager::instance()->transferQueue()->setTextureUploadType(
             value == "true" ? CpuUpload : GpuUpload);
+        return true;
+    }
+    else if (key == "use_minimal_memory") {
+        TilesManager::instance()->setUseMinimalMemory(value == "true");
         return true;
     }
     return false;
@@ -2714,6 +2681,9 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     WebView* view = GET_NATIVE_VIEW(env, obj);
+    view->scrollLayer(layerId, x, y);
+
+    //TODO: the below only needed for the SW rendering path
     LayerAndroid* root = view->compositeRoot();
     if (!root)
         return false;
@@ -2750,6 +2720,12 @@ static int nativeGetBackgroundColor(JNIEnv* env, jobject obj)
     return SK_ColorWHITE;
 }
 
+static void nativeSetPauseDrawing(JNIEnv *env, jobject obj, jint nativeView,
+                                      jboolean pause)
+{
+    ((WebView*)nativeView)->m_isDrawingPaused = pause;
+}
+
 /*
  * JNI registration
  */
@@ -2764,7 +2740,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCacheHitNodePointer },
     { "nativeClearCursor", "()V",
         (void*) nativeClearCursor },
-    { "nativeCreate", "(ILjava/lang/String;)V",
+    { "nativeCreate", "(ILjava/lang/String;Z)V",
         (void*) nativeCreate },
     { "nativeCursorFramePointer", "()I",
         (void*) nativeCursorFramePointer },
@@ -2790,11 +2766,11 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDebugDump },
     { "nativeDestroy", "()V",
         (void*) nativeDestroy },
-    { "nativeDraw", "(Landroid/graphics/Canvas;IIZ)I",
+    { "nativeDraw", "(Landroid/graphics/Canvas;Landroid/graphics/RectF;IIZ)I",
         (void*) nativeDraw },
-    { "nativeGetDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;FI)I",
+    { "nativeGetDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;FI)I",
         (void*) nativeGetDrawGLFunction },
-    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;)V",
+    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;)V",
         (void*) nativeUpdateDrawGLFunction },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
@@ -2840,6 +2816,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFocusCandidateTextSize },
     { "nativeFocusCandidateType", "()I",
         (void*) nativeFocusCandidateType },
+    { "nativeFocusCandidateLayerId", "()I",
+        (void*) nativeFocusCandidateLayerId },
     { "nativeFocusIsPlugin", "()Z",
         (void*) nativeFocusIsPlugin },
     { "nativeFocusNodeBounds", "()Landroid/graphics/Rect;",
@@ -2876,8 +2854,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveSelection },
     { "nativePointInNavCache", "(III)Z",
         (void*) nativePointInNavCache },
-    { "nativeRecordButtons", "(IZZZ)V",
-        (void*) nativeRecordButtons },
     { "nativeResetSelection", "()V",
         (void*) nativeResetSelection },
     { "nativeSelectableText", "()Landroid/graphics/Point;",
@@ -2902,8 +2878,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(ILandroid/graphics/Region;ZZZ)V",
         (void*) nativeSetBaseLayer },
-    { "nativeGetTextSelectionRegion", "(Landroid/graphics/Region;)V",
+    { "nativeGetTextSelectionRegion", "(ILandroid/graphics/Region;)V",
         (void*) nativeGetTextSelectionRegion },
+    { "nativeGetSelectionHandles", "(I[I)V",
+        (void*) nativeGetSelectionHandles },
     { "nativeGetBaseLayer", "()I",
         (void*) nativeGetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
@@ -2962,6 +2940,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetProperty },
     { "nativeOnTrimMemory", "(I)V",
         (void*) nativeOnTrimMemory },
+    { "nativeSetPauseDrawing", "(IZ)V",
+        (void*) nativeSetPauseDrawing },
 };
 
 int registerWebView(JNIEnv* env)

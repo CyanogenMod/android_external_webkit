@@ -183,6 +183,31 @@ void BaseTile::markAsDirty(int unsigned pictureCount,
     m_lastDirtyPicture = pictureCount;
     for (int i = 0; i < m_maxBufferNumber; i++)
         m_dirtyArea[i].op(dirtyArea, SkRegion::kUnion_Op);
+
+    // Check if we actually intersect with the area
+    bool intersect = false;
+    SkRegion::Iterator cliperator(dirtyArea);
+    int tileWidth = TilesManager::instance()->tileWidth();
+    int tileHeight = TilesManager::instance()->tileHeight();
+    if (m_isLayerTile) {
+        tileWidth = TilesManager::instance()->layerTileWidth();
+        tileHeight = TilesManager::instance()->layerTileHeight();
+    }
+    SkRect realTileRect;
+    SkRect dirtyRect;
+    while (!cliperator.done()) {
+        dirtyRect.set(cliperator.rect());
+        if (intersectWithRect(m_x, m_y, tileWidth, tileHeight,
+                              m_scale, dirtyRect, realTileRect)) {
+            intersect = true;
+            break;
+        }
+        cliperator.next();
+    }
+
+    if (!intersect)
+        return;
+
     m_dirty = true;
     if (m_state == UpToDate) {
         // We only mark a tile as unpainted in 'markAsDirty' if its status is
@@ -244,7 +269,7 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
     }
 
     if (m_frontTexture->readyFor(this)) {
-        if (isLayerTile())
+        if (isLayerTile() && m_painter && m_painter->transform())
             TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
                                                               rect, m_frontTexture->m_ownTextureId,
                                                               transparency, true);

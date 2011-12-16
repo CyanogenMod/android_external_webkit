@@ -55,10 +55,6 @@ public:
         ExpandedBounds = 0,
         VisibleBounds = 1
     };
-    enum SwapMethod {
-        SwapWhateverIsReady = 0,
-        SwapWholePage = 1
-    };
 
     TiledPage(int id, GLWebViewState* state);
     ~TiledPage();
@@ -73,17 +69,21 @@ public:
     // dirty (and thus repaint needed)
     bool updateTileDirtiness(const SkIRect& tileBounds);
 
-    // check to see if the page is ready for display
+    // returns true if the page can't draw the entire region (may still be stale)
+    bool hasMissingContent(const SkIRect& tileBounds);
+
+    bool isReady(const SkIRect& tileBounds);
 
     // swap 'buffers' by swapping each modified texture
-    bool swapBuffersIfReady(const SkIRect& tileBounds, float scale, SwapMethod swap);
+    bool swapBuffersIfReady(const SkIRect& tileBounds, float scale);
+    // save the transparency and bounds to be drawn in drawGL()
+    void prepareForDrawGL(float transparency, const SkIRect& tileBounds);
     // draw the page on the screen
-    void draw(float transparency, const SkIRect& tileBounds);
+    void drawGL();
 
     // TilePainter implementation
     // used by individual tiles to generate the bitmap for their tile
     bool paint(BaseTile*, SkCanvas*, unsigned int*);
-    void paintExtra(SkCanvas*);
 
     // used by individual tiles to get the information about the current picture
     GLWebViewState* glWebViewState() { return m_glWebViewState; }
@@ -97,7 +97,6 @@ public:
     void discardTextures();
     void updateBaseTileSize();
     bool scrollingDown() { return m_scrollingDown; }
-    SkIRect* expandedTileBounds() { return &m_expandedTileBounds; }
     bool isPrefetchPage() { return m_isPrefetchPage; }
     void setIsPrefetchPage(bool isPrefetch) { m_isPrefetchPage = isPrefetch; }
 
@@ -128,8 +127,12 @@ private:
     unsigned int m_latestPictureInval;
     bool m_prepare;
     bool m_scrollingDown;
-    SkIRect m_expandedTileBounds;
     bool m_isPrefetchPage;
+
+    // info saved in prepare, used in drawGL()
+    bool m_willDraw;
+    SkIRect m_tileBounds;
+    float m_transparency;
 };
 
 } // namespace WebCore

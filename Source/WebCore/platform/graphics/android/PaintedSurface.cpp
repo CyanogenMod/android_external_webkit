@@ -28,6 +28,7 @@
 
 
 #include "LayerAndroid.h"
+#include "TiledTexture.h"
 #include "TilesManager.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
@@ -51,120 +52,69 @@
 
 #endif // DEBUG
 
-// Allows layers using less than MAX_UNCLIPPED_AREA tiles to
-// schedule all of them instead of clipping the area with the visible rect.
-#define MAX_UNCLIPPED_AREA 16
+// Layers with an area larger than 2048*2048 should never be unclipped
+#define MAX_UNCLIPPED_AREA 4194304
 
 namespace WebCore {
 
-PaintedSurface::PaintedSurface(LayerAndroid* layer)
-    : m_layer(layer)
+PaintedSurface::PaintedSurface()
+    : m_drawingLayer(0)
+    , m_paintingLayer(0)
     , m_tiledTexture(0)
     , m_scale(0)
     , m_pictureUsed(0)
 {
     TilesManager::instance()->addPaintedSurface(this);
-    SkSafeRef(m_layer);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("PaintedSurface");
 #endif
     m_tiledTexture = new DualTiledTexture(this);
-    if (layer && layer->picture())
-        m_updateManager.updatePicture(layer->picture());
 }
 
 PaintedSurface::~PaintedSurface()
 {
-    XLOG("dtor of %x m_layer: %x", this, m_layer);
-    android::Mutex::Autolock lock(m_layerLock);
-    SkSafeUnref(m_layer);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("PaintedSurface");
 #endif
     delete m_tiledTexture;
 }
 
-void PaintedSurface::removeLayer()
-{
-    android::Mutex::Autolock lock(m_layerLock);
-    if (m_layer)
-        m_layer->removeTexture(this);
-    SkSafeUnref(m_layer);
-    m_layer = 0;
-}
-
-void PaintedSurface::removeLayer(LayerAndroid* layer)
-{
-    android::Mutex::Autolock lock(m_layerLock);
-    if (m_layer != layer)
-        return;
-    SkSafeUnref(m_layer);
-    m_layer = 0;
-}
-
-void PaintedSurface::replaceLayer(LayerAndroid* layer)
-{
-    android::Mutex::Autolock lock(m_layerLock);
-    if (!layer)
-        return;
-
-    if (m_layer && layer->uniqueId() != m_layer->uniqueId())
-        return;
-
-    SkSafeRef(layer);
-    SkSafeUnref(m_layer);
-    m_layer = layer;
-    if (layer && layer->picture())
-        m_updateManager.updatePicture(layer->picture());
-}
-
 void PaintedSurface::prepare(GLWebViewState* state)
 {
-    if (!m_layer)
-        return;
+    XLOG("PS %p has PL %p, DL %p", this, m_paintingLayer, m_drawingLayer);
+    LayerAndroid* paintingLayer = m_paintingLayer;
+    if (!paintingLayer)
+        paintingLayer = m_drawingLayer;
 
-    if (!m_layer->needsTexture())
+    if (!paintingLayer)
         return;
 
     bool startFastSwap = false;
     if (state->isScrolling()) {
         // when scrolling, block updates and swap tiles as soon as they're ready
         startFastSwap = true;
-    } else {
-        // when not, push updates down to TiledTexture in every prepare
-        m_updateManager.swap();
-        m_tiledTexture->update(m_updateManager.getPaintingInval(),
-                               m_updateManager.getPaintingPicture());
-        m_updateManager.clearPaintingInval();
     }
 
     XLOG("prepare layer %d %x at scale %.2f",
-         m_layer->uniqueId(), m_layer,
-         m_layer->getScale());
+         paintingLayer->uniqueId(), paintingLayer,
+         paintingLayer->getScale());
 
-    int w = m_layer->getSize().width();
-    int h = m_layer->getSize().height();
-
-    if (w != m_area.width())
-        m_area.setWidth(w);
-
-    if (h != m_area.height())
-        m_area.setHeight(h);
-
-    computeVisibleArea();
+    IntRect visibleArea = computeVisibleArea(paintingLayer);
 
     m_scale = state->scale();
 
-    XLOG("%x layer %d %x prepared at size (%d, %d) @ scale %.2f", this, m_layer->uniqueId(),
-         m_layer, w, h, m_scale);
+    // If we do not have text, we may as well limit ourselves to
+    // a scale factor of one... this saves up textures.
+    if (m_scale > 1 && !paintingLayer->hasText())
+        m_scale = 1;
 
-    m_tiledTexture->prepare(state, m_scale, m_pictureUsed != m_layer->pictureUsed(),
-                            startFastSwap, m_visibleArea);
+    m_tiledTexture->prepare(state, m_scale, m_pictureUsed != paintingLayer->pictureUsed(),
+                            startFastSwap, visibleArea);
 }
 
 bool PaintedSurface::draw()
 {
-    if (!m_layer || !m_layer->needsTexture())
+    if (!m_drawingLayer || !m_drawingLayer->needsTexture())
         return false;
 
     bool askRedraw = false;
@@ -174,51 +124,94 @@ bool PaintedSurface::draw()
     return askRedraw;
 }
 
-void PaintedSurface::markAsDirty(const SkRegion& dirtyArea)
+void PaintedSurface::setPaintingLayer(LayerAndroid* layer, const SkRegion& dirtyArea)
 {
-    m_updateManager.updateInval(dirtyArea);
+    m_paintingLayer = layer;
+    if (m_tiledTexture)
+        m_tiledTexture->update(dirtyArea, layer->picture());
 }
 
-void PaintedSurface::paintExtra(SkCanvas* canvas)
+bool PaintedSurface::isReady()
 {
-    m_layerLock.lock();
-    LayerAndroid* layer = m_layer;
-    SkSafeRef(layer);
-    m_layerLock.unlock();
+    if (m_tiledTexture)
+        return m_tiledTexture->isReady();
+    return false;
+}
 
-    if (layer)
-        layer->extraDraw(canvas);
-
-    SkSafeUnref(layer);
+void PaintedSurface::swapTiles()
+{
+    if (m_tiledTexture)
+        m_tiledTexture->swapTiles();
 }
 
 float PaintedSurface::opacity() {
-    if (m_layer)
-        return m_layer->drawOpacity();
+    if (m_drawingLayer)
+        return m_drawingLayer->drawOpacity();
     return 1.0;
 }
 
 const TransformationMatrix* PaintedSurface::transform() {
-    if (!m_layer)
+    // used exclusively for drawing, so only use m_drawingLayer
+    if (!m_drawingLayer)
         return 0;
 
-    return m_layer->drawTransform();
+    return m_drawingLayer->drawTransform();
 }
 
-void PaintedSurface::computeVisibleArea() {
-    if (!m_layer)
+void PaintedSurface::computeTexturesAmount(TexturesResult* result)
+{
+    if (!m_tiledTexture)
         return;
-    IntRect layerRect = (*m_layer->drawTransform()).mapRect(m_area);
-    IntRect clippedRect = TilesManager::instance()->shader()->clippedRectWithViewport(layerRect);
-    m_visibleArea = (*m_layer->drawTransform()).inverse().mapRect(clippedRect);
-    if (!m_visibleArea.isEmpty()) {
-        float tileWidth = TilesManager::instance()->layerTileWidth();
-        float tileHeight = TilesManager::instance()->layerTileHeight();
-        int w = ceilf(m_area.width() * m_scale / tileWidth);
-        int h = ceilf(m_area.height() * m_scale / tileHeight);
-        if (w * h < MAX_UNCLIPPED_AREA)
-            m_visibleArea = m_area;
+
+    // for now, always done on drawinglayer
+    LayerAndroid* layer = m_drawingLayer;
+
+    if (!layer)
+        return;
+
+    IntRect unclippedArea = layer->unclippedArea();
+    IntRect clippedVisibleArea = layer->visibleArea();
+    // get two numbers here:
+    // - textures needed for a clipped area
+    // - textures needed for an un-clipped area
+    int nbTexturesUnclipped = m_tiledTexture->nbTextures(unclippedArea, m_scale);
+    int nbTexturesClipped = m_tiledTexture->nbTextures(clippedVisibleArea, m_scale);
+
+    // Set kFixedLayers level
+    if (layer->isFixed())
+        result->fixed += nbTexturesClipped;
+
+    // Set kScrollableAndFixedLayers level
+    if (layer->contentIsScrollable()
+        || layer->isFixed())
+        result->scrollable += nbTexturesClipped;
+
+    // Set kClippedTextures level
+    result->clipped += nbTexturesClipped;
+
+    // Set kAllTextures level
+    if (layer->contentIsScrollable())
+        result->full += nbTexturesClipped;
+    else
+        result->full += nbTexturesUnclipped;
+}
+
+IntRect PaintedSurface::computeVisibleArea(LayerAndroid* layer) {
+    IntRect area;
+    if (!layer)
+        return area;
+
+    if (!layer->contentIsScrollable()
+        && layer->state()->layersRenderingMode() == GLWebViewState::kAllTextures) {
+        area = layer->unclippedArea();
+        double total = ((double) area.width()) * ((double) area.height());
+        if (total > MAX_UNCLIPPED_AREA)
+            area = layer->visibleArea();
+    } else {
+        area = layer->visibleArea();
     }
+
+    return area;
 }
 
 bool PaintedSurface::owns(BaseTileTexture* texture)

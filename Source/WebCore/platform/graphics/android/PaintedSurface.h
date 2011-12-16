@@ -32,58 +32,56 @@
 #include "LayerAndroid.h"
 #include "SkRefCnt.h"
 #include "TextureOwner.h"
-#include "TiledTexture.h"
 #include "TilesManager.h"
 #include "TilePainter.h"
 #include "TransformationMatrix.h"
-#include "UpdateManager.h"
 
 class SkCanvas;
 class SkRegion;
 
 namespace WebCore {
 
-class UpdateManager;
+class DualTiledTexture;
 
-class PaintedSurface : public SkRefCnt {
+class PaintedSurface : public SurfacePainter {
 public:
-    PaintedSurface(LayerAndroid* layer);
+    PaintedSurface();
     virtual ~PaintedSurface();
 
     // PaintedSurface methods
 
-    LayerAndroid* layer() { return m_layer; }
     void prepare(GLWebViewState*);
     bool draw();
-    void markAsDirty(const SkRegion& dirtyArea);
     bool paint(SkCanvas*);
-    void removeLayer();
-    void removeLayer(LayerAndroid* layer);
-    void replaceLayer(LayerAndroid* layer);
+
+    void setDrawingLayer(LayerAndroid* layer) { m_drawingLayer = layer; }
+    LayerAndroid* drawingLayer() { return m_drawingLayer; }
+
+    void setPaintingLayer(LayerAndroid* layer, const SkRegion& dirtyArea);
+    void clearPaintingLayer() { m_paintingLayer = 0; }
+    LayerAndroid* paintingLayer() { return m_paintingLayer; }
+
+    void swapTiles();
+    bool isReady();
 
     bool owns(BaseTileTexture* texture);
 
-    void computeVisibleArea();
+    void computeTexturesAmount(TexturesResult*);
+    IntRect computeVisibleArea(LayerAndroid*);
 
     // TilePainter methods for TiledTexture
-    virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
+    virtual float opacity();
 
     // used by TiledTexture
-    const IntRect& area() { return m_area; }
-    const IntRect& visibleArea() { return m_visibleArea; }
     float scale() { return m_scale; }
-    float opacity();
     unsigned int pictureUsed() { return m_pictureUsed; }
 
 private:
-    UpdateManager m_updateManager;
-
-    LayerAndroid* m_layer;
+    LayerAndroid* m_drawingLayer;
+    LayerAndroid* m_paintingLayer;
     DualTiledTexture* m_tiledTexture;
 
-    IntRect m_area;
-    IntRect m_visibleArea;
     float m_scale;
 
     unsigned int m_pictureUsed;

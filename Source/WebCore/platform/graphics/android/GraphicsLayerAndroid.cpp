@@ -119,8 +119,8 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_needsRepaint(false),
     m_needsNotifyClient(false),
     m_haveContents(false),
-    m_haveImage(false),
     m_newImage(false),
+    m_image(0),
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
 {
@@ -132,6 +132,9 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
 
 GraphicsLayerAndroid::~GraphicsLayerAndroid()
 {
+    if (m_image)
+        m_image->deref();
+
     m_contentLayer->unref();
     SkSafeUnref(m_foregroundLayer);
     SkSafeUnref(m_foregroundClipLayer);
@@ -331,6 +334,9 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
 
 void GraphicsLayerAndroid::setBackfaceVisibility(bool b)
 {
+    if (b == m_backfaceVisibility)
+        return;
+
     GraphicsLayer::setBackfaceVisibility(b);
     m_contentLayer->setBackfaceVisibility(b);
     askForSync();
@@ -397,7 +403,7 @@ void GraphicsLayerAndroid::setDrawsContent(bool drawsContent)
 
 void GraphicsLayerAndroid::setBackgroundColor(const Color& color)
 {
-    if (color == m_backgroundColor)
+    if (color == m_backgroundColor && m_backgroundColorSet)
         return;
     LOG("(%x) setBackgroundColor", this);
     GraphicsLayer::setBackgroundColor(color);
@@ -409,6 +415,9 @@ void GraphicsLayerAndroid::setBackgroundColor(const Color& color)
 
 void GraphicsLayerAndroid::clearBackgroundColor()
 {
+    if (!m_backgroundColorSet)
+        return;
+
     LOG("(%x) clearBackgroundColor", this);
     GraphicsLayer::clearBackgroundColor();
     askForSync();
@@ -551,7 +560,7 @@ bool GraphicsLayerAndroid::repaint()
     LOG("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
         this, gPaused, m_needsRepaint, m_haveContents);
 
-    if (!gPaused && m_haveContents && m_needsRepaint && !m_haveImage) {
+    if (!gPaused && m_haveContents && m_needsRepaint && !m_image) {
         // with SkPicture, we request the entire layer's content.
         IntRect layerBounds(0, 0, m_size.width(), m_size.height());
 
@@ -564,6 +573,7 @@ bool GraphicsLayerAndroid::repaint()
             phase.set(GraphicsLayerPaintBackground);
             if (!paintContext(m_contentLayer->recordContext(), layerBounds))
                 return false;
+            m_contentLayer->checkTextPresence();
 
             // Construct the foreground layer and draw.
             RenderBox* box = layer->renderBox();
@@ -582,6 +592,7 @@ bool GraphicsLayerAndroid::repaint()
             layer->scrollToOffset(0, 0);
             // At this point, it doesn't matter if painting failed.
             (void) paintContext(m_foregroundLayer->recordContext(), contentsRect);
+            m_foregroundLayer->checkTextPresence();
             layer->scrollToOffset(scroll.width(), scroll.height());
 
             // Construct the clip layer for masking the contents.
@@ -600,13 +611,21 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundLayer->setPosition(-x, -y);
             // Set the scrollable bounds of the layer.
             m_foregroundLayer->setScrollLimits(-x, -y, m_size.width(), m_size.height());
-            m_foregroundLayer->markAsDirty(m_dirtyRegion);
+
+            // Invalidate the entire layer for now, as webkit will only send the
+            // setNeedsDisplayInRect() for the visible (clipped) scrollable area,
+            // offsetting the invals by the scroll position would not be enough.
+            // TODO: have webkit send us invals even for non visible area
+            SkRegion region;
+            region.setRect(0, 0, contentsRect.width(), contentsRect.height());
+            m_foregroundLayer->markAsDirty(region);
             m_foregroundLayer->needsRepaint();
         } else {
             // If there is no contents clip, we can draw everything into one
             // picture.
             if (!paintContext(m_contentLayer->recordContext(), layerBounds))
                 return false;
+            m_contentLayer->checkTextPresence();
             // Check for a scrollable iframe and report the scrolling
             // limits based on the view size.
             if (m_contentLayer->contentIsScrollable()) {
@@ -630,7 +649,7 @@ bool GraphicsLayerAndroid::repaint()
 
         return true;
     }
-    if (m_needsRepaint && m_haveImage && m_newImage) {
+    if (m_needsRepaint && m_image && m_newImage) {
         // We need to tell the GL thread that we will need to repaint the
         // texture. Only do so if we effectively have a new image!
         m_contentLayer->markAsDirty(m_dirtyRegion);
@@ -652,7 +671,7 @@ bool GraphicsLayerAndroid::paintContext(SkPicture* context,
     if (!canvas)
         return false;
 
-    PlatformGraphicsContext platformContext(canvas, 0);
+    PlatformGraphicsContext platformContext(canvas);
     GraphicsContext graphicsContext(&platformContext);
 
     paintGraphicsLayerContents(graphicsContext, rect);
@@ -663,7 +682,7 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
 {
     // rect is in the render object coordinates
 
-    if (!m_haveImage && !drawsContent()) {
+    if (!m_image && !drawsContent()) {
         LOG("(%x) setNeedsDisplay(%.2f,%.2f,%.2f,%.2f) doesn't have content, bypass...",
             this, rect.x(), rect.y(), rect.width(), rect.height());
         return;
@@ -827,14 +846,23 @@ void GraphicsLayerAndroid::resumeAnimations()
 void GraphicsLayerAndroid::setContentsToImage(Image* image)
 {
     TLOG("(%x) setContentsToImage", this, image);
-    if (image) {
+    if (image && image != m_image) {
+        image->ref();
+        if (m_image)
+            m_image->deref();
+        m_image = image;
+
+        SkBitmapRef* bitmap = image->nativeImageForCurrentFrame();
+        m_contentLayer->setContentsImage(bitmap);
+
         m_haveContents = true;
-        m_haveImage = true;
         m_newImage = true;
-        m_contentLayer->setContentsImage(image->nativeImageForCurrentFrame());
     }
-    if (m_haveImage && !image)
+    if (!image && m_image) {
         m_contentLayer->setContentsImage(0);
+        m_image->deref();
+        m_image = 0;
+    }
 
     setNeedsDisplay();
     askForSync();

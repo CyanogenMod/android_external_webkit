@@ -88,6 +88,8 @@ public:
     void gatherLayerTextures();
     void gatherTextures();
     bool layerTexturesRemain() { return m_layerTexturesRemain; }
+    void gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
+                               int* nbLayerTextures, int* nbAllocatedLayerTextures);
 
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
 
@@ -105,12 +107,14 @@ public:
     void resetTextureUsage(TiledPage* page);
 
     int maxTextureCount();
+    int maxLayerTextureCount();
     void setMaxTextureCount(int max);
+    void setMaxLayerTextureCount(int max);
     static float tileWidth();
     static float tileHeight();
     static float layerTileWidth();
     static float layerTileHeight();
-    void paintedSurfacesCleanup(GLWebViewState* state);
+    void paintedSurfacesCleanup(GLWebViewState* state = 0);
     void unregisterGLWebViewState(GLWebViewState* state);
 
     void allocateTiles();
@@ -170,6 +174,16 @@ public:
         m_shader.setContrast(contrast);
     }
 
+    void setUseMinimalMemory(bool useMinimalMemory)
+    {
+        m_useMinimalMemory = useMinimalMemory;
+    }
+
+    bool useMinimalMemory()
+    {
+        return m_useMinimalMemory;
+    }
+
     void incDrawGLCount()
     {
         m_drawGLCount++;
@@ -178,6 +192,11 @@ public:
     unsigned long long getDrawGLCount()
     {
         return m_drawGLCount;
+    }
+
+    int getPaintedSurfaceCount()
+    {
+        return m_paintedSurfaces.size();
     }
 
 private:
@@ -190,6 +209,9 @@ private:
             m_generatorReadyCond.wait(m_generatorLock);
     }
 
+    void deallocateTexturesVector(unsigned long long sparedDrawCount,
+                                  WTF::Vector<BaseTileTexture*>& textures);
+
     Vector<BaseTileTexture*> m_textures;
     Vector<BaseTileTexture*> m_availableTextures;
 
@@ -200,12 +222,15 @@ private:
     Vector<PaintedSurface*> m_paintedSurfaces;
 
     int m_maxTextureCount;
+    int m_maxLayerTextureCount;
 
     bool m_generatorReady;
 
     bool m_showVisualIndicator;
     bool m_invertedScreen;
     bool m_invertedScreenSwitch;
+
+    bool m_useMinimalMemory;
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 
@@ -223,6 +248,8 @@ private:
     TilesProfiler m_profiler;
     TilesTracker m_tilesTracker;
     unsigned long long m_drawGLCount;
+    double m_lastTimeLayersUsed;
+    bool m_hasLayerTextures;
 };
 
 } // namespace WebCore

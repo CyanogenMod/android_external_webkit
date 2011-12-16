@@ -25,23 +25,21 @@
 
 #include "config.h"
 #include "PaintTileOperation.h"
+#include "ImageTexture.h"
+#include "ImagesManager.h"
 #include "LayerAndroid.h"
 #include "PaintedSurface.h"
 
 namespace WebCore {
 
-PaintTileOperation::PaintTileOperation(BaseTile* tile, PaintedSurface* surface)
+PaintTileOperation::PaintTileOperation(BaseTile* tile, SurfacePainter* surface)
     : QueuedOperation(QueuedOperation::PaintTile, tile->page())
     , m_tile(tile)
     , m_surface(surface)
-    , m_layer(0)
 {
     if (m_tile)
         m_tile->setRepaintPending(true);
-    if (m_surface)
-        m_layer = surface->layer();
     SkSafeRef(m_surface);
-    SkSafeRef(m_layer);
 }
 
 PaintTileOperation::~PaintTileOperation()
@@ -50,8 +48,13 @@ PaintTileOperation::~PaintTileOperation()
         m_tile->setRepaintPending(false);
         m_tile = 0;
     }
-    SkSafeUnref(m_surface);
-    SkSafeUnref(m_layer);
+
+    if (m_surface && m_surface->type() == SurfacePainter::ImageSurface) {
+        ImageTexture* image = static_cast<ImageTexture*>(m_surface);
+        ImagesManager::instance()->releaseImage(image->imageCRC());
+    } else {
+        SkSafeUnref(m_surface);
+    }
 }
 
 bool PaintTileOperation::operator==(const QueuedOperation* operation)
@@ -99,7 +102,6 @@ int PaintTileOperation::priority()
     // for base tiles, prioritize based on position
     if (!m_tile->isLayerTile()) {
         bool goingDown = m_tile->page()->scrollingDown();
-        SkIRect *rect = m_tile->page()->expandedTileBounds();
         priority += m_tile->x();
 
         if (goingDown)

@@ -34,19 +34,16 @@
 #include "SkRegion.h"
 #include "TextureOwner.h"
 #include "TilePainter.h"
-#include "UpdateManager.h"
 
 class SkCanvas;
 
 namespace WebCore {
 
-class UpdateManager;
-class PaintedSurface;
-
 class TiledTexture : public TilePainter {
 public:
-    TiledTexture(PaintedSurface* surface)
-        : m_surface(surface)
+    TiledTexture(SurfacePainter* surface)
+        : m_paintingPicture(0)
+        , m_surface(surface)
         , m_prevTileX(0)
         , m_prevTileY(0)
         , m_scale(1)
@@ -57,16 +54,14 @@ public:
         ClassTracker::instance()->increment("TiledTexture");
 #endif
     }
-    virtual ~TiledTexture()
-    {
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->decrement("TiledTexture");
-#endif
-        removeTiles();
-    };
+
+    virtual ~TiledTexture();
+
+    IntRect computeTilesArea(IntRect& visibleArea, float scale);
 
     void prepare(GLWebViewState* state, float scale, bool repaint,
                  bool startFastSwap, IntRect& visibleArea);
+    void swapTiles();
     bool draw();
 
     void prepareTile(bool repaint, int x, int y);
@@ -80,20 +75,23 @@ public:
 
     // TilePainter methods
     bool paint(BaseTile* tile, SkCanvas*, unsigned int*);
-    virtual void paintExtra(SkCanvas*);
     virtual const TransformationMatrix* transform();
 
     float scale() { return m_scale; }
     bool ready();
 
-    PaintedSurface* surface() { return m_surface; }
+    int nbTextures(IntRect& area, float scale);
 
 private:
     bool tileIsVisible(BaseTile* tile);
 
-    UpdateManager m_updateManager;
+    // protect m_paintingPicture
+    //    update() on UI thread modifies
+    //    paint() on texture gen thread reads
+    android::Mutex m_paintingPictureSync;
+    SkPicture* m_paintingPicture;
 
-    PaintedSurface* m_surface;
+    SurfacePainter* m_surface;
     Vector<BaseTile*> m_tiles;
 
     // tile coordinates in viewport, set in prepare()
@@ -110,14 +108,28 @@ private:
 
 class DualTiledTexture {
 public:
-    DualTiledTexture(PaintedSurface* surface);
+    DualTiledTexture(SurfacePainter* surface);
     ~DualTiledTexture();
     void prepare(GLWebViewState* state, float scale, bool repaint,
                  bool startFastSwap, IntRect& area);
+    void swapTiles();
     void swap();
     bool draw();
     void update(const SkRegion& dirtyArea, SkPicture* picture);
     bool owns(BaseTileTexture* texture);
+    bool isReady()
+    {
+        return !m_zooming && m_frontTexture->ready();
+    }
+
+    int nbTextures(IntRect& area, float scale)
+    {
+        // TODO: consider the zooming case for the backTexture
+        if (!m_frontTexture)
+            return 0;
+        return m_frontTexture->nbTextures(area, scale);
+    }
+
 private:
     // Delay before we schedule a new tile at the new scale factor
     static const double s_zoomUpdateDelay = 0.2; // 200 ms

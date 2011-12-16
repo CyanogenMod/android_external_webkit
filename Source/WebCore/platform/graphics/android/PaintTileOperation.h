@@ -26,16 +26,19 @@
 #ifndef PaintTileSetOperation_h
 #define PaintTileSetOperation_h
 
+#include "BaseTile.h"
 #include "QueuedOperation.h"
+#include "SkRefCnt.h"
 
 namespace WebCore {
 
 class LayerAndroid;
-class PaintedSurface;
+class SurfacePainter;
+class ImageTexture;
 
 class PaintTileOperation : public QueuedOperation {
 public:
-    PaintTileOperation(BaseTile* tile, PaintedSurface* surface = 0);
+    PaintTileOperation(BaseTile* tile, SurfacePainter* surface = 0);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
@@ -46,8 +49,7 @@ public:
 
 private:
     BaseTile* m_tile;
-    PaintedSurface* m_surface;
-    LayerAndroid* m_layer;
+    SurfacePainter* m_surface;
 };
 
 class ScaleFilter : public OperationFilter {

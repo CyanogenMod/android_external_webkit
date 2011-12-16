@@ -33,16 +33,15 @@ namespace WebCore {
 
 class TimingFunction;
 
-class AndroidAnimation : public RefCounted<AndroidAnimation> {
+class AndroidAnimation : public ThreadSafeRefCounted<AndroidAnimation> {
 public:
     AndroidAnimation(AnimatedPropertyID type,
                      const Animation* animation,
                      KeyframeValueList* operations,
                      double beginTime);
-    AndroidAnimation(AndroidAnimation* anim);
 
     virtual ~AndroidAnimation();
-    virtual PassRefPtr<AndroidAnimation> copy() = 0;
+    void suggestBeginTime(double time);
     double elapsedTime(double time);
     void pickValues(double progress, int* start, int* end);
     bool checkIterationsAndProgress(double time, float* finalProgress);
@@ -56,11 +55,10 @@ public:
     AnimatedPropertyID type() { return m_type; }
     bool fillsBackwards() { return m_fillsBackwards; }
     bool fillsForwards() { return m_fillsForwards; }
-
+    int uniqueId() { return m_uniqueId; }
 
 protected:
     double m_beginTime;
-    double m_elapsedTime;
     double m_duration;
     bool m_fillsBackwards;
     bool m_fillsForwards;
@@ -70,6 +68,8 @@ protected:
     String m_name;
     AnimatedPropertyID m_type;
     KeyframeValueList* m_operations;
+    int m_uniqueId;
+    bool m_hasFinished;
 };
 
 class AndroidOpacityAnimation : public AndroidAnimation {
@@ -80,8 +80,6 @@ public:
     AndroidOpacityAnimation(const Animation* animation,
                             KeyframeValueList* operations,
                             double beginTime);
-    AndroidOpacityAnimation(AndroidOpacityAnimation* anim);
-    virtual PassRefPtr<AndroidAnimation> copy();
 
     virtual void applyForProgress(LayerAndroid* layer, float progress);
 };
@@ -95,9 +93,6 @@ public:
     AndroidTransformAnimation(const Animation* animation,
                               KeyframeValueList* operations,
                               double beginTime);
-
-    AndroidTransformAnimation(AndroidTransformAnimation* anim);
-    virtual PassRefPtr<AndroidAnimation> copy();
 
     virtual void applyForProgress(LayerAndroid* layer, float progress);
 };

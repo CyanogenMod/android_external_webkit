@@ -36,6 +36,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TiledPage.h"
+#include "TreeManager.h"
 #include "ZoomManager.h"
 #include <utils/threads.h>
 
@@ -57,6 +58,8 @@ namespace WebCore {
 
 class BaseLayerAndroid;
 class LayerAndroid;
+class ScrollableLayerAndroid;
+class TexturesResult;
 
 /////////////////////////////////////////////////////////////////////////////////
 // GL Architecture
@@ -165,7 +168,7 @@ class LayerAndroid;
 
 class GLWebViewState {
 public:
-    GLWebViewState(android::Mutex* globalButtonMutex);
+    GLWebViewState();
     ~GLWebViewState();
 
     ZoomManager* zoomManager() { return &m_zoomManager; }
@@ -198,19 +201,21 @@ public:
 
     unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
 
-    void lockBaseLayerUpdate() { m_baseLayerUpdate = false; }
-    void unlockBaseLayerUpdate();
-
     void setIsScrolling(bool isScrolling) { m_isScrolling = isScrolling; }
     bool isScrolling() { return m_isScrolling; }
 
-    double setupDrawing(IntRect& rect, SkRect& viewport, IntRect& webViewRect,
-                int titleBarHeight, IntRect& screenClip,
-                float scale);
+    void drawBackground(Color& backgroundColor);
+    double setupDrawing(IntRect& viewRect, SkRect& visibleRect,
+                        IntRect& webViewRect, int titleBarHeight,
+                        IntRect& screenClip, float scale);
+
+    bool setLayersRenderingMode(TexturesResult&);
+    void fullInval();
 
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 IntRect& webViewRect, int titleBarHeight,
-                IntRect& clip, float scale, bool* buffersSwappedPtr);
+                IntRect& clip, float scale,
+                bool* treesSwappedPtr, bool* newTreeHasAnimPtr);
 
 #ifdef MEASURES_PERF
     void dumpMeasures();
@@ -229,12 +234,26 @@ public:
 
     int expandedTileBoundsX() { return m_expandedTileBoundsX; }
     int expandedTileBoundsY() { return m_expandedTileBoundsY; }
+    void setHighEndGfx(bool highEnd) { m_highEndGfx = highEnd; }
 
     float scale() { return m_scale; }
 
-private:
-    void inval(const IntRect& rect); // caller must hold m_baseLayerLock
+    enum LayersRenderingMode {
+        kAllTextures              = 0, // all layers are drawn with textures fully covering them
+        kClippedTextures          = 1, // all layers are drawn, but their textures will be clipped
+        kScrollableAndFixedLayers = 2, // only scrollable and fixed layers will be drawn
+        kFixedLayers              = 3, // only fixed layers will be drawn
+        kSingleSurfaceRendering   = 4  // no layers will be drawn on separate textures
+                                       // -- everything is drawn on the base surface.
+    };
+
+    LayersRenderingMode layersRenderingMode() { return m_layersRenderingMode; }
+    void scrollLayer(int layerId, int x, int y);
+
     void invalRegion(const SkRegion& region);
+
+private:
+    void inval(const IntRect& rect);
 
     ZoomManager m_zoomManager;
     android::Mutex m_tiledPageLock;
@@ -242,10 +261,6 @@ private:
     SkIRect m_viewportTileBounds;
     SkIRect m_futureViewportTileBounds;
     SkIRect m_preZoomBounds;
-    android::Mutex m_baseLayerLock;
-    BaseLayerAndroid* m_paintingBaseLayer;
-    BaseLayerAndroid* m_currentBaseLayer;
-    LayerAndroid* m_currentBaseLayerRoot;
 
     unsigned int m_currentPictureCounter;
     bool m_usePageA;
@@ -254,12 +269,6 @@ private:
     IntRect m_lastInval;
     IntRect m_frameworkInval;
     IntRect m_frameworkLayersInval;
-    android::Mutex* m_globalButtonMutex;
-
-    bool m_baseLayerUpdate;
-    SkRegion m_invalidateRegion;
-
-    Color m_backgroundColor;
 
 #ifdef MEASURES_PERF
     unsigned int m_totalTimeCounter;
@@ -275,8 +284,12 @@ private:
 
     int m_expandedTileBoundsX;
     int m_expandedTileBoundsY;
+    bool m_highEndGfx;
 
     float m_scale;
+
+    LayersRenderingMode m_layersRenderingMode;
+    TreeManager m_treeManager;
 };
 
 } // namespace WebCore

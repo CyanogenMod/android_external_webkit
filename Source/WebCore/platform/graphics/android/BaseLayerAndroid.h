@@ -48,36 +48,40 @@ public:
     virtual ~BaseLayerAndroid();
 
 #if USE(ACCELERATED_COMPOSITING)
-    void setGLWebViewState(GLWebViewState* infos) { m_glWebViewState = infos; }
     void setBackgroundColor(Color& color) { m_color = color; }
     Color getBackgroundColor() { return m_color; }
 #endif
     void setContent(const android::PictureSet& src);
-    void setExtra(SkPicture& extra);
     android::PictureSet* content() { return &m_content; }
     // This method will paint using the current PictureSet onto
     // the passed canvas. We used it to paint the GL tiles as well as
     // WebView::copyBaseContentToPicture(), so a lock is necessary as
     // we are running in different threads.
-    void drawCanvas(SkCanvas* canvas);
+    virtual bool drawCanvas(SkCanvas* canvas);
 
-    bool drawGL(double currentTime, LayerAndroid* compositedRoot, IntRect& rect,
-                SkRect& viewport, float scale, bool* buffersSwappedPtr);
-    void swapExtra(BaseLayerAndroid* base) { m_extra.swap(base->m_extra); }
+    void updateLayerPositions(SkRect& visibleRect);
+    bool prepare(double currentTime, IntRect& viewRect,
+                 SkRect& visibleRect, float scale);
+    bool drawGL(IntRect& viewRect, SkRect& visibleRect, float scale);
+
+    // rendering asset management
+    void swapTiles();
+    void setIsDrawing(bool isDrawing);
+    void setIsPainting(Layer* drawingTree);
+    void mergeInvalsInto(Layer* replacementTree);
+    bool isReady();
+
 private:
 #if USE(ACCELERATED_COMPOSITING)
     void prefetchBasePicture(SkRect& viewport, float currentScale,
-                             TiledPage* prefetchTiledPage);
-    bool drawBasePictureInGL(SkRect& viewport, float scale, double currentTime,
-                             bool* buffersSwappedPtr);
+                             TiledPage* prefetchTiledPage, bool draw);
+    bool prepareBasePictureInGL(SkRect& viewport, float scale, double currentTime);
+    void drawBasePictureInGL();
 
-    GLWebViewState* m_glWebViewState;
     android::Mutex m_drawLock;
     Color m_color;
 #endif
     android::PictureSet m_content;
-    SkPicture m_extra;
-    SkRect m_previousVisible;
 
     ScrollState m_scrollState;
 };
