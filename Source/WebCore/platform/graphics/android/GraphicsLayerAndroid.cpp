@@ -616,9 +616,8 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundClipLayer->setSize(width, height);
 
             int rtlOffset = 0; // LTR uses no offset.
-            if (!layer->renderer()->style()->isLeftToRightDirection()) {
-                rtlOffset = layer->scrollWidth() - clip.width(); // Scroll all the way right.
-            }
+            if (!layer->renderer()->style()->isLeftToRightDirection())
+                rtlOffset = layer->scrollWidth() - width; // Scroll all the way right.
             m_foregroundLayer->setScrollOffset(IntPoint(scroll.width() + rtlOffset,
                     scroll.height()));
             // Need to offset the foreground layer by the clip layer in order
