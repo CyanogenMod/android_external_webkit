@@ -101,6 +101,7 @@
 #include "RenderThemeAndroid.h"
 #include "RenderView.h"
 #include "ResourceRequest.h"
+#include "RuntimeEnabledFeatures.h"
 #include "SchemeRegistry.h"
 #include "SelectionController.h"
 #include "Settings.h"
@@ -467,6 +468,12 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     // initialisation.
     v8::V8::Initialize();
 #endif
+
+    // Configure any RuntimeEnabled features that we need to change from their default now.
+    // See WebCore/bindings/generic/RuntimeEnabledFeatures.h
+
+    // HTML5 History API
+    RuntimeEnabledFeatures::setPushStateEnabled(true);
 }
 
 WebViewCore::~WebViewCore()
