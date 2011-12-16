@@ -854,6 +854,21 @@ void TextRunWalker::setGlyphPositions(bool isRTL)
             }
         }
 
+        // ZeroWidthJoiners and ZeroWidthNonJoiners should be stripped by
+        // Harfbuzz, but aren't. Check for zwj and zwnj and replace with a
+        // zero width space. We get the glyph data for space instead of
+        // zeroWidthSpace because the latter was seen to render with an
+        // unexpected code point (the symbol for a cloud). Since the standard
+        // space is in page zero and since we've also confirmed that there is
+        // no advance on this glyph, that should be ok.
+        if (0 == m_item.advances[i]) {
+            const HB_UChar16 c = m_item.string[m_item.item.pos + logClustersIndex];
+            if ((c == zeroWidthJoiner) || (c == zeroWidthNonJoiner)) {
+                static Glyph spaceGlyph = m_font->glyphDataForCharacter(space, false).glyph;
+                m_glyphs16[i] = spaceGlyph;
+            }
+        }
+
         // TODO We would like to add m_letterSpacing after each cluster, but I
         // don't know where the cluster information is. This is typically
         // fine for Roman languages, but breaks more complex languages
@@ -889,7 +904,7 @@ void TextRunWalker::normalizeSpacesAndMirrorChars(const UChar* source, bool rtl,
 
         if (Font::treatAsSpace(character))
             character = space;
-        else if (Font::treatAsZeroWidthSpace(character))
+        else if (Font::treatAsZeroWidthSpaceInComplexScript(character))
             character = zeroWidthSpace;
         else if (rtl)
             character = u_charMirror(character);
