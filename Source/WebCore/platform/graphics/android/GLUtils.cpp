@@ -385,105 +385,22 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
     const int y = renderInfo->invalRect->fTop;
     const SkSize& requiredSize = renderInfo->tileSize;
     TextureInfo* textureInfo = renderInfo->textureInfo;
-    SharedTextureMode mode = textureInfo->getSharedTextureMode();
-    if (requiredSize.equals(textureInfo->m_width, textureInfo->m_height)) {
-        if (mode == EglImageMode)
-            GLUtils::updateTextureWithBitmap(textureInfo->m_textureId, x, y, bitmap);
-        else if (mode == SurfaceTextureMode)
-#if DEPRECATED_SURFACE_TEXTURE_MODE
-            GLUtils::updateSurfaceTextureWithBitmap(renderInfo, x, y, bitmap);
-#else
-            GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, x, y, bitmap);
-#endif
-    } else {
 
+    if (requiredSize.equals(textureInfo->m_width, textureInfo->m_height))
+        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, x, y, bitmap);
+    else {
         if (!requiredSize.equals(bitmap.width(), bitmap.height())) {
             XLOG("The bitmap size (%d,%d) does not equal the texture size (%d,%d)",
                     bitmap.width(), bitmap.height(),
                     requiredSize.width(), requiredSize.height());
         }
+        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, 0, 0, bitmap);
 
-        if (mode == EglImageMode)
-            GLUtils::createTextureWithBitmap(textureInfo->m_textureId, bitmap);
-        else if (mode == SurfaceTextureMode)
-#if DEPRECATED_SURFACE_TEXTURE_MODE
-            GLUtils::createSurfaceTextureWithBitmap(renderInfo, bitmap);
-#else
-            GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, 0, 0, bitmap);
-#endif
         textureInfo->m_width = bitmap.width();
         textureInfo->m_height = bitmap.height();
         textureInfo->m_internalFormat = GL_RGBA;
     }
 }
-
-#if DEPRECATED_SURFACE_TEXTURE_MODE
-void GLUtils::createSurfaceTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap, GLint filter)
-{
-
-    TextureInfo* texture = renderInfo->textureInfo;
-
-    texture->m_width = bitmap.width();
-    texture->m_height = bitmap.height();
-    texture->m_internalFormat = GL_RGBA;
-
-    sp<android::SurfaceTexture> surfaceTexture = texture->m_surfaceTexture;
-    sp<ANativeWindow> ANW = texture->m_ANW;
-
-    int result;
-    result = native_window_set_buffers_geometry(ANW.get(),
-            texture->m_width, texture->m_height, HAL_PIXEL_FORMAT_RGBA_8888);
-    checkSurfaceTextureError("native_window_set_buffers_geometry", result);
-    result = native_window_set_usage(ANW.get(),
-            GRALLOC_USAGE_SW_READ_OFTEN | GRALLOC_USAGE_SW_WRITE_OFTEN);
-    checkSurfaceTextureError("native_window_set_usage", result);
-
-    updateSurfaceTextureWithBitmap(renderInfo, 0, 0, bitmap, filter);
-}
-
-void GLUtils::updateSurfaceTextureWithBitmap(const TileRenderInfo* renderInfo, int x, int y, const SkBitmap& bitmap, GLint filter)
-{
-    TextureInfo* texture = renderInfo->textureInfo;
-    sp<android::SurfaceTexture> surfaceTexture = texture->m_surfaceTexture;
-    sp<ANativeWindow> ANW = texture->m_ANW;
-
-    ANativeWindowBuffer* anb;
-    int status = ANW->dequeueBuffer(ANW.get(), &anb);
-    checkSurfaceTextureError("dequeueBuffer", status);
-
-    if (status != NO_ERROR) { // FIXME: add proper error handling!
-        native_window_set_buffer_count(ANW.get(), 3);
-        return;
-    }
-
-    sp<android::GraphicBuffer> buf(new android::GraphicBuffer(anb, false));
-    status |= ANW->lockBuffer(ANW.get(), buf->getNativeBuffer());
-    checkSurfaceTextureError("lockBuffer", status);
-
-    // Fill the buffer with the content of the bitmap
-    uint8_t* img = 0;
-    status |= buf->lock(GRALLOC_USAGE_SW_WRITE_OFTEN, (void**)(&img));
-    checkSurfaceTextureError("lock", status);
-
-    if (status == NO_ERROR) {
-        int row, col;
-        int bpp = 4; // Now only deal with RGBA8888 format.
-
-        bitmap.lockPixels();
-        uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
-        // Copied line by line since we need to handle the offsets and stride.
-        for (row = 0 ; row < bitmap.height(); row ++) {
-            uint8_t* dst = &(img[(buf->getStride() * (row + x) + y) * bpp]);
-            uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
-            memcpy(dst, src, bpp * bitmap.width());
-        }
-        bitmap.unlockPixels();
-    }
-    buf->unlock();
-    status = ANW->queueBuffer(ANW.get(), buf->getNativeBuffer());
-    checkSurfaceTextureError("queueBuffer", status);
-}
-#endif
 
 void GLUtils::updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* renderInfo, int x, int y, const SkBitmap& bitmap)
 {

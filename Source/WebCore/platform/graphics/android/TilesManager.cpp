@@ -229,9 +229,9 @@ void TilesManager::printTextures()
             x = o->x();
             y = o->y();
         }
-        XLOG("[%d] texture %x  busy: %d owner: %x (%d, %d) page: %x scale: %.2f",
+        XLOG("[%d] texture %x owner: %x (%d, %d) page: %x scale: %.2f",
                i, texture,
-               texture->busy(), o, x, y, o ? o->page() : 0, o ? o->scale() : 0);
+               o, x, y, o ? o->page() : 0, o ? o->scale() : 0);
     }
     XLOG("------");
 #endif // DEBUG
@@ -293,12 +293,6 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     for (unsigned int i = 0; i < max; i++) {
         BaseTileTexture* texture = (*availableTexturePool)[i];
         BaseTile* currentOwner = static_cast<BaseTile*>(texture->owner());
-
-        if (texture->busy()) {
-            // don't bother, since the acquire() will likely fail
-            continue;
-        }
-
         if (!currentOwner) {
             // unused texture! take it!
             farthestTexture = texture;

@@ -35,13 +35,12 @@
 
 namespace WebCore {
 
-TextureInfo::TextureInfo(SharedTextureMode mode)
+TextureInfo::TextureInfo()
 {
     m_textureId = GL_NO_TEXTURE;
     m_width = 0;
     m_height = 0;
     m_internalFormat = 0;
-    m_sharedTextureMode = mode;
     m_eglSurface = EGL_NO_SURFACE;
     m_pictureCount = 0;
 }

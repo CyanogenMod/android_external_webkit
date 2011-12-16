@@ -32,6 +32,7 @@
 #include "BaseTileTexture.h"
 #include "ShaderProgram.h"
 #include "TiledPage.h"
+#include <EGL/eglext.h>
 
 namespace WebCore {
 

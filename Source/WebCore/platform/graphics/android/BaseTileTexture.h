@@ -26,10 +26,11 @@
 #ifndef BaseTileTexture_h
 #define BaseTileTexture_h
 
-#include "DoubleBufferedTexture.h"
 #include "GLWebViewState.h"
+#include "TextureInfo.h"
 #include "TextureOwner.h"
 #include "TilePainter.h"
+#include <GLES2/gl2.h>
 #include <SkBitmap.h>
 
 class SkCanvas;
@@ -61,22 +62,12 @@ public:
     bool m_inverted;
 };
 
-// DoubleBufferedTexture using a SkBitmap as backing mechanism
-class BaseTileTexture : public DoubleBufferedTexture {
+class BaseTileTexture {
 public:
     // This object is to be constructed on the consumer's thread and must have
     // a width and height greater than 0.
     BaseTileTexture(uint32_t w, uint32_t h);
     virtual ~BaseTileTexture();
-
-    // these functions override their parent
-    virtual TextureInfo* producerLock();
-    virtual void producerRelease();
-    virtual void producerReleaseAndSwap();
-
-    // updates the texture with current bitmap and releases (and if needed also
-    // swaps) the texture.
-    virtual void producerUpdate(TextureInfo* textureInfo, const SkBitmap& bitmap);
 
     // allows consumer thread to assign ownership of the texture to the tile. It
     // returns false if ownership cannot be transferred because the tile is busy
@@ -89,13 +80,8 @@ public:
     // private member accessor functions
     TextureOwner* owner() { return m_owner; } // only used by the consumer thread
 
-    bool busy();
-    void setNotBusy();
-
     const SkSize& getSize() const { return m_size; }
 
-    void setTile(TextureInfo* info, int x, int y, float scale,
-                 TilePainter* painter, unsigned int pictureCount);
     bool readyFor(BaseTile* baseTile);
     float scale();
 
@@ -107,29 +93,17 @@ public:
 
     void setOwnTextureTileInfoFromQueue(const TextureTileInfo* info);
 
-protected:
-    HashMap<SharedTexture*, TextureTileInfo*> m_texturesInfo;
+    TextureInfo* getTextureInfo() { return &m_ownTextureInfo; }
 
 private:
-    void destroyTextures(SharedTexture** textures);
     TextureTileInfo m_ownTextureTileInfo;
-
+    // TODO: Merge this info into the TextureTileInfo.
+    TextureInfo m_ownTextureInfo;
     SkSize m_size;
     SkBitmap::Config m_config;
 
     // BaseTile owning the texture, only modified by UI thread
     TextureOwner* m_owner;
-
-    // This values signals that the texture is currently in use by the consumer.
-    // This allows us to prevent the owner of the texture from changing while the
-    // consumer is holding a lock on the texture.
-    bool m_busy;
-    // We mutex protect the reads/writes of m_busy to ensure that we are reading
-    // the most up-to-date value even across processors in an SMP system.
-    android::Mutex m_busyLock;
-    // We use this condition variable to signal that the texture
-    // is not busy anymore
-    android::Condition m_busyCond;
 };
 
 } // namespace WebCore

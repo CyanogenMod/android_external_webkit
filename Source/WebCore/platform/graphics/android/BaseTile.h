@@ -172,10 +172,8 @@ private:
     unsigned int m_lastDirtyPicture;
 
     // store the dirty region
-    SkRegion* m_dirtyArea;
-    bool* m_fullRepaint;
-    int m_maxBufferNumber;
-    int m_currentDirtyAreaIndex;
+    SkRegion m_dirtyArea;
+    bool m_fullRepaint;
 
     // flag used to know if we have a texture that was painted at least once
     bool m_isTexturePainted;
