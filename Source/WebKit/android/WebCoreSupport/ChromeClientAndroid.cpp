@@ -37,12 +37,15 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "Geolocation.h"
+#include "GraphicsLayerAndroid.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
 #include "Icon.h"
 #include "LayerAndroid.h"
 #include "Page.h"
 #include "PopupMenuAndroid.h"
+#include "RenderLayer.h"
+#include "RenderLayerCompositor.h"
 #include "ScriptController.h"
 #include "SearchPopupMenuAndroid.h"
 #include "WebCoreFrameBridge.h"
@@ -64,7 +67,21 @@ static unsigned long long tryToReclaimDatabaseQuota(SecurityOrigin* originNeedin
 WebCore::GraphicsLayer* ChromeClientAndroid::layersSync()
 {
     if (m_rootGraphicsLayer && m_needsLayerSync && m_webFrame) {
-        if (FrameView* frameView = m_webFrame->page()->mainFrame()->view())
+        // We may have more than one frame, so let's first update all of them
+        // (webkit may want to update the GraphicsLayer tree, and we do *not* want
+        // to find this out when we are painting, as it means we could be summarily
+        // deallocated while painting...)
+        GraphicsLayerAndroid* rootLayer = static_cast<GraphicsLayerAndroid*>(m_rootGraphicsLayer);
+        Vector<const RenderLayer*> listRootLayers;
+        rootLayer->gatherRootLayers(listRootLayers);
+
+        for (unsigned int i = 0; i < listRootLayers.size(); i++) {
+            RenderLayer* layer = const_cast<RenderLayer*>(listRootLayers[i]);
+            layer->compositor()->updateCompositingLayers();
+        }
+
+        Frame* frame = m_webFrame->page()->mainFrame();
+        if (FrameView* frameView = frame->view())
             frameView->syncCompositingStateIncludingSubframes();
     }
     m_needsLayerSync = false;
