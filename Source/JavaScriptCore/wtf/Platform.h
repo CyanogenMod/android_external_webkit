@@ -691,6 +691,7 @@
 #define ENABLE_3D_RENDERING 1
 #endif
 
+#define ENABLE_ANDROID_NAVCACHE 1
 // ENABLE guards
 #define ENABLE_JAVA_BRIDGE 1
 // Prevents Webkit from drawing the caret in textfields and textareas

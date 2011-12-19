@@ -529,14 +529,16 @@ static bool layoutIfNeededRecursive(WebCore::Frame* f)
     return success && !v->needsLayout();
 }
 
+#if ENABLE(ANDROID_NAVCACHE)
 CacheBuilder& WebViewCore::cacheBuilder()
 {
     return FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
 }
+#endif
 
 WebCore::Node* WebViewCore::currentFocus()
 {
-    return cacheBuilder().currentFocus();
+    return m_mainFrame->document()->focusedNode();
 }
 
 void WebViewCore::recordPicture(SkPicture* picture)
@@ -657,8 +659,10 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         height = view->contentsHeight();
     }
 
+#if ENABLE(ANDROID_NAVCACHE)
     if (cacheBuilder().pictureSetDisabled())
         content->clear();
+#endif
 
 #if USE(ACCELERATED_COMPOSITING)
     // Detects if the content size has changed
@@ -705,6 +709,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     }
 #endif
 
+#if ENABLE(ANDROID_NAVCACHE)
     WebCore::Node* oldFocusNode = currentFocus();
     m_frameCacheOutOfDate = true;
     WebCore::IntRect oldBounds;
@@ -758,6 +763,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     m_domtree_version = latestVersion;
     DBG_NAV_LOG("call updateFrameCache");
     updateFrameCache();
+#endif
     if (m_findIsUp) {
         ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
         JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1102,9 +1108,11 @@ void WebViewCore::didFirstLayout()
             || loadType == WebCore::FrameLoadTypeSame);
     checkException(env);
 
+#if ENABLE(ANDROID_NAVCACHE)
     DBG_NAV_LOG("call updateFrameCache");
     m_check_domtree_version = false;
     updateFrameCache();
+#endif
     m_history.setDidFirstLayout(true);
 }
 
@@ -1188,31 +1196,6 @@ void WebViewCore::notifyProgressFinished()
 {
     m_check_domtree_version = true;
     sendNotifyProgressFinished();
-}
-
-void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
-{
-    int dx = 0, dy = 0;
-
-    switch (dir) {
-    case CacheBuilder::LEFT:
-        dx = -m_maxXScroll;
-        break;
-    case CacheBuilder::UP:
-        dy = -m_maxYScroll;
-        break;
-    case CacheBuilder::RIGHT:
-        dx = m_maxXScroll;
-        break;
-    case CacheBuilder::DOWN:
-        dy = m_maxYScroll;
-        break;
-    case CacheBuilder::UNINITIALIZED:
-    default:
-        ALOG_ASSERT(0, "unexpected focus selector");
-    }
-    WebCore::FrameView* view = m_mainFrame->view();
-    this->scrollTo(view->scrollX() + dx, view->scrollY() + dy, true);
 }
 
 void WebViewCore::setScrollOffset(int moveGeneration, bool sendScrollEvent, int dx, int dy)
@@ -1482,8 +1465,10 @@ HTMLImageElement* WebViewCore::retrieveImageElement(int x, int y)
 
 WTF::String WebViewCore::retrieveHref(int x, int y)
 {
-    WebCore::HTMLAnchorElement* anchor = retrieveAnchorElement(x, y);
-    return anchor ? anchor->href() : WTF::String();
+    // TODO: This is expensive, cache
+    HitTestResult result = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
+                false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(1, 1));
+    return result.absoluteLinkURL();
 }
 
 WTF::String WebViewCore::retrieveAnchorText(int x, int y)
@@ -1494,8 +1479,10 @@ WTF::String WebViewCore::retrieveAnchorText(int x, int y)
 
 WTF::String WebViewCore::retrieveImageSource(int x, int y)
 {
-    HTMLImageElement* image = retrieveImageElement(x, y);
-    return image ? image->src().string() : WTF::String();
+    // TODO: This is expensive, cache
+    HitTestResult result = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
+                false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(1, 1));
+    return result.absoluteImageURL();
 }
 
 WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
@@ -1557,6 +1544,7 @@ void WebViewCore::revealSelection()
     focusedFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
+#if ENABLE(ANDROID_NAVCACHE)
 void WebViewCore::updateCacheOnNodeChange()
 {
     gCursorBoundsMutex.lock();
@@ -1652,6 +1640,7 @@ void WebViewCore::updateFrameCacheIfLoading()
     if (!m_check_domtree_version)
         updateFrameCache();
 }
+#endif
 
 struct TouchNodeData {
     Node* mNode;
@@ -1662,6 +1651,8 @@ struct TouchNodeData {
 static IntRect getAbsoluteBoundingBox(Node* node) {
     IntRect rect;
     RenderObject* render = node->renderer();
+    if (!render)
+        return rect;
     if (render->isRenderInline())
         rect = toRenderInline(render)->linesVisualOverflowBoundingBox();
     else if (render->isBox())
@@ -1676,119 +1667,133 @@ static IntRect getAbsoluteBoundingBox(Node* node) {
 }
 
 // get the highlight rectangles for the touch point (x, y) with the slop
-Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
+Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop,
+                                                    Node** node, HitTestResult* hitTestResult)
 {
     Vector<IntRect> rects;
     m_mousePos = IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
-    HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
+    *hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
             false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
-    if (!hitTestResult.innerNode() || !hitTestResult.innerNode()->inDocument()) {
+    if (!hitTestResult->innerNode() || !hitTestResult->innerNode()->inDocument()) {
         ALOGE("Should not happen: no in document Node found");
         return rects;
     }
-    const ListHashSet<RefPtr<Node> >& list = hitTestResult.rectBasedTestResult();
+    const ListHashSet<RefPtr<Node> >& list = hitTestResult->rectBasedTestResult();
     if (list.isEmpty()) {
         ALOGE("Should not happen: no rect-based-test nodes found");
         return rects;
     }
-    Frame* frame = hitTestResult.innerNode()->document()->frame();
+    Frame* frame = hitTestResult->innerNode()->document()->frame();
     Vector<TouchNodeData> nodeDataList;
-    ListHashSet<RefPtr<Node> >::const_iterator last = list.end();
-    for (ListHashSet<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it) {
-        // TODO: it seems reasonable to not search across the frame. Isn't it?
-        // if the node is not in the same frame as the innerNode, skip it
-        if (it->get()->document()->frame() != frame)
-            continue;
-        // traverse up the tree to find the first node that needs highlight
-        bool found = false;
-        Node* eventNode = it->get();
-        while (eventNode) {
-            RenderObject* render = eventNode->renderer();
-            if (render && (render->isBody() || render->isRenderView()))
-                break;
-            if (eventNode->supportsFocus()
-                    || eventNode->hasEventListeners(eventNames().clickEvent)
-                    || eventNode->hasEventListeners(eventNames().mousedownEvent)
-                    || eventNode->hasEventListeners(eventNames().mouseupEvent)) {
-                found = true;
-                break;
-            }
-            // the nodes in the rectBasedTestResult() are ordered based on z-index during hit testing.
-            // so do not search for the eventNode across explicit z-index border.
-            // TODO: this is a hard one to call. z-index is quite complicated as its value only
-            // matters when you compare two RenderLayer in the same hierarchy level. e.g. in
-            // the following example, "b" is on the top as its z level is the highest. even "c"
-            // has 100 as z-index, it is still below "d" as its parent has the same z-index as
-            // "d" and logically before "d". Of course "a" is the lowest in the z level.
-            //
-            // z-index:auto "a"
-            //   z-index:2 "b"
-            //   z-index:1
-            //     z-index:100 "c"
-            //   z-index:1 "d"
-            //
-            // If the fat point touches everyone, the order in the list should be "b", "d", "c"
-            // and "a". When we search for the event node for "b", we really don't want "a" as
-            // in the z-order it is behind everything else.
-            if (render && !render->style()->hasAutoZIndex())
-                break;
-            eventNode = eventNode->parentNode();
-        }
-        // didn't find any eventNode, skip it
-        if (!found)
-            continue;
-        // first quick check whether it is a duplicated node before computing bounding box
-        Vector<TouchNodeData>::const_iterator nlast = nodeDataList.end();
-        for (Vector<TouchNodeData>::const_iterator n = nodeDataList.begin(); n != nlast; ++n) {
-            // found the same node, skip it
-            if (eventNode == n->mNode) {
-                found = false;
-                break;
-            }
-        }
-        if (!found)
-            continue;
-        // next check whether the node is fully covered by or fully covering another node.
-        found = false;
-        IntRect rect = getAbsoluteBoundingBox(eventNode);
-        if (rect.isEmpty()) {
-            // if the node's bounds is empty and it is not a ContainerNode, skip it.
-            if (!eventNode->isContainerNode())
+    ALOGD("innerNode: %p, %s", hitTestResult->innerNode(), hitTestResult->innerNode()->nodeName().ascii().data());
+    ALOGD("innerNonSharedNode: %p, %s", hitTestResult->innerNonSharedNode(), hitTestResult->innerNonSharedNode()->nodeName().ascii().data());
+    if (hitTestResult->innerNode() != hitTestResult->innerNonSharedNode()
+            && hitTestResult->innerNode()->hasTagName(WebCore::HTMLNames::areaTag)) {
+        TouchNodeData newNode;
+        HTMLAreaElement* area = static_cast<HTMLAreaElement*>(hitTestResult->innerNode());
+        newNode.mNode = area;
+        newNode.mBounds = area->computeRect(hitTestResult->innerNonSharedNode()->renderer());
+        nodeDataList.append(newNode);
+    } else {
+        ListHashSet<RefPtr<Node> >::const_iterator last = list.end();
+        for (ListHashSet<RefPtr<Node> >::const_iterator it = list.begin(); it != last; ++it) {
+            // TODO: it seems reasonable to not search across the frame. Isn't it?
+            // if the node is not in the same frame as the innerNode, skip it
+            if (it->get()->document()->frame() != frame)
                 continue;
-            // if the node's children are all positioned objects, its bounds can be empty.
-            // Walk through the children to find the bounding box.
-            Node* child = static_cast<const ContainerNode*>(eventNode)->firstChild();
-            while (child) {
-                IntRect childrect;
-                if (child->renderer())
-                    childrect = getAbsoluteBoundingBox(child);
-                if (!childrect.isEmpty()) {
-                    rect.unite(childrect);
-                    child = child->traverseNextSibling(eventNode);
-                } else
-                    child = child->traverseNextNode(eventNode);
+            // traverse up the tree to find the first node that needs highlight
+            bool found = false;
+            Node* eventNode = it->get();
+            while (eventNode) {
+                RenderObject* render = eventNode->renderer();
+                if (render && (render->isBody() || render->isRenderView()))
+                    break;
+                if (eventNode->supportsFocus()
+                        || eventNode->hasEventListeners(eventNames().clickEvent)
+                        || eventNode->hasEventListeners(eventNames().mousedownEvent)
+                        || eventNode->hasEventListeners(eventNames().mouseupEvent)) {
+                    found = true;
+                    break;
+                }
+                // the nodes in the rectBasedTestResult() are ordered based on z-index during hit testing.
+                // so do not search for the eventNode across explicit z-index border.
+                // TODO: this is a hard one to call. z-index is quite complicated as its value only
+                // matters when you compare two RenderLayer in the same hierarchy level. e.g. in
+                // the following example, "b" is on the top as its z level is the highest. even "c"
+                // has 100 as z-index, it is still below "d" as its parent has the same z-index as
+                // "d" and logically before "d". Of course "a" is the lowest in the z level.
+                //
+                // z-index:auto "a"
+                //   z-index:2 "b"
+                //   z-index:1
+                //     z-index:100 "c"
+                //   z-index:1 "d"
+                //
+                // If the fat point touches everyone, the order in the list should be "b", "d", "c"
+                // and "a". When we search for the event node for "b", we really don't want "a" as
+                // in the z-order it is behind everything else.
+                if (render && !render->style()->hasAutoZIndex())
+                    break;
+                eventNode = eventNode->parentNode();
+            }
+            // didn't find any eventNode, skip it
+            if (!found)
+                continue;
+            // first quick check whether it is a duplicated node before computing bounding box
+            Vector<TouchNodeData>::const_iterator nlast = nodeDataList.end();
+            for (Vector<TouchNodeData>::const_iterator n = nodeDataList.begin(); n != nlast; ++n) {
+                // found the same node, skip it
+                if (eventNode == n->mNode) {
+                    found = false;
+                    break;
+                }
+            }
+            if (!found)
+                continue;
+            // next check whether the node is fully covered by or fully covering another node.
+            found = false;
+            IntRect rect = getAbsoluteBoundingBox(eventNode);
+            if (rect.isEmpty()) {
+                // if the node's bounds is empty and it is not a ContainerNode, skip it.
+                if (!eventNode->isContainerNode())
+                    continue;
+                // if the node's children are all positioned objects, its bounds can be empty.
+                // Walk through the children to find the bounding box.
+                Node* child = static_cast<const ContainerNode*>(eventNode)->firstChild();
+                while (child) {
+                    IntRect childrect;
+                    if (child->renderer())
+                        childrect = getAbsoluteBoundingBox(child);
+                    if (!childrect.isEmpty()) {
+                        rect.unite(childrect);
+                        child = child->traverseNextSibling(eventNode);
+                    } else
+                        child = child->traverseNextNode(eventNode);
+                }
+            }
+            for (int i = nodeDataList.size() - 1; i >= 0; i--) {
+                TouchNodeData n = nodeDataList.at(i);
+                // the new node is enclosing an existing node, skip it
+                if (rect.contains(n.mBounds)) {
+                    found = true;
+                    break;
+                }
+                // the new node is fully inside an existing node, remove the existing node
+                if (n.mBounds.contains(rect))
+                    nodeDataList.remove(i);
+            }
+            if (!found) {
+                TouchNodeData newNode;
+                newNode.mNode = eventNode;
+                newNode.mBounds = rect;
+                nodeDataList.append(newNode);
             }
         }
-        for (int i = nodeDataList.size() - 1; i >= 0; i--) {
-            TouchNodeData n = nodeDataList.at(i);
-            // the new node is enclosing an existing node, skip it
-            if (rect.contains(n.mBounds)) {
-                found = true;
-                break;
-            }
-            // the new node is fully inside an existing node, remove the existing node
-            if (n.mBounds.contains(rect))
-                nodeDataList.remove(i);
-        }
-        if (!found) {
-            TouchNodeData newNode;
-            newNode.mNode = eventNode;
-            newNode.mBounds = rect;
-            nodeDataList.append(newNode);
+        if (!nodeDataList.size()) {
+            *node = 0;
+            return rects;
         }
     }
-    if (!nodeDataList.size())
-        return rects;
     // finally select the node with the largest overlap with the fat point
     TouchNodeData final;
     final.mNode = 0;
@@ -1805,6 +1810,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
             area = a;
         }
     }
+    *node = final.mNode;
     // now get the node's highlight rectangles in the page coordinate system
     if (final.mNode) {
         IntPoint frameAdjust;
@@ -1812,7 +1818,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
             frameAdjust = frame->view()->contentsToWindow(IntPoint());
             frameAdjust.move(m_scrollOffsetX, m_scrollOffsetY);
         }
-        if (final.mNode->isLink()) {
+        if (final.mNode->isLink() && final.mNode->renderer()) {
             // most of the links are inline instead of box style. So the bounding box is not
             // a good representation for the highlights. Get the list of rectangles instead.
             RenderObject* render = final.mNode->renderer();
@@ -2128,7 +2134,9 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent);
+#if ENABLE(ANDROID_NAVCACHE)
     updateCacheOnNodeChange();
+#endif
 }
 
 void WebViewCore::setSelection(int start, int end)
@@ -3358,10 +3366,12 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                 if (!fake) {
                     RenderTextControl* rtc
                             = static_cast<RenderTextControl*> (renderer);
+#if ENABLE(ANDROID_NAVCACHE)
                     // Force an update of the navcache as this will fire off a
                     // message to WebView that *must* have an updated focus.
                     m_frameCacheOutOfDate = true;
                     updateFrameCache();
+#endif
                     requestKeyboardWithSelection(focusNode, rtc->selectionStart(),
                             rtc->selectionEnd());
                 }
@@ -3986,7 +3996,9 @@ static void ClearContent(JNIEnv* env, jobject obj, jint nativeClass)
 
 static void UpdateFrameCacheIfLoading(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    reinterpret_cast<WebViewCore*>(nativeClass)->updateFrameCacheIfLoading();
+#if ENABLE(ANDROID_NAVCACHE)
+        reinterpret_cast<WebViewCore*>(nativeClass)->updateFrameCacheIfLoading();
+#endif
 }
 
 static void SetSize(JNIEnv* env, jobject obj, jint nativeClass, jint width,
@@ -4303,9 +4315,11 @@ static void MoveMouseIfLatest(JNIEnv* env, jobject obj, jint nativeClass,
 
 static void UpdateFrameCache(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+#if ENABLE(ANDROID_NAVCACHE)
+        WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->updateFrameCache();
+#endif
 }
 
 static jint GetContentMinPrefWidth(JNIEnv* env, jobject obj, jint nativeClass)
@@ -4550,41 +4564,84 @@ static bool ValidNodeAndBounds(JNIEnv* env, jobject obj, jint nativeClass,
             reinterpret_cast<Node*>(node), nativeRect);
 }
 
-static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint nativeClass,
-        jint x, jint y, jint slop)
+static int GetHitTestExtra(Node* node, HitTestResult& hitTestResult, WTF::String& extra)
+{
+    /*
+        UNKNOWN_TYPE = 0;
+        PHONE_TYPE = 2;
+        GEO_TYPE = 3;
+        EMAIL_TYPE = 4;
+        IMAGE_TYPE = 5;
+        SRC_ANCHOR_TYPE = 7;
+        SRC_IMAGE_ANCHOR_TYPE = 8;
+        EDIT_TEXT_TYPE = 9;
+     */
+    if (!node)
+        return 0;
+    KURL imageUrl = hitTestResult.absoluteImageURL();
+    if (node->isLink()) {
+        if (!imageUrl.isEmpty()) {
+            extra = imageUrl.string();
+            return 8;
+        }
+        extra = hitTestResult.absoluteLinkURL();
+        return 7;
+
+    }
+    if (!imageUrl.isEmpty()) {
+        extra = imageUrl.string();
+        return 5;
+    }
+    if (hitTestResult.isContentEditable()) {
+        return 9;
+    }
+    return 0;
+}
+
+static jobject HitTest(JNIEnv* env, jobject obj, jint nativeClass, jint x, jint y, jint slop)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     if (!viewImpl)
         return 0;
-    Vector<IntRect> rects = viewImpl->getTouchHighlightRects(x, y, slop);
-    if (rects.isEmpty())
+    Node* node = 0;
+    HitTestResult hitTestResult;
+    Vector<IntRect> rects = viewImpl->getTouchHighlightRects(x, y, slop, &node, &hitTestResult);
+    if (rects.isEmpty() && !node)
         return 0;
 
-    jclass arrayClass = env->FindClass("java/util/ArrayList");
-    ALOG_ASSERT(arrayClass, "Could not find java/util/ArrayList");
-    jmethodID init = env->GetMethodID(arrayClass, "<init>", "(I)V");
-    ALOG_ASSERT(init, "Could not find constructor for ArrayList");
-    jobject array = env->NewObject(arrayClass, init, rects.size());
-    ALOG_ASSERT(array, "Could not create a new ArrayList");
-    jmethodID add = env->GetMethodID(arrayClass, "add", "(Ljava/lang/Object;)Z");
-    ALOG_ASSERT(add, "Could not find add method on ArrayList");
     jclass rectClass = env->FindClass("android/graphics/Rect");
     ALOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
     jmethodID rectinit = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     ALOG_ASSERT(rectinit, "Could not find init method on Rect");
+    jobjectArray array = env->NewObjectArray(rects.size(), rectClass, 0);
+    ALOG_ASSERT(array, "Could not create a Rect array");
 
     for (size_t i = 0; i < rects.size(); i++) {
         jobject rect = env->NewObject(rectClass, rectinit, rects[i].x(),
                 rects[i].y(), rects[i].maxX(), rects[i].maxY());
         if (rect) {
-            env->CallBooleanMethod(array, add, rect);
+            env->SetObjectArrayElement(array, i, rect);
             env->DeleteLocalRef(rect);
         }
     }
 
     env->DeleteLocalRef(rectClass);
-    env->DeleteLocalRef(arrayClass);
-    return array;
+
+    jclass hitTestClass = env->FindClass("android/webkit/WebViewCore$WebKitHitTest");
+    ALOG_ASSERT(hitTestClass, "Could not find android/webkit/WebViewCore$WebKitHitTest");
+    jmethodID hitTestInit = env->GetMethodID(hitTestClass, "<init>",  "()V");
+    jobject hitTest = env->NewObject(hitTestClass, hitTestInit);
+    jfieldID htTouchRects = env->GetFieldID(hitTestClass, "mTouchRects", "[Landroid/graphics/Rect;");
+    env->SetObjectField(hitTest, htTouchRects, array);
+    jfieldID htType = env->GetFieldID(hitTestClass, "mType", "I");
+    jfieldID htExtra = env->GetFieldID(hitTestClass, "mExtra", "Ljava/lang/String;");
+    WTF::String extra;
+    int type = GetHitTestExtra(node, hitTestResult, extra);
+    env->SetIntField(hitTest, htType, type);
+    jstring jextra = wtfStringToJstring(env, extra, false);
+    env->SetObjectField(hitTest, htExtra, jextra);
+    env->DeleteLocalRef(hitTestClass);
+    return hitTest;
 }
 
 static void AutoFillForm(JNIEnv* env, jobject obj, jint nativeClass,
@@ -4730,8 +4787,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) PluginSurfaceReady },
     { "nativeValidNodeAndBounds", "(IIILandroid/graphics/Rect;)Z",
         (void*) ValidNodeAndBounds },
-    { "nativeGetTouchHighlightRects", "(IIII)Ljava/util/ArrayList;",
-        (void*) GetTouchHighlightRects },
+    { "nativeHitTest", "(IIII)Landroid/webkit/WebViewCore$WebKitHitTest;",
+        (void*) HitTest },
     { "nativeAutoFillForm", "(II)V",
         (void*) AutoFillForm },
     { "nativeScrollLayer", "(IILandroid/graphics/Rect;)V",

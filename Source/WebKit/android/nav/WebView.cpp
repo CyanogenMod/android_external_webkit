@@ -191,7 +191,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
     m_frameCacheUI = 0;
-    m_navPictureUI = 0;
     m_generation = 0;
     m_heightCanMeasure = false;
     m_lastDx = 0;
@@ -222,7 +221,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     stopGL();
 #endif
     delete m_frameCacheUI;
-    delete m_navPictureUI;
     SkSafeUnref(m_baseLayer);
     delete m_glDrawFunctor;
     delete m_buttonSkin;
@@ -549,7 +547,6 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
         if (extras == DrawExtrasCursorRing)
             resetCursorRing();
     }
-    LayerAndroid mainPicture(m_navPictureUI);
     DrawExtra* extra = 0;
     switch (extras) {
         case DrawExtrasFind:
@@ -584,12 +581,12 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
         m_baseLayer->setMatrix(canvas->getTotalMatrix());
         canvas->resetMatrix();
         m_baseLayer->draw(canvas);
+        if (extra) {
+            IntRect dummy; // inval area, unused for now
+            extra->draw(canvas, compositeLayer, &dummy);
+        }
     }
 #endif
-    if (extra) {
-        IntRect dummy; // inval area, unused for now
-        extra->draw(canvas, &mainPicture, &dummy);
-    }
     return ret;
 }
 
@@ -707,12 +704,9 @@ CachedRoot* getFrameCache(FrameCachePermission allowNewer)
     }
     m_viewImpl->gFrameCacheMutex.lock();
     delete m_frameCacheUI;
-    SkSafeUnref(m_navPictureUI);
     m_viewImpl->m_updatedFrameCache = false;
     m_frameCacheUI = m_viewImpl->m_frameCacheKit;
-    m_navPictureUI = m_viewImpl->m_navPictureKit;
     m_viewImpl->m_frameCacheKit = 0;
-    m_viewImpl->m_navPictureKit = 0;
     m_viewImpl->gFrameCacheMutex.unlock();
     if (m_frameCacheUI)
         m_frameCacheUI->setRootLayer(compositeRoot());
@@ -1528,7 +1522,6 @@ private: // local state for WebView
     CachedRoot* m_frameCacheUI; // navigation data ready for use
     WebViewCore* m_viewImpl;
     int m_generation; // associate unique ID with sent kit focus to match with ui
-    SkPicture* m_navPictureUI;
     SkMSec m_ringAnimationEnd;
     // Corresponds to the same-named boolean on the java side.
     bool m_heightCanMeasure;
@@ -2730,6 +2723,15 @@ static void nativeSetPauseDrawing(JNIEnv *env, jobject obj, jint nativeView,
     ((WebView*)nativeView)->m_isDrawingPaused = pause;
 }
 
+static bool nativeDisableNavcache(JNIEnv *env, jobject obj)
+{
+#if ENABLE(ANDROID_NAVCACHE)
+    return false;
+#else
+    return true;
+#endif
+}
+
 /*
  * JNI registration
  */
@@ -2946,6 +2948,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeOnTrimMemory },
     { "nativeSetPauseDrawing", "(IZ)V",
         (void*) nativeSetPauseDrawing },
+    { "nativeDisableNavcache", "()Z",
+        (void*) nativeDisableNavcache },
 };
 
 int registerWebView(JNIEnv* env)
