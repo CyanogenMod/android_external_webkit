@@ -32,12 +32,12 @@
 extern FILE* gDomTreeFile;
 #define DOM_TREE_LOG_FILE "/sdcard/domTree.txt"
 #define DUMP_DOM_LOGD(...) { if (gDomTreeFile) \
-    fprintf(gDomTreeFile, __VA_ARGS__); else LOGD(__VA_ARGS__); }
+    fprintf(gDomTreeFile, __VA_ARGS__); else ALOGD(__VA_ARGS__); }
 
 extern FILE* gRenderTreeFile;
 #define RENDER_TREE_LOG_FILE "/sdcard/renderTree.txt"
 #define DUMP_RENDER_LOGD(...) { if (gRenderTreeFile) \
-    fprintf(gRenderTreeFile, __VA_ARGS__); else LOGD(__VA_ARGS__); }
+    fprintf(gRenderTreeFile, __VA_ARGS__); else ALOGD(__VA_ARGS__); }
 #else
 #define DUMP_DOM_LOGD(...) ((void)0)
 #define DUMP_RENDER_LOGD(...) ((void)0)

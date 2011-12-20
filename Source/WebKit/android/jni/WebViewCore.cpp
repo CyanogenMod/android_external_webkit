@@ -983,7 +983,7 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 {
     LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
-//    LOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
+//    ALOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);

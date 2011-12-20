@@ -95,7 +95,7 @@ public:
     virtual ~InternalCommand() { delete m_connection; }
 
     void doCommand() const {
-        LOGD("Executing command '%s' (%s)", m_name, m_description);
+        ALOGD("Executing command '%s' (%s)", m_name, m_description);
         if (!m_dispatch(m_frame, m_connection))
             // XXX: Have useful failure messages
             m_connection->write("EPIC FAIL!\n", 11);

@@ -850,7 +850,7 @@ void PictureSet::dump(const char* label) const
         MeasureStream measure;
         if (working->mPicture != NULL)
             working->mPicture->serialize(&measure);
-        LOGD(" [%d]"
+        ALOGD(" [%d]"
             " mArea.bounds={%d,%d,r=%d,b=%d}"
             " mPicture=%p"
             " mUnsplit={%d,%d,r=%d,b=%d}"
@@ -1199,24 +1199,24 @@ bool PictureSet::validate(const char* funct) const
         const SkIRect& bounds = area.getBounds();
         bool localValid = false;
         if (working->mUnsplit.isEmpty())
-            LOGD("%s working->mUnsplit.isEmpty()", funct);
+            ALOGD("%s working->mUnsplit.isEmpty()", funct);
         else if (working->mUnsplit.contains(bounds) == false)
-            LOGD("%s working->mUnsplit.contains(bounds) == false", funct);
+            ALOGD("%s working->mUnsplit.contains(bounds) == false", funct);
         else if (working->mElapsed >= 1000)
-            LOGD("%s working->mElapsed >= 1000", funct);
+            ALOGD("%s working->mElapsed >= 1000", funct);
         else if ((working->mSplit & 0xfe) != 0)
-            LOGD("%s (working->mSplit & 0xfe) != 0", funct);
+            ALOGD("%s (working->mSplit & 0xfe) != 0", funct);
         else if ((working->mWroteElapsed & 0xfe) != 0)
-            LOGD("%s (working->mWroteElapsed & 0xfe) != 0", funct);
+            ALOGD("%s (working->mWroteElapsed & 0xfe) != 0", funct);
         else if (pict != NULL) {
             int pictWidth = pict->width();
             int pictHeight = pict->height();
             if (pictWidth < bounds.width())
-                LOGD("%s pictWidth=%d < bounds.width()=%d", funct, pictWidth, bounds.width());
+                ALOGD("%s pictWidth=%d < bounds.width()=%d", funct, pictWidth, bounds.width());
             else if (pictHeight < bounds.height())
-                LOGD("%s pictHeight=%d < bounds.height()=%d", funct, pictHeight, bounds.height());
+                ALOGD("%s pictHeight=%d < bounds.height()=%d", funct, pictHeight, bounds.height());
             else if (working->mArea.isEmpty())
-                LOGD("%s working->mArea.isEmpty()", funct);
+                ALOGD("%s working->mArea.isEmpty()", funct);
             else
                 localValid = true;
         } else
@@ -1224,7 +1224,7 @@ bool PictureSet::validate(const char* funct) const
         working->mArea.validate();
         if (localValid == false) {
             if (all.contains(area) == true)
-                LOGD("%s all.contains(area) == true", funct);
+                ALOGD("%s all.contains(area) == true", funct);
             else
                 localValid = true;
         }
@@ -1235,9 +1235,9 @@ bool PictureSet::validate(const char* funct) const
     if (valid) {
         valid = false;
         if (allBounds.width() != mWidth)
-            LOGD("%s allBounds.width()=%d != mWidth=%d", funct, allBounds.width(), mWidth);
+            ALOGD("%s allBounds.width()=%d != mWidth=%d", funct, allBounds.width(), mWidth);
         else if (allBounds.height() != mHeight)
-            LOGD("%s allBounds.height()=%d != mHeight=%d", funct, allBounds.height(), mHeight);
+            ALOGD("%s allBounds.height()=%d != mHeight=%d", funct, allBounds.height(), mHeight);
         else
             valid = true;
     }

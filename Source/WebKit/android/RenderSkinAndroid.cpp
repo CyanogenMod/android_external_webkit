@@ -65,14 +65,14 @@ bool RenderSkinAndroid::DecodeBitmap(android::AssetManager* am, const char* file
     if (!asset) {
         asset = am->openNonAsset(fileName, android::Asset::ACCESS_BUFFER);
         if (!asset) {
-            LOGD("RenderSkinAndroid: File \"%s\" not found.\n", fileName);
+            ALOGD("RenderSkinAndroid: File \"%s\" not found.\n", fileName);
             return false;
         }
     }
     
     bool success = SkImageDecoder::DecodeMemory(asset->getBuffer(false), asset->getLength(), bitmap);
     if (!success) {
-        LOGD("RenderSkinAndroid: Failed to decode %s\n", fileName);
+        ALOGD("RenderSkinAndroid: Failed to decode %s\n", fileName);
     }
 
     delete asset;

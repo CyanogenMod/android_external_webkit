@@ -57,7 +57,7 @@ void MyResourceLoader::handleRequest()
 
 void MyResourceLoader::loadData(const String& data)
 {
-    LOGD("Loading data (%s) ...", data.latin1().data());
+    ALOGD("Loading data (%s) ...", data.latin1().data());
     ResourceHandleClient* client = m_handle->client();
     int index = data.find(',');
     if (index == -1) {
@@ -141,7 +141,7 @@ static String mimeTypeForExtension(const String& file)
 
 void MyResourceLoader::loadFile(const String& file)
 {
-    LOGD("Loading file (%s) ...", file.latin1().data());
+    ALOGD("Loading file (%s) ...", file.latin1().data());
     FILE* f = fopen(file.latin1().data(), "r");
     ResourceHandleClient* client = m_handle->client();
     if (!f) {
@@ -178,7 +178,7 @@ PassRefPtr<WebCore::ResourceLoaderAndroid> MyWebFrame::startLoadingResource(
 
 void MyWebFrame::timerFired(Timer<MyWebFrame>*)
 {
-    LOGD("Handling requests...");
+    ALOGD("Handling requests...");
     Vector<RefPtr<WebCore::ResourceLoaderAndroid> > reqs;
     reqs.swap(m_requests);
     Vector<RefPtr<WebCore::ResourceLoaderAndroid> >::iterator i = reqs.begin();
@@ -186,5 +186,5 @@ void MyWebFrame::timerFired(Timer<MyWebFrame>*)
     for (; i != end; i++)
         static_cast<MyResourceLoader*>((*i).get())->handleRequest();
 
-    LOGD("...done");
+    ALOGD("...done");
 }

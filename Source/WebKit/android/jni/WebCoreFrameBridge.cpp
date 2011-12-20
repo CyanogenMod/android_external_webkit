@@ -1484,7 +1484,7 @@ static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
     }
 
     if (filename.isNull() || filename.isEmpty()) {
-        LOGD("saveWebArchive: Failed to select a filename to save.");
+        ALOGD("saveWebArchive: Failed to select a filename to save.");
         releaseCharactersForJStringInEnv(env, basename, basenameNative);
         return NULL;
     }
@@ -1492,7 +1492,7 @@ static jstring SaveWebArchive(JNIEnv *env, jobject obj, jstring basename, jboole
     const int noCompression = 0;
     xmlTextWriterPtr writer = xmlNewTextWriterFilename(filename.utf8().data(), noCompression);
     if (writer == NULL) {
-        LOGD("saveWebArchive: Failed to initialize xml writer.");
+        ALOGD("saveWebArchive: Failed to initialize xml writer.");
         releaseCharactersForJStringInEnv(env, basename, basenameNative);
         return NULL;
     }

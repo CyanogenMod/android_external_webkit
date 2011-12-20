@@ -31,9 +31,9 @@
 #define PICTURE_SET_VALIDATE 0
 
 #if PICTURE_SET_DEBUG
-#define DBG_SET_LOG(message) LOGD("%s %s", __FUNCTION__, message)
-#define DBG_SET_LOGD(format, ...) LOGD("%s " format, __FUNCTION__, __VA_ARGS__)
-#define DEBUG_SET_UI_LOGD(...) LOGD(__VA_ARGS__)
+#define DBG_SET_LOG(message) ALOGD("%s %s", __FUNCTION__, message)
+#define DBG_SET_LOGD(format, ...) ALOGD("%s " format, __FUNCTION__, __VA_ARGS__)
+#define DEBUG_SET_UI_LOGD(...) ALOGD(__VA_ARGS__)
 #else
 #define DBG_SET_LOG(message) ((void)0)
 #define DBG_SET_LOGD(format, ...) ((void)0)

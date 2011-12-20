@@ -70,7 +70,7 @@ DebugServer::DebugServer() {
     char buf[PROPERTY_VALUE_MAX];
     int ret = property_get("webcore.wds.enable", buf, NULL);
     if (ret != -1 && strcmp(buf, "1") == 0) {
-        LOGD("WDS Enabled");
+        ALOGD("WDS Enabled");
         m_threadId = createThread(mainThread, this, "WDS");
     }
     // Initialize the available commands.
@@ -78,7 +78,7 @@ DebugServer::DebugServer() {
 }
 
 void DebugServer::start() {
-    LOGD("DebugServer thread started");
+    ALOGD("DebugServer thread started");
 
     ConnectionServer cs;
     if (!cs.connect(DEFAULT_PORT)) {
@@ -87,13 +87,13 @@ void DebugServer::start() {
     }
 
     while (true ) {
-        LOGD("Waiting for incoming connections...");
+        ALOGD("Waiting for incoming connections...");
         Connection* conn = cs.accept();
         if (!conn) {
             log_errno("Failed to accept new connections");
             return;
         }
-        LOGD("...Connection established");
+        ALOGD("...Connection established");
 
         Command* c = Command::Find(conn);
         if (!c) {
@@ -106,7 +106,7 @@ void DebugServer::start() {
         }
     }
 
-    LOGD("DebugServer thread finished");
+    ALOGD("DebugServer thread finished");
 }
 
 } // end namespace WDS

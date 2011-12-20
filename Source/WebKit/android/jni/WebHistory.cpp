@@ -711,7 +711,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
 #ifdef UNIT_TEST
 static void unit_test()
 {
-    LOGD("Entering history unit test!");
+    ALOGD("Entering history unit test!");
     const char* test1 = new char[0];
     WTF::RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create();
     WebCore::HistoryItem* testItem = item.get();
