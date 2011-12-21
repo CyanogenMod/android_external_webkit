@@ -376,6 +376,84 @@ GLuint GLUtils::createBaseTileGLTexture(int width, int height)
     return texture;
 }
 
+bool GLUtils::isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor)
+{
+    // If the bitmap is the pure color, skip the transfer step, and update the BaseTile Info.
+    // This check is taking < 1ms if we do full bitmap check per tile.
+    // TODO: use the SkPicture to determine whether or not a tile is single color.
+    pureColor = Color(Color::transparent);
+    bitmap.lockPixels();
+    bool sameColor = true;
+    int bitmapWidth = bitmap.width();
+
+    // Create a row of pure color using the first pixel.
+    int* firstPixelPtr = static_cast<int*> (bitmap.getPixels());
+    int* pixelsRow = new int[bitmapWidth];
+    for (int i = 0; i < bitmapWidth; i++)
+        pixelsRow[i] = (*firstPixelPtr);
+
+    // Then compare the pure color row with each row of the bitmap.
+    for (int j = 0; j < bitmap.height(); j++) {
+        if (memcmp(pixelsRow, &firstPixelPtr[bitmapWidth * j], 4 * bitmapWidth)) {
+            sameColor = false;
+            break;
+        }
+    }
+    delete pixelsRow;
+    pixelsRow = 0;
+
+    if (sameColor) {
+        char* rgbaPtr = static_cast<char*>(bitmap.getPixels());
+        pureColor = Color(rgbaPtr[0], rgbaPtr[1], rgbaPtr[2], rgbaPtr[3]);
+        XLOG("sameColor tile found , %x at (%d, %d, %d, %d)",
+             *firstPixelPtr, rgbaPtr[0], rgbaPtr[1], rgbaPtr[2], rgbaPtr[3]);
+    }
+    bitmap.unlockPixels();
+
+    return sameColor;
+}
+
+// Return true when the tile is pure color.
+bool GLUtils::skipTransferForPureColor(const TileRenderInfo* renderInfo,
+                                       const SkBitmap& bitmap)
+{
+    bool skipTransfer = false;
+    BaseTile* tilePtr = renderInfo->baseTile;
+
+    if (tilePtr) {
+        BaseTileTexture* tileTexture = tilePtr->backTexture();
+        // Check the bitmap, and make everything ready here.
+        Color pureColor;
+        bool pure = isPureColorBitmap(bitmap, pureColor);
+        if (pure) {
+            // update basetile's info
+            // Note that we are skipping the whole TransferQueue.
+            if (tileTexture) {
+                tileTexture->setPure(true);
+                tileTexture->setPureColor(pureColor);
+
+                TextureTileInfo info;
+                // Now fill the tileInfo.
+                info.m_x = renderInfo->x;
+                info.m_y = renderInfo->y;
+                info.m_scale = renderInfo->scale;
+                info.m_painter = renderInfo->tilePainter;
+                info.m_picture = renderInfo->textureInfo->m_pictureCount;
+                info.m_inverted = TilesManager::instance()->invertedScreen();
+
+                // Make sure the tile is considered ready!
+                tileTexture->setOwnTextureTileInfoFromQueue(&info);
+
+                renderInfo->textureInfo->m_width = bitmap.width();
+                renderInfo->textureInfo->m_height = bitmap.height();
+                renderInfo->textureInfo->m_internalFormat = GL_RGBA;
+                skipTransfer = true;
+            }
+        }
+    }
+    return skipTransfer;
+}
+
 void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
                                      const SkBitmap& bitmap)
 {
@@ -385,6 +463,9 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
     const int y = renderInfo->invalRect->fTop;
     const SkSize& requiredSize = renderInfo->tileSize;
     TextureInfo* textureInfo = renderInfo->textureInfo;
+
+    if (skipTransferForPureColor(renderInfo, bitmap))
+        return;
 
     if (requiredSize.equals(textureInfo->m_width, textureInfo->m_height))
         GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, x, y, bitmap);

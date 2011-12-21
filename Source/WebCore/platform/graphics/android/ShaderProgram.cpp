@@ -62,6 +62,26 @@ static const char gFragmentShader[] =
     "  gl_FragColor *= alpha; "
     "}\n";
 
+// We could pass the pureColor into either Vertex or Frag Shader.
+// The reason we passed the color into the Vertex Shader is that some driver
+// might create redundant copy when uniforms in fragment shader changed.
+static const char gPureColorVertexShader[] =
+    "attribute vec4 vPosition;\n"
+    "uniform mat4 projectionMatrix;\n"
+    "uniform vec4 inputColor;\n"
+    "varying vec4 v_color;\n"
+    "void main() {\n"
+    "  gl_Position = projectionMatrix * vPosition;\n"
+    "  v_color = inputColor;\n"
+    "}\n";
+
+static const char gPureColorFragmentShader[] =
+    "precision mediump float;\n"
+    "varying vec4 v_color;\n"
+    "void main() {\n"
+    "  gl_FragColor = v_color;\n"
+    "}\n";
+
 static const char gFragmentShaderInverted[] =
     "precision mediump float;\n"
     "varying vec2 v_texCoord; \n"
@@ -204,6 +224,7 @@ ShaderProgram::ShaderProgram()
 void ShaderProgram::init()
 {
     m_program = createProgram(gVertexShader, gFragmentShader);
+    m_pureColorProgram = createProgram(gPureColorVertexShader, gPureColorFragmentShader);
     m_programInverted = createProgram(gVertexShader, gFragmentShaderInverted);
     m_videoProgram = createProgram(gVideoVertexShader, gVideoFragmentShader);
     m_surfTexOESProgram =
@@ -212,6 +233,7 @@ void ShaderProgram::init()
         createProgram(gVertexShader, gSurfaceTextureOESFragmentShaderInverted);
 
     if (m_program == -1
+        || m_pureColorProgram == -1
         || m_programInverted == -1
         || m_videoProgram == -1
         || m_surfTexOESProgram == -1
@@ -222,6 +244,10 @@ void ShaderProgram::init()
     m_hAlpha = glGetUniformLocation(m_program, "alpha");
     m_hTexSampler = glGetUniformLocation(m_program, "s_texture");
     m_hPosition = glGetAttribLocation(m_program, "vPosition");
+
+    m_hPureColorProjectionMatrix = glGetUniformLocation(m_pureColorProgram, "projectionMatrix");
+    m_hPureColorValue = glGetUniformLocation(m_pureColorProgram, "inputColor");
+    m_hPureColorPosition = glGetAttribLocation(m_pureColorProgram, "vPosition");
 
     m_hProjectionMatrixInverted = glGetUniformLocation(m_programInverted, "projectionMatrix");
     m_hAlphaInverted = glGetUniformLocation(m_programInverted, "alpha");
@@ -327,7 +353,8 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
                                      GLint position,
                                      GLint alpha,
                                      GLint texFilter,
-                                     GLint contrast)
+                                     GLint contrast,
+                                     Color pureColor)
 {
     glUseProgram(program);
 
@@ -343,29 +370,61 @@ void ShaderProgram::drawQuadInternal(SkRect& geometry,
         glUniformMatrix4fv(projectionMatrixHandle, 1, GL_FALSE, projectionMatrix);
     }
 
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1i(texSampler, 0);
-    glBindTexture(textureTarget, textureId);
-    glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, texFilter);
-    glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, texFilter);
-    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    if(textureId) {
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(texSampler, 0);
+        glBindTexture(textureTarget, textureId);
+        glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, texFilter);
+        glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, texFilter);
+        glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glUniform1f(alpha, opacity);
+        if (contrast != -1)
+            glUniform1f(contrast, m_contrast);
+    } else {
+        glUniform4f(m_hPureColorValue, pureColor.red() / 255.0,
+                    pureColor.green() / 255.0, pureColor.blue() / 255.0,
+                    pureColor.alpha() / 255.0 );
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
     glEnableVertexAttribArray(position);
     glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glUniform1f(alpha, opacity);
-    if (contrast != -1)
-        glUniform1f(contrast, m_contrast);
 
     setBlendingState(opacity < 1.0);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
-                             GLenum textureTarget, GLint texFilter)
+// Calculate the right color value sent into the shader considering the (0,1)
+// clamp and alpha blending.
+Color ShaderProgram::shaderColor(Color pureColor, float opacity)
 {
-    if (textureTarget == GL_TEXTURE_2D) {
+    float r = pureColor.red() / 255.0;
+    float g = pureColor.green() / 255.0;
+    float b = pureColor.blue() / 255.0;
+    float a = pureColor.alpha() / 255.0;
+
+    if (TilesManager::instance()->invertedScreen()) {
+        float intensity = a - (0.2989 * r + 0.5866 * g + 0.1145 * b);
+        intensity = ((intensity - a / 2.0) * m_contrast) + a / 2.0;
+        intensity *= opacity;
+        return Color(intensity, intensity, intensity, a * opacity);
+    } else
+        return Color(r * opacity, g * opacity, b * opacity, a * opacity);
+}
+
+void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
+                             Color pureColor, GLenum textureTarget, GLint texFilter)
+{
+    if (!textureId) {
+        Color finalColor = shaderColor(pureColor, opacity);
+        if (finalColor.rgb() == Color::transparent && opacity < 1.0)
+            return;
+        drawQuadInternal(geometry, 0, opacity, m_pureColorProgram,
+                         m_hPureColorProjectionMatrix, 0, -1,
+                         m_hPureColorPosition, -1, -1, -1, finalColor);
+    } else if (textureTarget == GL_TEXTURE_2D) {
         if (!TilesManager::instance()->invertedScreen()) {
             drawQuadInternal(geometry, textureId, opacity, m_program,
                              m_hProjectionMatrix,
@@ -535,33 +594,39 @@ void ShaderProgram::drawLayerQuadInternal(const GLfloat* projectionMatrix,
                                           GLenum textureTarget, GLint program,
                                           GLint matrix, GLint texSample,
                                           GLint position, GLint alpha,
-                                          GLint contrast)
+                                          GLint contrast, Color color)
 {
     glUseProgram(program);
     glUniformMatrix4fv(matrix, 1, GL_FALSE, projectionMatrix);
 
-    glActiveTexture(GL_TEXTURE0);
-    glUniform1i(texSample, 0);
-    glBindTexture(textureTarget, textureId);
-    glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
+    if (textureId) {
+        glActiveTexture(GL_TEXTURE0);
+        glUniform1i(texSample, 0);
+        glBindTexture(textureTarget, textureId);
+        glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glUniform1f(alpha, opacity);
+        if (contrast != -1)
+            glUniform1f(contrast, m_contrast);
+    } else {
+        glUniform4f(m_hPureColorValue, color.red() / 255.0,
+                    color.green() / 255.0, color.blue() / 255.0,
+                    color.alpha() / 255.0 );
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
     glEnableVertexAttribArray(position);
     glVertexAttribPointer(position, 2, GL_FLOAT, GL_FALSE, 0, 0);
-    glUniform1f(alpha, opacity);
-    if (contrast != -1)
-        glUniform1f(contrast, m_contrast);
 }
 
 
 void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                                   const SkRect& geometry, int textureId,
                                   float opacity, bool forceBlending,
-                                  GLenum textureTarget)
+                                  GLenum textureTarget,
+                                  Color pureColor)
 {
 
     TransformationMatrix modifiedDrawMatrix = drawMatrix;
@@ -578,7 +643,16 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
-    if (textureTarget == GL_TEXTURE_2D) {
+    bool enableBlending = forceBlending || opacity < 1.0;
+    if (!textureId) {
+        Color finalColor = shaderColor(pureColor, opacity);
+        if (finalColor.rgb() == Color::transparent && enableBlending)
+            return;
+        drawLayerQuadInternal(projectionMatrix, 0, opacity,
+                              -1, m_pureColorProgram,
+                              m_hPureColorProjectionMatrix, -1,
+                              m_hPureColorPosition, -1, -1, finalColor);
+    } else if (textureTarget == GL_TEXTURE_2D) {
         if (!TilesManager::instance()->invertedScreen()) {
             drawLayerQuadInternal(projectionMatrix, textureId, opacity,
                                   GL_TEXTURE_2D, m_program,
@@ -606,7 +680,7 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
                               m_hSTOESContrastInverted);
     }
 
-    setBlendingState(forceBlending || opacity < 1.0);
+    setBlendingState(enableBlending);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
     GLUtils::checkGlError("drawLayerQuad");
