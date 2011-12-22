@@ -479,13 +479,6 @@ void TilesManager::paintedSurfacesCleanup(GLWebViewState* state)
     }
 }
 
-void TilesManager::unregisterGLWebViewState(GLWebViewState* state)
-{
-    // Discard the whole queue b/c we lost GL context already.
-    // Note the real updateTexImage will still wait for the next draw.
-    transferQueue()->discardQueue();
-}
-
 TilesManager* TilesManager::instance()
 {
     if (!gInstance) {

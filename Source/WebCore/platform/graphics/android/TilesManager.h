@@ -115,7 +115,6 @@ public:
     static float layerTileWidth();
     static float layerTileHeight();
     void paintedSurfacesCleanup(GLWebViewState* state = 0);
-    void unregisterGLWebViewState(GLWebViewState* state);
 
     void allocateTiles();
 

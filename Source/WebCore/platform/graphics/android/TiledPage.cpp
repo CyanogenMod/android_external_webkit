@@ -93,9 +93,13 @@ void TiledPage::updateBaseTileSize()
 
 TiledPage::~TiledPage()
 {
+    TilesManager* tilesManager = TilesManager::instance();
     // In order to delete the page we must ensure that none of its BaseTiles are
     // currently painting or scheduled to be painted by the TextureGenerator
-    TilesManager::instance()->removeOperationsForPage(this);
+    tilesManager->removeOperationsForPage(this);
+    // Discard the transfer queue after the removal operation to make sure 
+    // no tiles for this page will be left in the transfer queue.
+    tilesManager->transferQueue()->discardQueue();
     delete[] m_baseTiles;
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("TiledPage");

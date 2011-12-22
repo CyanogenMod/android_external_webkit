@@ -116,9 +116,6 @@ GLWebViewState::GLWebViewState()
 
 GLWebViewState::~GLWebViewState()
 {
-    // Take care of the transfer queue such that Tex Gen thread will not stuck
-    TilesManager::instance()->unregisterGLWebViewState(this);
-
     // We have to destroy the two tiled pages first as their destructor
     // may depend on the existence of this GLWebViewState and some of its
     // instance variables in order to complete.
