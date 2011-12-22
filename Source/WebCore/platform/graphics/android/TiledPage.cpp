@@ -97,7 +97,7 @@ TiledPage::~TiledPage()
     // In order to delete the page we must ensure that none of its BaseTiles are
     // currently painting or scheduled to be painted by the TextureGenerator
     tilesManager->removeOperationsForPage(this);
-    // Discard the transfer queue after the removal operation to make sure 
+    // Discard the transfer queue after the removal operation to make sure
     // no tiles for this page will be left in the transfer queue.
     tilesManager->transferQueue()->discardQueue();
     delete[] m_baseTiles;
