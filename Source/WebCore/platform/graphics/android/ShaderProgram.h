@@ -19,6 +19,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "Color.h"
 #include "FloatRect.h"
 #include "IntRect.h"
 #include "SkRect.h"
@@ -44,19 +45,16 @@ public:
     // Normal texture in GL_TEXTURE_2D target.
     // 2) textureTarget == GL_TEXTURE_EXTERNAL_OES
     // Surface texture in GL_TEXTURE_EXTERNAL_OES target.
-    // 3) textureTarget == 0 (Will be deprecated soon)
-    // Surface texture in GL_TEXTURE_2D target.
-    //
-    // TODO: Shrink the support modes into 2 (1 and 2) after media framework
-    // support Surface texture in GL_TEXTURE_EXTERNAL_OES target on all
-    // platforms.
-    void drawQuad(SkRect& geometry, int textureId, float opacity,
+    // 3) textureId == 0
+    // No texture needed, just a pureColor quad.
+    void drawQuad(SkRect& geometry, int textureId, float opacity, Color pureColor = Color(),
                   GLenum textureTarget = GL_TEXTURE_2D,
                   GLint texFilter = GL_LINEAR);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,
                        const SkRect& geometry, int textureId, float opacity,
                        bool forceBlending = false,
-                       GLenum textureTarget = GL_TEXTURE_2D);
+                       GLenum textureTarget = GL_TEXTURE_2D,
+                       Color pureColor = Color());
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                      float* textureMatrix, SkRect& geometry, int textureId);
     void setViewRect(const IntRect& viewRect);
@@ -112,16 +110,21 @@ private:
                           GLint program, GLint projectionMatrixHandle,
                           GLint texSampler, GLenum textureTarget,
                           GLint position, GLint alpha,
-                          GLint texFilter, GLint contrast = -1);
+                          GLint texFilter, GLint contrast = -1,
+                          Color pureColor = Color());
 
     void drawLayerQuadInternal(const GLfloat* projectionMatrix, int textureId,
                                float opacity, GLenum textureTarget, GLint program,
                                GLint matrix, GLint texSample,
-                               GLint position, GLint alpha, GLint contrast = -1);
+                               GLint position, GLint alpha, GLint contrast = -1,
+                               Color pureColor = Color());
+
+    Color shaderColor(Color pureColor, float opacity);
 
     bool m_blendingEnabled;
 
     int m_program;
+    int m_pureColorProgram;
     int m_programInverted;
     int m_videoProgram;
     int m_surfTexOESProgram;
@@ -163,6 +166,10 @@ private:
     GLint m_hSTOESContrastInverted;
     GLint m_hSTOESTexSamplerInverted;
     GLint m_hSTOESPositionInverted;
+
+    GLint m_hPureColorProjectionMatrix;
+    GLint m_hPureColorValue;
+    GLint m_hPureColorPosition;
 
     float m_contrast;
 

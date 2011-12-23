@@ -124,6 +124,7 @@ void BaseTile::reserveTexture()
              this, texture, m_backTexture, m_frontTexture);
         m_state = Unpainted;
         m_backTexture = texture;
+        m_backTexture->setPure(false);
     }
 
     if (m_state == UpToDate) {
@@ -247,13 +248,28 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
         return;
 
     if (m_frontTexture->readyFor(this)) {
-        if (isLayerTile() && m_painter && m_painter->transform())
-            TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
-                                                              rect, m_frontTexture->m_ownTextureId,
-                                                              transparency, true);
-        else
-            TilesManager::instance()->shader()->drawQuad(rect, m_frontTexture->m_ownTextureId,
-                                                         transparency);
+        if (isLayerTile() && m_painter && m_painter->transform()) {
+            if (m_frontTexture->isPureColor()) {
+                TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
+                                                                  rect, 0,
+                                                                  transparency, true,
+                                                                  GL_TEXTURE_2D,
+                                                                  m_frontTexture->pureColor());
+            } else {
+                TilesManager::instance()->shader()->drawLayerQuad(*m_painter->transform(),
+                                                                  rect, m_frontTexture->m_ownTextureId,
+                                                                  transparency, true);
+            }
+        } else {
+             if (m_frontTexture->isPureColor()) {
+                 TilesManager::instance()->shader()->drawQuad(rect, 0,
+                                                              transparency,
+                                                              m_frontTexture->pureColor());
+             } else {
+                TilesManager::instance()->shader()->drawQuad(rect, m_frontTexture->m_ownTextureId,
+                                                             transparency);
+            }
+        }
     } else {
         XLOG("tile %p at %d, %d not readyfor (at draw),", this, m_x, m_y);
     }
@@ -539,9 +555,13 @@ void BaseTile::validatePaint() {
         // when both have happened, mark as 'ReadyToSwap'
         if (m_state == PaintingStarted)
             m_state = ValidatedUntransferred;
-        else if (m_state == TransferredUnvalidated)
+        else if (m_state == TransferredUnvalidated
+                 || (m_backTexture && m_backTexture->isPureColor())) {
+            // When the backTexture has been marked pureColor, we will skip the
+            // transfer and marked as ReadyToSwap, in this case, we don't want
+            // to reset m_dirty bit to true.
             m_state = ReadyToSwap;
-        else {
+        } else {
             XLOG("Note: validated tile %p at %d %d, state wasn't paintingstarted or transferred %d",
                   this, m_x, m_y, m_state);
             // failed transferring, in which case mark dirty (since

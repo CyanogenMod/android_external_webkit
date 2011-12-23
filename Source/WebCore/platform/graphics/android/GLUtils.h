@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "Color.h"
 #include "SkBitmap.h"
 #include "SkMatrix.h"
 #include "SkSize.h"
@@ -80,6 +81,10 @@ public:
     static void paintTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap);
     static void updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* , int x, int y, const SkBitmap& bitmap);
     static void convertToTransformationMatrix(const float* matrix, TransformationMatrix& transformMatrix);
+
+    static bool isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor);
+    static bool skipTransferForPureColor(const TileRenderInfo* renderInfo,
+                                         const SkBitmap& bitmap);
 };
 
 } // namespace WebCore

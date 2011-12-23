@@ -95,6 +95,12 @@ public:
 
     TextureInfo* getTextureInfo() { return &m_ownTextureInfo; }
 
+    void setPure(bool pure){ m_isPureColor = pure; }
+    bool isPureColor() {return m_isPureColor; }
+
+    void setPureColor(const Color& color) { m_pureColor = color; }
+    Color pureColor() { return m_pureColor; }
+
 private:
     TextureTileInfo m_ownTextureTileInfo;
     // TODO: Merge this info into the TextureTileInfo.
@@ -104,6 +110,11 @@ private:
 
     // BaseTile owning the texture, only modified by UI thread
     TextureOwner* m_owner;
+
+    // When the whole tile is single color, skip the transfer queue and draw
+    // it directly through shader.
+    bool m_isPureColor;
+    Color m_pureColor;
 };
 
 } // namespace WebCore

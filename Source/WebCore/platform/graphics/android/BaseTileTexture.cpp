@@ -54,6 +54,7 @@ namespace WebCore {
 
 BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     : m_owner(0)
+    , m_isPureColor(false)
 {
     m_size.set(w, h);
     m_ownTextureId = 0;
@@ -148,6 +149,11 @@ void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
 {
+    if (isPureColor()) {
+        XLOG("ReadyFor saw a pureColor tile (%p) at (%d, %d), rgb %x",
+              this, baseTile->x(), baseTile->y(), pureColor().rgb());
+        return true;
+    }
     const TextureTileInfo* info = &m_ownTextureTileInfo;
     if (info &&
         (info->m_x == baseTile->x()) &&
