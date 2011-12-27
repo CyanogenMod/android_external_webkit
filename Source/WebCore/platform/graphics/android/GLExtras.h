@@ -37,30 +37,36 @@ namespace android {
 
 namespace WebCore {
 
+class LayerAndroid;
+class TransformationMatrix;
+
 class GLExtras {
 public:
     GLExtras();
     virtual ~GLExtras();
 
-    void drawGL(IntRect& webViewRect, SkRect& viewport, int titleBarHeight);
+    void drawGL(const LayerAndroid* layer);
     void setFindOnPageExtra(android::FindOnPage* findOnPage) {
         m_findOnPage = findOnPage;
     }
     void setCursorRingExtra(android::CursorRing* ring) { m_ring = ring; }
     void setDrawExtra(android::DrawExtra* extra) { m_drawExtra = extra; }
+    void setViewport(const SkRect & viewport) { m_viewport = viewport; }
 
 private:
-    void drawRing(SkRect& srcRect, int* texture, int r, int g, int b, float a);
+    void drawRing(SkRect& srcRect, int* texture, int r, int g, int b, float a,
+                  const TransformationMatrix* drawMat);
     void drawRegion(const SkRegion& region, bool fill, bool drawBorder,
-                    bool useDark = false);
-    void drawCursorRings();
-    void drawFindOnPage(SkRect& viewport);
+                    const TransformationMatrix* drawMat, bool useDark = false);
+    void drawCursorRings(const LayerAndroid* layer);
+    void drawFindOnPage(const LayerAndroid* layer);
 
     android::FindOnPage* m_findOnPage;
     android::CursorRing* m_ring;
     android::DrawExtra* m_drawExtra;
     int m_lightRingTexture;
     int m_darkRingTexture;
+    SkRect m_viewport;
 };
 
 } // namespace WebCore

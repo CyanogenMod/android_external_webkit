@@ -37,8 +37,10 @@
 
 #include <unicode/umachine.h>
 #include <wtf/Vector.h>
+#include <wtf/HashMap.h>
 
 namespace android {
+class FindOnPage;
 
 // Stores both region information and an SkPicture of the match, so that the
 // region can be drawn, followed by drawing the matching text on top of it.
@@ -141,7 +143,7 @@ public:
                                 const SkPaint& paint) {
     }
 
-    void drawLayers(LayerAndroid*);
+    void drawLayers(LayerAndroid* rootLayer, FindOnPage& findOnPage);
     int found() const { return mNumFound; }
     void setLayerId(int layerId) { mLayerId = layerId; }
 
@@ -235,11 +237,18 @@ public:
     bool isCurrentLocationValid() { return m_hasCurrentLocation; }
     void setMatches(WTF::Vector<MatchInfo>* matches);
     WTF::Vector<MatchInfo>* matches() { return m_matches; }
+
+    // Some functions to determine which matches belong to which layers.
+    std::pair<unsigned, unsigned> getLayerMatchRange(int layerId) const;
+    void setLayerMatchRange(int layerId,
+        const std::pair<unsigned, unsigned> range);
+
 private:
     void drawMatch(const SkRegion& region, SkCanvas* canvas, bool focused);
     void setUpFindPaint();
     void storeCurrentMatchLocation();
     WTF::Vector<MatchInfo>* m_matches;
+    WTF::HashMap< int, std::pair<unsigned, unsigned> > m_layerMatchRangeMap;
     // Stores the location of the current match.
     SkIPoint m_currentMatchLocation;
     // Tells whether the value in m_currentMatchLocation is valid.

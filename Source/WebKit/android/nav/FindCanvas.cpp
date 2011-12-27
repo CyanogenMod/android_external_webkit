@@ -254,15 +254,19 @@ SkRect FindCanvas::addMatchPosH(int index,
     return r;
 }
 
-void FindCanvas::drawLayers(LayerAndroid* layer) {
+void FindCanvas::drawLayers(LayerAndroid* layer, FindOnPage& findOnPage) {
 #if USE(ACCELERATED_COMPOSITING)
+    int layerId = layer->uniqueId();
+    unsigned matchesBegin = found();
     SkPicture* picture = layer->picture();
     if (picture) {
-        setLayerId(layer->uniqueId());
+        setLayerId(layerId);
         drawPicture(*picture);
     }
+    findOnPage.setLayerMatchRange(layerId,
+        std::pair<unsigned, unsigned>(matchesBegin, found()));
     for (int i = 0; i < layer->countChildren(); i++)
-        drawLayers(layer->getChild(i));
+        drawLayers(layer->getChild(i), findOnPage);
 #endif
 }
 
@@ -695,6 +699,17 @@ void FindOnPage::setMatches(WTF::Vector<MatchInfo>* matches)
     } else {
         m_hasCurrentLocation = false;
     }
+}
+
+std::pair<unsigned, unsigned> FindOnPage::getLayerMatchRange(int layerId) const
+{
+    return m_layerMatchRangeMap.get(layerId);
+}
+
+void FindOnPage::setLayerMatchRange(int layerId,
+    const std::pair<unsigned, unsigned> range)
+{
+    m_layerMatchRangeMap.set(layerId, range);
 }
 
 }

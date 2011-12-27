@@ -42,7 +42,6 @@ namespace android {
 
 class CachedHistory;
 class CachedNode;
-class FindCanvas;
 
 class CachedRoot : public CachedFrame {
 public:
@@ -57,7 +56,6 @@ public:
     WebCore::IntPoint cursorLocation() const;
     int documentHeight() { return mContents.height(); }
     int documentWidth() { return mContents.width(); }
-    void draw(FindCanvas& ) const;
     const CachedNode* findAt(const WebCore::IntRect& , const CachedFrame** ,
         int* x, int* y, bool checkForHidden) const;
     const WebCore::IntRect& focusBounds() const { return mFocusBounds; }

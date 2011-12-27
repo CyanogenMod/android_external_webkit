@@ -1055,6 +1055,8 @@ bool LayerAndroid::drawGL()
         }
     }
 
+    m_state->glExtras()->drawGL(this);
+
     // When the layer is dirty, the UI thread should be notified to redraw.
     askScreenUpdate |= drawChildrenGL();
     m_atomicSync.lock();

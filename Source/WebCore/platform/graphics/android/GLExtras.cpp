@@ -67,6 +67,7 @@ GLExtras::GLExtras()
     , m_drawExtra(0)
     , m_lightRingTexture(-1)
     , m_darkRingTexture(-1)
+    , m_viewport()
 {
 }
 
@@ -74,7 +75,8 @@ GLExtras::~GLExtras()
 {
 }
 
-void GLExtras::drawRing(SkRect& srcRect, int* texture, int r, int g, int b, float a)
+void GLExtras::drawRing(SkRect& srcRect, int* texture, int r, int g, int b, float a,
+                        const TransformationMatrix* drawMat)
 {
     if (*texture == -1)
         *texture = GLUtils::createSampleColorTexture(r, g, b);
@@ -85,11 +87,15 @@ void GLExtras::drawRing(SkRect& srcRect, int* texture, int r, int g, int b, floa
     }
     XLOG("drawQuad [%fx%f, %f, %f]", srcRect.fLeft, srcRect.fTop,
          srcRect.width(), srcRect.height());
-    TilesManager::instance()->shader()->drawQuad(srcRect, *texture, a);
+    if (drawMat)
+        TilesManager::instance()->shader()->drawLayerQuad(*drawMat, srcRect, *texture, a);
+    else
+        TilesManager::instance()->shader()->drawQuad(srcRect, *texture, a);
 }
 
 void GLExtras::drawRegion(const SkRegion& region, bool fill,
-                          bool drawBorder, bool useDark)
+                          bool drawBorder, const TransformationMatrix* drawMat,
+                          bool useDark)
 {
     if (region.isEmpty())
         return;
@@ -100,9 +106,9 @@ void GLExtras::drawRegion(const SkRegion& region, bool fill,
             SkRect r;
             r.set(ir.fLeft, ir.fTop, ir.fRight, ir.fBottom);
             if (useDark)
-                drawRing(r, COLOR_HOLO_DARK);
+                drawRing(r, COLOR_HOLO_DARK, drawMat);
             else
-                drawRing(r, COLOR_HOLO_LIGHT);
+                drawRing(r, COLOR_HOLO_LIGHT, drawMat);
             rgnIter.next();
         }
     }
@@ -144,9 +150,9 @@ void GLExtras::drawRegion(const SkRegion& region, bool fill,
             }
             r.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
             if (useDark)
-                drawRing(r, COLOR_HOLO_DARK);
+                drawRing(r, COLOR_HOLO_DARK, drawMat);
             else
-                drawRing(r, COLOR_HOLO_LIGHT);
+                drawRing(r, COLOR_HOLO_LIGHT, drawMat);
             if (startRect.isEmpty()) {
                 startRect.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
             }
@@ -157,7 +163,7 @@ void GLExtras::drawRegion(const SkRegion& region, bool fill,
     }
 }
 
-void GLExtras::drawCursorRings()
+void GLExtras::drawCursorRings(const LayerAndroid* layer)
 {
     SkRegion region;
     for (size_t i = 0; i < m_ring->rings().size(); i++) {
@@ -167,26 +173,41 @@ void GLExtras::drawCursorRings()
         else
             region.op(rect, SkRegion::kUnion_Op);
     }
-    drawRegion(region, m_ring->m_isPressed, !m_ring->m_isButton, false);
+    drawRegion(region, m_ring->m_isPressed, !m_ring->m_isButton,
+               layer ? layer->drawTransform() : 0, false);
 }
 
-void GLExtras::drawFindOnPage(SkRect& viewport)
+void GLExtras::drawFindOnPage(const LayerAndroid* layer)
 {
     WTF::Vector<MatchInfo>* matches = m_findOnPage->matches();
     XLOG("drawFindOnPage, matches: %p", matches);
     if (!matches || !m_findOnPage->isCurrentLocationValid())
         return;
+    std::pair<unsigned, unsigned> matchRange =
+        m_findOnPage->getLayerMatchRange(layer ? layer->uniqueId() : -1);
+    if (matchRange.first >= matchRange.second)
+        return;
+
     int count = matches->size();
-    int current = m_findOnPage->currentMatchIndex();
+    unsigned current = m_findOnPage->currentMatchIndex();
     XLOG("match count: %d", count);
+    const TransformationMatrix* drawTransform =
+        layer ? layer->drawTransform() : 0;
     if (count < MAX_NUMBER_OF_MATCHES_TO_DRAW)
-        for (int i = 0; i < count; i++) {
+        for (unsigned i = matchRange.first; i < matchRange.second; i++) {
             MatchInfo& info = matches->at(i);
             const SkRegion& region = info.getLocation();
             SkIRect rect = region.getBounds();
-            if (rect.intersect(viewport.fLeft, viewport.fTop,
-                               viewport.fRight, viewport.fBottom))
-                drawRegion(region, i == current, false, true);
+            if (drawTransform) {
+                IntRect intRect(rect.fLeft, rect.fTop, rect.width(),
+                    rect.height());
+                IntRect transformedRect = drawTransform->mapRect(intRect);
+                rect.setXYWH(transformedRect.x(), transformedRect.y(),
+                    transformedRect.width(), transformedRect.height());
+            }
+            if (rect.intersect(m_viewport.fLeft, m_viewport.fTop,
+                               m_viewport.fRight, m_viewport.fBottom))
+                drawRegion(region, i == current, false, drawTransform, true);
 #ifdef DEBUG
             else
                 XLOG("Quick rejecting [%dx%d, %d, %d", rect.fLeft, rect.fTop,
@@ -194,18 +215,20 @@ void GLExtras::drawFindOnPage(SkRect& viewport)
 #endif // DEBUG
         }
     else {
-        MatchInfo& info = matches->at(current);
-        drawRegion(info.getLocation(), true, false, true);
+        if (matchRange.first <= current && current < matchRange.second) {
+            MatchInfo& info = matches->at(current);
+            drawRegion(info.getLocation(), true, false, drawTransform, true);
+        }
     }
 }
 
-void GLExtras::drawGL(IntRect& webViewRect, SkRect& viewport, int titleBarHeight)
+void GLExtras::drawGL(const LayerAndroid* layer)
 {
     if (m_drawExtra) {
         if (m_drawExtra == m_ring)
-            drawCursorRings();
+            drawCursorRings(layer);
         else if (m_drawExtra == m_findOnPage)
-            drawFindOnPage(viewport);
+            drawFindOnPage(layer);
         else
             XLOGC("m_drawExtra %p is unknown! (cursor: %p, find: %p",
                   m_drawExtra, m_ring, m_findOnPage);

@@ -361,6 +361,7 @@ bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
     // TODO: consider moving drawBackground outside of prepare (into tree manager)
     m_state->drawBackground(m_color);
     drawBasePictureInGL();
+    m_state->glExtras()->drawGL(0);
 
     bool needsRedraw = false;
 

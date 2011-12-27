@@ -29,7 +29,6 @@
 #include "CachedInput.h"
 #include "CachedLayer.h"
 #include "CachedNode.h"
-#include "FindCanvas.h"
 #include "FloatRect.h"
 #include "LayerAndroid.h"
 #include "ParseCanvas.h"
@@ -1139,17 +1138,6 @@ bool CachedRoot::checkRings(SkPicture* picture, const CachedNode* node,
         testBounds.x(), testBounds.y(), testBounds.maxX(), testBounds.maxY(),
         result ? "true" : "false");
     return result;
-}
-
-void CachedRoot::draw(FindCanvas& canvas) const
-{
-    canvas.setLayerId(-1); // overlays change the ID as their pictures draw
-    canvas.drawPicture(*mPicture);
-#if USE(ACCELERATED_COMPOSITING)
-    if (!mRootLayer)
-        return;
-    canvas.drawLayers(mRootLayer);
-#endif
 }
 
 const CachedNode* CachedRoot::findAt(const WebCore::IntRect& rect,

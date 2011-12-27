@@ -514,6 +514,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     TexturesResult nbTexturesNeeded;
     bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
+    m_glExtras.setViewport(viewport);
     ret |= m_treeManager.drawGL(currentTime, rect, viewport,
                                 scale, fastSwap,
                                 treesSwappedPtr, newTreeHasAnimPtr,
@@ -529,11 +530,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     nbTexturesNeeded.full += nbTexturesForImages;
     nbTexturesNeeded.clipped += nbTexturesForImages;
     ret |= setLayersRenderingMode(nbTexturesNeeded);
-
-    FloatRect extrasclip(0, 0, rect.width(), rect.height());
-    TilesManager::instance()->shader()->clip(extrasclip);
-
-    m_glExtras.drawGL(webViewRect, viewport, titleBarHeight);
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 

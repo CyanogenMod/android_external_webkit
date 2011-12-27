@@ -308,8 +308,12 @@ void scrollToCurrentMatch()
 
     SkRect matchBounds = m_findOnPage.currentMatchBounds();
     LayerAndroid* rootLayer = getFrameCache(DontAllowNewer)->rootLayer();
+    if (!rootLayer)
+        return;
+
     Layer* layerContainingMatch = rootLayer->findById(m_findOnPage.currentMatchLayerId());
-    ASSERT(layerContainingMatch);
+    if (!layerContainingMatch)
+        return;
 
     // If the match is in a fixed position layer, there's nothing to do.
     if (layerContainingMatch->shouldInheritFromRootTransform())
@@ -1514,6 +1518,10 @@ void setVisibleRect(SkRect& visibleRect) {
     m_visibleRect = visibleRect;
 }
 
+FindOnPage& findOnPage() {
+    return m_findOnPage;
+}
+
     bool m_isDrawingPaused;
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
@@ -2319,7 +2327,20 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
     SkBitmap bitmap;
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     canvas.setBitmapDevice(bitmap);
-    root->draw(canvas);
+    FindOnPage& findOnPage = view->findOnPage();
+    BaseLayerAndroid* baseLayer = view->getBaseLayer();
+    if (baseLayer) {
+        canvas.setLayerId(-1);
+        unsigned matchesBegin = canvas.found();
+        baseLayer->drawCanvas(&canvas);
+        findOnPage.setLayerMatchRange(-1,
+            std::pair<unsigned, unsigned>(matchesBegin, canvas.found()));
+    }
+#if USE(ACCELERATED_COMPOSITING)
+    LayerAndroid* compositeLayer = view->compositeRoot();
+    if (compositeLayer)
+        canvas.drawLayers(compositeLayer, findOnPage);
+#endif
     WTF::Vector<MatchInfo>* matches = canvas.detachMatches();
     // With setMatches, the WebView takes ownership of matches
     view->setMatches(matches, sameAsLastSearch);
