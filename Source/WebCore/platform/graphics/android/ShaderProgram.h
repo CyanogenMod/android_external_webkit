@@ -30,11 +30,60 @@
 
 namespace WebCore {
 
+enum ShaderType {
+    UndefinedShader = -1,
+    PureColor,
+    Tex2D,
+    Tex2DInv,
+    TexOES,
+    TexOESInv,
+    Video,
+    // When growing this enum list, make sure to insert before the
+    // MaxShaderNumber and init the m_handleArray accordingly.
+    MaxShaderNumber
+};
+
+struct ShaderHandles {
+    ShaderHandles()
+    : alphaHandle(-1)
+    , contrastHandle(-1)
+    , positionHandle(-1)
+    , programHandle(-1)
+    , projMtxHandle(-1)
+    , pureColorHandle(-1)
+    , texSamplerHandle(-1)
+    , videoMtxHandle(-1)
+    {
+    }
+
+    void init(GLint alphaHdl, GLint contrastHdl, GLint posHdl, GLint pgmHdl,
+              GLint projMtxHdl, GLint colorHdl, GLint texSamplerHdl,
+              GLint videoMtxHdl)
+    {
+        alphaHandle = alphaHdl;
+        contrastHandle = contrastHdl;
+        positionHandle = posHdl;
+        programHandle = pgmHdl;
+        projMtxHandle = projMtxHdl;
+        pureColorHandle = colorHdl;
+        texSamplerHandle = texSamplerHdl;
+        videoMtxHandle = videoMtxHdl;
+    }
+
+    GLint alphaHandle;
+    GLint contrastHandle;
+    GLint positionHandle;
+    GLint programHandle;
+    GLint projMtxHandle;
+    GLint pureColorHandle;
+    GLint texSamplerHandle;
+    GLint videoMtxHandle;
+};
+
 class ShaderProgram {
 public:
     ShaderProgram();
     void init();
-    int program() { return m_program; }
 
     // Drawing
     void setViewport(SkRect& viewport, float scale);
@@ -98,37 +147,20 @@ public:
     void calculateAnimationDelta();
     int getAnimationDeltaX() { return m_animationDelta.x(); }
     int getAnimationDeltaY() { return m_animationDelta.y(); }
+    bool needInit() { return m_needInit; }
 
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
-    GLuint createProgram(const char* vertexSource, const char* fragmentSource);
-    void setProjectionMatrix(SkRect& geometry, GLint projectionMatrixHandle);
-
+    GLint createProgram(const char* vertexSource, const char* fragmentSource);
+    void setProjectionMatrix(const SkRect& geometry, GLfloat* mtxPtr);
     void setBlendingState(bool enableBlending);
-
-    void drawQuadInternal(SkRect& geometry, GLint textureId, float opacity,
-                          GLint program, GLint projectionMatrixHandle,
-                          GLint texSampler, GLenum textureTarget,
-                          GLint position, GLint alpha,
-                          GLint texFilter, GLint contrast = -1,
-                          Color pureColor = Color());
-
-    void drawLayerQuadInternal(const GLfloat* projectionMatrix, int textureId,
-                               float opacity, GLenum textureTarget, GLint program,
-                               GLint matrix, GLint texSample,
-                               GLint position, GLint alpha, GLint contrast = -1,
-                               Color pureColor = Color());
-
+    void drawQuadInternal(ShaderType type, const GLfloat* matrix, int textureId,
+                         float opacity, GLenum textureTarget, GLenum filter,
+                         const Color& pureColor);
     Color shaderColor(Color pureColor, float opacity);
+    ShaderType getTextureShaderType(GLenum textureTarget);
 
     bool m_blendingEnabled;
-
-    int m_program;
-    int m_pureColorProgram;
-    int m_programInverted;
-    int m_videoProgram;
-    int m_surfTexOESProgram;
-    int m_surfTexOESProgramInverted;
 
     TransformationMatrix m_projectionMatrix;
     GLuint m_textureBuffer[1];
@@ -144,41 +176,9 @@ private:
 
     FloatRect m_documentViewport;
 
-    // uniforms
-    GLint m_hProjectionMatrix;
-    GLint m_hAlpha;
-    GLint m_hTexSampler;
-    GLint m_hProjectionMatrixInverted;
-    GLint m_hAlphaInverted;
-    GLint m_hContrastInverted;
-    GLint m_hTexSamplerInverted;
-    GLint m_hVideoProjectionMatrix;
-    GLint m_hVideoTextureMatrix;
-    GLint m_hVideoTexSampler;
-
-    GLint m_hSTOESProjectionMatrix;
-    GLint m_hSTOESAlpha;
-    GLint m_hSTOESTexSampler;
-    GLint m_hSTOESPosition;
-
-    GLint m_hSTOESProjectionMatrixInverted;
-    GLint m_hSTOESAlphaInverted;
-    GLint m_hSTOESContrastInverted;
-    GLint m_hSTOESTexSamplerInverted;
-    GLint m_hSTOESPositionInverted;
-
-    GLint m_hPureColorProjectionMatrix;
-    GLint m_hPureColorValue;
-    GLint m_hPureColorPosition;
-
     float m_contrast;
 
-    // attribs
-    GLint m_hPosition;
-    GLint m_hPositionInverted;
-    GLint m_hVideoPosition;
-
-    bool  m_alphaLayer;
+    bool m_alphaLayer;
     TransformationMatrix m_webViewMatrix;
     float m_currentScale;
 
@@ -191,8 +191,21 @@ private:
     // TODO: Given that m_webViewMatrix contains most of the tranformation
     // information, we should be able to get rid of some parameter we got from
     // Java side and simplify our code.
-    TransformationMatrix  m_repositionMatrix;
+    TransformationMatrix m_repositionMatrix;
     IntPoint m_animationDelta;
+
+    // Put all the uniform location (handle) info into an array, and group them
+    // by the shader's type, this can help to clean up the interface.
+    // TODO: use the type and data comparison to skip GL call if possible.
+    ShaderHandles m_handleArray[MaxShaderNumber];
+
+    // If there is any GL error happens such that the Shaders are not initialized
+    // successfully at the first time, then we need to init again when we draw.
+    bool m_needInit;
+
+    // For transfer queue blitting, we need a special matrix map from (0,1) to
+    // (-1,1)
+    GLfloat m_transferProjMtx[16];
 };
 
 } // namespace WebCore
