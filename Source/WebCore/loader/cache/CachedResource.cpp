@@ -32,6 +32,7 @@
 #include "CachedResourceHandle.h"
 #include "CachedResourceLoader.h"
 #include "CachedResourceRequest.h"
+#include "CrossOriginAccessControl.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "KURL.h"
@@ -66,7 +67,11 @@ static ResourceLoadPriority defaultPriorityForResourceType(CachedResource::Type 
         case CachedResource::ImageResource:
             return ResourceLoadPriorityLow;
 #if ENABLE(LINK_PREFETCH)
-        case CachedResource::LinkResource:
+        case CachedResource::LinkPrefetch:
+            return ResourceLoadPriorityVeryLow;
+        case CachedResource::LinkPrerender:
+            return ResourceLoadPriorityVeryLow;
+        case CachedResource::LinkSubresource:
             return ResourceLoadPriorityVeryLow;
 #endif
     }
@@ -78,8 +83,8 @@ static ResourceLoadPriority defaultPriorityForResourceType(CachedResource::Type 
 static RefCountedLeakCounter cachedResourceLeakCounter("CachedResource");
 #endif
 
-CachedResource::CachedResource(const String& url, Type type)
-    : m_url(url)
+CachedResource::CachedResource(const ResourceRequest& request, Type type)
+    : m_resourceRequest(request)
     , m_request(0)
     , m_loadPriority(defaultPriorityForResourceType(type))
     , m_responseTimestamp(currentTime())
@@ -112,7 +117,7 @@ CachedResource::CachedResource(const String& url, Type type)
 #ifndef NDEBUG
     cachedResourceLeakCounter.increment();
 #endif
-    m_statHubHash = StatHubHash(url.latin1().data());
+    m_statHubHash = StatHubHash(url().string().latin1().data());
 }
 
 CachedResource::~CachedResource()
@@ -185,6 +190,12 @@ void CachedResource::setInCache(bool inCache) {
     if (m_statHubHash) {
         StatHubCmd(INPUT_CMD_WK_RES_MMC_STATUS, (void*)m_statHubHash, 0, (void*)m_inCache, 0);
     }
+}
+
+bool CachedResource::passesAccessControlCheck(SecurityOrigin* securityOrigin)
+{
+    String errorDescription;
+    return WebCore::passesAccessControlCheck(m_response, resourceRequest().allowCookies(), securityOrigin, errorDescription);
 }
 
 bool CachedResource::isExpired() const

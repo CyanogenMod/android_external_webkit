@@ -18,6 +18,66 @@
         If this functionality is added back in the future it needs to be implemented in a way that considers all
         callbacks within a Page and not only those within a single Document.
 
+2011-12-16  Zhenyao Mo  <zmo@google.com>
+
+        Postpone deleteRenderbuffer/deleteTexture until all framebuffer attachment points are removed.
+        https://bugs.webkit.org/show_bug.cgi?id=74741
+
+        Reviewed by Kenneth Russell.
+
+        Use WebGLObject's attachment count mechanism to track if a renderbuffer/texture
+        is still attached to framebuffers, and if its deletion should be delated or not.
+
+        * html/canvas/WebGLFramebuffer.cpp:
+        (WebCore::WebGLFramebuffer::setAttachmentForBoundFramebuffer):
+        (WebCore::WebGLFramebuffer::getAttachment):
+        (WebCore::WebGLFramebuffer::removeAttachmentFromBoundFramebuffer):
+        (WebCore::WebGLFramebuffer::deleteObjectImpl):
+        (WebCore::WebGLFramebuffer::isBound):
+        * html/canvas/WebGLFramebuffer.h:
+
+2012-04-10  Zhenyao Mo  <zmo@google.com>
+
+        WebGLRenderingContext should defer caching program info
+        https://bugs.webkit.org/show_bug.cgi?id=83513
+
+        Reviewed by Kenneth Russell.
+
+        * html/canvas/WebGLProgram.cpp:
+        (WebCore::WebGLProgram::WebGLProgram):
+        (WebCore::WebGLProgram::numActiveAttribLocations): call cacheInfoIfNeeded();
+        (WebCore::WebGLProgram::getActiveAttribLocation): Ditto.
+        (WebCore::WebGLProgram::isUsingVertexAttrib0): Ditto.
+        (WebCore::WebGLProgram::getLinkStatus): Ditto.
+        (WebCore):
+        (WebCore::WebGLProgram::cacheActiveAttribLocations):
+        (WebCore::WebGLProgram::cacheInfoIfNeeded): Cache link status, active attire locations, etc if needed.
+        (WebCore::WebGLProgram::increaseLinkCount): also invalidate cached info.
+        * html/canvas/WebGLProgram.h:
+        (WebGLProgram):
+        * html/canvas/WebGLRenderingContext.cpp:
+        (WebCore):
+        (WebCore::WebGLRenderingContext::linkProgram): Do not cache program info immediately.
+
+2012-05-04  Zhenyao Mo  <zmo@google.com>
+
+        vertexAttribPointer needs to reject large negative offsets
+        https://bugs.webkit.org/show_bug.cgi?id=85117
+
+        Reviewed by Kenneth Russell.
+
+        * html/canvas/WebGLRenderingContext.cpp: Use long long for GLsizeiptr and GLintptr
+        (WebCore):
+        (WebCore::WebGLRenderingContext::bufferData):
+        (WebCore::WebGLRenderingContext::bufferSubData):
+        (WebCore::WebGLRenderingContext::drawElements):
+        (WebCore::WebGLRenderingContext::getVertexAttribOffset):
+        (WebCore::WebGLRenderingContext::vertexAttribPointer):
+        * html/canvas/WebGLRenderingContext.h: Ditto
+        (WebGLRenderingContext):
+        * html/canvas/WebGLRenderingContext.idl: Ditto
+
+2011-05-11  Antoine Labour  <piman@chromium.org>
         * dom/Document.cpp:
         (WebCore::Document::webkitRequestAnimationFrame):
         * dom/Document.h:

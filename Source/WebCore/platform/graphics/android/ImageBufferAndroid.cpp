@@ -30,6 +30,7 @@
 #include "BitmapImage.h"
 #include "ColorSpace.h"
 #include "GraphicsContext.h"
+#include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
@@ -42,6 +43,10 @@
 #include "SkStream.h"
 #include "SkUnPreMultiply.h"
 #include "android_graphics.h"
+
+#include "image-encoders/skia/JPEGImageEncoder.h"
+#include "image-encoders/skia/PNGImageEncoder.h"
+#include <wtf/text/StringConcatenate.h>
 
 using namespace std;
 
@@ -235,26 +240,51 @@ void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sou
     }
 }
 
-
-String ImageBuffer::toDataURL(const String&, const double*) const
+template <typename T>
+static String ImageToDataURL(T& source, const String& mimeType, const double* quality)
 {
-    // Encode the image into a vector.
-    SkDynamicMemoryWStream pngStream;
-    const SkBitmap& dst = android_gc2canvas(context())->getDevice()->accessBitmap(true);
-    SkImageEncoder::EncodeStream(&pngStream, dst, SkImageEncoder::kPNG_Type, 100);
+    ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
 
-    // Convert it into base64.
-    Vector<char> pngEncodedData;
-    SkData* streamData = pngStream.copyToData();
-    pngEncodedData.append((char*)streamData->data(), streamData->size());
-    streamData->unref();
-    Vector<char> base64EncodedData;
-    base64Encode(pngEncodedData, base64EncodedData);
-    // Append with a \0 so that it's a valid string.
-    base64EncodedData.append('\0');
+    Vector<unsigned char> encodedImage;
+    if (mimeType == "image/jpeg") {
+        int compressionQuality = JPEGImageEncoder::DefaultCompressionQuality;
+        if (quality && *quality >= 0.0 && *quality <= 1.0)
+            compressionQuality = static_cast<int>(*quality * 100 + 0.5);
+        if (!JPEGImageEncoder::encode(source, compressionQuality, &encodedImage))
+            return "data:,";
+    } else {
+        if (!PNGImageEncoder::encode(source, &encodedImage))
+            return "data:,";
+        ASSERT(mimeType == "image/png");
+    }
 
-    // And the resulting string.
-    return String::format("data:image/png;base64,%s", base64EncodedData.data());
+    Vector<char> base64Data;
+    base64Encode(*reinterpret_cast<Vector<char>*>(&encodedImage), base64Data);
+
+    return makeString("data:", mimeType, ";base64,", base64Data);
+}
+
+String ImageDataToDataURL(const ImageData& source, const String& mimeType, const double* quality)
+{
+    return ImageToDataURL(source, mimeType, quality);
+}
+
+String ImageBuffer::toDataURL(const String& mimeType, const double* quality) const
+{
+    SkCanvas* canvas = android_gc2canvas(context());
+    SkDevice* device = canvas->getDevice();
+    SkBitmap bitmap = device->accessBitmap(false);
+    // if we can't see the pixels directly, call readPixels() to get a copy.
+    // this could happen if the device is backed by a GPU.
+    bitmap.lockPixels(); // balanced by our destructor, or explicitly if getPixels() fails
+    if (!bitmap.getPixels()) {
+        bitmap.unlockPixels();
+        SkIRect bounds = SkIRect::MakeWH(device->width(), device->height());
+        if (!canvas->readPixels(bounds, &bitmap))
+            return "data:,";
+    }
+
+    return ImageToDataURL(bitmap, mimeType, quality);
 }
 
 void ImageBuffer::platformTransformColorSpace(const Vector<int>& lookupTable)

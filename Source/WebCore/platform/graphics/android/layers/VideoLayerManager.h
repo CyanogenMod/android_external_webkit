@@ -125,7 +125,7 @@ private:
     // The retiredTextures is used to communicate between UI thread and webcore
     // thread. Basically, GL textures are determined to retire in the webcore
     // thread, and really get deleted in the UI thread.
-    Vector<GLuint> m_retiredTextures;
+    WTF::Vector<GLuint> m_retiredTextures;
     android::Mutex m_retiredTexturesLock;
 
     GLuint createTextureFromImage(int buttonType);

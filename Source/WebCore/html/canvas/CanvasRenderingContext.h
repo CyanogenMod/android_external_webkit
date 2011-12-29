@@ -27,6 +27,7 @@
 #define CanvasRenderingContext_h
 
 #include "GraphicsLayer.h"
+#include "HTMLCanvasElement.h"
 
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
@@ -35,7 +36,6 @@
 namespace WebCore {
 
 class CanvasPattern;
-class HTMLCanvasElement;
 class HTMLImageElement;
 class HTMLVideoElement;
 class KURL;
@@ -44,7 +44,6 @@ class WebGLObject;
 class CanvasRenderingContext {
     WTF_MAKE_NONCOPYABLE(CanvasRenderingContext); WTF_MAKE_FAST_ALLOCATED;
 public:
-    CanvasRenderingContext(HTMLCanvasElement*);
     virtual ~CanvasRenderingContext() { }
 
     // Ref and deref the m_canvas
@@ -65,15 +64,23 @@ public:
 #endif
 
 protected:
-    void checkOrigin(const CanvasPattern*);
-    void checkOrigin(const HTMLCanvasElement*);
-    void checkOrigin(const HTMLImageElement*);
-    void checkOrigin(const HTMLVideoElement*);
+    CanvasRenderingContext(HTMLCanvasElement*);
+    bool wouldTaintOrigin(const CanvasPattern*);
+    bool wouldTaintOrigin(const HTMLCanvasElement*);
+    bool wouldTaintOrigin(const HTMLImageElement*);
+    bool wouldTaintOrigin(const HTMLVideoElement*);
+    bool wouldTaintOrigin(const KURL&);
+
+    template<class T> void checkOrigin(const T* arg)
+    {
+        if (wouldTaintOrigin(arg))
+            canvas()->setOriginTainted();
+    }
     void checkOrigin(const KURL&);
 
 private:
     HTMLCanvasElement* m_canvas;
-    HashSet<String> m_cleanOrigins;
+    HashSet<String> m_cleanURLs;
 };
 
 } // namespace WebCore

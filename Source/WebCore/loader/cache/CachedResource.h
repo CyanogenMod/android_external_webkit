@@ -29,6 +29,7 @@
 #include "PlatformString.h"
 #include "PurgePriority.h"
 #include "ResourceLoadPriority.h"
+#include "ResourceRequest.h"
 #include "ResourceResponse.h"
 #include <wtf/HashCountedSet.h>
 #include <wtf/HashSet.h>
@@ -47,6 +48,7 @@ class CachedResourceRequest;
 class Frame;
 class InspectorResource;
 class PurgeableBuffer;
+class SecurityOrigin;
 
 // A resource that is held in the cache. Classes who want to use this object should derive
 // from CachedResourceClient, to get the function calls in case the requested data has arrived.
@@ -55,7 +57,7 @@ class CachedResource {
     WTF_MAKE_NONCOPYABLE(CachedResource); WTF_MAKE_FAST_ALLOCATED;
     friend class MemoryCache;
     friend class InspectorResource;
-    
+
 public:
     enum Type {
         ImageResource,
@@ -66,7 +68,9 @@ public:
         , XSLStyleSheet
 #endif
 #if ENABLE(LINK_PREFETCH)
-        , LinkResource
+        , LinkPrefetch
+        , LinkPrerender
+        , LinkSubresource
 #endif
     };
 
@@ -78,9 +82,9 @@ public:
         DecodeError
     };
 
-    CachedResource(const String& url, Type);
+    CachedResource(const ResourceRequest&, Type);
     virtual ~CachedResource();
-    
+
     virtual void load(CachedResourceLoader* cachedResourceLoader)  { load(cachedResourceLoader, false, DoSecurityCheck, true); }
     void load(CachedResourceLoader*, bool incremental, SecurityCheckPolicy, bool sendResourceLoadCallbacks);
 
@@ -91,9 +95,10 @@ public:
 
     virtual bool shouldIgnoreHTTPStatusCodeErrors() const { return false; }
 
-    const String &url() const { return m_url; }
+    ResourceRequest& resourceRequest() { return m_resourceRequest; }
+    const KURL& url() const { return m_resourceRequest.url();}
     Type type() const { return static_cast<Type>(m_type); }
-    
+
     ResourceLoadPriority loadPriority() const { return m_loadPriority; }
     void setLoadPriority(ResourceLoadPriority);
 
@@ -123,7 +128,7 @@ public:
     unsigned encodedSize() const { return m_encodedSize; }
     unsigned decodedSize() const { return m_decodedSize; }
     unsigned overheadSize() const;
-    
+
     bool isLoaded() const { return !m_loading; } // FIXME. Method name is inaccurate. Loading might not have started yet.
 
     bool isLoading() const { return m_loading; }
@@ -134,7 +139,7 @@ public:
     bool isLinkResource() const
     {
 #if ENABLE(LINK_PREFETCH)
-        return type() == LinkResource;
+        return type() == LinkPrefetch || type() == LinkPrerender || type() == LinkSubresource;
 #else
         return false;
 #endif
@@ -143,9 +148,11 @@ public:
     unsigned accessCount() const { return m_accessCount; }
     void increaseAccessCount() { m_accessCount++; }
 
-    // Computes the status of an object after loading.  
+    // Computes the status of an object after loading.
     // Updates the expire date on the cache entry file
     void finish();
+
+    bool passesAccessControlCheck(SecurityOrigin*);
 
     // Called by the cache if the object has been removed from the cache
     // while still being referenced. This means the object should delete itself
@@ -153,10 +160,10 @@ public:
     // The resource can be brought back to cache after successful revalidation.
     void setInCache(bool inCache);
     bool inCache() const { return m_inCache; }
-    
+
     void setInLiveDecodedResourcesList(bool b) { m_inLiveDecodedResourcesList = b; }
     bool inLiveDecodedResourcesList() { return m_inLiveDecodedResourcesList; }
-    
+
     void setRequest(CachedResourceRequest*);
 
     SharedBuffer* data() const { ASSERT(!m_purgeableData); return m_data.get(); }
@@ -187,26 +194,26 @@ public:
     bool errorOccurred() const { return (status() == LoadError || status() == DecodeError); }
 
     bool sendResourceLoadCallbacks() const { return m_sendResourceLoadCallbacks; }
-    
+
     virtual void destroyDecodedData() { }
 
     void setOwningCachedResourceLoader(CachedResourceLoader* cachedResourceLoader) { m_owningCachedResourceLoader = cachedResourceLoader; }
-    
+
     bool isPreloaded() const { return m_preloadCount; }
     void increasePreloadCount() { ++m_preloadCount; }
     void decreasePreloadCount() { ASSERT(m_preloadCount); --m_preloadCount; }
-    
+
     void registerHandle(CachedResourceHandleBase* h);
     void unregisterHandle(CachedResourceHandleBase* h);
-    
+
     bool canUseCacheValidator() const;
     bool mustRevalidateDueToCacheHeaders(CachePolicy) const;
     bool isCacheValidator() const { return m_resourceToRevalidate; }
     CachedResource* resourceToRevalidate() const { return m_resourceToRevalidate; }
-    
+
     bool isPurgeable() const;
     bool wasPurged() const;
-    
+
     // This is used by the archive machinery to get at a purged resource without
     // triggering a load. We should make it protected again if we can find a
     // better way to handle the archive case.
@@ -226,10 +233,10 @@ protected:
     void didAccessDecodedData(double timeStamp);
 
     bool isSafeToMakePurgeable() const;
-    
+
     HashCountedSet<CachedResourceClient*> m_clients;
 
-    String m_url;
+    ResourceRequest m_resourceRequest;
     String m_accept;
     CachedResourceRequest* m_request;
     ResourceLoadPriority m_loadPriority;
@@ -277,12 +284,12 @@ private:
 
     CachedResource* m_nextInAllResourcesList;
     CachedResource* m_prevInAllResourcesList;
-    
+
     CachedResource* m_nextInLiveResourcesList;
     CachedResource* m_prevInLiveResourcesList;
 
     CachedResourceLoader* m_owningCachedResourceLoader; // only non-0 for resources that are not in the cache
-    
+
     // If this field is non-null we are using the resource as a proxy for checking whether an existing resource is still up to date
     // using HTTP If-Modified-Since/If-None-Match headers. If the response is 304 all clients of this resource are moved
     // to to be clients of m_resourceToRevalidate and the resource is deleted. If not, the field is zeroed and this

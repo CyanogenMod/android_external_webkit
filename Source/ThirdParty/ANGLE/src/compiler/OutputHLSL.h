@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2010 The ANGLE Project Authors. All rights reserved.
+// Copyright (c) 2002-2012 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -31,7 +31,8 @@ class OutputHLSL : public TIntermTraverser
     static TString qualifierString(TQualifier qualifier);
     static TString arrayString(const TType &type);
     static TString initializer(const TType &type);
-    static TString decorate(const TString &string);   // Prepend an underscore to avoid naming clashes
+    static TString decorate(const TString &string);                      // Prepends an underscore to avoid naming clashes
+    static TString decorateUniform(const TString &string, const TType &type);
 
   protected:
     void header();
@@ -49,6 +50,7 @@ class OutputHLSL : public TIntermTraverser
     bool isSingleStatement(TIntermNode *node);
     bool handleExcessiveLoop(TIntermLoop *node);
     void outputTriplet(Visit visit, const TString &preString, const TString &inString, const TString &postString);
+    void outputLineDirective(int line);
     TString argumentString(const TIntermSymbol *symbol);
     int vectorSize(const TType &type) const;
 
@@ -75,10 +77,13 @@ class OutputHLSL : public TIntermTraverser
     // Parameters determining what goes in the header output
     bool mUsesTexture2D;
     bool mUsesTexture2D_bias;
+    bool mUsesTexture2DLod;
     bool mUsesTexture2DProj;
     bool mUsesTexture2DProj_bias;
+    bool mUsesTexture2DProjLod;
     bool mUsesTextureCube;
     bool mUsesTextureCube_bias;
+    bool mUsesTextureCubeLod;
     bool mUsesDepthRange;
     bool mUsesFragCoord;
     bool mUsesPointCoord;
@@ -86,9 +91,12 @@ class OutputHLSL : public TIntermTraverser
     bool mUsesPointSize;
     bool mUsesXor;
     bool mUsesMod1;
-    bool mUsesMod2;
-    bool mUsesMod3;
-    bool mUsesMod4;
+    bool mUsesMod2v;
+    bool mUsesMod2f;
+    bool mUsesMod3v;
+    bool mUsesMod3f;
+    bool mUsesMod4v;
+    bool mUsesMod4f;
     bool mUsesFaceforward1;
     bool mUsesFaceforward2;
     bool mUsesFaceforward3;
@@ -105,7 +113,10 @@ class OutputHLSL : public TIntermTraverser
     bool mUsesEqualBVec2;
     bool mUsesEqualBVec3;
     bool mUsesEqualBVec4;
-    bool mUsesAtan2;
+    bool mUsesAtan2_1;
+    bool mUsesAtan2_2;
+    bool mUsesAtan2_3;
+    bool mUsesAtan2_4;
 
     typedef std::set<TString> Constructors;
     Constructors mConstructors;

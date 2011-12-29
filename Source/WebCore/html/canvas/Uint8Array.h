@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,7 +47,7 @@ public:
     PassRefPtr<Uint8Array> subarray(int start) const;
     PassRefPtr<Uint8Array> subarray(int start, int end) const;
 
-private:
+protected:
     Uint8Array(PassRefPtr<ArrayBuffer> buffer,
                            unsigned byteOffset,
                            unsigned length);
