@@ -74,10 +74,10 @@ HTMLLinkElement::~HTMLLinkElement()
         m_sheet->clearOwnerNode();
 
     if (m_cachedSheet) {
-        m_cachedSheet->removeClient(this);    
+        m_cachedSheet->removeClient(this);
         removePendingSheet();
     }
-    
+
 #if ENABLE(LINK_PREFETCH)
     if (m_cachedLinkResource)
         m_cachedLinkResource->removeClient(this);
@@ -164,6 +164,7 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
     relAttribute.m_isDNSPrefetch = false;
 #if ENABLE(LINK_PREFETCH)
     relAttribute.m_isLinkPrefetch = false;
+    relAttribute.m_isLinkPrerender = false;
     relAttribute.m_isLinkSubresource = false;
 #endif
 #ifdef ANDROID_APPLE_TOUCH_ICON
@@ -202,6 +203,8 @@ void HTMLLinkElement::tokenizeRelAttribute(const AtomicString& rel, RelAttribute
 #if ENABLE(LINK_PREFETCH)
             else if (equalIgnoringCase(*it, "prefetch"))
               relAttribute.m_isLinkPrefetch = true;
+            else if (equalIgnoringCase(*it, "prerender"))
+              relAttribute.m_isLinkPrerender = true;
             else if (equalIgnoringCase(*it, "subresource"))
               relAttribute.m_isLinkSubresource = true;
 #endif
@@ -232,7 +235,7 @@ void HTMLLinkElement::process()
     // IE extension: location of small icon for locationbar / bookmarks
     // We'll record this URL per document, even if we later only use it in top level frames
     if (m_relAttribute.m_isIcon && m_url.isValid() && !m_url.isEmpty()) {
-        if (!checkBeforeLoadEvent()) 
+        if (!checkBeforeLoadEvent())
             return;
         document()->setIconURL(m_url.string(), type);
     }
@@ -254,28 +257,35 @@ void HTMLLinkElement::process()
     }
 
 #if ENABLE(LINK_PREFETCH)
-    if ((m_relAttribute.m_isLinkPrefetch || m_relAttribute.m_isLinkSubresource) && m_url.isValid() && document()->frame()) {
+    if ((m_relAttribute.m_isLinkPrefetch || m_relAttribute.m_isLinkPrerender || m_relAttribute.m_isLinkSubresource) && m_url.isValid() && document()->frame()) {
         if (!checkBeforeLoadEvent())
             return;
         ResourceLoadPriority priority = ResourceLoadPriorityUnresolved;
-        if (m_relAttribute.m_isLinkSubresource)
+        CachedResource::Type type = CachedResource::LinkPrefetch;
+        // We only make one request to the cachedresourcelodaer if multiple rel types are
+        // specified.
+        if (m_relAttribute.m_isLinkSubresource) {
             priority = ResourceLoadPriorityLow;
+            type = CachedResource::LinkSubresource;
+        } else if (m_relAttribute.m_isLinkPrerender)
+            type = CachedResource::LinkPrerender;
 
-        m_cachedLinkResource = document()->cachedResourceLoader()->requestLinkResource(m_url, priority);
+        ResourceRequest linkRequest(document()->completeURL(m_url));
+        m_cachedLinkResource = document()->cachedResourceLoader()->requestLinkResource(type, linkRequest, priority);
         if (m_cachedLinkResource)
             m_cachedLinkResource->addClient(this);
     }
 #endif
 
     bool acceptIfTypeContainsTextCSS = document()->page() && document()->page()->settings() && document()->page()->settings()->treatsAnyTextCSSLinkAsStylesheet();
-    
-    if (m_disabledState != Disabled && (m_relAttribute.m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css"))) 
+
+    if (m_disabledState != Disabled && (m_relAttribute.m_isStyleSheet || (acceptIfTypeContainsTextCSS && type.contains("text/css")))
         && document()->frame() && m_url.isValid()) {
-        
+
         String charset = getAttribute(charsetAttr);
         if (charset.isEmpty() && document()->frame())
             charset = document()->charset();
-        
+
         if (m_cachedSheet) {
             removePendingSheet();
             m_cachedSheet->removeClient(this);
@@ -302,8 +312,9 @@ void HTMLLinkElement::process()
 
         // Load stylesheets that are not needed for the rendering immediately with low priority.
         ResourceLoadPriority priority = blocking ? ResourceLoadPriorityUnresolved : ResourceLoadPriorityVeryLow;
-        m_cachedSheet = document()->cachedResourceLoader()->requestCSSStyleSheet(m_url, charset, priority);
-        
+        ResourceRequest request(document()->completeURL(m_url));
+        m_cachedSheet = document()->cachedResourceLoader()->requestCSSStyleSheet(request, charset, priority);
+
         if (m_cachedSheet)
             m_cachedSheet->addClient(this);
         else {
@@ -495,10 +506,10 @@ void HTMLLinkElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
 
     if (!m_relAttribute.m_isStyleSheet)
         return;
-    
+
     // Append the URL of this link element.
     addSubresourceURL(urls, href());
-    
+
     // Walk the URLs linked by the linked-to stylesheet.
     if (StyleSheet* styleSheet = const_cast<HTMLLinkElement*>(this)->sheet())
         styleSheet->addSubresourceStyleURLs(urls);

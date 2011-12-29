@@ -30,6 +30,7 @@
 #include "BitmapImage.h"
 #include "ColorSpace.h"
 #include "GraphicsContext.h"
+#include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
@@ -42,6 +43,10 @@
 #include "SkImageEncoder.h"
 #include "SkStream.h"
 #include "SkUnPreMultiply.h"
+
+#include "image-encoders/skia/JPEGImageEncoder.h"
+#include "image-encoders/skia/PNGImageEncoder.h"
+#include <wtf/text/StringConcatenate.h>
 
 using namespace std;
 
@@ -245,8 +250,36 @@ void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sou
     }
 }
 
+template <typename T>
+static String ImageToDataURL(T& source, const String& mimeType, const double* quality)
+{
+    ASSERT(MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(mimeType));
 
-String ImageBuffer::toDataURL(const String&, const double*) const
+    Vector<unsigned char> encodedImage;
+    if (mimeType == "image/jpeg") {
+        int compressionQuality = JPEGImageEncoder::DefaultCompressionQuality;
+        if (quality && *quality >= 0.0 && *quality <= 1.0)
+            compressionQuality = static_cast<int>(*quality * 100 + 0.5);
+        if (!JPEGImageEncoder::encode(source, compressionQuality, &encodedImage))
+            return "data:,";
+    } else {
+        if (!PNGImageEncoder::encode(source, &encodedImage))
+            return "data:,";
+        ASSERT(mimeType == "image/png");
+    }
+
+    Vector<char> base64Data;
+    base64Encode(*reinterpret_cast<Vector<char>*>(&encodedImage), base64Data);
+
+    return makeString("data:", mimeType, ";base64,", base64Data);
+}
+
+String ImageDataToDataURL(const ImageData& source, const String& mimeType, const double* quality)
+{
+    return ImageToDataURL(source, mimeType, quality);
+}
+
+String ImageBuffer::toDataURL(const String& mimeType, const double* quality) const
 {
     // Encode the image into a vector.
     SkDynamicMemoryWStream pngStream;

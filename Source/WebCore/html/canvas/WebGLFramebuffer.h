@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,10 +43,12 @@ public:
 
     static PassRefPtr<WebGLFramebuffer> create(WebGLRenderingContext*);
 
-    void setAttachment(GC3Denum attachment, GC3Denum texTarget, WebGLTexture*, GC3Dint level);
-    void setAttachment(GC3Denum attachment, WebGLRenderbuffer*);
-    // If an object is attached to the framebuffer, remove it.
-    void removeAttachment(WebGLObject*);
+    void setAttachmentForBoundFramebuffer(GC3Denum attachment, GC3Denum texTarget, WebGLTexture*, GC3Dint level);
+    void setAttachmentForBoundFramebuffer(GC3Denum attachment, WebGLRenderbuffer*);
+    // If an object is attached to the currently bound framebuffer, remove it.
+    void removeAttachmentFromBoundFramebuffer(WebGLObject*);
+    // If a given attachment point for the currently bound framebuffer is not null, remove the attached object.
+    void removeAttachmentFromBoundFramebuffer(GC3Denum);
     WebGLObject* getAttachment(GC3Denum) const;
 
     GC3Denum getColorBufferFormat() const;
@@ -60,8 +63,11 @@ public:
     // needToInitializeRenderbuffers is true.
     bool onAccess(bool needToInitializeRenderbuffers);
 
-    // Return false does not mean COMPLETE, might still be INCOMPLETE.
-    bool isIncomplete(bool checkInternalFormat) const;
+    // Software version of glCheckFramebufferStatus(), except that when
+    // FRAMEBUFFER_COMPLETE is returned, it is still possible for
+    // glCheckFramebufferStatus() to return FRAMEBUFFER_UNSUPPORTED,
+    // depending on hardware implementation.
+    GC3Denum checkStatus() const;
 
     bool hasEverBeenBound() const { return object() && m_hasEverBeenBound; }
 
@@ -77,6 +83,9 @@ private:
 
     // Return false if framebuffer is incomplete.
     bool initializeRenderbuffers();
+
+    // Check if the framebuffer is currently bound.
+    bool isBound() const;
 
     bool isColorAttached() const { return (m_colorAttachment && m_colorAttachment->object()); }
     bool isDepthAttached() const { return (m_depthAttachment && m_depthAttachment->object()); }

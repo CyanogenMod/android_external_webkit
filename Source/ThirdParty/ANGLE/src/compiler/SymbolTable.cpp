@@ -9,9 +9,15 @@
 // are documented in the header file.
 //
 
+#if defined(_MSC_VER)
+#pragma warning(disable: 4718)
+#endif
+
 #include "compiler/SymbolTable.h"
 
 #include <stdio.h>
+
+#include <algorithm>
 
 //
 // TType helper function needs a place to live.
@@ -69,6 +75,20 @@ int TType::getStructSize() const
             structureSize += ((*tl).type)->getObjectSize();
 
     return structureSize;
+}
+
+void TType::computeDeepestStructNesting()
+{
+    if (!getStruct()) {
+        return;
+    }
+
+    int maxNesting = 0;
+    for (TTypeList::const_iterator tl = getStruct()->begin(); tl != getStruct()->end(); ++tl) {
+        maxNesting = std::max(maxNesting, ((*tl).type)->getDeepestStructNesting());
+    }
+
+    deepestStructNesting = 1 + maxNesting;
 }
 
 //

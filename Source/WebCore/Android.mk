@@ -1,5 +1,7 @@
 ##
 ## Copyright 2009, The Android Open Source Project
+## Copyright (C) 2011, 2012, Sony Ericsson Mobile Communications AB
+## Copyright (C) 2012 Sony Mobile Communications AB
 ##
 ## Redistribution and use in source and binary forms, with or without
 ## modification, are permitted provided that the following conditions
@@ -388,10 +390,30 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/canvas/Uint16Array.cpp \
 	html/canvas/Uint32Array.cpp \
 	html/canvas/Uint8Array.cpp \
+	html/canvas/Uint8ClampedArray.cpp \
 	html/canvas/WebGLExtension.cpp \
 	html/canvas/WebGLObject.cpp \
-	html/canvas/WebGLVertexArrayObjectOES.cpp \
-	\
+	html/canvas/WebGLVertexArrayObjectOES.cpp
+
+ifeq ($(ENABLE_WEBGL), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	html/canvas/CanvasContextAttributes.cpp \
+	html/canvas/OESStandardDerivatives.cpp \
+	html/canvas/WebGLBuffer.cpp \
+	html/canvas/WebGLContextAttributes.cpp \
+	html/canvas/WebGLContextEvent.cpp \
+	html/canvas/WebGLFramebuffer.cpp \
+	html/canvas/WebGLGetInfo.cpp \
+	html/canvas/WebGLProgram.cpp \
+	html/canvas/WebGLRenderbuffer.cpp \
+	html/canvas/WebGLRenderingContext.cpp \
+	html/canvas/WebGLShader.cpp \
+	html/canvas/WebGLTexture.cpp \
+	html/canvas/WebGLUniformLocation.cpp \
+	html/canvas/WebKitLoseContext.cpp
+endif
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	html/parser/HTMLConstructionSite.cpp \
 	html/parser/HTMLDocumentParser.cpp \
 	html/parser/HTMLElementStack.cpp \
@@ -702,6 +724,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/utils/ClassTracker.cpp \
 	platform/graphics/android/utils/LinearAllocator.cpp
 
+ifeq ($(ENABLE_WEBGL), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	platform/graphics/ANGLEWebKitBridge.cpp \
+	platform/graphics/GraphicsContext3D.cpp \
+	platform/graphics/android/Extensions3DAndroid.cpp \
+	platform/graphics/android/GraphicsContext3DAndroid.cpp \
+	platform/graphics/android/GraphicsContext3DInternal.cpp \
+	platform/graphics/android/GraphicsContext3DProxy.cpp \
+	platform/graphics/android/WebGLLayer.cpp \
+	platform/image-decoders/png/PNGImageDecoder.cpp
+endif
+
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/filters/DistantLightSource.cpp \
@@ -752,6 +786,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/image-decoders/gif/GIFImageReader.cpp \
 	\
 	platform/image-encoders/skia/JPEGImageEncoder.cpp \
+	platform/image-encoders/skia/PNGImageEncoder.cpp \
 	\
 	platform/leveldb/LevelDBDatabase.cpp \
 	platform/leveldb/LevelDBIterator.cpp \

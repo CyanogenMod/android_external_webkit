@@ -44,9 +44,9 @@ Renderbuffer *Framebuffer::lookupRenderbuffer(GLenum type, GLuint handle) const
     {
         buffer = context->getRenderbuffer(handle);
     }
-    else if (IsTextureTarget(type))
+    else if (IsInternalTextureTarget(type))
     {
-        buffer = context->getTexture(handle)->getColorbuffer(type);
+        buffer = context->getTexture(handle)->getRenderbuffer(type);
     }
     else
     {
@@ -58,37 +58,37 @@ Renderbuffer *Framebuffer::lookupRenderbuffer(GLenum type, GLuint handle) const
 
 void Framebuffer::setColorbuffer(GLenum type, GLuint colorbuffer)
 {
-    mColorbufferType = type;
+    mColorbufferType = (colorbuffer != 0) ? type : GL_NONE;
     mColorbufferPointer.set(lookupRenderbuffer(type, colorbuffer));
 }
 
 void Framebuffer::setDepthbuffer(GLenum type, GLuint depthbuffer)
 {
-    mDepthbufferType = type;
+    mDepthbufferType = (depthbuffer != 0) ? type : GL_NONE;
     mDepthbufferPointer.set(lookupRenderbuffer(type, depthbuffer));
 }
 
 void Framebuffer::setStencilbuffer(GLenum type, GLuint stencilbuffer)
 {
-    mStencilbufferType = type;
+    mStencilbufferType = (stencilbuffer != 0) ? type : GL_NONE;
     mStencilbufferPointer.set(lookupRenderbuffer(type, stencilbuffer));
 }
 
 void Framebuffer::detachTexture(GLuint texture)
 {
-    if (mColorbufferPointer.id() == texture && IsTextureTarget(mColorbufferType))
+    if (mColorbufferPointer.id() == texture && IsInternalTextureTarget(mColorbufferType))
     {
         mColorbufferType = GL_NONE;
         mColorbufferPointer.set(NULL);
     }
 
-    if (mDepthbufferPointer.id() == texture && IsTextureTarget(mDepthbufferType))
+    if (mDepthbufferPointer.id() == texture && IsInternalTextureTarget(mDepthbufferType))
     {
         mDepthbufferType = GL_NONE;
         mDepthbufferPointer.set(NULL);
     }
 
-    if (mStencilbufferPointer.id() == texture && IsTextureTarget(mStencilbufferType))
+    if (mStencilbufferPointer.id() == texture && IsInternalTextureTarget(mStencilbufferType))
     {
         mStencilbufferType = GL_NONE;
         mStencilbufferPointer.set(NULL);
@@ -181,46 +181,19 @@ unsigned int Framebuffer::getStencilbufferSerial()
     return 0;
 }
 
-Colorbuffer *Framebuffer::getColorbuffer()
+Renderbuffer *Framebuffer::getColorbuffer()
 {
-    Renderbuffer *rb = mColorbufferPointer.get();
-
-    if (rb != NULL && rb->isColorbuffer())
-    {
-        return static_cast<Colorbuffer*>(rb->getStorage());
-    }
-    else
-    {
-        return NULL;
-    }
+    return mColorbufferPointer.get();
 }
 
-DepthStencilbuffer *Framebuffer::getDepthbuffer()
+Renderbuffer *Framebuffer::getDepthbuffer()
 {
-    Renderbuffer *rb = mDepthbufferPointer.get();
-
-    if (rb != NULL && rb->isDepthbuffer())
-    {
-        return static_cast<DepthStencilbuffer*>(rb->getStorage());
-    }
-    else
-    {
-        return NULL;
-    }
+    return mDepthbufferPointer.get();
 }
 
-DepthStencilbuffer *Framebuffer::getStencilbuffer()
+Renderbuffer *Framebuffer::getStencilbuffer()
 {
-    Renderbuffer *rb = mStencilbufferPointer.get();
-
-    if (rb != NULL && rb->isStencilbuffer())
-    {
-        return static_cast<DepthStencilbuffer*>(rb->getStorage());
-    }
-    else
-    {
-        return NULL;
-    }
+    return mStencilbufferPointer.get();
 }
 
 GLenum Framebuffer::getColorbufferType()
@@ -257,7 +230,7 @@ bool Framebuffer::hasStencil()
 {
     if (mStencilbufferType != GL_NONE)
     {
-        DepthStencilbuffer *stencilbufferObject = getStencilbuffer();
+        Renderbuffer *stencilbufferObject = getStencilbuffer();
 
         if (stencilbufferObject)
         {
@@ -268,23 +241,6 @@ bool Framebuffer::hasStencil()
     return false;
 }
 
-bool Framebuffer::isMultisample()
-{
-    // If the framebuffer is not complete, attachment samples may be mismatched, and it
-    // cannot be used as a multisample framebuffer. If it is complete, it is required to
-    // have a color attachment, and all its attachments must have the same number of samples,
-    // so the number of samples for the colorbuffer will indicate whether the framebuffer is
-    // multisampled.
-    if (completeness() == GL_FRAMEBUFFER_COMPLETE && getColorbuffer()->getSamples() > 0)
-    {
-        return true;
-    }
-    else
-    {
-        return false;
-    }
-}
-
 GLenum Framebuffer::completeness()
 {
     int width = 0;
@@ -293,7 +249,7 @@ GLenum Framebuffer::completeness()
 
     if (mColorbufferType != GL_NONE)
     {
-        Colorbuffer *colorbuffer = getColorbuffer();
+        Renderbuffer *colorbuffer = getColorbuffer();
 
         if (!colorbuffer)
         {
@@ -307,25 +263,25 @@ GLenum Framebuffer::completeness()
 
         if (mColorbufferType == GL_RENDERBUFFER)
         {
-            if (!gl::IsColorRenderable(colorbuffer->getFormat()))
+            if (!gl::IsColorRenderable(colorbuffer->getInternalFormat()))
             {
                 return GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT;
             }
         }
-        else if (IsTextureTarget(mColorbufferType))
+        else if (IsInternalTextureTarget(mColorbufferType))
         {
-            if (IsCompressed(colorbuffer->getFormat()))
+            if (IsCompressed(colorbuffer->getInternalFormat()))
             {
                 return GL_FRAMEBUFFER_UNSUPPORTED;
             }
 
-            if (colorbuffer->isFloatingPoint() && (!getContext()->supportsFloatRenderableTextures() || 
-                                                   !getContext()->supportsHalfFloatRenderableTextures()))
+            if ((dx2es::IsFloat32Format(colorbuffer->getD3DFormat()) && !getContext()->supportsFloat32RenderableTextures()) || 
+                (dx2es::IsFloat16Format(colorbuffer->getD3DFormat()) && !getContext()->supportsFloat16RenderableTextures()))
             {
                 return GL_FRAMEBUFFER_UNSUPPORTED;
             }
 
-            if (colorbuffer->getFormat() == GL_LUMINANCE || colorbuffer->getFormat() == GL_LUMINANCE_ALPHA)
+            if (colorbuffer->getInternalFormat() == GL_LUMINANCE || colorbuffer->getInternalFormat() == GL_LUMINANCE_ALPHA)
             {
                 return GL_FRAMEBUFFER_UNSUPPORTED;
             }
@@ -341,8 +297,8 @@ GLenum Framebuffer::completeness()
         return GL_FRAMEBUFFER_INCOMPLETE_MISSING_ATTACHMENT;
     }
 
-    DepthStencilbuffer *depthbuffer = NULL;
-    DepthStencilbuffer *stencilbuffer = NULL;
+    Renderbuffer *depthbuffer = NULL;
+    Renderbuffer *stencilbuffer = NULL;
 
     if (mDepthbufferType != GL_NONE)
     {
@@ -424,8 +380,8 @@ GLenum Framebuffer::completeness()
 
     if (mDepthbufferType == GL_RENDERBUFFER && mStencilbufferType == GL_RENDERBUFFER)
     {
-        if (depthbuffer->getFormat() != GL_DEPTH24_STENCIL8_OES ||
-            stencilbuffer->getFormat() != GL_DEPTH24_STENCIL8_OES ||
+        if (depthbuffer->getInternalFormat() != GL_DEPTH24_STENCIL8_OES ||
+            stencilbuffer->getInternalFormat() != GL_DEPTH24_STENCIL8_OES ||
             depthbuffer->getSerial() != stencilbuffer->getSerial())
         {
             return GL_FRAMEBUFFER_UNSUPPORTED;
@@ -435,17 +391,17 @@ GLenum Framebuffer::completeness()
     return GL_FRAMEBUFFER_COMPLETE;
 }
 
-DefaultFramebuffer::DefaultFramebuffer(Colorbuffer *color, DepthStencilbuffer *depthStencil)
+DefaultFramebuffer::DefaultFramebuffer(Colorbuffer *colorbuffer, DepthStencilbuffer *depthStencil)
 {
-    mColorbufferType = GL_RENDERBUFFER;
-    mDepthbufferType = (depthStencil->getDepthSize() != 0) ? GL_RENDERBUFFER : GL_NONE;
-    mStencilbufferType = (depthStencil->getStencilSize() != 0) ? GL_RENDERBUFFER : GL_NONE;
-
-    mColorbufferPointer.set(new Renderbuffer(0, color));
+    mColorbufferPointer.set(new Renderbuffer(0, colorbuffer));
 
     Renderbuffer *depthStencilRenderbuffer = new Renderbuffer(0, depthStencil);
     mDepthbufferPointer.set(depthStencilRenderbuffer);
     mStencilbufferPointer.set(depthStencilRenderbuffer);
+
+    mColorbufferType = GL_RENDERBUFFER;
+    mDepthbufferType = (depthStencilRenderbuffer->getDepthSize() != 0) ? GL_RENDERBUFFER : GL_NONE;
+    mStencilbufferType = (depthStencilRenderbuffer->getStencilSize() != 0) ? GL_RENDERBUFFER : GL_NONE;
 }
 
 int Framebuffer::getSamples()

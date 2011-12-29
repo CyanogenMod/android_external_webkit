@@ -1564,11 +1564,11 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderObject* renderer)
     if (!(m_compositingTriggers & ChromeClient::CanvasTrigger))
         return false;
 
-    if (renderer->isCanvas()) {
-        HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer->node());
-        return canvas->renderingContext() && canvas->renderingContext()->isAccelerated();
-    }
-    return false;
+    if (!renderer->isCanvas())
+        return false;
+
+    HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer->node());
+    return canvas->renderingContext() && canvas->renderingContext()->isAccelerated();
 }
 
 bool RenderLayerCompositor::requiresCompositingForPlugin(RenderObject* renderer) const
