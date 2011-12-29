@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,6 +73,9 @@ public:
     virtual bool isAccelerated() const { return true; }
     virtual bool paintsIntoCanvasBuffer() const;
 
+    GC3Dsizei drawingBufferWidth();
+    GC3Dsizei drawingBufferHeight();
+
     void activeTexture(GC3Denum texture, ExceptionCode&);
     void attachShader(WebGLProgram*, WebGLShader*, ExceptionCode&);
     void bindAttribLocation(WebGLProgram*, GC3Duint index, const String& name, ExceptionCode&);
@@ -84,11 +89,11 @@ public:
     void blendFunc(GC3Denum sfactor, GC3Denum dfactor);
     void blendFuncSeparate(GC3Denum srcRGB, GC3Denum dstRGB, GC3Denum srcAlpha, GC3Denum dstAlpha);
 
-    void bufferData(GC3Denum target, GC3Dsizeiptr size, GC3Denum usage, ExceptionCode&);
+    void bufferData(GC3Denum target, long long size, GC3Denum usage, ExceptionCode&);
     void bufferData(GC3Denum target, ArrayBuffer* data, GC3Denum usage, ExceptionCode&);
     void bufferData(GC3Denum target, ArrayBufferView* data, GC3Denum usage, ExceptionCode&);
-    void bufferSubData(GC3Denum target, GC3Dintptr offset, ArrayBuffer* data, ExceptionCode&);
-    void bufferSubData(GC3Denum target, GC3Dintptr offset, ArrayBufferView* data, ExceptionCode&);
+    void bufferSubData(GC3Denum target, long long offset, ArrayBuffer* data, ExceptionCode&);
+    void bufferSubData(GC3Denum target, long long offset, ArrayBufferView* data, ExceptionCode&);
 
     GC3Denum checkFramebufferStatus(GC3Denum target);
     void clear(GC3Dbitfield mask);
@@ -98,8 +103,12 @@ public:
     void colorMask(GC3Dboolean red, GC3Dboolean green, GC3Dboolean blue, GC3Dboolean alpha);
     void compileShader(WebGLShader*, ExceptionCode&);
 
-    // void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Dsizei imageSize, const void* data);
-    // void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei GC3Dsizei height, GC3Denum format, GC3Dsizei imageSize, const void* data);
+    void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat,
+                              GC3Dsizei width, GC3Dsizei height, GC3Dint border,
+                              ArrayBufferView* data);
+    void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset,
+                                 GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height,
+                                 GC3Denum format, ArrayBufferView* data);
 
     void copyTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Dint border);
     void copyTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height);
@@ -127,7 +136,7 @@ public:
     void disable(GC3Denum cap);
     void disableVertexAttribArray(GC3Duint index, ExceptionCode&);
     void drawArrays(GC3Denum mode, GC3Dint first, GC3Dsizei count, ExceptionCode&);
-    void drawElements(GC3Denum mode, GC3Dsizei count, GC3Denum type, GC3Dintptr offset, ExceptionCode&);
+    void drawElements(GC3Denum mode, GC3Dsizei count, GC3Denum type, long long offset, ExceptionCode&);
 
     void enable(GC3Denum cap);
     void enableVertexAttribArray(GC3Duint index, ExceptionCode&);
@@ -163,7 +172,7 @@ public:
     WebGLGetInfo getUniform(WebGLProgram*, const WebGLUniformLocation*, ExceptionCode&);
     PassRefPtr<WebGLUniformLocation> getUniformLocation(WebGLProgram*, const String&, ExceptionCode&);
     WebGLGetInfo getVertexAttrib(GC3Duint index, GC3Denum pname, ExceptionCode&);
-    GC3Dsizeiptr getVertexAttribOffset(GC3Duint index, GC3Denum pname);
+    long long getVertexAttribOffset(GC3Duint index, GC3Denum pname);
 
     void hint(GC3Denum target, GC3Denum mode);
     GC3Dboolean isBuffer(WebGLBuffer*);
@@ -270,13 +279,20 @@ public:
     void vertexAttrib4fv(GC3Duint index, Float32Array* values);
     void vertexAttrib4fv(GC3Duint index, GC3Dfloat* values, GC3Dsizei size);
     void vertexAttribPointer(GC3Duint index, GC3Dint size, GC3Denum type, GC3Dboolean normalized,
-                             GC3Dsizei stride, GC3Dintptr offset, ExceptionCode&);
+                             GC3Dsizei stride, long long offset, ExceptionCode&);
 
     void viewport(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height);
 
-    void forceLostContext();
-    void onLostContext();
-    void restoreContext();
+    // WEBKIT_lose_context support
+    enum LostContextMode {
+        // Lost context occurred at the graphics system level.
+        RealLostContext,
+
+        // Lost context provoked by WEBKIT_lose_context.
+        SyntheticLostContext
+    };
+    void forceLostContext(LostContextMode);
+    void forceRestoreContext();
 
     GraphicsContext3D* graphicsContext3D() const { return m_context.get(); }
 #if USE(ACCELERATED_COMPOSITING)
@@ -297,7 +313,13 @@ public:
     int getNumberOfExtensions();
     WebGLExtension* getExtensionNumber(int i);
 
+#if PLATFORM(ANDROID)
+    void recreateSurface();
+    void releaseSurface();
+#endif
+
   private:
+    friend class WebGLFramebuffer;
     friend class WebGLObject;
     friend class OESVertexArrayObject;
 
@@ -348,7 +370,7 @@ public:
     bool validateWebGLObject(WebGLObject*);
 
 #if ENABLE(VIDEO)
-    PassRefPtr<Image> videoFrameToImage(HTMLVideoElement*);
+    PassRefPtr<Image> videoFrameToImage(HTMLVideoElement*, ExceptionCode&);
 #endif
 
     RefPtr<GraphicsContext3D> m_context;
@@ -361,6 +383,7 @@ public:
         WebGLRenderingContext* m_context;
     };
 
+    bool m_restoreAllowed;
     WebGLRenderingContextRestoreTimer m_restoreTimer;
 
     bool m_needsUpdate;
@@ -515,6 +538,9 @@ public:
     // Helper function to get the bound framebuffer's height.
     int getBoundFramebufferHeight();
 
+    // Helper function to verify limits on the length of uniform and attribute locations.
+    bool validateLocationLength(const String&);
+
     // Helper function to check if size is non-negative.
     // Generate GL error and return false for negative inputs; otherwise, return true.
     bool validateSize(GC3Dint x, GC3Dint y);
@@ -611,6 +637,10 @@ public:
     void initVertexAttrib0();
     bool simulateVertexAttrib0(GC3Dsizei numVertex);
     void restoreStatesAfterVertexAttrib0Simulation();
+
+    void loseContext();
+    // Helper for restoration after context lost.
+    void maybeRestoreContext(LostContextMode);
 
     friend class WebGLStateRestorer;
 };

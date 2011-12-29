@@ -27,7 +27,7 @@
 #include "SkPaint.h"
 #include "SkPicture.h"
 #include "SkTypeface.h"
-#include "Surface.h"
+#include "rendering/Surface.h"
 #include "TilesManager.h"
 
 #include <wtf/CurrentTime.h>
@@ -149,8 +149,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     }
 
     if (hasAbsoluteChildren && !hasOnlyAbsoluteFollowers) {
-        Vector<LayerAndroid*> normalLayers;
-        Vector<LayerAndroid*> absoluteLayers;
+        WTF::Vector<LayerAndroid*> normalLayers;
+        WTF::Vector<LayerAndroid*> absoluteLayers;
         for (int i = 0; i < layer.countChildren(); i++) {
             LayerAndroid* child = layer.getChild(i);
             if (child->isPositionAbsolute()
@@ -308,7 +308,7 @@ void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> prpAnim)
 void LayerAndroid::removeAnimationsForProperty(AnimatedPropertyID property)
 {
     KeyframesMap::const_iterator end = m_animations.end();
-    Vector<pair<String, int> > toDelete;
+    WTF::Vector<pair<String, int> > toDelete;
     for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it) {
         if ((it->second)->type() == property)
             toDelete.append(it->first);
@@ -321,7 +321,7 @@ void LayerAndroid::removeAnimationsForProperty(AnimatedPropertyID property)
 void LayerAndroid::removeAnimationsForKeyframes(const String& name)
 {
     KeyframesMap::const_iterator end = m_animations.end();
-    Vector<pair<String, int> > toDelete;
+    WTF::Vector<pair<String, int> > toDelete;
     for (KeyframesMap::const_iterator it = m_animations.begin(); it != end; ++it) {
         if ((it->second)->isNamed(name))
             toDelete.append(it->first);
@@ -705,7 +705,7 @@ void LayerAndroid::assignSurfaces(LayerMergeState* mergeState)
     int count = this->countChildren();
     if (count > 0) {
         mergeState->depth++;
-        Vector <LayerAndroid*> sublayers;
+        WTF::Vector <LayerAndroid*> sublayers;
         for (int i = 0; i < count; i++)
             sublayers.append(getChild(i));
 
@@ -896,7 +896,7 @@ bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas, PaintStyle style)
     bool askScreenUpdate = false;
     int count = this->countChildren();
     if (count > 0) {
-        Vector <LayerAndroid*> sublayers;
+        WTF::Vector <LayerAndroid*> sublayers;
         for (int i = 0; i < count; i++)
             sublayers.append(this->getChild(i));
 

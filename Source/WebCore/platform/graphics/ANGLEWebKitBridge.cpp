@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -57,20 +57,20 @@ void ANGLEWebKitBridge::cleanupCompilers()
 
     builtCompilers = false;
 }
-    
+
 void ANGLEWebKitBridge::setResources(ShBuiltInResources resources)
 {
     // Resources are (possibly) changing - cleanup compilers if we had them already
     cleanupCompilers();
-    
+
     m_resources = resources;
 }
 
 bool ANGLEWebKitBridge::validateShaderSource(const char* shaderSource, ANGLEShaderType shaderType, String& translatedShaderSource, String& shaderValidationLog)
 {
     if (!builtCompilers) {
-        m_fragmentCompiler = ShConstructCompiler(SH_FRAGMENT_SHADER, SH_WEBGL_SPEC, &m_resources);
-        m_vertexCompiler = ShConstructCompiler(SH_VERTEX_SHADER, SH_WEBGL_SPEC, &m_resources);
+        m_fragmentCompiler = ShConstructCompiler(SH_FRAGMENT_SHADER, SH_WEBGL_SPEC, SH_GLSL_OUTPUT, &m_resources);
+        m_vertexCompiler = ShConstructCompiler(SH_VERTEX_SHADER, SH_WEBGL_SPEC, SH_GLSL_OUTPUT, &m_resources);
         if (!m_fragmentCompiler || !m_vertexCompiler) {
             cleanupCompilers();
             return false;
@@ -78,7 +78,7 @@ bool ANGLEWebKitBridge::validateShaderSource(const char* shaderSource, ANGLEShad
 
         builtCompilers = true;
     }
-    
+
     ShHandle compiler;
 
     if (shaderType == SHADER_TYPE_VERTEX)

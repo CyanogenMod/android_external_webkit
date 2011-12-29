@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2010 The ANGLE Project Authors. All rights reserved.
+// Copyright (c) 2002-2011 The ANGLE Project Authors. All rights reserved.
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 //
@@ -12,6 +12,7 @@
 #include "GLSLANG/ShaderLang.h"
 
 #include "compiler/InitializeDll.h"
+#include "compiler/preprocessor/length_limits.h"
 #include "compiler/ShHandle.h"
 
 //
@@ -19,16 +20,21 @@
 // and the shading language compiler.
 //
 
-static int getVariableMaxLength(const TVariableInfoList& varList)
+static bool checkActiveUniformAndAttribMaxLengths(const ShHandle handle,
+                                                  int expectedValue)
 {
-    TString::size_type maxLen = 0;
-    for (TVariableInfoList::const_iterator i = varList.begin();
-         i != varList.end(); ++i)
-    {
-        maxLen = std::max(maxLen, i->name.size());
-    }
-    // Add 1 to include null-termination character.
-    return static_cast<int>(maxLen) + 1;
+    int activeUniformLimit = 0;
+    ShGetInfo(handle, SH_ACTIVE_UNIFORM_MAX_LENGTH, &activeUniformLimit);
+    int activeAttribLimit = 0;
+    ShGetInfo(handle, SH_ACTIVE_ATTRIBUTE_MAX_LENGTH, &activeAttribLimit);
+    return (expectedValue == activeUniformLimit && expectedValue == activeAttribLimit);
+}
+
+static bool checkMappedNameMaxLength(const ShHandle handle, int expectedValue)
+{
+    int mappedNameMaxLength = 0;
+    ShGetInfo(handle, SH_MAPPED_NAME_MAX_LENGTH, &mappedNameMaxLength);
+    return (expectedValue == mappedNameMaxLength);
 }
 
 static void getVariableInfo(ShShaderInfo varType,
@@ -37,7 +43,8 @@ static void getVariableInfo(ShShaderInfo varType,
                             int* length,
                             int* size,
                             ShDataType* type,
-                            char* name)
+                            char* name,
+                            char* mappedName)
 {
     if (!handle || !size || !type || !name)
         return;
@@ -58,7 +65,20 @@ static void getVariableInfo(ShShaderInfo varType,
     if (length) *length = varInfo.name.size();
     *size = varInfo.size;
     *type = varInfo.type;
-    strcpy(name, varInfo.name.c_str());
+
+    // This size must match that queried by
+    // SH_ACTIVE_UNIFORM_MAX_LENGTH and SH_ACTIVE_ATTRIBUTE_MAX_LENGTH
+    // in ShGetInfo, below.
+    int activeUniformAndAttribLength = 1 + MAX_SYMBOL_NAME_LEN;
+    ASSERT(checkActiveUniformAndAttribMaxLengths(handle, activeUniformAndAttribLength));
+    strncpy(name, varInfo.name.c_str(), activeUniformAndAttribLength);
+    if (mappedName) {
+        // This size must match that queried by
+        // SH_MAPPED_NAME_MAX_LENGTH in ShGetInfo, below.
+        int maxMappedNameLength = 1 + MAX_SYMBOL_NAME_LEN;
+        ASSERT(checkMappedNameMaxLength(handle, maxMappedNameLength));
+        strncpy(mappedName, varInfo.mappedName.c_str(), maxMappedNameLength);
+    }
 }
 
 //
@@ -101,18 +121,21 @@ void ShInitBuiltInResources(ShBuiltInResources* resources)
 
     // Extensions.
     resources->OES_standard_derivatives = 0;
+    resources->OES_EGL_image_external = 0;
+    resources->ARB_texture_rectangle = 0;
 }
 
 //
 // Driver calls these to create and destroy compiler objects.
 //
 ShHandle ShConstructCompiler(ShShaderType type, ShShaderSpec spec,
+                             ShShaderOutput output,
                              const ShBuiltInResources* resources)
 {
     if (!InitThread())
         return 0;
 
-    TShHandleBase* base = static_cast<TShHandleBase*>(ConstructCompiler(type, spec));
+    TShHandleBase* base = static_cast<TShHandleBase*>(ConstructCompiler(type, spec, output));
     TCompiler* compiler = base->getAsCompiler();
     if (compiler == 0)
         return 0;
@@ -186,15 +209,19 @@ void ShGetInfo(const ShHandle handle, ShShaderInfo pname, int* params)
         *params = compiler->getUniforms().size();
         break;
     case SH_ACTIVE_UNIFORM_MAX_LENGTH:
-        *params = getVariableMaxLength(compiler->getUniforms());
+        *params = 1 +  MAX_SYMBOL_NAME_LEN;
         break;
     case SH_ACTIVE_ATTRIBUTES:
         *params = compiler->getAttribs().size();
         break;
     case SH_ACTIVE_ATTRIBUTE_MAX_LENGTH:
-        *params = getVariableMaxLength(compiler->getAttribs());
+        *params = 1 + MAX_SYMBOL_NAME_LEN;
         break;
-
+    case SH_MAPPED_NAME_MAX_LENGTH:
+        // Use longer length than MAX_SHORTENED_IDENTIFIER_SIZE to
+        // handle array and struct dereferences.
+        *params = 1 + MAX_SYMBOL_NAME_LEN;
+        break;
     default: UNREACHABLE();
     }
 }
@@ -236,10 +263,11 @@ void ShGetActiveAttrib(const ShHandle handle,
                        int* length,
                        int* size,
                        ShDataType* type,
-                       char* name)
+                       char* name,
+                       char* mappedName)
 {
     getVariableInfo(SH_ACTIVE_ATTRIBUTES,
-                    handle, index, length, size, type, name);
+                    handle, index, length, size, type, name, mappedName);
 }
 
 void ShGetActiveUniform(const ShHandle handle,
@@ -247,8 +275,9 @@ void ShGetActiveUniform(const ShHandle handle,
                         int* length,
                         int* size,
                         ShDataType* type,
-                        char* name)
+                        char* name,
+                        char* mappedName)
 {
     getVariableInfo(SH_ACTIVE_UNIFORMS,
-                    handle, index, length, size, type, name);
+                    handle, index, length, size, type, name, mappedName);
 }

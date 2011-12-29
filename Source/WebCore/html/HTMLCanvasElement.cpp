@@ -3,6 +3,8 @@
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -167,6 +169,11 @@ HTMLCanvasElement::~HTMLCanvasElement()
     CanvasLayerAndroid::markGLAssetsForRemoval(id);
     delete m_canvasLayer;
     SLOGD("++++++++++++++++ Deleting the canvas with id %d", id);
+
+#if ENABLE(WEBGL)
+    document()->unregisterForDocumentActivationCallbacks(this);
+    document()->unregisterForDocumentSuspendCallbacks(this);
+#endif
 #endif
 }
 
@@ -257,6 +264,11 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
                 if (m_context) {
                     // Need to make sure a RenderLayer and compositing layer get created for the Canvas
                     setNeedsStyleRecalc(SyntheticStyleChange);
+#if PLATFORM(ANDROID)
+                    document()->registerForDocumentActivationCallbacks(this);
+                    document()->registerForDocumentSuspendCallbacks(this);
+                    document()->setContainsWebGLContent(true);
+#endif
                 }
             }
             return m_context.get();
@@ -350,13 +362,9 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
         ImageBuffer* imageBuffer = buffer();
         if (imageBuffer) {
 
-            if(imageBuffer->drawsUsingRecording())
-                return;
-
 #if PLATFORM(ANDROID)
             return;     //Prevent old-style canvas rendering (causes ghosting background images)
 #endif
-
             if (m_presentedImage)
                 context->drawImage(m_presentedImage.get(), ColorSpaceDeviceRGB, r);
             else if (imageBuffer->drawsUsingCopy())
@@ -392,6 +400,40 @@ bool HTMLCanvasElement::is3D() const
 {
     return m_context && m_context->is3d();
 }
+
+#if PLATFORM(ANDROID)
+void HTMLCanvasElement::documentDidBecomeActive()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->recreateSurface();
+    }
+}
+
+void HTMLCanvasElement::documentWillBecomeInactive()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->releaseSurface();
+    }
+}
+
+void HTMLCanvasElement::documentWasSuspended()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->releaseSurface();
+    }
+}
+
+void HTMLCanvasElement::documentWillResume()
+{
+    if (m_context && m_context->is3d()) {
+        WebGLRenderingContext* context3D = static_cast<WebGLRenderingContext*>(m_context.get());
+        context3D->recreateSurface();
+    }
+}
+#endif
 #endif
 
 void HTMLCanvasElement::makeRenderingResultsAvailable()
@@ -437,9 +479,7 @@ String HTMLCanvasElement::toDataURL(const String& mimeType, const double* qualit
     if (mimeType.isNull() || !MIMETypeRegistry::isSupportedImageMIMETypeForEncoding(lowercaseMimeType))
         lowercaseMimeType = "image/png";
 
-#if USE(CG) || (USE(SKIA) && !PLATFORM(ANDROID))
-    // FIXME: Consider using this code path on Android. http://b/4572024
-    // Try to get ImageData first, as that may avoid lossy conversions.
+#if USE(CG) || (USE(SKIA) || PLATFORM(ANDROID))
     RefPtr<ImageData> imageData = getImageData();
 
     if (imageData)
@@ -500,9 +540,9 @@ IntSize HTMLCanvasElement::convertToValidDeviceSize(float width, float height) c
     return IntSize(width, height);
 }
 
-const SecurityOrigin& HTMLCanvasElement::securityOrigin() const
+SecurityOrigin* HTMLCanvasElement::securityOrigin() const
 {
-    return *document()->securityOrigin();
+    return document()->securityOrigin();
 }
 
 CSSStyleSelector* HTMLCanvasElement::styleSelector()
