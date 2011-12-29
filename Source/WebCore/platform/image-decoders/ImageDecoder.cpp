@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2008-2009 Torch Mobile, Inc.
  * Copyright (C) Research In Motion Limited 2009-2010. All rights reserved.
+ * Copyright (C) 2012, Sony Ericsson Mobile Communications AB
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -94,10 +95,10 @@ bool matchesCURSignature(char* contents)
 
 }
 
-#if !OS(ANDROID)
 // This method requires BMPImageDecoder, PNGImageDecoder, ICOImageDecoder and
 // JPEGDecoder, which aren't used on Android, and which don't all compile.
 // TODO: Find a better fix.
+// WebGL: Activated the GIF and PNG image decoders for Android.
 ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaOption alphaOption, ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
 {
     static const unsigned lengthOfLongestSignature = 14; // To wit: "RIFF????WEBPVP"
@@ -112,6 +113,7 @@ ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaO
     if (matchesPNGSignature(contents))
         return new PNGImageDecoder(alphaOption, gammaAndColorProfileOption);
 
+#if !OS(ANDROID)
     if (matchesJPEGSignature(contents))
         return new JPEGImageDecoder(alphaOption, gammaAndColorProfileOption);
 
@@ -125,10 +127,10 @@ ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaO
 
     if (matchesICOSignature(contents) || matchesCURSignature(contents))
         return new ICOImageDecoder(alphaOption, gammaAndColorProfileOption);
+#endif // !OS(ANDROID)
 
     return 0;
 }
-#endif // !OS(ANDROID)
 
 #if !USE(SKIA)
 

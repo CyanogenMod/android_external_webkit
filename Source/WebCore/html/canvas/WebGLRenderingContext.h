@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Sony Ericsson Mobile Communications AB
+ * Copyright (C) 2012 Sony Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -71,6 +73,9 @@ public:
     virtual bool isAccelerated() const { return true; }
     virtual bool paintsIntoCanvasBuffer() const;
 
+    GC3Dsizei drawingBufferWidth();
+    GC3Dsizei drawingBufferHeight();
+
     void activeTexture(GC3Denum texture, ExceptionCode&);
     void attachShader(WebGLProgram*, WebGLShader*, ExceptionCode&);
     void bindAttribLocation(WebGLProgram*, GC3Duint index, const String& name, ExceptionCode&);
@@ -98,8 +103,12 @@ public:
     void colorMask(GC3Dboolean red, GC3Dboolean green, GC3Dboolean blue, GC3Dboolean alpha);
     void compileShader(WebGLShader*, ExceptionCode&);
 
-    // void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dsizei width, GC3Dsizei height, GC3Dint border, GC3Dsizei imageSize, const void* data);
-    // void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dsizei width, GC3Dsizei GC3Dsizei height, GC3Denum format, GC3Dsizei imageSize, const void* data);
+    void compressedTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat,
+                              GC3Dsizei width, GC3Dsizei height, GC3Dint border,
+                              ArrayBufferView* data);
+    void compressedTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset,
+                                 GC3Dint yoffset, GC3Dsizei width, GC3Dsizei height,
+                                 GC3Denum format, ArrayBufferView* data);
 
     void copyTexImage2D(GC3Denum target, GC3Dint level, GC3Denum internalformat, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height, GC3Dint border);
     void copyTexSubImage2D(GC3Denum target, GC3Dint level, GC3Dint xoffset, GC3Dint yoffset, GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height);
@@ -274,9 +283,16 @@ public:
 
     void viewport(GC3Dint x, GC3Dint y, GC3Dsizei width, GC3Dsizei height);
 
-    void forceLostContext();
-    void onLostContext();
-    void restoreContext();
+    // WEBKIT_lose_context support
+    enum LostContextMode {
+        // Lost context occurred at the graphics system level.
+        RealLostContext,
+
+        // Lost context provoked by WEBKIT_lose_context.
+        SyntheticLostContext
+    };
+    void forceLostContext(LostContextMode);
+    void forceRestoreContext();
 
     GraphicsContext3D* graphicsContext3D() const { return m_context.get(); }
 #if USE(ACCELERATED_COMPOSITING)
@@ -296,6 +312,11 @@ public:
     // Helpers for JSC bindings.
     int getNumberOfExtensions();
     WebGLExtension* getExtensionNumber(int i);
+
+#if PLATFORM(ANDROID)
+    void recreateSurface();
+    void releaseSurface();
+#endif
 
   private:
     friend class WebGLObject;
@@ -348,7 +369,7 @@ public:
     bool validateWebGLObject(WebGLObject*);
 
 #if ENABLE(VIDEO)
-    PassRefPtr<Image> videoFrameToImage(HTMLVideoElement*);
+    PassRefPtr<Image> videoFrameToImage(HTMLVideoElement*, ExceptionCode& ec);
 #endif
 
     RefPtr<GraphicsContext3D> m_context;
@@ -361,6 +382,7 @@ public:
         WebGLRenderingContext* m_context;
     };
 
+    bool m_restoreAllowed;
     WebGLRenderingContextRestoreTimer m_restoreTimer;
 
     bool m_needsUpdate;
@@ -515,6 +537,9 @@ public:
     // Helper function to get the bound framebuffer's height.
     int getBoundFramebufferHeight();
 
+    // Helper function to verify limits on the length of uniform and attribute locations.
+    bool validateLocationLength(const String&);
+
     // Helper function to check if size is non-negative.
     // Generate GL error and return false for negative inputs; otherwise, return true.
     bool validateSize(GC3Dint x, GC3Dint y);
@@ -611,6 +636,10 @@ public:
     void initVertexAttrib0();
     bool simulateVertexAttrib0(GC3Dsizei numVertex);
     void restoreStatesAfterVertexAttrib0Simulation();
+
+    void loseContext();
+    // Helper for restoration after context lost.
+    void maybeRestoreContext(LostContextMode);
 
     friend class WebGLStateRestorer;
 };
