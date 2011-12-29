@@ -1,0 +1,58 @@
+
+This repository holds modifications that will enable WebGL
+functionality in the Android browser. It is based on ics-mr1,
+and requires that webkit is built with USE_ACCELERATED_COMPOSITING
+and that the browser application is built with hardwareAccelerated=true.
+
+To try this out, apply the patch to external/webkit in ics-mr1,
+and build with "make libwebcore".
+
+This is still work in progress but we wanted to make it available
+as soon as possible. Feedback is welcome!
+
+
+===== 27 Jan 2012 =====
+
+Some updates:
+  - stability fixes
+  - image decoder
+  - redesign of how the FBOs are used
+  - other bug fixes
+
+
+===== 31 Jan 2012 =====
+
+Updates:
+  - added implementation for WEBGL_lose_context extension
+  - some code cleanup and bug fixes
+
+
+===== 15 March 2012 =====
+
+Updates:
+  - cleaned up buffer handling, allowing for arbitrary
+      number of buffers
+  - removed rect from invalidation
+  - removed screen update request from drawGL
+  - releasing buffers when the browser is paused
+  - added missing method 'slice' for typed arrays
+  - fixed bug in bindFramebuffer
+
+
+===== 16 April 2012 =====
+
+Updates to fix some test failures in Khronos Conformance Test Suite:
+  - Increase max identifier length in shaders to 256
+  - Add length check on uniforms and attributes
+  - Add minimal support for compressed textures
+      (that is, just return the correct error codes)
+  - Add support for Uint8ClampedByteArray
+  - Modify how error checking is done on framebuffer operations
+  - Activate the GL_OES_packed_depth_stencil extension
+  - Activate the GL_OES_texture_float extension
+
+
+=======
+>>>>>>> 9fae63b... More improvements and bug fixes
+-- Anders Edenbrandt, Sony Mobile Communications AB
+
