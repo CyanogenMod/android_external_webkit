@@ -1274,3 +1274,8 @@ ifeq ($(SUPPORT_COMPLEX_SCRIPTS),true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/fonts/HarfbuzzSkia.cpp
 endif
+
+# HACK for qcom devices CPU upload mode
+ifeq ($(TARGET_FORCE_CPU_UPLOAD),true)
+LOCAL_CFLAGS += -DFORCE_CPU_UPLOAD
+endif
