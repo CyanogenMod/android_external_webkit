@@ -516,7 +516,11 @@ void TransferQueue::setTextureUploadType(TextureUploadType type)
 
     setPendingDiscard();
 
+#ifdef FORCE_CPU_UPLOAD
+    m_currentUploadType = CpuUpload; // force to cpu upload mode for now until gpu upload mode is fixed
+#else
     m_currentUploadType = type;
+#endif
     ALOGD("Now we set the upload to %s", m_currentUploadType == GpuUpload ? "GpuUpload" : "CpuUpload");
 }
 
