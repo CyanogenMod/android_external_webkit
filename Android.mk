@@ -45,12 +45,20 @@ JAVASCRIPT_ENGINE = $(JS_ENGINE)
 # default is V8. On everything else, the only choice is JSC.
 # TODO: use ARCH_ARM_HAVE_ARMV7 once that variable is added to
 # the build system.
-ifeq ($(ARCH_ARM_HAVE_VFP),true)
-    DEFAULT_ENGINE = v8
-    ALT_ENGINE = jsc
-else
-    DEFAULT_ENGINE = jsc
-    ALT_ENGINE = jsc
+
+ifneq ($(TARGET_WEBKIT_USE_MORE_MEMORY),false)
+    ifeq ($(ARCH_ARM_HAVE_VFP),true)
+        DEFAULT_ENGINE = v8
+        ALT_ENGINE = jsc
+    else
+        DEFAULT_ENGINE = jsc
+        ALT_ENGINE = jsc
+    endif
+
+    ifeq ($(TARGET_WEBKIT_USE_MORE_MEMORY),true)
+        DEFAULT_ENGINE = v8
+        ALT_ENGINE = jsc
+    endif
 endif
 
 ifneq ($(JAVASCRIPT_ENGINE),jsc)
@@ -252,8 +260,14 @@ endif
 
 # need a flag to tell the C side when we're on devices with large memory
 # budgets (i.e. larger than the low-end devices that initially shipped)
-ifeq ($(ARCH_ARM_HAVE_VFP),true)
-LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
+ifneq ($(TARGET_WEBKIT_USE_MORE_MEMORY),false)
+	ifeq ($(ARCH_ARM_HAVE_VFP),true)
+	LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
+	endif
+
+	ifeq ($(TARGET_WEBKIT_USE_MORE_MEMORY),true)
+	LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
+	endif
 endif
 
 ifeq ($(ENABLE_SVG),true)
