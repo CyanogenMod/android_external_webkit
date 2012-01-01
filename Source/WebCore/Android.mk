@@ -1258,3 +1258,8 @@ ifeq ($(SUPPORT_COMPLEX_SCRIPTS),true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/HarfbuzzSkia.cpp
 endif
+
+# For qcom devices CPU upload mode hax 
+ifeq ($(BOARD_USES_QCOM_HARDWARE),true)
+LOCAL_CFLAGS += -DQCOM_HARDWARE
+endif
