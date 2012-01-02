@@ -1260,6 +1260,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 endif
 
 # For qcom devices CPU upload mode hax 
-ifeq ($(BOARD_USES_QCOM_HARDWARE),true)
-LOCAL_CFLAGS += -DQCOM_HARDWARE
+ifeq ($(TARGET_USES_CPUUPLOAD),true)
+LOCAL_CFLAGS += -DFORCE_CPU_UPLOAD
 endif
