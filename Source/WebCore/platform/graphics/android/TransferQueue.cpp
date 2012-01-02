@@ -52,9 +52,11 @@
 
 #define ST_BUFFER_NUMBER 6
 
+#ifndef FORCE_CPU_UPLOAD
 // Set this to 1 if we would like to take the new GpuUpload approach which
 // relied on the glCopyTexSubImage2D instead of a glDraw call
 #define GPU_UPLOAD_WITHOUT_DRAW 1
+#endif
 
 namespace WebCore {
 
