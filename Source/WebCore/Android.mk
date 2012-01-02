@@ -23,6 +23,10 @@
 ## OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ##
 
+ifeq ($(TARGET_USES_CPUUPLOAD),true)
+    LOCAL_CFLAGS += -DFORCE_CPU_UPLOAD
+endif
+
 LOCAL_SRC_FILES := \
 	bindings/generic/ActiveDOMCallback.cpp \
 	bindings/generic/BindingSecurityBase.cpp \

@@ -63,7 +63,11 @@ enum TextureUploadType {
     GpuUpload = 1
 };
 
+#ifndef FORCE_CPU_UPLOAD
 #define DEFAULT_UPLOAD_TYPE GpuUpload
+#else
+#define DEFAULT_UPLOAD_TYPE CpuUpload
+#endif
 
 class TileTransferData {
 public:

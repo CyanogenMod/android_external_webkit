@@ -52,9 +52,11 @@
 
 #define ST_BUFFER_NUMBER 6
 
+#ifndef FORCE_CPU_UPLOAD
 // Set this to 1 if we would like to take the new GpuUpload approach which
 // relied on the glCopyTexSubImage2D instead of a glDraw call
 #define GPU_UPLOAD_WITHOUT_DRAW 1
+#endif
 
 namespace WebCore {
 
@@ -479,7 +481,12 @@ void TransferQueue::setTextureUploadType(TextureUploadType type)
     discardQueue();
 
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
+// Ensure forcing of CpuUpload for boards improperly assigning variables
+#ifndef FORCE_CPU_UPLOAD
     m_currentUploadType = type;
+#else
+    m_currentUploadType = CpuUpload;
+#endif
     XLOGC("Now we set the upload to %s", m_currentUploadType == GpuUpload ? "GpuUpload" : "CpuUpload");
 }
 
