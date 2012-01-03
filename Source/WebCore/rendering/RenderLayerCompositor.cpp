@@ -92,6 +92,10 @@ struct CompositingState {
     
     RenderLayer* m_compositingAncestor;
     bool m_subtreeIsCompositing;
+    // m_compositingBounds is only used in computeCompositingRequirements. It can be either the
+    // ancestor bounds or the bounds for the sibling layers which are above the composited layer.
+    // It is used to reject creating unnecesary layers.
+    IntRect m_compositingBounds;
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     bool m_fixedSibling;
     bool m_hasFixedElement;
@@ -693,7 +697,10 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
         if (absBounds.isEmpty())
             absBounds.setSize(IntSize(1, 1));
         haveComputedBounds = true;
-        mustOverlapCompositedLayers = overlapsCompositedLayers(*overlapMap, absBounds);
+        // If the current subtree is not compositing, and the layer is fully inside the current compositing bounnds,
+        // there is no need to do the overlap test. This reduces the total number of the composited layers.
+        if (compositingState.m_subtreeIsCompositing || !compositingState.m_compositingBounds.contains(absBounds))
+            mustOverlapCompositedLayers = overlapsCompositedLayers(*overlapMap, absBounds);
     }
     
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
@@ -709,6 +716,10 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     // a compositing layer among them, so start by inheriting the compositing
     // ancestor with m_subtreeIsCompositing set to false.
     CompositingState childState(compositingState.m_compositingAncestor);
+    if (compositingState.m_subtreeIsCompositing)
+        childState.m_compositingBounds = absBounds;
+    else
+        childState.m_compositingBounds = compositingState.m_compositingBounds;
 #ifndef NDEBUG
     ++childState.m_depth;
 #endif
@@ -729,6 +740,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
         compositingState.m_subtreeIsCompositing = true;
         // This layer now acts as the ancestor for kids.
         childState.m_compositingAncestor = layer;
+        childState.m_compositingBounds = absBounds;
         if (overlapMap)
             addToOverlapMap(*overlapMap, layer, absBounds, haveComputedBounds);
     }
