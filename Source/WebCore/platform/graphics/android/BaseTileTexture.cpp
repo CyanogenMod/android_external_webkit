@@ -149,12 +149,14 @@ void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info
 
 bool BaseTileTexture::readyFor(BaseTile* baseTile)
 {
-    if (isPureColor()) {
+    const TextureTileInfo* info = &m_ownTextureTileInfo;
+
+    if (isPureColor() && info->m_painter == baseTile->painter()) {
         XLOG("ReadyFor saw a pureColor tile (%p) at (%d, %d), rgb %x",
               this, baseTile->x(), baseTile->y(), pureColor().rgb());
         return true;
     }
-    const TextureTileInfo* info = &m_ownTextureTileInfo;
+
     if (info &&
         (info->m_x == baseTile->x()) &&
         (info->m_y == baseTile->y()) &&
@@ -168,6 +170,26 @@ bool BaseTileTexture::readyFor(BaseTile* baseTile)
          this, baseTile->x(), baseTile->y(), m_ownTextureId, this, baseTile,
          baseTile->scale(), baseTile->painter(), TilesManager::instance()->invertedScreen());
     return false;
+}
+
+void BaseTileTexture::draw(bool isLayer, TilePainter* painter,
+                           SkRect& rect, float transparency)
+{
+    ShaderProgram* shader = TilesManager::instance()->shader();
+    if (isLayer && painter && painter->transform()) {
+        if (isPureColor()) {
+            shader->drawLayerQuad(*painter->transform(), rect, 0, transparency,
+                                  true, GL_TEXTURE_2D, pureColor());
+        } else {
+            shader->drawLayerQuad(*painter->transform(), rect, m_ownTextureId,
+                                  transparency, true);
+        }
+    } else {
+         if (isPureColor())
+             shader->drawQuad(rect, 0,transparency, pureColor());
+         else
+            shader->drawQuad(rect, m_ownTextureId, transparency);
+    }
 }
 
 } // namespace WebCore

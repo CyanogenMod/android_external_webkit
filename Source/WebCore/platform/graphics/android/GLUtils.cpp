@@ -387,6 +387,9 @@ bool GLUtils::isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor)
     int bitmapWidth = bitmap.width();
 
     // Create a row of pure color using the first pixel.
+    // TODO: improve the perf here, by either picking a random pixel, or
+    // creating an array of rows with pre-defined commonly used color, add
+    // smart LUT to speed things up if possible.
     int* firstPixelPtr = static_cast<int*> (bitmap.getPixels());
     int* pixelsRow = new int[bitmapWidth];
     for (int i = 0; i < bitmapWidth; i++)
@@ -424,31 +427,17 @@ bool GLUtils::skipTransferForPureColor(const TileRenderInfo* renderInfo,
         BaseTileTexture* tileTexture = tilePtr->backTexture();
         // Check the bitmap, and make everything ready here.
         Color pureColor;
-        bool pure = isPureColorBitmap(bitmap, pureColor);
-        if (pure) {
+        if (tileTexture && isPureColorBitmap(bitmap, pureColor)) {
             // update basetile's info
             // Note that we are skipping the whole TransferQueue.
-            if (tileTexture) {
-                tileTexture->setPure(true);
-                tileTexture->setPureColor(pureColor);
+            renderInfo->textureInfo->m_width = bitmap.width();
+            renderInfo->textureInfo->m_height = bitmap.height();
+            renderInfo->textureInfo->m_internalFormat = GL_RGBA;
 
-                TextureTileInfo info;
-                // Now fill the tileInfo.
-                info.m_x = renderInfo->x;
-                info.m_y = renderInfo->y;
-                info.m_scale = renderInfo->scale;
-                info.m_painter = renderInfo->tilePainter;
-                info.m_picture = renderInfo->textureInfo->m_pictureCount;
-                info.m_inverted = TilesManager::instance()->invertedScreen();
+            TilesManager::instance()->transferQueue()->addItemInPureColorQueue(renderInfo,
+                                                                               pureColor);
 
-                // Make sure the tile is considered ready!
-                tileTexture->setOwnTextureTileInfoFromQueue(&info);
-
-                renderInfo->textureInfo->m_width = bitmap.width();
-                renderInfo->textureInfo->m_height = bitmap.height();
-                renderInfo->textureInfo->m_internalFormat = GL_RGBA;
-                skipTransfer = true;
-            }
+            skipTransfer = true;
         }
     }
     return skipTransfer;

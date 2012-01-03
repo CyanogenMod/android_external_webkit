@@ -147,7 +147,7 @@ public:
     void calculateAnimationDelta();
     int getAnimationDeltaX() { return m_animationDelta.x(); }
     int getAnimationDeltaY() { return m_animationDelta.y(); }
-    bool needInit() { return m_needInit; }
+    bool needsInit() { return m_needsInit; }
 
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
@@ -201,7 +201,7 @@ private:
 
     // If there is any GL error happens such that the Shaders are not initialized
     // successfully at the first time, then we need to init again when we draw.
-    bool m_needInit;
+    bool m_needsInit;
 
     // For transfer queue blitting, we need a special matrix map from (0,1) to
     // (-1,1)

@@ -118,9 +118,9 @@ void TransferQueue::initSharedSurfaceTextures(int width, int height)
 // When bliting, if the item from the transfer queue is mismatching b/t the
 // BaseTile and the content, then the item is considered as obsolete, and
 // the content is discarded.
-bool TransferQueue::checkObsolete(int index)
+bool TransferQueue::checkObsolete(const TileTransferData* data)
 {
-    BaseTile* baseTilePtr = m_transferQueue[index].savedBaseTilePtr;
+    BaseTile* baseTilePtr = data->savedBaseTilePtr;
     if (!baseTilePtr) {
         XLOG("Invalid savedBaseTilePtr , such that the tile is obsolete");
         return true;
@@ -132,7 +132,7 @@ bool TransferQueue::checkObsolete(int index)
         return true;
     }
 
-    const TextureTileInfo* tileInfo = &m_transferQueue[index].tileInfo;
+    const TextureTileInfo* tileInfo = &(data->tileInfo);
 
     if (tileInfo->m_x != baseTilePtr->x()
         || tileInfo->m_y != baseTilePtr->y()
@@ -269,6 +269,8 @@ void TransferQueue::discardQueue()
         if (m_transferQueue[i].status == pendingBlit)
             m_transferQueue[i].status = pendingDiscard;
 
+    m_pureColorTileQueue.clear();
+
     bool GLContextExisted = getHasGLContext();
     // Unblock the Tex Gen thread first before Tile Page deletion.
     // Otherwise, there will be a deadlock while removing operations.
@@ -277,6 +279,26 @@ void TransferQueue::discardQueue()
     // Only signal once when GL context lost.
     if (GLContextExisted)
         m_transferQueueItemCond.signal();
+}
+
+void TransferQueue::updatePureColorTiles()
+{
+    for (unsigned int i = 0 ; i < m_pureColorTileQueue.size(); i++) {
+        TileTransferData* data = &m_pureColorTileQueue[i];
+        if (data->status == pendingBlit) {
+            BaseTileTexture* destTexture = 0;
+            bool obsoleteBaseTile = checkObsolete(data);
+            if (!obsoleteBaseTile) {
+                destTexture = data->savedBaseTilePtr->backTexture();
+                destTexture->setPureColor(data->pureColor);
+                destTexture->setOwnTextureTileInfoFromQueue(&data->tileInfo);
+            }
+        } else if (data->status == emptyItem || data->status == pendingDiscard) {
+            // The queue should be clear instead of setting to different status.
+            XLOG("Warning: Don't expect an emptyItem here.");
+        }
+    }
+    m_pureColorTileQueue.clear();
 }
 
 // Call on UI thread to copy from the shared Surface Texture to the BaseTile's texture.
@@ -288,6 +310,9 @@ void TransferQueue::updateDirtyBaseTiles()
     if (!getHasGLContext())
         setHasGLContext(true);
 
+    // Check the pure color tile first, since it is simpler.
+    updatePureColorTiles();
+
     // Start from the oldest item, we call the updateTexImage to retrive
     // the texture and blit that into each BaseTile's texture.
     const int nextItemIndex = getNextTransferQueueIndex();
@@ -295,7 +320,7 @@ void TransferQueue::updateDirtyBaseTiles()
     bool usedFboForUpload = false;
     for (int k = 0; k < ST_BUFFER_NUMBER ; k++) {
         if (m_transferQueue[index].status == pendingBlit) {
-            bool obsoleteBaseTile = checkObsolete(index);
+            bool obsoleteBaseTile = checkObsolete(&m_transferQueue[index]);
             // Save the needed info, update the Surf Tex, clean up the item in
             // the queue. Then either move on to next item or copy the content.
             BaseTileTexture* destTexture = 0;
@@ -337,6 +362,7 @@ void TransferQueue::updateDirtyBaseTiles()
             // will find the latest texture's info
             // We don't need a map any more, each texture contains its own
             // texturesTileInfo.
+            destTexture->setPure(false);
             destTexture->setOwnTextureTileInfoFromQueue(&m_transferQueue[index].tileInfo);
 
             XLOG("Blit tile x, y %d %d with dest texture %p to destTexture->m_ownTextureId %d",
@@ -433,6 +459,39 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
     return true;
 }
 
+void TransferQueue::addItemInPureColorQueue(const TileRenderInfo* renderInfo, Color color)
+{
+    // The pure color tiles' queue will be read from UI thread and written in
+    // Tex Gen thread, thus we need to have a lock here.
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+    TileTransferData data;
+    addItemCommon(renderInfo, GpuUpload, &data);
+    data.pureColor = color;
+    m_pureColorTileQueue.append(data);
+}
+
+// Translates the info from TileRenderInfo and others to TileTransferData.
+// This is used by pure color tiles and normal tiles.
+void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
+                                  TextureUploadType type,
+                                  TileTransferData* data)
+{
+    data->savedBaseTileTexturePtr = renderInfo->baseTile->backTexture();
+    data->savedBaseTilePtr = renderInfo->baseTile;
+    data->status = pendingBlit;
+    data->uploadType = type;
+
+    // Now fill the tileInfo.
+    TextureTileInfo* textureInfo = &(data->tileInfo);
+
+    textureInfo->m_x = renderInfo->x;
+    textureInfo->m_y = renderInfo->y;
+    textureInfo->m_scale = renderInfo->scale;
+    textureInfo->m_painter = renderInfo->tilePainter;
+
+    textureInfo->m_picture = renderInfo->textureInfo->m_pictureCount;
+}
+
 // Note that there should be lock/unlock around this function call.
 // Currently only called by GLUtils::updateSharedSurfaceTextureWithBitmap.
 void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
@@ -447,10 +506,8 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
         XLOG("ERROR update a tile which is dirty already @ index %d", index);
     }
 
-    m_transferQueue[index].savedBaseTileTexturePtr = renderInfo->baseTile->backTexture();
-    m_transferQueue[index].savedBaseTilePtr = renderInfo->baseTile;
-    m_transferQueue[index].status = pendingBlit;
-    m_transferQueue[index].uploadType = type;
+    TileTransferData* data = &m_transferQueue[index];
+    addItemCommon(renderInfo, type, data);
     if (type == CpuUpload && bitmap) {
         // Lazily create the bitmap
         if (!m_transferQueue[index].bitmap) {
@@ -461,16 +518,6 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
         }
         bitmap->copyTo(m_transferQueue[index].bitmap, bitmap->config());
     }
-
-    // Now fill the tileInfo.
-    TextureTileInfo* textureInfo = &m_transferQueue[index].tileInfo;
-
-    textureInfo->m_x = renderInfo->x;
-    textureInfo->m_y = renderInfo->y;
-    textureInfo->m_scale = renderInfo->scale;
-    textureInfo->m_painter = renderInfo->tilePainter;
-
-    textureInfo->m_picture = renderInfo->textureInfo->m_pictureCount;
 
     m_emptyItemCount--;
 }
