@@ -198,10 +198,6 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
 
 void FontPlatformData::setupPaint(SkPaint* paint) const
 {
-    float ts = mTextSize;
-    if (!(ts > 0))
-        ts = 12;
-
     if (hashTableDeletedFontValue() == mTypeface)
         paint->setTypeface(0);
     else
@@ -210,7 +206,7 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
     paint->setAntiAlias(true);
     paint->setSubpixelText(true);
     paint->setHinting(SkPaint::kSlight_Hinting);
-    paint->setTextSize(SkFloatToScalar(ts));
+    paint->setTextSize(SkFloatToScalar(mTextSize));
     paint->setFakeBoldText(mFakeBold);
     paint->setTextSkewX(mFakeItalic ? -SK_Scalar1/4 : 0);
 #ifndef SUPPORT_COMPLEX_SCRIPTS
