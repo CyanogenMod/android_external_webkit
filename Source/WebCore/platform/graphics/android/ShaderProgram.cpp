@@ -578,8 +578,6 @@ void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
         glBindTexture(textureTarget, textureId);
         glTexParameteri(textureTarget, GL_TEXTURE_MIN_FILTER, filter);
         glTexParameteri(textureTarget, GL_TEXTURE_MAG_FILTER, filter);
-        glTexParameteri(textureTarget, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-        glTexParameteri(textureTarget, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
         glUniform1f(m_handleArray[type].alphaHandle, opacity);
 
         GLint contrastHandle = m_handleArray[type].contrastHandle;
