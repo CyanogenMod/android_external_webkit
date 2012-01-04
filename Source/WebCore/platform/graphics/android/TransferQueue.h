@@ -93,6 +93,9 @@ public:
     // lazily allocated.
     SkBitmap* bitmap;
 
+    // Specific data to the pure color tiles' queue.
+    Color pureColor;
+
     // Sync object for GPU fence, this is the only the info passed from UI
     // thread to Tex Gen thread. The reason of having this is due to the
     // missing sync mechanism on Surface Texture on some vendor. b/5122031.
@@ -133,6 +136,8 @@ public:
     void lockQueue() { m_transferQueueItemLocks.lock(); }
     void unlockQueue() { m_transferQueueItemLocks.unlock(); }
 
+    void addItemInPureColorQueue(const TileRenderInfo* renderInfo, Color color);
+
     // This queue can be accessed from UI and TexGen thread, therefore, we need
     // a lock to protect its access
     TileTransferData* m_transferQueue;
@@ -157,7 +162,7 @@ private:
     void restoreGLState();
 
     // Check the current transfer queue item is obsolete or not.
-    bool checkObsolete(int index);
+    bool checkObsolete(const TileTransferData* data);
 
     // Before each draw call and the blit operation, clean up all the
     // pendingDiscard items.
@@ -167,6 +172,10 @@ private:
                            GLuint srcTexId, GLenum srcTexTarget,
                            int index);
 
+    void addItemCommon(const TileRenderInfo* renderInfo,
+                       TextureUploadType type, TileTransferData* data);
+
+    void updatePureColorTiles();
     // Note that the m_transferQueueIndex only changed in the TexGen thread
     // where we are going to move on to update the next item in the queue.
     int m_transferQueueIndex;
@@ -202,6 +211,11 @@ private:
     // This should be GpuUpload for production, but for debug purpose or working
     // around driver/HW issue, we can set it to CpuUpload.
     TextureUploadType m_currentUploadType;
+
+    // The non-pure-color tile are 1 to 1 mapping with Surface Texture which is
+    // resource limited. To get better performance, it is better to separate
+    // the pure color tile into another queue.
+    WTF::Vector<TileTransferData> m_pureColorTileQueue;
 };
 
 } // namespace WebCore

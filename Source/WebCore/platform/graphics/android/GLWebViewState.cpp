@@ -351,7 +351,7 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
     int height = viewRect.height();
 
     ShaderProgram* shader = TilesManager::instance()->shader();
-    if (shader->needInit()) {
+    if (shader->needsInit()) {
         XLOG("Reinit shader");
         shader->init();
     }

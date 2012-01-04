@@ -217,7 +217,7 @@ ShaderProgram::ShaderProgram()
     , m_contrast(1)
     , m_alphaLayer(false)
     , m_currentScale(1.0f)
-    , m_needInit(true)
+    , m_needsInit(true)
 {
     init();
 }
@@ -239,10 +239,10 @@ void ShaderProgram::init()
         || videoProgram == -1
         || texOESProgram == -1
         || texOESInvProgram == -1) {
-        m_needInit = true;
+        m_needsInit = true;
         return;
     }
-    m_needInit = false;
+    m_needsInit = false;
 
     GLint pureColorPosition = glGetAttribLocation(pureColorProgram, "vPosition");
     GLint pureColorProjMtx = glGetUniformLocation(pureColorProgram, "projectionMatrix");

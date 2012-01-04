@@ -95,12 +95,15 @@ public:
 
     TextureInfo* getTextureInfo() { return &m_ownTextureInfo; }
 
-    void setPure(bool pure){ m_isPureColor = pure; }
+    // Make sure the following pureColor getter/setter are only read/written
+    // in UI thread. Therefore no need for a lock.
+    void setPure(bool pure) { m_isPureColor = pure; }
     bool isPureColor() {return m_isPureColor; }
-
-    void setPureColor(const Color& color) { m_pureColor = color; }
+    void setPureColor(const Color& color) { m_pureColor = color; setPure(true); }
     Color pureColor() { return m_pureColor; }
 
+    void draw(bool isLayer, TilePainter* painter, SkRect& rect,
+              float transparency);
 private:
     TextureTileInfo m_ownTextureTileInfo;
     // TODO: Merge this info into the TextureTileInfo.
