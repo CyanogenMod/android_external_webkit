@@ -47,13 +47,13 @@ int main(int argc, char** argv) {
             if (x) {
                 width = atoi(optarg);
                 height = atoi(x + 1);
-                LOGD("Rendering page at %dx%d", width, height);
+                ALOGD("Rendering page at %dx%d", width, height);
             }
         } else if (c == 'r') {
             reloadCount = atoi(optarg);
             if (reloadCount < 0)
                 reloadCount = 0;
-            LOGD("Reloading %d times", reloadCount);
+            ALOGD("Reloading %d times", reloadCount);
         }
     }
     if (optind >= argc) {

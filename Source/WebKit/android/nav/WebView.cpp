@@ -2373,7 +2373,7 @@ static jint nativeGetBlockLeftEdge(JNIEnv *env, jobject obj, jint x, jint y,
 static void nativeDestroy(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
-    LOGD("nativeDestroy view: %p", view);
+    ALOGD("nativeDestroy view: %p", view);
     LOG_ASSERT(view, "view not set in nativeDestroy");
     delete view;
 }

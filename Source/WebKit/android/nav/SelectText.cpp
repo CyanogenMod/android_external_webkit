@@ -52,7 +52,7 @@
 // #define EXTRA_NOISY_LOGGING 1
 #define DEBUG_TOUCH_HANDLES 0
 #if DEBUG_TOUCH_HANDLES
-#define DBG_HANDLE_LOG(format, ...) LOGD("%s " format, __FUNCTION__, __VA_ARGS__)
+#define DBG_HANDLE_LOG(format, ...) ALOGD("%s " format, __FUNCTION__, __VA_ARGS__)
 #else
 #define DBG_HANDLE_LOG(...)
 #endif

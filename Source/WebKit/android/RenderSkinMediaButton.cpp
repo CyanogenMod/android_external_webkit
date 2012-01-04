@@ -82,7 +82,7 @@ void RenderSkinMediaButton::Decode()
         String path = drawableDirectory + gFiles[i].name;
         if (!RenderSkinAndroid::DecodeBitmap(am, path.utf8().data(), &gButton[i])) {
             gDecodingFailed = true;
-            LOGD("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
+            ALOGD("RenderSkinButton::Init: button assets failed to decode\n\tBrowser buttons will not draw");
             break;
         }
     }

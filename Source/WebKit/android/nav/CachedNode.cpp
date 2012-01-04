@@ -132,7 +132,7 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
         WebCore::IntRect* boundsPtr = mCursorRing.begin() - 1;
         const WebCore::IntRect* const boundsEnd = mCursorRing.begin() + mCursorRing.size();
         while (++boundsPtr < boundsEnd)
-            LOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, boundsPtr - mCursorRing.begin(),
+            ALOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, boundsPtr - mCursorRing.begin(),
                 boundsPtr->x(), boundsPtr->y(), boundsPtr->width(), boundsPtr->height());
     }
 #endif
@@ -205,7 +205,7 @@ void CachedNode::fixUpCursorRects(const CachedFrame* frame)
                     candidateRight - candidateLeft, candidateBottom - candidateTop);
                  ASSERT(candidate.isEmpty() == false);
 #if DEBUG_NAV_UI
-                LOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, mCursorRing.size(),
+                ALOGD("%s %d:(%d, %d, %d, %d)\n", __FUNCTION__, mCursorRing.size(),
                     candidate.x(), candidate.y(), candidate.width(), candidate.height());
 #endif
                 mCursorRing.append(candidate);
