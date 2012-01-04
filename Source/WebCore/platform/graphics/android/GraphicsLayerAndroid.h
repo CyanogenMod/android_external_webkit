@@ -116,7 +116,9 @@ public:
 
     virtual void setZPosition(float);
 
+    void gatherRootLayers(Vector<const RenderLayer*>&);
     virtual void syncCompositingState();
+    virtual void syncCompositingStateForThisLayerOnly();
     void notifyClientAnimationStarted();
 
     LayerAndroid* contentLayer() { return m_contentLayer; }

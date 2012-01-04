@@ -963,11 +963,31 @@ void GraphicsLayerAndroid::syncMask()
     }
 }
 
-void GraphicsLayerAndroid::syncCompositingState()
+void GraphicsLayerAndroid::gatherRootLayers(Vector<const RenderLayer*>& list)
 {
-    for (unsigned int i = 0; i < m_children.size(); i++)
-        m_children[i]->syncCompositingState();
+    RenderLayer* renderLayer = renderLayerFromClient(m_client);
+    if (renderLayer) {
+        const RenderLayer* rootLayer = renderLayer->root();
+        bool found = false;
+        for (unsigned int i = 0; i < list.size(); i++) {
+            const RenderLayer* current = list[i];
+            if (current == rootLayer) {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            list.append(rootLayer);
+    }
 
+    for (unsigned int i = 0; i < m_children.size(); i++) {
+        GraphicsLayerAndroid* layer = static_cast<GraphicsLayerAndroid*>(m_children[i]);
+        layer->gatherRootLayers(list);
+    }
+}
+
+void GraphicsLayerAndroid::syncCompositingStateForThisLayerOnly()
+{
     updateScrollingLayers();
     updateFixedPosition();
     syncChildren();
@@ -975,6 +995,14 @@ void GraphicsLayerAndroid::syncCompositingState()
 
     if (!gPaused || WTF::currentTime() >= gPausedDelay)
         repaint();
+}
+
+void GraphicsLayerAndroid::syncCompositingState()
+{
+    for (unsigned int i = 0; i < m_children.size(); i++)
+        m_children[i]->syncCompositingState();
+
+    syncCompositingStateForThisLayerOnly();
 }
 
 void GraphicsLayerAndroid::notifyClientAnimationStarted()
