@@ -1525,8 +1525,12 @@ WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
 
 static bool isContentEditable(const WebCore::Node* node)
 {
-    if (!node) return false;
-    return node->document()->frame()->selection()->isContentEditable();
+    if (!node)
+        return false;
+    Frame* frame = node->document()->frame();
+    if (!frame)
+        return false;
+    return frame->selection()->isContentEditable();
 }
 
 // Returns true if the node is a textfield, textarea, or contentEditable
@@ -2863,6 +2867,47 @@ void WebViewCore::deleteSelection(int start, int end, int textGeneration)
     m_shouldPaintCaret = true;
 }
 
+void WebViewCore::deleteSurroundingText(int leftLength, int rightLength)
+{
+    WebCore::Node* focus = currentFocus();
+    if (!isTextInput(focus))
+        return;
+
+    Frame* frame = focus->document()->frame();
+    if (!frame)
+        return;
+    SelectionController* selection = frame->selection();
+    Position endPosition = selection->end();
+
+    Position deleteStart = endPosition;
+    int leftDelete = leftLength;
+    while (leftDelete > 0) {
+        leftDelete--;
+        deleteStart = deleteStart.previous(Character);
+    }
+    Position deleteEnd = endPosition;
+    int rightDelete = rightLength;
+    while (rightDelete > 0) {
+        rightDelete--;
+        deleteEnd = deleteEnd.next(Character);
+    }
+
+    // Select the text to delete.
+    VisibleSelection deletedText(deleteStart, deleteEnd);
+    selection->setSelection(deletedText);
+    // Prevent our editor client from passing a message to change the
+    // selection.
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
+    WebCore::TypingCommand::deleteSelection(focus->document(), 0);
+    client->setUiGeneratedSelectionChange(false);
+
+    // set the new cursor position
+    VisibleSelection endCarat(deleteStart);
+    selection->setSelection(endCarat);
+}
+
 void WebViewCore::replaceTextfieldText(int oldStart,
         int oldEnd, const WTF::String& replace, int start, int end,
         int textGeneration)
@@ -4004,6 +4049,13 @@ static void DeleteSelection(JNIEnv* env, jobject obj, jint nativeClass,
     viewImpl->deleteSelection(start, end, textGeneration);
 }
 
+static void DeleteSurroundingText(JNIEnv *env, jobject obj, jint nativeClass,
+        jint leftLength, jint rightLength)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    viewImpl->deleteSurroundingText(leftLength, rightLength);
+}
+
 static void SetSelection(JNIEnv* env, jobject obj, jint nativeClass,
         jint start, jint end)
 {
@@ -4600,6 +4652,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ModifySelection },
     { "nativeDeleteSelection", "(IIII)V",
         (void*) DeleteSelection } ,
+    { "nativeDeleteSurroundingText", "(III)V",
+        (void*) DeleteSurroundingText } ,
     { "nativeReplaceTextfieldText", "(IIILjava/lang/String;III)V",
         (void*) ReplaceTextfieldText } ,
     { "nativeMoveFocus", "(III)V",
