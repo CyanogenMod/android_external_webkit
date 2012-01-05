@@ -237,7 +237,7 @@ static EGLConfig defaultPbufferConfig(EGLDisplay display)
     eglChooseConfig(display, configAttribs, &config, 1, &numConfigs);
     GLUtils::checkEglError("eglPbufferConfig");
     if (numConfigs != 1)
-        LOGI("eglPbufferConfig failed (%d)\n", numConfigs);
+        ALOGI("eglPbufferConfig failed (%d)\n", numConfigs);
 
     return config;
 }
