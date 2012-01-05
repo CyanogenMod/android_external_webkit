@@ -1588,85 +1588,189 @@ static bool isUnicodeSpace(UChar ch)
 
 static bool validZip(int stateIndex, const UChar* zipPtr) 
 {
-    static const struct {
-        char mLow;
-        char mHigh;
-        char mException1;
-        char mException2;
-    } zipRange[] = { 
-        { 99, 99, -1, -1 }, // AK Alaska
-        { 35, 36, -1, -1 }, // AL Alabama
-        { 71, 72, -1, -1 }, // AR Arkansas
-        { 96, 96, -1, -1 }, // AS American Samoa
-        { 85, 86, -1, -1 }, // AZ Arizona
-        { 90, 96, -1, -1 }, // CA California
-        { 80, 81, -1, -1 }, // CO Colorado
-        {  6,  6, -1, -1 }, // CT Connecticut
-        { 20, 20, -1, -1 }, // DC District of Columbia
-        { 19, 19, -1, -1 }, // DE Delaware
-        { 32, 34, -1, -1 }, // FL Florida
-        { 96, 96, -1, -1 }, // FM Federated States of Micronesia
-        { 30, 31, -1, -1 }, // GA Georgia
-        { 96, 96, -1, -1 }, // GU Guam
-        { 96, 96, -1, -1 }, // HI Hawaii
-        { 50, 52, -1, -1 }, // IA Iowa
-        { 83, 83, -1, -1 }, // ID Idaho
-        { 60, 62, -1, -1 }, // IL Illinois
-        { 46, 47, -1, -1 }, // IN Indiana
-        { 66, 67, 73, -1 }, // KS Kansas
-        { 40, 42, -1, -1 }, // KY Kentucky
-        { 70, 71, -1, -1 }, // LA Louisiana
-        {  1,  2, -1, -1 }, // MA Massachusetts
-        { 20, 21, -1, -1 }, // MD Maryland
-        {  3,  4, -1, -1 }, // ME Maine
-        { 96, 96, -1, -1 }, // MH Marshall Islands
-        { 48, 49, -1, -1 }, // MI Michigan
-        { 55, 56, -1, -1 }, // MN Minnesota
-        { 63, 65, -1, -1 }, // MO Missouri
-        { 96, 96, -1, -1 }, // MP Northern Mariana Islands
-        { 38, 39, -1, -1 }, // MS Mississippi
-        { 55, 56, -1, -1 }, // MT Montana
-        { 27, 28, -1, -1 }, // NC North Carolina
-        { 58, 58, -1, -1 }, // ND North Dakota
-        { 68, 69, -1, -1 }, // NE Nebraska
-        {  3,  4, -1, -1 }, // NH New Hampshire
-        {  7,  8, -1, -1 }, // NJ New Jersey
-        { 87, 88, 86, -1 }, // NM New Mexico
-        { 88, 89, 96, -1 }, // NV Nevada
-        { 10, 14,  0,  6 }, // NY New York
-        { 43, 45, -1, -1 }, // OH Ohio
-        { 73, 74, -1, -1 }, // OK Oklahoma
-        { 97, 97, -1, -1 }, // OR Oregon
-        { 15, 19, -1, -1 }, // PA Pennsylvania
-        {  6,  6,  0,  9 }, // PR Puerto Rico
-        { 96, 96, -1, -1 }, // PW Palau
-        {  2,  2, -1, -1 }, // RI Rhode Island
-        { 29, 29, -1, -1 }, // SC South Carolina
-        { 57, 57, -1, -1 }, // SD South Dakota
-        { 37, 38, -1, -1 }, // TN Tennessee
-        { 75, 79, 87, 88 }, // TX Texas
-        { 84, 84, -1, -1 }, // UT Utah
-        { 22, 24, 20, -1 }, // VA Virginia
-        {  6,  9, -1, -1 }, // VI Virgin Islands
-        {  5,  5, -1, -1 }, // VT Vermont
-        { 98, 99, -1, -1 }, // WA Washington
-        { 53, 54, -1, -1 }, // WI Wisconsin
-        { 24, 26, -1, -1 }, // WV West Virginia
-        { 82, 83, -1, -1 }  // WY Wyoming
+    enum USState {
+        AP = -4, // AP (military base in the Pacific)
+        AA = -3, // AA (military base inside the US)
+        AE = -2, // AE (military base outside the US)
+        XX = -1, // (not in use)
+        AK =  0, // AK Alaska
+        AL =  1, // AL Alabama
+        AR =  2, // AR Arkansas
+        AS =  3, // AS American Samoa
+        AZ =  4, // AZ Arizona
+        CA =  5, // CA California
+        CO =  6, // CO Colorado
+        CT =  7, // CT Connecticut
+        DC =  8, // DC District of Columbia
+        DE =  9, // DE Delaware
+        FL = 10, // FL Florida
+        FM = 11, // FM Federated States of Micronesia
+        GA = 12, // GA Georgia
+        GU = 13, // GU Guam
+        HI = 14, // HI Hawaii
+        IA = 15, // IA Iowa
+        ID = 16, // ID Idaho
+        IL = 17, // IL Illinois
+        IN = 18, // IN Indiana
+        KS = 19, // KS Kansas
+        KY = 20, // KY Kentucky
+        LA = 21, // LA Louisiana
+        MA = 22, // MA Massachusetts
+        MD = 23, // MD Maryland
+        ME = 24, // ME Maine
+        MH = 25, // MH Marshall Islands
+        MI = 26, // MI Michigan
+        MN = 27, // MN Minnesota
+        MO = 28, // MO Missouri
+        MP = 29, // MP Northern Mariana Islands
+        MS = 30, // MS Mississippi
+        MT = 31, // MT Montana
+        NC = 32, // NC North Carolina
+        ND = 33, // ND North Dakota
+        NE = 34, // NE Nebraska
+        NH = 35, // NH New Hampshire
+        NJ = 36, // NJ New Jersey
+        NM = 37, // NM New Mexico
+        NV = 38, // NV Nevada
+        NY = 39, // NY New York
+        OH = 40, // OH Ohio
+        OK = 41, // OK Oklahoma
+        OR = 42, // OR Oregon
+        PA = 43, // PA Pennsylvania
+        PR = 44, // PR Puerto Rico
+        PW = 45, // PW Palau
+        RI = 46, // RI Rhode Island
+        SC = 47, // SC South Carolina
+        SD = 48, // SD South Dakota
+        TN = 49, // TN Tennessee
+        TX = 50, // TX Texas
+        UT = 51, // UT Utah
+        VA = 52, // VA Virginia
+        VI = 53, // VI Virgin Islands
+        VT = 54, // VT Vermont
+        WA = 55, // WA Washington
+        WI = 56, // WI Wisconsin
+        WV = 57, // WV West Virginia
+        WY = 58, // WY Wyoming
     };
+
+    static const USState stateForZipPrefix[] = {
+    //   0   1   2   3   4   5   6   7   8   9
+        XX, XX, XX, XX, XX, NY, PR, PR, VI, PR, // 000-009
+        MA, MA, MA, MA, MA, MA, MA, MA, MA, MA, // 010-019
+        MA, MA, MA, MA, MA, MA, MA, MA, RI, RI, // 020-029
+        NH, NH, NH, NH, NH, NH, NH, NH, NH, ME, // 030-039
+        ME, ME, ME, ME, ME, ME, ME, ME, ME, ME, // 040-049
+        VT, VT, VT, VT, VT, MA, VT, VT, VT, VT, // 050-059
+        CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, // 060-069
+        NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, // 070-079
+        NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, // 080-089
+        AE, AE, AE, AE, AE, AE, AE, AE, AE, XX, // 090-099
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 100-109
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 110-119
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 120-129
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 130-139
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 140-149
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 150-159
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 160-169
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 170-179
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 180-189
+        PA, PA, PA, PA, PA, PA, PA, DE, DE, DE, // 190-199
+        DC, VA, DC, DC, DC, DC, MD, MD, MD, MD, // 200-209
+        MD, MD, MD, XX, MD, MD, MD, MD, MD, MD, // 210-219
+        VA, VA, VA, VA, VA, VA, VA, VA, VA, VA, // 220-229
+        VA, VA, VA, VA, VA, VA, VA, VA, VA, VA, // 230-239
+        VA, VA, VA, VA, VA, VA, VA, WV, WV, WV, // 240-249
+        WV, WV, WV, WV, WV, WV, WV, WV, WV, WV, // 250-259
+        WV, WV, WV, WV, WV, WV, WV, WV, WV, XX, // 260-269
+        NC, NC, NC, NC, NC, NC, NC, NC, NC, NC, // 270-279
+        NC, NC, NC, NC, NC, NC, NC, NC, NC, NC, // 280-289
+        SC, SC, SC, SC, SC, SC, SC, SC, SC, SC, // 290-299
+        GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, // 300-309
+        GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, // 310-319
+        FL, FL, FL, FL, FL, FL, FL, FL, FL, FL, // 320-329
+        FL, FL, FL, FL, FL, FL, FL, FL, FL, FL, // 330-339
+        AA, FL, FL, XX, FL, XX, FL, FL, XX, FL, // 340-349
+        AL, AL, AL, XX, AL, AL, AL, AL, AL, AL, // 350-359
+        AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 360-369
+        TN, TN, TN, TN, TN, TN, TN, TN, TN, TN, // 370-379
+        TN, TN, TN, TN, TN, TN, MS, MS, MS, MS, // 380-389
+        MS, MS, MS, MS, MS, MS, MS, MS, GA, GA, // 390-399
+        KY, KY, KY, KY, KY, KY, KY, KY, KY, KY, // 400-409
+        KY, KY, KY, KY, KY, KY, KY, KY, KY, XX, // 410-419
+        KY, KY, KY, KY, KY, KY, KY, KY, XX, XX, // 420-429
+        OH, OH, OH, OH, OH, OH, OH, OH, OH, OH, // 430-439
+        OH, OH, OH, OH, OH, OH, OH, OH, OH, OH, // 440-449
+        OH, OH, OH, OH, OH, OH, OH, OH, OH, OH, // 450-459
+        IN, IN, IN, IN, IN, IN, IN, IN, IN, IN, // 460-469
+        IN, IN, IN, IN, IN, IN, IN, IN, IN, IN, // 470-479
+        MI, MI, MI, MI, MI, MI, MI, MI, MI, MI, // 480-489
+        MI, MI, MI, MI, MI, MI, MI, MI, MI, MI, // 490-499
+        IA, IA, IA, IA, IA, IA, IA, IA, IA, IA, // 500-509
+        IA, IA, IA, IA, IA, IA, IA, XX, XX, XX, // 510-519
+        IA, IA, IA, IA, IA, IA, IA, IA, IA, XX, // 520-529
+        WI, WI, WI, XX, WI, WI, XX, WI, WI, WI, // 530-539
+        WI, WI, WI, WI, WI, WI, WI, WI, WI, WI, // 540-549
+        MN, MN, XX, MN, MN, MN, MN, MN, MN, MN, // 550-559
+        MN, MN, MN, MN, MN, MN, MN, MN, XX, DC, // 560-569
+        SD, SD, SD, SD, SD, SD, SD, SD, XX, XX, // 570-579
+        ND, ND, ND, ND, ND, ND, ND, ND, ND, XX, // 580-589
+        MT, MT, MT, MT, MT, MT, MT, MT, MT, MT, // 590-599
+        IL, IL, IL, IL, IL, IL, IL, IL, IL, IL, // 600-609
+        IL, IL, IL, IL, IL, IL, IL, IL, IL, IL, // 610-619
+        IL, XX, IL, IL, IL, IL, IL, IL, IL, IL, // 620-629
+        MO, MO, XX, MO, MO, MO, MO, MO, MO, MO, // 630-639
+        MO, MO, XX, XX, MO, MO, MO, MO, MO, MO, // 640-649
+        MO, MO, MO, MO, MO, MO, MO, MO, MO, XX, // 650-659
+        KS, KS, KS, XX, KS, KS, KS, KS, KS, KS, // 660-669
+        KS, KS, KS, KS, KS, KS, KS, KS, KS, KS, // 670-679
+        NE, NE, XX, NE, NE, NE, NE, NE, NE, NE, // 680-689
+        NE, NE, NE, NE, XX, XX, XX, XX, XX, XX, // 690-699
+        LA, LA, XX, LA, LA, LA, LA, LA, LA, XX, // 700-709
+        LA, LA, LA, LA, LA, XX, AR, AR, AR, AR, // 710-719
+        AR, AR, AR, AR, AR, AR, AR, AR, AR, AR, // 720-729
+        OK, OK, XX, TX, OK, OK, OK, OK, OK, OK, // 730-739
+        OK, OK, XX, OK, OK, OK, OK, OK, OK, OK, // 740-749
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 750-759
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 760-769
+        TX, XX, TX, TX, TX, TX, TX, TX, TX, TX, // 770-779
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 780-789
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 790-799
+        CO, CO, CO, CO, CO, CO, CO, CO, CO, CO, // 800-809
+        CO, CO, CO, CO, CO, CO, CO, XX, XX, XX, // 810-819
+        WY, WY, WY, WY, WY, WY, WY, WY, WY, WY, // 820-829
+        WY, WY, ID, ID, ID, ID, ID, ID, ID, XX, // 830-839
+        UT, UT, UT, UT, UT, UT, UT, UT, XX, XX, // 840-849
+        AZ, AZ, AZ, AZ, XX, AZ, AZ, AZ, XX, AZ, // 850-859
+        AZ, XX, XX, AZ, AZ, AZ, XX, XX, XX, XX, // 860-869
+        NM, NM, NM, NM, NM, NM, XX, NM, NM, NM, // 870-879
+        NM, NM, NM, NM, NM, TX, XX, XX, XX, NV, // 880-889
+        NV, NV, XX, NV, NV, NV, XX, NV, NV, XX, // 890-899
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, XX, // 900-909
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 910-919
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, XX, // 920-929
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 930-939
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 940-949
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 950-959
+        CA, CA, AP, AP, AP, AP, AP, HI, HI, GU, // 960-969
+        OR, OR, OR, OR, OR, OR, OR, OR, OR, OR, // 970-979
+        WA, WA, WA, WA, WA, WA, WA, XX, WA, WA, // 980-989
+        WA, WA, WA, WA, WA, AK, AK, AK, AK, AK, // 990-999
+    };
+
+    if (!zipPtr || !zipPtr[0] || !zipPtr[1] || !zipPtr[2])
+        return false;
+    if (zipPtr[0] < '0' || zipPtr[0] > '9' ||
+        zipPtr[1] < '0' || zipPtr[1] > '9' ||
+        zipPtr[2] < '0' || zipPtr[2] > '9')
+        return false;
 
     int zip = zipPtr[0] - '0';
     zip *= 10;
     zip += zipPtr[1] - '0';
-    int low = zipRange[stateIndex].mLow;
-    int high = zipRange[stateIndex].mHigh;
-    if (zip >= low && zip <= high)
-        return true;
-    if (zip == zipRange[stateIndex].mException1)
-        return true;
-    if (zip == zipRange[stateIndex].mException2)
-        return true;
-    return false;
+    zip *= 10;
+    zip += zipPtr[2] - '0';
+    return stateForZipPrefix[zip] == stateIndex;
 }
 
 #define MAX_PLACE_NAME_LENGTH 25 // the longest allowable one word place name
