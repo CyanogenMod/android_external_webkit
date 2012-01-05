@@ -2081,27 +2081,27 @@ static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray pkey,
 
 static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
 {
-    LOGW("Chromium authentication API called, but libchromium is not available");
+    ALOGW("Chromium authentication API called, but libchromium is not available");
 }
 
 static void AuthenticationCancel(JNIEnv *env, jobject obj, int handle)
 {
-    LOGW("Chromium authentication API called, but libchromium is not available");
+    ALOGW("Chromium authentication API called, but libchromium is not available");
 }
 
 static void SslCertErrorProceed(JNIEnv *env, jobject obj, int handle)
 {
-    LOGW("Chromium SSL API called, but libchromium is not available");
+    ALOGW("Chromium SSL API called, but libchromium is not available");
 }
 
 static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_error)
 {
-    LOGW("Chromium SSL API called, but libchromium is not available");
+    ALOGW("Chromium SSL API called, but libchromium is not available");
 }
 
 static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray privateKey, jobjectArray chain)
 {
-    LOGW("Chromium SSL API called, but libchromium is not available");
+    ALOGW("Chromium SSL API called, but libchromium is not available");
 }
 #endif // USE(CHROME_NETWORK_STACK)
 

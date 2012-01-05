@@ -1598,7 +1598,7 @@ void WebViewCore::updateFrameCache()
     // once the recalculation is complete.
     // TODO: Do we need to reschedule an update for after the style is recalculated?
     if (m_mainFrame && m_mainFrame->document() && m_mainFrame->document()->isPendingStyleRecalc()) {
-        LOGW("updateFrameCache: pending style recalc, ignoring.");
+        ALOGW("updateFrameCache: pending style recalc, ignoring.");
         return;
     }
     m_frameCacheOutOfDate = false;
@@ -3185,7 +3185,7 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
     default:
         // We do not support other kinds of touch event inside WebCore
         // at the moment.
-        LOGW("Java passed a touch event type that we do not support in WebCore: %d", action);
+        ALOGW("Java passed a touch event type that we do not support in WebCore: %d", action);
         return 0;
     }
 

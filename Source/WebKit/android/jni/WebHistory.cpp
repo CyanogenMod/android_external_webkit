@@ -246,7 +246,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
             // if the parent only has one ref, it is from this WebHistoryItem.
             // This means that the matching WebCore::HistoryItem has been freed.
             // This can happen during clear().
-            LOGW("Can't updateHistoryItem as the top HistoryItem is gone");
+            ALOGW("Can't updateHistoryItem as the top HistoryItem is gone");
             return;
         }
         while (webItem->parent())
@@ -256,7 +256,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
             // If a HistoryItem only exists for page cache, it is possible that
             // the parent HistoryItem destroyed before the child HistoryItem. If
             // it happens, skip updating.
-            LOGW("Can't updateHistoryItem as the top HistoryItem is gone");
+            ALOGW("Can't updateHistoryItem as the top HistoryItem is gone");
             return;
         }
     }
