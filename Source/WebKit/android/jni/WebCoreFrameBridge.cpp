@@ -1272,7 +1272,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     String directory = webFrame->getRawResourceFilename(
             WebCore::PlatformBridge::DrawableDir);
     if (directory.isEmpty())
-        LOGE("Can't find the drawable directory");
+        ALOGE("Can't find the drawable directory");
     else {
         // Initialize our skinning classes
         webFrame->setRenderSkins(new WebCore::RenderSkinAndroid(directory));

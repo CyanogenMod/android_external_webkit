@@ -1448,12 +1448,12 @@ HTMLElement* WebViewCore::retrieveElement(int x, int y,
         DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly,
         IntSize(1, 1));
     if (!hitTestResult.innerNode() || !hitTestResult.innerNode()->inDocument()) {
-        LOGE("Should not happen: no in document Node found");
+        ALOGE("Should not happen: no in document Node found");
         return 0;
     }
     const ListHashSet<RefPtr<Node> >& list = hitTestResult.rectBasedTestResult();
     if (list.isEmpty()) {
-        LOGE("Should not happen: no rect-based-test nodes found");
+        ALOGE("Should not happen: no rect-based-test nodes found");
         return 0;
     }
     Node* node = hitTestResult.innerNode();
@@ -1665,7 +1665,7 @@ static IntRect getAbsoluteBoundingBox(Node* node) {
     else if (render->isText())
         rect = toRenderText(render)->linesBoundingBox();
     else
-        LOGE("getAbsoluteBoundingBox failed for node %p, name %s", node, render->renderName());
+        ALOGE("getAbsoluteBoundingBox failed for node %p, name %s", node, render->renderName());
     FloatPoint absPos = render->localToAbsolute();
     rect.move(absPos.x(), absPos.y());
     return rect;
@@ -1679,12 +1679,12 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop)
     HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
             false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
     if (!hitTestResult.innerNode() || !hitTestResult.innerNode()->inDocument()) {
-        LOGE("Should not happen: no in document Node found");
+        ALOGE("Should not happen: no in document Node found");
         return rects;
     }
     const ListHashSet<RefPtr<Node> >& list = hitTestResult.rectBasedTestResult();
     if (list.isEmpty()) {
-        LOGE("Should not happen: no rect-based-test nodes found");
+        ALOGE("Should not happen: no rect-based-test nodes found");
         return rects;
     }
     Frame* frame = hitTestResult.innerNode()->document()->frame();
@@ -2187,7 +2187,7 @@ String WebViewCore::modifySelection(const int direction, const int axis)
         case AXIS_DOCUMENT:
             return modifySelectionDomNavigationAxis(selection, direction, axis);
         default:
-            LOGE("Invalid navigation axis: %d", axis);
+            ALOGE("Invalid navigation axis: %d", axis);
             return String();
     }
 }
@@ -2704,7 +2704,7 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
         if (direction == DIRECTION_FORWARD)
             currentNode = currentNode->lastDescendant();
     } else {
-        LOGE("Invalid axis: %d", axis);
+        ALOGE("Invalid axis: %d", axis);
         return String();
     }
     if (currentNode) {

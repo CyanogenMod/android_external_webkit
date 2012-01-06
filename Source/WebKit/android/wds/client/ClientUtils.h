@@ -37,7 +37,7 @@
 #endif
 
 // Callers need to include Log.h and errno.h to use this macro
-#define log_errno(str) LOGE("%s: %s", str, strerror(errno))
+#define log_errno(str) ALOGE("%s: %s", str, strerror(errno))
 
 // Fill in the sockaddr_in structure for binding to the localhost on the given
 // port

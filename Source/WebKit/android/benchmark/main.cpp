@@ -57,7 +57,7 @@ int main(int argc, char** argv) {
         }
     }
     if (optind >= argc) {
-        LOGE("Please supply a file to read\n");
+        ALOGE("Please supply a file to read\n");
         return 1;
     }
 

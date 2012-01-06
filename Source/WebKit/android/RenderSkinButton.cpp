@@ -76,7 +76,7 @@ void RenderSkinButton::decode()
         path.append(String(gFiles[i]));
         if (!RenderSkinNinePatch::decodeAsset(am, path.utf8().data(), &m_buttons[i])) {
             m_decoded = false;
-            LOGE("RenderSkinButton::decode: button assets failed to decode\n\tWebView buttons will not draw");
+            ALOGE("RenderSkinButton::decode: button assets failed to decode\n\tWebView buttons will not draw");
             return;
         }
     }

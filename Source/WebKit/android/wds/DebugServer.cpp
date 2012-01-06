@@ -42,7 +42,7 @@
 #if ENABLE(WDS)
 
 #define DEFAULT_PORT 9999
-#define log_errno(x) LOGE("%s: %d", x, strerror(errno))
+#define log_errno(x) ALOGE("%s: %d", x, strerror(errno))
 
 namespace android {
 
@@ -82,7 +82,7 @@ void DebugServer::start() {
 
     ConnectionServer cs;
     if (!cs.connect(DEFAULT_PORT)) {
-        LOGE("Failed to start the server socket connection");
+        ALOGE("Failed to start the server socket connection");
         return;
     }
 
@@ -97,7 +97,7 @@ void DebugServer::start() {
 
         Command* c = Command::Find(conn);
         if (!c) {
-            LOGE("Could not find matching command");
+            ALOGE("Could not find matching command");
             delete conn;
         } else {
             // Dispatch the command, it will handle cleaning up the connection
