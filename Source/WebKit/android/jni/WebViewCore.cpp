@@ -237,8 +237,6 @@ bool WebViewCore::isSupportedMediaMimeType(const WTF::String& mimeType) {
 
 // ----------------------------------------------------------------------------
 
-#define GET_NATIVE_VIEW(env, obj) ((WebViewCore*)env->GetIntField(obj, gWebViewCoreFields.m_nativeClass))
-
 // Field ids for WebViewCore
 struct WebViewCoreFields {
     jfieldID    m_nativeClass;
@@ -3922,137 +3920,145 @@ void WebViewCore::scrollRenderLayer(int layer, const SkRect& rect)
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
-static void RevealSelection(JNIEnv *env, jobject obj)
+static void RevealSelection(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    GET_NATIVE_VIEW(env, obj)->revealSelection();
+    reinterpret_cast<WebViewCore*>(nativeClass)->revealSelection();
 }
 
-static jstring RequestLabel(JNIEnv *env, jobject obj, int framePointer,
-        int nodePointer)
+static jstring RequestLabel(JNIEnv* env, jobject obj, jint nativeClass,
+        int framePointer, int nodePointer)
 {
-    return wtfStringToJstring(env, GET_NATIVE_VIEW(env, obj)->requestLabel(
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    return wtfStringToJstring(env, viewImpl->requestLabel(
             (WebCore::Frame*) framePointer, (WebCore::Node*) nodePointer));
 }
 
-static void ClearContent(JNIEnv *env, jobject obj)
+static void ClearContent(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     viewImpl->clearContent();
 }
 
-static void UpdateFrameCacheIfLoading(JNIEnv *env, jobject obj)
+static void UpdateFrameCacheIfLoading(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    GET_NATIVE_VIEW(env, obj)->updateFrameCacheIfLoading();
+    reinterpret_cast<WebViewCore*>(nativeClass)->updateFrameCacheIfLoading();
 }
 
-static void SetSize(JNIEnv *env, jobject obj, jint width, jint height,
-        jint textWrapWidth, jfloat scale, jint screenWidth, jint screenHeight,
-        jint anchorX, jint anchorY, jboolean ignoreHeight)
+static void SetSize(JNIEnv* env, jobject obj, jint nativeClass, jint width,
+        jint height, jint textWrapWidth, jfloat scale, jint screenWidth,
+        jint screenHeight, jint anchorX, jint anchorY, jboolean ignoreHeight)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     ALOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
     viewImpl->setSizeScreenWidthAndScale(width, height, textWrapWidth, scale,
             screenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
 }
 
-static void SetScrollOffset(JNIEnv *env, jobject obj, jint gen, jboolean sendScrollEvent, jint x, jint y)
+static void SetScrollOffset(JNIEnv* env, jobject obj, jint nativeClass,
+        jint gen, jboolean sendScrollEvent, jint x, jint y)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
     viewImpl->setScrollOffset(gen, sendScrollEvent, x, y);
 }
 
-static void SetGlobalBounds(JNIEnv *env, jobject obj, jint x, jint y, jint h,
-                            jint v)
+static void SetGlobalBounds(JNIEnv* env, jobject obj, jint nativeClass,
+        jint x, jint y, jint h, jint v)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "need viewImpl");
 
     viewImpl->setGlobalBounds(x, y, h, v);
 }
 
-static jboolean Key(JNIEnv *env, jobject obj, jint keyCode, jint unichar,
-        jint repeatCount, jboolean isShift, jboolean isAlt, jboolean isSym,
-        jboolean isDown)
+static jboolean Key(JNIEnv* env, jobject obj, jint nativeClass, jint keyCode,
+        jint unichar, jint repeatCount, jboolean isShift, jboolean isAlt,
+        jboolean isSym, jboolean isDown)
 {
-    return GET_NATIVE_VIEW(env, obj)->key(PlatformKeyboardEvent(keyCode,
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    return viewImpl->key(PlatformKeyboardEvent(keyCode,
         unichar, repeatCount, isDown, isShift, isAlt, isSym));
 }
 
-static void Click(JNIEnv *env, jobject obj, int framePtr, int nodePtr, jboolean fake)
+static void Click(JNIEnv* env, jobject obj, jint nativeClass, int framePtr,
+        int nodePtr, jboolean fake)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in Click");
 
     viewImpl->click(reinterpret_cast<WebCore::Frame*>(framePtr),
         reinterpret_cast<WebCore::Node*>(nodePtr), fake);
 }
 
-static void ContentInvalidateAll(JNIEnv *env, jobject obj)
+static void ContentInvalidateAll(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    GET_NATIVE_VIEW(env, obj)->contentInvalidateAll();
+    reinterpret_cast<WebViewCore*>(nativeClass)->contentInvalidateAll();
 }
 
-static void DeleteSelection(JNIEnv *env, jobject obj, jint start, jint end,
-        jint textGeneration)
+static void DeleteSelection(JNIEnv* env, jobject obj, jint nativeClass,
+        jint start, jint end, jint textGeneration)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     viewImpl->deleteSelection(start, end, textGeneration);
 }
 
-static void SetSelection(JNIEnv *env, jobject obj, jint start, jint end)
+static void SetSelection(JNIEnv* env, jobject obj, jint nativeClass,
+        jint start, jint end)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     viewImpl->setSelection(start, end);
 }
 
-static jstring ModifySelection(JNIEnv *env, jobject obj, jint direction, jint granularity)
+static jstring ModifySelection(JNIEnv* env, jobject obj, jint nativeClass,
+        jint direction, jint granularity)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     String selectionString = viewImpl->modifySelection(direction, granularity);
     return wtfStringToJstring(env, selectionString);
 }
 
-static void ReplaceTextfieldText(JNIEnv *env, jobject obj,
+static void ReplaceTextfieldText(JNIEnv* env, jobject obj, jint nativeClass,
     jint oldStart, jint oldEnd, jstring replace, jint start, jint end,
     jint textGeneration)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     WTF::String webcoreString = jstringToWtfString(env, replace);
     viewImpl->replaceTextfieldText(oldStart,
             oldEnd, webcoreString, start, end, textGeneration);
 }
 
-static void PassToJs(JNIEnv *env, jobject obj,
+static void PassToJs(JNIEnv* env, jobject obj, jint nativeClass,
     jint generation, jstring currentText, jint keyCode,
     jint keyValue, jboolean down, jboolean cap, jboolean fn, jboolean sym)
 {
     WTF::String current = jstringToWtfString(env, currentText);
-    GET_NATIVE_VIEW(env, obj)->passToJs(generation, current,
+    reinterpret_cast<WebViewCore*>(nativeClass)->passToJs(generation, current,
         PlatformKeyboardEvent(keyCode, keyValue, 0, down, cap, fn, sym));
 }
 
-static void ScrollFocusedTextInput(JNIEnv *env, jobject obj, jfloat xPercent,
-    jint y)
+static void ScrollFocusedTextInput(JNIEnv* env, jobject obj, jint nativeClass,
+        jfloat xPercent, jint y)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     viewImpl->scrollFocusedTextInput(xPercent, y);
 }
 
-static void SetFocusControllerActive(JNIEnv *env, jobject obj, jboolean active)
+static void SetFocusControllerActive(JNIEnv* env, jobject obj, jint nativeClass,
+        jboolean active)
 {
     ALOGV("webviewcore::nativeSetFocusControllerActive()\n");
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
     viewImpl->setFocusControllerActive(active);
 }
 
-static void SaveDocumentState(JNIEnv *env, jobject obj, jint frame)
+static void SaveDocumentState(JNIEnv* env, jobject obj, jint nativeClass,
+        jint frame)
 {
     ALOGV("webviewcore::nativeSaveDocumentState()\n");
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
     viewImpl->saveDocumentState((WebCore::Frame*) frame);
 }
@@ -4063,7 +4069,8 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
-static bool UpdateLayers(JNIEnv *env, jobject obj, jint nativeClass, jint jbaseLayer)
+static bool UpdateLayers(JNIEnv* env, jobject obj, jint nativeClass,
+        jint jbaseLayer)
 {
     WebViewCore* viewImpl = (WebViewCore*) nativeClass;
     BaseLayerAndroid* baseLayer = (BaseLayerAndroid*)  jbaseLayer;
@@ -4075,15 +4082,16 @@ static bool UpdateLayers(JNIEnv *env, jobject obj, jint nativeClass, jint jbaseL
     return true;
 }
 
-static void NotifyAnimationStarted(JNIEnv *env, jobject obj, jint nativeClass)
+static void NotifyAnimationStarted(JNIEnv* env, jobject obj, jint nativeClass)
 {
     WebViewCore* viewImpl = (WebViewCore*) nativeClass;
     viewImpl->notifyAnimationStarted();
 }
 
-static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
+static jint RecordContent(JNIEnv* env, jobject obj, jint nativeClass,
+        jobject region, jobject pt)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
     SkIPoint nativePt;
     BaseLayerAndroid* result = viewImpl->recordContent(nativeRegion, &nativePt);
@@ -4091,15 +4099,17 @@ static jint RecordContent(JNIEnv *env, jobject obj, jobject region, jobject pt)
     return reinterpret_cast<jint>(result);
 }
 
-static void SplitContent(JNIEnv *env, jobject obj, jint content)
+static void SplitContent(JNIEnv* env, jobject obj, jint nativeClass,
+        jint content)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     viewImpl->splitContent(reinterpret_cast<PictureSet*>(content));
 }
 
-static void SendListBoxChoice(JNIEnv* env, jobject obj, jint choice)
+static void SendListBoxChoice(JNIEnv* env, jobject obj, jint nativeClass,
+        jint choice)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoice");
     viewImpl->popupReply(choice);
 }
@@ -4110,10 +4120,10 @@ static void SendListBoxChoice(JNIEnv* env, jobject obj, jint choice)
 // number of items in the average multiple-select listbox.
 #define PREPARED_LISTBOX_STORAGE 10
 
-static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
-        jint size)
+static void SendListBoxChoices(JNIEnv* env, jobject obj, jint nativeClass,
+        jbooleanArray jArray, jint size)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoices");
     jboolean* ptrArray = env->GetBooleanArrayElements(jArray, 0);
     SkAutoSTMalloc<PREPARED_LISTBOX_STORAGE, int> storage(size);
@@ -4128,8 +4138,8 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jbooleanArray jArray,
     viewImpl->popupReply(array, count);
 }
 
-static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
-    jboolean caseInsensitive)
+static jstring FindAddress(JNIEnv* env, jobject obj, jstring addr,
+        jboolean caseInsensitive)
 {
     if (!addr)
         return 0;
@@ -4147,11 +4157,11 @@ static jstring FindAddress(JNIEnv *env, jobject obj, jstring addr,
     return ret;
 }
 
-static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArray idArray,
-                                 jintArray xArray, jintArray yArray,
-                                 jint count, jint actionIndex, jint metaState)
+static jboolean HandleTouchEvent(JNIEnv* env, jobject obj, jint nativeClass,
+        jint action, jintArray idArray, jintArray xArray, jintArray yArray,
+        jint count, jint actionIndex, jint metaState)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     jint* ptrIdArray = env->GetIntArrayElements(idArray, 0);
     jint* ptrXArray = env->GetIntArrayElements(xArray, 0);
@@ -4170,18 +4180,19 @@ static jboolean HandleTouchEvent(JNIEnv *env, jobject obj, jint action, jintArra
     return viewImpl->handleTouchEvent(action, ids, points, actionIndex, metaState);
 }
 
-static void TouchUp(JNIEnv *env, jobject obj, jint touchGeneration,
-        jint frame, jint node, jint x, jint y)
+static void TouchUp(JNIEnv* env, jobject obj, jint nativeClass,
+        jint touchGeneration, jint frame, jint node, jint x, jint y)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->touchUp(touchGeneration,
         (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
 
-static jstring RetrieveHref(JNIEnv *env, jobject obj, jint x, jint y)
+static jstring RetrieveHref(JNIEnv* env, jobject obj, jint nativeClass,
+        jint x, jint y)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveHref(x, y);
     if (!result.isEmpty())
@@ -4189,9 +4200,10 @@ static jstring RetrieveHref(JNIEnv *env, jobject obj, jint x, jint y)
     return 0;
 }
 
-static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint x, jint y)
+static jstring RetrieveAnchorText(JNIEnv* env, jobject obj, jint nativeClass,
+        jint x, jint y)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveAnchorText(x, y);
     if (!result.isEmpty())
@@ -4199,51 +4211,54 @@ static jstring RetrieveAnchorText(JNIEnv *env, jobject obj, jint x, jint y)
     return 0;
 }
 
-static jstring RetrieveImageSource(JNIEnv *env, jobject obj, jint x, jint y)
+static jstring RetrieveImageSource(JNIEnv* env, jobject obj, jint nativeClass,
+        jint x, jint y)
 {
-    WTF::String result = GET_NATIVE_VIEW(env, obj)->retrieveImageSource(x, y);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    WTF::String result = viewImpl->retrieveImageSource(x, y);
     return !result.isEmpty() ? wtfStringToJstring(env, result) : 0;
 }
 
-static void StopPaintingCaret(JNIEnv *env, jobject obj)
+static void StopPaintingCaret(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    GET_NATIVE_VIEW(env, obj)->setShouldPaintCaret(false);
+    reinterpret_cast<WebViewCore*>(nativeClass)->setShouldPaintCaret(false);
 }
 
-static void MoveFocus(JNIEnv *env, jobject obj, jint framePtr, jint nodePtr)
+static void MoveFocus(JNIEnv* env, jobject obj, jint nativeClass, jint framePtr,
+        jint nodePtr)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveFocus((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr);
 }
 
-static void MoveMouse(JNIEnv *env, jobject obj, jint frame,
+static void MoveMouse(JNIEnv* env, jobject obj, jint nativeClass, jint frame,
         jint x, jint y)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveMouse((WebCore::Frame*) frame, x, y);
 }
 
-static void MoveMouseIfLatest(JNIEnv *env, jobject obj, jint moveGeneration,
-        jint frame, jint x, jint y)
+static void MoveMouseIfLatest(JNIEnv* env, jobject obj, jint nativeClass,
+        jint moveGeneration, jint frame, jint x, jint y)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveMouseIfLatest(moveGeneration,
         (WebCore::Frame*) frame, x, y);
 }
 
-static void UpdateFrameCache(JNIEnv *env, jobject obj)
+static void UpdateFrameCache(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->updateFrameCache();
 }
 
-static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
+static jint GetContentMinPrefWidth(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     WebCore::Frame* frame = viewImpl->mainFrame();
@@ -4259,9 +4274,10 @@ static jint GetContentMinPrefWidth(JNIEnv *env, jobject obj)
     return 0;
 }
 
-static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
+static void SetViewportSettingsFromNative(JNIEnv* env, jobject obj,
+        jint nativeClass)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     WebCore::Settings* s = viewImpl->mainFrame()->page()->settings();
@@ -4279,39 +4295,42 @@ static void SetViewportSettingsFromNative(JNIEnv *env, jobject obj)
 #endif
 }
 
-static void SetBackgroundColor(JNIEnv *env, jobject obj, jint color)
+static void SetBackgroundColor(JNIEnv* env, jobject obj, jint nativeClass,
+        jint color)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->setBackgroundColor((SkColor) color);
 }
 
-static void DumpDomTree(JNIEnv *env, jobject obj, jboolean useFile)
+static void DumpDomTree(JNIEnv* env, jobject obj, jint nativeClass,
+        jboolean useFile)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpDomTree(useFile);
 }
 
-static void DumpRenderTree(JNIEnv *env, jobject obj, jboolean useFile)
+static void DumpRenderTree(JNIEnv* env, jobject obj, jint nativeClass,
+        jboolean useFile)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpRenderTree(useFile);
 }
 
-static void DumpNavTree(JNIEnv *env, jobject obj)
+static void DumpNavTree(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpNavTree();
 }
 
-static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
+static void SetJsFlags(JNIEnv* env, jobject obj, jint nativeClass, jstring flags)
 {
 #if USE(V8)
     WTF::String flagsString = jstringToWtfString(env, flags);
@@ -4324,9 +4343,11 @@ static void SetJsFlags(JNIEnv *env, jobject obj, jstring flags)
 // Called from the Java side to set a new quota for the origin or new appcache
 // max size in response to a notification that the original quota was exceeded or
 // that the appcache has reached its maximum size.
-static void SetNewStorageLimit(JNIEnv* env, jobject obj, jlong quota) {
+static void SetNewStorageLimit(JNIEnv* env, jobject obj, jint nativeClass,
+        jlong quota)
+{
 #if ENABLE(DATABASE) || ENABLE(OFFLINE_WEB_APPLICATIONS)
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     Frame* frame = viewImpl->mainFrame();
 
     // The main thread is blocked awaiting this response, so now we can wake it
@@ -4337,89 +4358,97 @@ static void SetNewStorageLimit(JNIEnv* env, jobject obj, jlong quota) {
 }
 
 // Called from Java to provide a Geolocation permission state for the specified origin.
-static void GeolocationPermissionsProvide(JNIEnv* env, jobject obj, jstring origin, jboolean allow, jboolean remember) {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+static void GeolocationPermissionsProvide(JNIEnv* env, jobject obj,
+        jint nativeClass, jstring origin, jboolean allow, jboolean remember)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     Frame* frame = viewImpl->mainFrame();
 
     ChromeClientAndroid* chromeClient = static_cast<ChromeClientAndroid*>(frame->page()->chrome()->client());
     chromeClient->provideGeolocationPermissions(jstringToWtfString(env, origin), allow, remember);
 }
 
-static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jstring scheme) {
+static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jint nativeClass,
+        jstring scheme)
+{
     WebCore::SchemeRegistry::registerURLSchemeAsLocal(jstringToWtfString(env, scheme));
 }
 
-static bool FocusBoundsChanged(JNIEnv* env, jobject obj)
+static bool FocusBoundsChanged(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    return GET_NATIVE_VIEW(env, obj)->focusBoundsChanged();
+    return reinterpret_cast<WebViewCore*>(nativeClass)->focusBoundsChanged();
 }
 
-static void SetIsPaused(JNIEnv* env, jobject obj, jboolean isPaused)
+static void SetIsPaused(JNIEnv* env, jobject obj, jint nativeClass,
+        jboolean isPaused)
 {
     // tell the webcore thread to stop thinking while we do other work
     // (selection and scrolling). This has nothing to do with the lifecycle
     // pause and resume.
-    GET_NATIVE_VIEW(env, obj)->setIsPaused(isPaused);
+    reinterpret_cast<WebViewCore*>(nativeClass)->setIsPaused(isPaused);
 }
 
-static void Pause(JNIEnv* env, jobject obj)
+static void Pause(JNIEnv* env, jobject obj, jint nativeClass)
 {
     // This is called for the foreground tab when the browser is put to the
     // background (and also for any tab when it is put to the background of the
     // browser). The browser can only be killed by the system when it is in the
     // background, so saving the Geolocation permission state now ensures that
     // is maintained when the browser is killed.
-    ChromeClient* chromeClient = GET_NATIVE_VIEW(env, obj)->mainFrame()->page()->chrome()->client();
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    ChromeClient* chromeClient = viewImpl->mainFrame()->page()->chrome()->client();
     ChromeClientAndroid* chromeClientAndroid = static_cast<ChromeClientAndroid*>(chromeClient);
     chromeClientAndroid->storeGeolocationPermissions();
 
-    Frame* mainFrame = GET_NATIVE_VIEW(env, obj)->mainFrame();
+    Frame* mainFrame = viewImpl->mainFrame();
     for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
         Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
         if (geolocation)
             geolocation->suspend();
     }
 
-    GET_NATIVE_VIEW(env, obj)->deviceMotionAndOrientationManager()->maybeSuspendClients();
+    viewImpl->deviceMotionAndOrientationManager()->maybeSuspendClients();
 
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;
-    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+    viewImpl->sendPluginEvent(event);
 
-    GET_NATIVE_VIEW(env, obj)->setIsPaused(true);
+    viewImpl->setIsPaused(true);
 }
 
-static void Resume(JNIEnv* env, jobject obj)
+static void Resume(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    Frame* mainFrame = GET_NATIVE_VIEW(env, obj)->mainFrame();
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    Frame* mainFrame = viewImpl->mainFrame();
     for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
         Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
         if (geolocation)
             geolocation->resume();
     }
 
-    GET_NATIVE_VIEW(env, obj)->deviceMotionAndOrientationManager()->maybeResumeClients();
+    viewImpl->deviceMotionAndOrientationManager()->maybeResumeClients();
 
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kResume_ANPLifecycleAction;
-    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+    viewImpl->sendPluginEvent(event);
 
-    GET_NATIVE_VIEW(env, obj)->setIsPaused(false);
+    viewImpl->setIsPaused(false);
 }
 
-static void FreeMemory(JNIEnv* env, jobject obj)
+static void FreeMemory(JNIEnv* env, jobject obj, jint nativeClass)
 {
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kFreeMemory_ANPLifecycleAction;
-    GET_NATIVE_VIEW(env, obj)->sendPluginEvent(event);
+    reinterpret_cast<WebViewCore*>(nativeClass)->sendPluginEvent(event);
 }
 
-static void ProvideVisitedHistory(JNIEnv *env, jobject obj, jobject hist)
+static void ProvideVisitedHistory(JNIEnv* env, jobject obj, jint nativeClass,
+        jobject hist)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     jobjectArray array = static_cast<jobjectArray>(hist);
@@ -4435,17 +4464,18 @@ static void ProvideVisitedHistory(JNIEnv *env, jobject obj, jobject hist)
     }
 }
 
-static void PluginSurfaceReady(JNIEnv* env, jobject obj)
+static void PluginSurfaceReady(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     if (viewImpl)
         viewImpl->sendPluginSurfaceReady();
 }
 
 // Notification from the UI thread that the plugin's full-screen surface has been discarded
-static void FullScreenPluginHidden(JNIEnv* env, jobject obj, jint npp)
+static void FullScreenPluginHidden(JNIEnv* env, jobject obj, jint nativeClass,
+        jint npp)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     PluginWidgetAndroid* plugin = viewImpl->getPluginWidget((NPP)npp);
     if (plugin)
         plugin->exitFullScreen(false);
@@ -4458,18 +4488,20 @@ static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
     return WebCore::IntRect(L, T, R - L, B - T);
 }
 
-static bool ValidNodeAndBounds(JNIEnv *env, jobject obj, int frame, int node,
-    jobject rect)
+static bool ValidNodeAndBounds(JNIEnv* env, jobject obj, jint nativeClass,
+        int frame, int node, jobject rect)
 {
     IntRect nativeRect = jrect_to_webrect(env, rect);
-    return GET_NATIVE_VIEW(env, obj)->validNodeAndBounds(
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    return viewImpl->validNodeAndBounds(
             reinterpret_cast<Frame*>(frame),
             reinterpret_cast<Node*>(node), nativeRect);
 }
 
-static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, jint slop)
+static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint nativeClass,
+        jint x, jint y, jint slop)
 {
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     if (!viewImpl)
         return 0;
     Vector<IntRect> rects = viewImpl->getTouchHighlightRects(x, y, slop);
@@ -4503,10 +4535,11 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint x, jint y, 
     return array;
 }
 
-static void AutoFillForm(JNIEnv* env, jobject obj, jint queryId)
+static void AutoFillForm(JNIEnv* env, jobject obj, jint nativeClass,
+        jint queryId)
 {
 #if ENABLE(WEB_AUTOFILL)
-    WebViewCore* viewImpl = GET_NATIVE_VIEW(env, obj);
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     if (!viewImpl)
         return;
 
@@ -4519,7 +4552,7 @@ static void AutoFillForm(JNIEnv* env, jobject obj, jint queryId)
 #endif
 }
 
-static void CloseIdleConnections(JNIEnv* env, jobject obj)
+static void CloseIdleConnections(JNIEnv* env, jobject obj, jint nativeClass)
 {
 #if USE(CHROME_NETWORK_STACK)
     WebCache::get(true)->closeIdleConnections();
@@ -4527,11 +4560,12 @@ static void CloseIdleConnections(JNIEnv* env, jobject obj)
 #endif
 }
 
-static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint layer, jobject jRect)
+static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint nativeClass,
+        jint layer, jobject jRect)
 {
     SkRect rect;
     GraphicsJNI::jrect_to_rect(env, jRect, &rect);
-    GET_NATIVE_VIEW(env, obj)->scrollRenderLayer(layer, rect);
+    reinterpret_cast<WebViewCore*>(nativeClass)->scrollRenderLayer(layer, rect);
 }
 
 // ----------------------------------------------------------------------------
@@ -4540,115 +4574,115 @@ static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint layer, jobject jRec
  * JNI registration.
  */
 static JNINativeMethod gJavaWebViewCoreMethods[] = {
-    { "nativeClearContent", "()V",
+    { "nativeClearContent", "(I)V",
             (void*) ClearContent },
-    { "nativeFocusBoundsChanged", "()Z",
+    { "nativeFocusBoundsChanged", "(I)Z",
         (void*) FocusBoundsChanged } ,
-    { "nativeKey", "(IIIZZZZ)Z",
+    { "nativeKey", "(IIIIZZZZ)Z",
         (void*) Key },
-    { "nativeClick", "(IIZ)V",
+    { "nativeClick", "(IIIZ)V",
         (void*) Click },
-    { "nativeContentInvalidateAll", "()V",
+    { "nativeContentInvalidateAll", "(I)V",
         (void*) ContentInvalidateAll },
-    { "nativeSendListBoxChoices", "([ZI)V",
+    { "nativeSendListBoxChoices", "(I[ZI)V",
         (void*) SendListBoxChoices },
-    { "nativeSendListBoxChoice", "(I)V",
+    { "nativeSendListBoxChoice", "(II)V",
         (void*) SendListBoxChoice },
-    { "nativeSetSize", "(IIIFIIIIZ)V",
+    { "nativeSetSize", "(IIIIFIIIIZ)V",
         (void*) SetSize },
-    { "nativeSetScrollOffset", "(IZII)V",
+    { "nativeSetScrollOffset", "(IIZII)V",
         (void*) SetScrollOffset },
-    { "nativeSetGlobalBounds", "(IIII)V",
+    { "nativeSetGlobalBounds", "(IIIII)V",
         (void*) SetGlobalBounds },
-    { "nativeSetSelection", "(II)V",
+    { "nativeSetSelection", "(III)V",
         (void*) SetSelection } ,
-    { "nativeModifySelection", "(II)Ljava/lang/String;",
+    { "nativeModifySelection", "(III)Ljava/lang/String;",
         (void*) ModifySelection },
-    { "nativeDeleteSelection", "(III)V",
+    { "nativeDeleteSelection", "(IIII)V",
         (void*) DeleteSelection } ,
-    { "nativeReplaceTextfieldText", "(IILjava/lang/String;III)V",
+    { "nativeReplaceTextfieldText", "(IIILjava/lang/String;III)V",
         (void*) ReplaceTextfieldText } ,
-    { "nativeMoveFocus", "(II)V",
+    { "nativeMoveFocus", "(III)V",
         (void*) MoveFocus },
-    { "nativeMoveMouse", "(III)V",
+    { "nativeMoveMouse", "(IIII)V",
         (void*) MoveMouse },
-    { "nativeMoveMouseIfLatest", "(IIII)V",
+    { "nativeMoveMouseIfLatest", "(IIIII)V",
         (void*) MoveMouseIfLatest },
-    { "passToJs", "(ILjava/lang/String;IIZZZZ)V",
+    { "passToJs", "(IILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs },
-    { "nativeScrollFocusedTextInput", "(FI)V",
+    { "nativeScrollFocusedTextInput", "(IFI)V",
         (void*) ScrollFocusedTextInput },
-    { "nativeSetFocusControllerActive", "(Z)V",
+    { "nativeSetFocusControllerActive", "(IZ)V",
         (void*) SetFocusControllerActive },
-    { "nativeSaveDocumentState", "(I)V",
+    { "nativeSaveDocumentState", "(II)V",
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(I[I[I[IIII)Z",
+    { "nativeHandleTouchEvent", "(II[I[I[IIII)Z",
             (void*) HandleTouchEvent },
-    { "nativeTouchUp", "(IIIII)V",
+    { "nativeTouchUp", "(IIIIII)V",
         (void*) TouchUp },
-    { "nativeRetrieveHref", "(II)Ljava/lang/String;",
+    { "nativeRetrieveHref", "(III)Ljava/lang/String;",
         (void*) RetrieveHref },
-    { "nativeRetrieveAnchorText", "(II)Ljava/lang/String;",
+    { "nativeRetrieveAnchorText", "(III)Ljava/lang/String;",
         (void*) RetrieveAnchorText },
-    { "nativeRetrieveImageSource", "(II)Ljava/lang/String;",
+    { "nativeRetrieveImageSource", "(III)Ljava/lang/String;",
         (void*) RetrieveImageSource },
-    { "nativeStopPaintingCaret", "()V",
+    { "nativeStopPaintingCaret", "(I)V",
         (void*) StopPaintingCaret },
-    { "nativeUpdateFrameCache", "()V",
+    { "nativeUpdateFrameCache", "(I)V",
         (void*) UpdateFrameCache },
-    { "nativeGetContentMinPrefWidth", "()I",
+    { "nativeGetContentMinPrefWidth", "(I)I",
         (void*) GetContentMinPrefWidth },
     { "nativeUpdateLayers", "(II)Z",
         (void*) UpdateLayers },
     { "nativeNotifyAnimationStarted", "(I)V",
         (void*) NotifyAnimationStarted },
-    { "nativeRecordContent", "(Landroid/graphics/Region;Landroid/graphics/Point;)I",
+    { "nativeRecordContent", "(ILandroid/graphics/Region;Landroid/graphics/Point;)I",
         (void*) RecordContent },
-    { "setViewportSettingsFromNative", "()V",
+    { "setViewportSettingsFromNative", "(I)V",
         (void*) SetViewportSettingsFromNative },
-    { "nativeSplitContent", "(I)V",
+    { "nativeSplitContent", "(II)V",
         (void*) SplitContent },
-    { "nativeSetBackgroundColor", "(I)V",
+    { "nativeSetBackgroundColor", "(II)V",
         (void*) SetBackgroundColor },
-    { "nativeRegisterURLSchemeAsLocal", "(Ljava/lang/String;)V",
+    { "nativeRegisterURLSchemeAsLocal", "(ILjava/lang/String;)V",
         (void*) RegisterURLSchemeAsLocal },
-    { "nativeDumpDomTree", "(Z)V",
+    { "nativeDumpDomTree", "(IZ)V",
         (void*) DumpDomTree },
-    { "nativeDumpRenderTree", "(Z)V",
+    { "nativeDumpRenderTree", "(IZ)V",
         (void*) DumpRenderTree },
-    { "nativeDumpNavTree", "()V",
+    { "nativeDumpNavTree", "(I)V",
         (void*) DumpNavTree },
-    { "nativeSetNewStorageLimit", "(J)V",
+    { "nativeSetNewStorageLimit", "(IJ)V",
         (void*) SetNewStorageLimit },
-    { "nativeGeolocationPermissionsProvide", "(Ljava/lang/String;ZZ)V",
+    { "nativeGeolocationPermissionsProvide", "(ILjava/lang/String;ZZ)V",
         (void*) GeolocationPermissionsProvide },
-    { "nativeSetIsPaused", "(Z)V", (void*) SetIsPaused },
-    { "nativePause", "()V", (void*) Pause },
-    { "nativeResume", "()V", (void*) Resume },
-    { "nativeFreeMemory", "()V", (void*) FreeMemory },
-    { "nativeSetJsFlags", "(Ljava/lang/String;)V", (void*) SetJsFlags },
-    { "nativeRequestLabel", "(II)Ljava/lang/String;",
+    { "nativeSetIsPaused", "(IZ)V", (void*) SetIsPaused },
+    { "nativePause", "(I)V", (void*) Pause },
+    { "nativeResume", "(I)V", (void*) Resume },
+    { "nativeFreeMemory", "(I)V", (void*) FreeMemory },
+    { "nativeSetJsFlags", "(ILjava/lang/String;)V", (void*) SetJsFlags },
+    { "nativeRequestLabel", "(III)Ljava/lang/String;",
         (void*) RequestLabel },
-    { "nativeRevealSelection", "()V", (void*) RevealSelection },
-    { "nativeUpdateFrameCacheIfLoading", "()V",
+    { "nativeRevealSelection", "(I)V", (void*) RevealSelection },
+    { "nativeUpdateFrameCacheIfLoading", "(I)V",
         (void*) UpdateFrameCacheIfLoading },
-    { "nativeProvideVisitedHistory", "([Ljava/lang/String;)V",
+    { "nativeProvideVisitedHistory", "(I[Ljava/lang/String;)V",
         (void*) ProvideVisitedHistory },
-    { "nativeFullScreenPluginHidden", "(I)V",
+    { "nativeFullScreenPluginHidden", "(II)V",
         (void*) FullScreenPluginHidden },
-    { "nativePluginSurfaceReady", "()V",
+    { "nativePluginSurfaceReady", "(I)V",
         (void*) PluginSurfaceReady },
-    { "nativeValidNodeAndBounds", "(IILandroid/graphics/Rect;)Z",
+    { "nativeValidNodeAndBounds", "(IIILandroid/graphics/Rect;)Z",
         (void*) ValidNodeAndBounds },
-    { "nativeGetTouchHighlightRects", "(III)Ljava/util/ArrayList;",
+    { "nativeGetTouchHighlightRects", "(IIII)Ljava/util/ArrayList;",
         (void*) GetTouchHighlightRects },
-    { "nativeAutoFillForm", "(I)V",
+    { "nativeAutoFillForm", "(II)V",
         (void*) AutoFillForm },
-    { "nativeScrollLayer", "(ILandroid/graphics/Rect;)V",
+    { "nativeScrollLayer", "(IILandroid/graphics/Rect;)V",
         (void*) ScrollRenderLayer },
-    { "nativeCloseIdleConnections", "()V",
+    { "nativeCloseIdleConnections", "(I)V",
         (void*) CloseIdleConnections },
 };
 
