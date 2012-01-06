@@ -214,6 +214,7 @@ bool VideoLayerAndroid::drawGL()
     if (m_playerState == PREPARING) {
         // Show the progressing animation, with two rotating circles
         showPreparingAnimation(rect, innerRect);
+        needRedraw = true;
     } else if (m_playerState == PLAYING && m_surfaceTexture.get()) {
         // Show the real video.
         m_surfaceTexture->updateTexImage();
