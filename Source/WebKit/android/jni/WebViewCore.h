@@ -358,6 +358,14 @@ namespace android {
         void deleteSelection(int start, int end, int textGeneration);
 
         /**
+         * Delete text near the cursor (assumed to be at selection end).
+         * leftLength and rightLength refer to the number of characters
+         * left and right of the cursor to delete. The cursor will be
+         * set to the beginning of the deleted text.
+         */
+        void deleteSurroundingText(int leftLength, int rightLength);
+
+        /**
          *  Set the selection of the currently focused textfield to (start, end).
          *  If start and end are out of order, swap them.
          */
