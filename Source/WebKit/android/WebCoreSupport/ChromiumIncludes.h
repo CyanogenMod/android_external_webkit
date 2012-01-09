@@ -23,26 +23,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+// All source files wishing to include Chromium headers must include this file
+// and must not incude Chromium headers directly.
+
 #ifndef ChromiumIncludes_h
 #define ChromiumIncludes_h
 
 #include "config.h"
 
-// Include all external/chromium files in this file so the problems with the LOG
-// and LOG_ASSERT defines can be handled in one place.
-
-// Undefine LOG and LOG_ASSERT before including chrome code, and if they were
-// defined attempt to set the macros to the Android logging macros (which are
-// the only ones that actually log).
+// Undefine LOG before including chrome code, and if it was defined attempt to
+// set the macro to the Android logging macro (which is the only one that
+// actually logs).
 
 #ifdef LOG
 #define LOG_WAS_DEFINED LOG
 #undef LOG
-#endif
-
-#ifdef LOG_ASSERT
-#define LOG_ASSERT_WAS_DEFINED LOG_ASSERT
-#undef LOG_ASSERT
 #endif
 
 // Chromium won't build without NDEBUG set, so we set it for all source files
@@ -113,11 +108,6 @@
 #undef LOG
 #if defined(LOG_WAS_DEFINED) && defined(LOG_PRI)
 #define LOG(priority, tag, ...) LOG_PRI(ANDROID_##priority, tag, __VA_ARGS__)
-#endif
-
-#undef LOG_ASSERT
-#if defined(LOG_ASSERT_WAS_DEFINED) && defined(LOG_FATAL_IF)
-#define LOG_ASSERT(cond, ...) LOG_FATAL_IF(!(cond), ## __VA_ARGS__)
 #endif
 
 #endif

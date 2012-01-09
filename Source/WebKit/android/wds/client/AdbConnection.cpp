@@ -115,7 +115,7 @@ static void printFailureMessage(int fd) {
     // Grab the payload length
     char lenStr[PAYLOAD_LENGTH + 1];
     int payloadLen = recv(fd, lenStr, sizeof(lenStr) - 1, 0);
-    LOG_ASSERT(payloadLen == PAYLOAD_LENGTH, "Incorrect payload size");
+    ALOG_ASSERT(payloadLen == PAYLOAD_LENGTH, "Incorrect payload size");
     lenStr[PAYLOAD_LENGTH] = 0;
 
     // Parse the hex payload
@@ -145,7 +145,7 @@ static void printFailureMessage(int fd) {
 #define ADB_RESPONSE_LENGTH 4
 
 bool AdbConnection::checkOkayResponse() const {
-    LOG_ASSERT(m_fd != -1, "Connection has been closed!");
+    ALOG_ASSERT(m_fd != -1, "Connection has been closed!");
 
     char buf[ADB_RESPONSE_LENGTH];
     int res = recv(m_fd, buf, sizeof(buf), 0);

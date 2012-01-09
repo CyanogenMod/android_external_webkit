@@ -161,7 +161,7 @@ int registerDeviceMotionAndOrientationManager(JNIEnv* env)
 {
 #ifndef NDEBUG
     jclass deviceMotionAndOrientationManager = env->FindClass(javaDeviceMotionAndOrientationManagerClass);
-    LOG_ASSERT(deviceMotionAndOrientationManager, "Unable to find class");
+    ALOG_ASSERT(deviceMotionAndOrientationManager, "Unable to find class");
     env->DeleteLocalRef(deviceMotionAndOrientationManager);
 #endif
 

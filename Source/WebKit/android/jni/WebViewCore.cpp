@@ -184,7 +184,7 @@ void WebViewCore::addInstance(WebViewCore* inst) {
 
 void WebViewCore::removeInstance(WebViewCore* inst) {
     int index = gInstanceList.find(inst);
-    LOG_ASSERT(index >= 0, "RemoveInstance inst not found");
+    ALOG_ASSERT(index >= 0, "RemoveInstance inst not found");
     if (index >= 0) {
         gInstanceList.removeShuffle(index);
     }
@@ -325,7 +325,7 @@ struct WebViewCore::JavaGlue {
 static jmethodID GetJMethod(JNIEnv* env, jclass clazz, const char name[], const char signature[])
 {
     jmethodID m = env->GetMethodID(clazz, name, signature);
-    LOG_ASSERT(m, "Could not find method %s", name);
+    ALOG_ASSERT(m, "Could not find method %s", name);
     return m;
 }
 
@@ -388,7 +388,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_webRequestContext(0)
 #endif
 {
-    LOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
+    ALOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
     jclass clazz = env->GetObjectClass(javaWebViewCore);
     m_javaGlue->m_obj = env->NewWeakGlobalRef(javaWebViewCore);
@@ -759,7 +759,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     DBG_NAV_LOG("call updateFrameCache");
     updateFrameCache();
     if (m_findIsUp) {
-        LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+        ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         AutoJObject javaObject = m_javaGlue->object(env);
         if (javaObject.get()) {
@@ -777,9 +777,9 @@ void WebViewCore::recordPictureSet(PictureSet* content)
 void WebViewCore::updateCursorBounds(const CachedRoot* root,
         const CachedFrame* cachedFrame, const CachedNode* cachedNode)
 {
-    LOG_ASSERT(root, "updateCursorBounds: root cannot be null");
-    LOG_ASSERT(cachedNode, "updateCursorBounds: cachedNode cannot be null");
-    LOG_ASSERT(cachedFrame, "updateCursorBounds: cachedFrame cannot be null");
+    ALOG_ASSERT(root, "updateCursorBounds: root cannot be null");
+    ALOG_ASSERT(cachedNode, "updateCursorBounds: cachedNode cannot be null");
+    ALOG_ASSERT(cachedFrame, "updateCursorBounds: cachedFrame cannot be null");
     gCursorBoundsMutex.lock();
     m_hasCursorBounds = !cachedNode->isHidden();
     // If m_hasCursorBounds is false, we never look at the other
@@ -904,7 +904,7 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
     bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
     m_skipContentDraw = false;
     // Layout only fails if called during a layout.
-    LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
+    ALOG_ASSERT(layoutSucceeded, "Can never be called recursively");
 
 #if USE(ACCELERATED_COMPOSITING)
     // We set the background color
@@ -970,7 +970,7 @@ void WebViewCore::splitContent(PictureSet* content)
 #ifdef FAST_PICTURESET
 #else
     bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
-    LOG_ASSERT(layoutSucceeded, "Can never be called recursively");
+    ALOG_ASSERT(layoutSucceeded, "Can never be called recursively");
     content->split(&m_content);
     rebuildPictureSet(&m_content);
     content->set(m_content);
@@ -979,7 +979,7 @@ void WebViewCore::splitContent(PictureSet* content)
 
 void WebViewCore::scrollTo(int x, int y, bool animate)
 {
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
 //    ALOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
 
@@ -994,7 +994,7 @@ void WebViewCore::scrollTo(int x, int y, bool animate)
 
 void WebViewCore::sendNotifyProgressFinished()
 {
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
@@ -1005,7 +1005,7 @@ void WebViewCore::sendNotifyProgressFinished()
 
 void WebViewCore::viewInvalidate(const WebCore::IntRect& rect)
 {
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
@@ -1077,7 +1077,7 @@ static int pin_pos(int x, int width, int targetWidth)
 void WebViewCore::didFirstLayout()
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
@@ -1111,7 +1111,7 @@ void WebViewCore::didFirstLayout()
 void WebViewCore::updateViewport()
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
@@ -1124,7 +1124,7 @@ void WebViewCore::updateViewport()
 void WebViewCore::restoreScale(float scale, float textWrapScale)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
@@ -1137,7 +1137,7 @@ void WebViewCore::restoreScale(float scale, float textWrapScale)
 void WebViewCore::needTouchEvents(bool need)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
 #if ENABLE(TOUCH_EVENTS)
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1159,7 +1159,7 @@ void WebViewCore::requestKeyboardWithSelection(const WebCore::Node* node,
         int selStart, int selEnd)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
@@ -1174,7 +1174,7 @@ void WebViewCore::requestKeyboardWithSelection(const WebCore::Node* node,
 void WebViewCore::requestKeyboard(bool showKeyboard)
 {
     DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    LOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
@@ -1209,7 +1209,7 @@ void WebViewCore::doMaxScroll(CacheBuilder::Direction dir)
         break;
     case CacheBuilder::UNINITIALIZED:
     default:
-        LOG_ASSERT(0, "unexpected focus selector");
+        ALOG_ASSERT(0, "unexpected focus selector");
     }
     WebCore::FrameView* view = m_mainFrame->view();
     this->scrollTo(view->scrollX() + dx, view->scrollY() + dy, true);
@@ -3017,9 +3017,9 @@ void WebViewCore::saveDocumentState(WebCore::Frame* frame)
 static jobjectArray makeLabelArray(JNIEnv* env, const uint16_t** labels, size_t count)
 {
     jclass stringClass = env->FindClass("java/lang/String");
-    LOG_ASSERT(stringClass, "Could not find java/lang/String");
+    ALOG_ASSERT(stringClass, "Could not find java/lang/String");
     jobjectArray array = env->NewObjectArray(count, stringClass, 0);
-    LOG_ASSERT(array, "Could not create new string array");
+    ALOG_ASSERT(array, "Could not create new string array");
 
     for (size_t i = 0; i < count; i++) {
         jobject newString = env->NewString(&labels[i][1], labels[i][0]);
@@ -3058,7 +3058,7 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser)
 void WebViewCore::listBoxRequest(WebCoreReply* reply, const uint16_t** labels, size_t count, const int enabled[], size_t enabledCount,
         bool multiple, const int selected[], size_t selectedCountOrSelection)
 {
-    LOG_ASSERT(m_javaGlue->m_obj, "No java widget associated with this view!");
+    ALOG_ASSERT(m_javaGlue->m_obj, "No java widget associated with this view!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
@@ -3293,7 +3293,7 @@ void WebViewCore::touchUp(int touchGeneration,
 // set to hidden, do not show the soft keyboard.  Node passed as a parameter
 // must not be null.
 static bool shouldSuppressKeyboard(const WebCore::Node* node) {
-    LOG_ASSERT(node, "node passed to shouldSuppressKeyboard cannot be null");
+    ALOG_ASSERT(node, "node passed to shouldSuppressKeyboard cannot be null");
     const NamedNodeMap* attributes = node->attributes();
     if (!attributes) return false;
     size_t length = attributes->length();
@@ -3995,7 +3995,7 @@ static void SetSize(JNIEnv* env, jobject obj, jint nativeClass, jint width,
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     ALOGV("webviewcore::nativeSetSize(%u %u)\n viewImpl: %p", (unsigned)width, (unsigned)height, viewImpl);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
+    ALOG_ASSERT(viewImpl, "viewImpl not set in nativeSetSize");
     viewImpl->setSizeScreenWidthAndScale(width, height, textWrapWidth, scale,
             screenWidth, screenHeight, anchorX, anchorY, ignoreHeight);
 }
@@ -4004,7 +4004,7 @@ static void SetScrollOffset(JNIEnv* env, jobject obj, jint nativeClass,
         jint gen, jboolean sendScrollEvent, jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "need viewImpl");
+    ALOG_ASSERT(viewImpl, "need viewImpl");
 
     viewImpl->setScrollOffset(gen, sendScrollEvent, x, y);
 }
@@ -4013,7 +4013,7 @@ static void SetGlobalBounds(JNIEnv* env, jobject obj, jint nativeClass,
         jint x, jint y, jint h, jint v)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "need viewImpl");
+    ALOG_ASSERT(viewImpl, "need viewImpl");
 
     viewImpl->setGlobalBounds(x, y, h, v);
 }
@@ -4031,7 +4031,7 @@ static void Click(JNIEnv* env, jobject obj, jint nativeClass, int framePtr,
         int nodePtr, jboolean fake)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in Click");
+    ALOG_ASSERT(viewImpl, "viewImpl not set in Click");
 
     viewImpl->click(reinterpret_cast<WebCore::Frame*>(framePtr),
         reinterpret_cast<WebCore::Node*>(nodePtr), fake);
@@ -4102,7 +4102,7 @@ static void SetFocusControllerActive(JNIEnv* env, jobject obj, jint nativeClass,
 {
     ALOGV("webviewcore::nativeSetFocusControllerActive()\n");
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
+    ALOG_ASSERT(viewImpl, "viewImpl not set in nativeSetFocusControllerActive");
     viewImpl->setFocusControllerActive(active);
 }
 
@@ -4111,7 +4111,7 @@ static void SaveDocumentState(JNIEnv* env, jobject obj, jint nativeClass,
 {
     ALOGV("webviewcore::nativeSaveDocumentState()\n");
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
+    ALOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
     viewImpl->saveDocumentState((WebCore::Frame*) frame);
 }
 
@@ -4162,7 +4162,7 @@ static void SendListBoxChoice(JNIEnv* env, jobject obj, jint nativeClass,
         jint choice)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoice");
+    ALOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoice");
     viewImpl->popupReply(choice);
 }
 
@@ -4176,7 +4176,7 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jint nativeClass,
         jbooleanArray jArray, jint size)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoices");
+    ALOG_ASSERT(viewImpl, "viewImpl not set in nativeSendListBoxChoices");
     jboolean* ptrArray = env->GetBooleanArrayElements(jArray, 0);
     SkAutoSTMalloc<PREPARED_LISTBOX_STORAGE, int> storage(size);
     int* array = storage.get();
@@ -4214,7 +4214,7 @@ static jboolean HandleTouchEvent(JNIEnv* env, jobject obj, jint nativeClass,
         jint count, jint actionIndex, jint metaState)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     jint* ptrIdArray = env->GetIntArrayElements(idArray, 0);
     jint* ptrXArray = env->GetIntArrayElements(xArray, 0);
     jint* ptrYArray = env->GetIntArrayElements(yArray, 0);
@@ -4236,7 +4236,7 @@ static void TouchUp(JNIEnv* env, jobject obj, jint nativeClass,
         jint touchGeneration, jint frame, jint node, jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->touchUp(touchGeneration,
         (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
@@ -4245,7 +4245,7 @@ static jstring RetrieveHref(JNIEnv* env, jobject obj, jint nativeClass,
         jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveHref(x, y);
     if (!result.isEmpty())
         return wtfStringToJstring(env, result);
@@ -4256,7 +4256,7 @@ static jstring RetrieveAnchorText(JNIEnv* env, jobject obj, jint nativeClass,
         jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     WTF::String result = viewImpl->retrieveAnchorText(x, y);
     if (!result.isEmpty())
         return wtfStringToJstring(env, result);
@@ -4280,7 +4280,7 @@ static void MoveFocus(JNIEnv* env, jobject obj, jint nativeClass, jint framePtr,
         jint nodePtr)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveFocus((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr);
 }
 
@@ -4288,7 +4288,7 @@ static void MoveMouse(JNIEnv* env, jobject obj, jint nativeClass, jint frame,
         jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveMouse((WebCore::Frame*) frame, x, y);
 }
 
@@ -4296,7 +4296,7 @@ static void MoveMouseIfLatest(JNIEnv* env, jobject obj, jint nativeClass,
         jint moveGeneration, jint frame, jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->moveMouseIfLatest(moveGeneration,
         (WebCore::Frame*) frame, x, y);
 }
@@ -4304,14 +4304,14 @@ static void MoveMouseIfLatest(JNIEnv* env, jobject obj, jint nativeClass,
 static void UpdateFrameCache(JNIEnv* env, jobject obj, jint nativeClass)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
     viewImpl->updateFrameCache();
 }
 
 static jint GetContentMinPrefWidth(JNIEnv* env, jobject obj, jint nativeClass)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     WebCore::Frame* frame = viewImpl->mainFrame();
     if (frame) {
@@ -4330,7 +4330,7 @@ static void SetViewportSettingsFromNative(JNIEnv* env, jobject obj,
         jint nativeClass)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     WebCore::Settings* s = viewImpl->mainFrame()->page()->settings();
     if (!s)
@@ -4351,7 +4351,7 @@ static void SetBackgroundColor(JNIEnv* env, jobject obj, jint nativeClass,
         jint color)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->setBackgroundColor((SkColor) color);
 }
@@ -4360,7 +4360,7 @@ static void DumpDomTree(JNIEnv* env, jobject obj, jint nativeClass,
         jboolean useFile)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpDomTree(useFile);
 }
@@ -4369,7 +4369,7 @@ static void DumpRenderTree(JNIEnv* env, jobject obj, jint nativeClass,
         jboolean useFile)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpRenderTree(useFile);
 }
@@ -4377,7 +4377,7 @@ static void DumpRenderTree(JNIEnv* env, jobject obj, jint nativeClass,
 static void DumpNavTree(JNIEnv* env, jobject obj, jint nativeClass)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpNavTree();
 }
@@ -4501,7 +4501,7 @@ static void ProvideVisitedHistory(JNIEnv* env, jobject obj, jint nativeClass,
         jobject hist)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    LOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
+    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     jobjectArray array = static_cast<jobjectArray>(hist);
 
@@ -4561,17 +4561,17 @@ static jobject GetTouchHighlightRects(JNIEnv* env, jobject obj, jint nativeClass
         return 0;
 
     jclass arrayClass = env->FindClass("java/util/ArrayList");
-    LOG_ASSERT(arrayClass, "Could not find java/util/ArrayList");
+    ALOG_ASSERT(arrayClass, "Could not find java/util/ArrayList");
     jmethodID init = env->GetMethodID(arrayClass, "<init>", "(I)V");
-    LOG_ASSERT(init, "Could not find constructor for ArrayList");
+    ALOG_ASSERT(init, "Could not find constructor for ArrayList");
     jobject array = env->NewObject(arrayClass, init, rects.size());
-    LOG_ASSERT(array, "Could not create a new ArrayList");
+    ALOG_ASSERT(array, "Could not create a new ArrayList");
     jmethodID add = env->GetMethodID(arrayClass, "add", "(Ljava/lang/Object;)Z");
-    LOG_ASSERT(add, "Could not find add method on ArrayList");
+    ALOG_ASSERT(add, "Could not find add method on ArrayList");
     jclass rectClass = env->FindClass("android/graphics/Rect");
-    LOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
+    ALOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
     jmethodID rectinit = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    LOG_ASSERT(rectinit, "Could not find init method on Rect");
+    ALOG_ASSERT(rectinit, "Could not find init method on Rect");
 
     for (size_t i = 0; i < rects.size(); i++) {
         jobject rect = env->NewObject(rectClass, rectinit, rects[i].x(),
@@ -4743,47 +4743,47 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
 int registerWebViewCore(JNIEnv* env)
 {
     jclass widget = env->FindClass("android/webkit/WebViewCore");
-    LOG_ASSERT(widget,
+    ALOG_ASSERT(widget,
             "Unable to find class android/webkit/WebViewCore");
     gWebViewCoreFields.m_nativeClass = env->GetFieldID(widget, "mNativeClass",
             "I");
-    LOG_ASSERT(gWebViewCoreFields.m_nativeClass,
+    ALOG_ASSERT(gWebViewCoreFields.m_nativeClass,
             "Unable to find android/webkit/WebViewCore.mNativeClass");
     gWebViewCoreFields.m_viewportWidth = env->GetFieldID(widget,
             "mViewportWidth", "I");
-    LOG_ASSERT(gWebViewCoreFields.m_viewportWidth,
+    ALOG_ASSERT(gWebViewCoreFields.m_viewportWidth,
             "Unable to find android/webkit/WebViewCore.mViewportWidth");
     gWebViewCoreFields.m_viewportHeight = env->GetFieldID(widget,
             "mViewportHeight", "I");
-    LOG_ASSERT(gWebViewCoreFields.m_viewportHeight,
+    ALOG_ASSERT(gWebViewCoreFields.m_viewportHeight,
             "Unable to find android/webkit/WebViewCore.mViewportHeight");
     gWebViewCoreFields.m_viewportInitialScale = env->GetFieldID(widget,
             "mViewportInitialScale", "I");
-    LOG_ASSERT(gWebViewCoreFields.m_viewportInitialScale,
+    ALOG_ASSERT(gWebViewCoreFields.m_viewportInitialScale,
             "Unable to find android/webkit/WebViewCore.mViewportInitialScale");
     gWebViewCoreFields.m_viewportMinimumScale = env->GetFieldID(widget,
             "mViewportMinimumScale", "I");
-    LOG_ASSERT(gWebViewCoreFields.m_viewportMinimumScale,
+    ALOG_ASSERT(gWebViewCoreFields.m_viewportMinimumScale,
             "Unable to find android/webkit/WebViewCore.mViewportMinimumScale");
     gWebViewCoreFields.m_viewportMaximumScale = env->GetFieldID(widget,
             "mViewportMaximumScale", "I");
-    LOG_ASSERT(gWebViewCoreFields.m_viewportMaximumScale,
+    ALOG_ASSERT(gWebViewCoreFields.m_viewportMaximumScale,
             "Unable to find android/webkit/WebViewCore.mViewportMaximumScale");
     gWebViewCoreFields.m_viewportUserScalable = env->GetFieldID(widget,
             "mViewportUserScalable", "Z");
-    LOG_ASSERT(gWebViewCoreFields.m_viewportUserScalable,
+    ALOG_ASSERT(gWebViewCoreFields.m_viewportUserScalable,
             "Unable to find android/webkit/WebViewCore.mViewportUserScalable");
     gWebViewCoreFields.m_viewportDensityDpi = env->GetFieldID(widget,
             "mViewportDensityDpi", "I");
-    LOG_ASSERT(gWebViewCoreFields.m_viewportDensityDpi,
+    ALOG_ASSERT(gWebViewCoreFields.m_viewportDensityDpi,
             "Unable to find android/webkit/WebViewCore.mViewportDensityDpi");
     gWebViewCoreFields.m_webView = env->GetFieldID(widget,
             "mWebView", "Landroid/webkit/WebView;");
-    LOG_ASSERT(gWebViewCoreFields.m_webView,
+    ALOG_ASSERT(gWebViewCoreFields.m_webView,
             "Unable to find android/webkit/WebViewCore.mWebView");
     gWebViewCoreFields.m_drawIsPaused = env->GetFieldID(widget,
             "mDrawIsPaused", "Z");
-    LOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,
+    ALOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,
             "Unable to find android/webkit/WebViewCore.mDrawIsPaused");
     gWebViewCoreFields.m_lowMemoryUsageMb = env->GetFieldID(widget, "mLowMemoryUsageThresholdMb", "I");
     gWebViewCoreFields.m_highMemoryUsageMb = env->GetFieldID(widget, "mHighMemoryUsageThresholdMb", "I");

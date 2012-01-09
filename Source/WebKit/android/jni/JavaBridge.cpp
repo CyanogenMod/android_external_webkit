@@ -145,15 +145,15 @@ JavaBridge::JavaBridge(JNIEnv* env, jobject obj)
     mResolveFilePathForContentUri = env->GetMethodID(clazz, "resolveFilePathForContentUri", "(Ljava/lang/String;)Ljava/lang/String;");
     env->DeleteLocalRef(clazz);
 
-    LOG_ASSERT(mSetSharedTimer, "Could not find method setSharedTimer");
-    LOG_ASSERT(mStopSharedTimer, "Could not find method stopSharedTimer");
-    LOG_ASSERT(mSetCookies, "Could not find method setCookies");
-    LOG_ASSERT(mCookies, "Could not find method cookies");
-    LOG_ASSERT(mCookiesEnabled, "Could not find method cookiesEnabled");
-    LOG_ASSERT(mGetPluginDirectories, "Could not find method getPluginDirectories");
-    LOG_ASSERT(mGetPluginSharedDataDirectory, "Could not find method getPluginSharedDataDirectory");
-    LOG_ASSERT(mGetKeyStrengthList, "Could not find method getKeyStrengthList");
-    LOG_ASSERT(mGetSignedPublicKey, "Could not find method getSignedPublicKey");
+    ALOG_ASSERT(mSetSharedTimer, "Could not find method setSharedTimer");
+    ALOG_ASSERT(mStopSharedTimer, "Could not find method stopSharedTimer");
+    ALOG_ASSERT(mSetCookies, "Could not find method setCookies");
+    ALOG_ASSERT(mCookies, "Could not find method cookies");
+    ALOG_ASSERT(mCookiesEnabled, "Could not find method cookiesEnabled");
+    ALOG_ASSERT(mGetPluginDirectories, "Could not find method getPluginDirectories");
+    ALOG_ASSERT(mGetPluginSharedDataDirectory, "Could not find method getPluginSharedDataDirectory");
+    ALOG_ASSERT(mGetKeyStrengthList, "Could not find method getKeyStrengthList");
+    ALOG_ASSERT(mGetSignedPublicKey, "Could not find method getSignedPublicKey");
 
     JavaSharedClient::SetTimerClient(this);
     JavaSharedClient::SetCookieClient(this);
@@ -280,7 +280,7 @@ JavaBridge::getPluginSharedDataDirectory()
 void
 JavaBridge::setSharedTimerCallback(void (*f)())
 {
-    LOG_ASSERT(!sSharedTimerFiredCallback || sSharedTimerFiredCallback==f,
+    ALOG_ASSERT(!sSharedTimerFiredCallback || sSharedTimerFiredCallback==f,
                "Shared timer callback may already be set or null!");
 
     sSharedTimerFiredCallback = f;
@@ -360,7 +360,7 @@ void JavaBridge::Finalize(JNIEnv* env, jobject obj)
 {
     JavaBridge* javaBridge = (JavaBridge*)
         (env->GetIntField(obj, gJavaBridge_ObjectID));    
-    LOG_ASSERT(javaBridge, "Finalize should not be called twice for the same java bridge!");
+    ALOG_ASSERT(javaBridge, "Finalize should not be called twice for the same java bridge!");
     ALOGV("webcore_javabridge::nativeFinalize(%p)\n", javaBridge);
     delete javaBridge;
     env->SetIntField(obj, gJavaBridge_ObjectID, 0);

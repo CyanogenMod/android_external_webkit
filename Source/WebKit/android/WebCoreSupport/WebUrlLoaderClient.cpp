@@ -157,11 +157,11 @@ WebUrlLoaderClient::WebUrlLoaderClient(WebFrame* webFrame, WebCore::ResourceHand
                 break;
 #if ENABLE(BLOB)
             case FormDataElement::encodedBlob:
-                LOG_ASSERT(false, "Unexpected use of FormDataElement::encodedBlob");
+                ALOG_ASSERT(false, "Unexpected use of FormDataElement::encodedBlob");
                 break;
 #endif // ENABLE(BLOB)
             default:
-                LOG_ASSERT(false, "Unexpected default case in WebUrlLoaderClient.cpp");
+                ALOG_ASSERT(false, "Unexpected default case in WebUrlLoaderClient.cpp");
                 break;
             }
         }

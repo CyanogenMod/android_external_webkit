@@ -168,7 +168,7 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
         return;
     iconDb.setEnabled(true);
     iconDb.setClient(gIconDatabaseClient);
-    LOG_ASSERT(path, "No path given to nativeOpen");
+    ALOG_ASSERT(path, "No path given to nativeOpen");
     WTF::String pathStr = jstringToWtfString(env, path);
     WTF::CString fullPath = WebCore::pathByAppendingComponent(pathStr,
             WebCore::IconDatabase::defaultDatabaseFilename()).utf8();
@@ -206,7 +206,7 @@ static void RemoveAllIcons(JNIEnv* env, jobject obj)
 
 static jobject IconForPageUrl(JNIEnv* env, jobject obj, jstring url)
 {
-    LOG_ASSERT(url, "No url given to iconForPageUrl");
+    ALOG_ASSERT(url, "No url given to iconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
     // FIXME: This method should not be used from outside WebCore and will be removed.
@@ -218,7 +218,7 @@ static jobject IconForPageUrl(JNIEnv* env, jobject obj, jstring url)
 
 static void RetainIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
 {
-    LOG_ASSERT(url, "No url given to retainIconForPageUrl");
+    ALOG_ASSERT(url, "No url given to retainIconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
     ALOGV("Retaining icon for '%s'", urlStr.latin1().data());
@@ -227,7 +227,7 @@ static void RetainIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
 
 static void ReleaseIconForPageUrl(JNIEnv* env, jobject obj, jstring url)
 {
-    LOG_ASSERT(url, "No url given to releaseIconForPageUrl");
+    ALOG_ASSERT(url, "No url given to releaseIconForPageUrl");
     WTF::String urlStr = jstringToWtfString(env, url);
 
     ALOGV("Releasing icon for '%s'", urlStr.latin1().data());
@@ -256,7 +256,7 @@ int registerWebIconDatabase(JNIEnv* env)
 {
 #ifndef NDEBUG
     jclass webIconDatabase = env->FindClass("android/webkit/WebIconDatabase");
-    LOG_ASSERT(webIconDatabase, "Unable to find class android.webkit.WebIconDatabase");
+    ALOG_ASSERT(webIconDatabase, "Unable to find class android.webkit.WebIconDatabase");
     env->DeleteLocalRef(webIconDatabase);
 #endif
 

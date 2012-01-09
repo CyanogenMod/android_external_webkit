@@ -150,49 +150,49 @@ struct FieldIds {
         mOverrideCacheMode = env->GetFieldID(clazz, "mOverrideCacheMode", "I");
 #endif
 
-        LOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
-        LOG_ASSERT(mTextSize, "Could not find field mTextSize");
-        LOG_ASSERT(mStandardFontFamily, "Could not find field mStandardFontFamily");
-        LOG_ASSERT(mFixedFontFamily, "Could not find field mFixedFontFamily");
-        LOG_ASSERT(mSansSerifFontFamily, "Could not find field mSansSerifFontFamily");
-        LOG_ASSERT(mSerifFontFamily, "Could not find field mSerifFontFamily");
-        LOG_ASSERT(mCursiveFontFamily, "Could not find field mCursiveFontFamily");
-        LOG_ASSERT(mFantasyFontFamily, "Could not find field mFantasyFontFamily");
-        LOG_ASSERT(mDefaultTextEncoding, "Could not find field mDefaultTextEncoding");
-        LOG_ASSERT(mUserAgent, "Could not find field mUserAgent");
-        LOG_ASSERT(mAcceptLanguage, "Could not find field mAcceptLanguage");
-        LOG_ASSERT(mMinimumFontSize, "Could not find field mMinimumFontSize");
-        LOG_ASSERT(mMinimumLogicalFontSize, "Could not find field mMinimumLogicalFontSize");
-        LOG_ASSERT(mDefaultFontSize, "Could not find field mDefaultFontSize");
-        LOG_ASSERT(mDefaultFixedFontSize, "Could not find field mDefaultFixedFontSize");
-        LOG_ASSERT(mLoadsImagesAutomatically, "Could not find field mLoadsImagesAutomatically");
+        ALOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
+        ALOG_ASSERT(mTextSize, "Could not find field mTextSize");
+        ALOG_ASSERT(mStandardFontFamily, "Could not find field mStandardFontFamily");
+        ALOG_ASSERT(mFixedFontFamily, "Could not find field mFixedFontFamily");
+        ALOG_ASSERT(mSansSerifFontFamily, "Could not find field mSansSerifFontFamily");
+        ALOG_ASSERT(mSerifFontFamily, "Could not find field mSerifFontFamily");
+        ALOG_ASSERT(mCursiveFontFamily, "Could not find field mCursiveFontFamily");
+        ALOG_ASSERT(mFantasyFontFamily, "Could not find field mFantasyFontFamily");
+        ALOG_ASSERT(mDefaultTextEncoding, "Could not find field mDefaultTextEncoding");
+        ALOG_ASSERT(mUserAgent, "Could not find field mUserAgent");
+        ALOG_ASSERT(mAcceptLanguage, "Could not find field mAcceptLanguage");
+        ALOG_ASSERT(mMinimumFontSize, "Could not find field mMinimumFontSize");
+        ALOG_ASSERT(mMinimumLogicalFontSize, "Could not find field mMinimumLogicalFontSize");
+        ALOG_ASSERT(mDefaultFontSize, "Could not find field mDefaultFontSize");
+        ALOG_ASSERT(mDefaultFixedFontSize, "Could not find field mDefaultFixedFontSize");
+        ALOG_ASSERT(mLoadsImagesAutomatically, "Could not find field mLoadsImagesAutomatically");
 #ifdef ANDROID_BLOCK_NETWORK_IMAGE
-        LOG_ASSERT(mBlockNetworkImage, "Could not find field mBlockNetworkImage");
+        ALOG_ASSERT(mBlockNetworkImage, "Could not find field mBlockNetworkImage");
 #endif
-        LOG_ASSERT(mBlockNetworkLoads, "Could not find field mBlockNetworkLoads");
-        LOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
-        LOG_ASSERT(mPluginState, "Could not find field mPluginState");
+        ALOG_ASSERT(mBlockNetworkLoads, "Could not find field mBlockNetworkLoads");
+        ALOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
+        ALOG_ASSERT(mPluginState, "Could not find field mPluginState");
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
-        LOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
-        LOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
-        LOG_ASSERT(mAppCacheMaxSize, "Could not find field mAppCacheMaxSize");
+        ALOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
+        ALOG_ASSERT(mAppCachePath, "Could not find field mAppCachePath");
+        ALOG_ASSERT(mAppCacheMaxSize, "Could not find field mAppCacheMaxSize");
 #endif
 #if ENABLE(WORKERS)
-        LOG_ASSERT(mWorkersEnabled, "Could not find field mWorkersEnabled");
+        ALOG_ASSERT(mWorkersEnabled, "Could not find field mWorkersEnabled");
 #endif
-        LOG_ASSERT(mJavaScriptCanOpenWindowsAutomatically,
+        ALOG_ASSERT(mJavaScriptCanOpenWindowsAutomatically,
                 "Could not find field mJavaScriptCanOpenWindowsAutomatically");
-        LOG_ASSERT(mUseWideViewport, "Could not find field mUseWideViewport");
-        LOG_ASSERT(mSupportMultipleWindows, "Could not find field mSupportMultipleWindows");
-        LOG_ASSERT(mShrinksStandaloneImagesToFit, "Could not find field mShrinksStandaloneImagesToFit");
-        LOG_ASSERT(mMaximumDecodedImageSize, "Could not find field mMaximumDecodedImageSize");
-        LOG_ASSERT(mUseDoubleTree, "Could not find field mUseDoubleTree");
-        LOG_ASSERT(mPageCacheCapacity, "Could not find field mPageCacheCapacity");
+        ALOG_ASSERT(mUseWideViewport, "Could not find field mUseWideViewport");
+        ALOG_ASSERT(mSupportMultipleWindows, "Could not find field mSupportMultipleWindows");
+        ALOG_ASSERT(mShrinksStandaloneImagesToFit, "Could not find field mShrinksStandaloneImagesToFit");
+        ALOG_ASSERT(mMaximumDecodedImageSize, "Could not find field mMaximumDecodedImageSize");
+        ALOG_ASSERT(mUseDoubleTree, "Could not find field mUseDoubleTree");
+        ALOG_ASSERT(mPageCacheCapacity, "Could not find field mPageCacheCapacity");
 
         jclass enumClass = env->FindClass("java/lang/Enum");
-        LOG_ASSERT(enumClass, "Could not find Enum class!");
+        ALOG_ASSERT(enumClass, "Could not find Enum class!");
         mOrdinal = env->GetMethodID(enumClass, "ordinal", "()I");
-        LOG_ASSERT(mOrdinal, "Could not find method ordinal");
+        ALOG_ASSERT(mOrdinal, "Could not find method ordinal");
         env->DeleteLocalRef(enumClass);
     }
 
@@ -315,7 +315,7 @@ public:
     static void Sync(JNIEnv* env, jobject obj, jint frame)
     {
         WebCore::Frame* pFrame = (WebCore::Frame*)frame;
-        LOG_ASSERT(pFrame, "%s must take a valid frame pointer!", __FUNCTION__);
+        ALOG_ASSERT(pFrame, "%s must take a valid frame pointer!", __FUNCTION__);
         WebCore::Settings* s = pFrame->settings();
         if (!s)
             return;
@@ -331,7 +331,7 @@ public:
                 pFrame->document()->styleSelectorChanged(WebCore::RecalcStyleImmediately);
                 if (pFrame->document()->renderer()) {
                     recursiveCleanupForFullLayout(pFrame->document()->renderer());
-                    LOG_ASSERT(pFrame->view(), "No view for this frame when trying to relayout");
+                    ALOG_ASSERT(pFrame->view(), "No view for this frame when trying to relayout");
                     pFrame->view()->layout();
                     // FIXME: This call used to scroll the page to put the focus into view.
                     // It worked on the WebViewCore, but now scrolling is done outside of the
@@ -434,7 +434,7 @@ public:
             // Check for non-null string as an optimization, as this is the common case.
             if (str) {
                 String path = jstringToWtfString(env, str);
-                LOG_ASSERT(!path.empty(), "Java side should never send empty string for AppCache path");
+                ALOG_ASSERT(!path.empty(), "Java side should never send empty string for AppCache path");
                 // This database is created on the first load. If the file
                 // doesn't exist, we create it and set its permissions. The
                 // filename must match that in ApplicationCacheStorage.cpp.
@@ -603,7 +603,7 @@ static JNINativeMethod gWebSettingsMethods[] = {
 int registerWebSettings(JNIEnv* env)
 {
     jclass clazz = env->FindClass("android/webkit/WebSettings");
-    LOG_ASSERT(clazz, "Unable to find class WebSettings!");
+    ALOG_ASSERT(clazz, "Unable to find class WebSettings!");
     gFieldIds = new FieldIds(env, clazz);
     env->DeleteLocalRef(clazz);
     return jniRegisterNativeMethods(env, "android/webkit/WebSettings",
