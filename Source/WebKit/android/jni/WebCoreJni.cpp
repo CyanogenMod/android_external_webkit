@@ -50,7 +50,7 @@ bool checkException(JNIEnv* env)
 {
     if (env->ExceptionCheck() != 0)
     {
-        LOGE("*** Uncaught exception returned from Java call!\n");
+        ALOGE("*** Uncaught exception returned from Java call!\n");
         env->ExceptionDescribe();
         return true;
     }

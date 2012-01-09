@@ -141,7 +141,7 @@ EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
     jint result = -1;
 
     if (vm->GetEnv((void**) &env, JNI_VERSION_1_4) != JNI_OK) {
-        LOGE("GetEnv failed!");
+        ALOGE("GetEnv failed!");
         return result;
     }
     LOG_ASSERT(env, "Could not retrieve the env!");
@@ -150,7 +150,7 @@ EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)
     const RegistrationMethod* end = method + sizeof(gWebCoreRegMethods)/sizeof(RegistrationMethod);
     while (method != end) {
         if (method->func(env) < 0) {
-            LOGE("%s registration failed!", method->name);
+            ALOGE("%s registration failed!", method->name);
             return result;
         }
         method++;

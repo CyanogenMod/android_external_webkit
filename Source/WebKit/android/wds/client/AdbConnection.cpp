@@ -78,7 +78,7 @@ bool AdbConnection::connect() {
 
 bool AdbConnection::sendRequest(const char* fmt, ...) const {
     if (m_fd == -1) {
-        LOGE("Connection is closed");
+        ALOGE("Connection is closed");
         return false;
     }
 
@@ -130,13 +130,13 @@ static void printFailureMessage(int fd) {
         log_errno("Failure reading failure message from adb");
         return;
     } else if (res != payloadLen) {
-        LOGE("Incorrect payload length %d - expected %d", res, payloadLen);
+        ALOGE("Incorrect payload length %d - expected %d", res, payloadLen);
         return;
     }
     msg[res] = 0;
 
     // Tell somebody about it
-    LOGE("Received failure from adb: %s", msg);
+    ALOGE("Received failure from adb: %s", msg);
 
     // Cleanup
     delete[] msg;
@@ -163,7 +163,7 @@ bool AdbConnection::checkOkayResponse() const {
         printFailureMessage(m_fd);
         return false;
     }
-    LOGE("Incorrect response from adb - '%.*s'", res, buf);
+    ALOGE("Incorrect response from adb - '%.*s'", res, buf);
     return false;
 }
 
@@ -178,13 +178,13 @@ const DeviceList& AdbConnection::getDeviceList() {
     clearDevices();
 
     if (m_fd == -1) {
-        LOGE("Connection is closed");
+        ALOGE("Connection is closed");
         return m_devices;
     }
 
     // Try to send the device list request
     if (!sendRequest("host:devices")) {
-        LOGE("Failed to get device list from adb");
+        ALOGE("Failed to get device list from adb");
         return m_devices;
     }
 
@@ -210,7 +210,7 @@ const DeviceList& AdbConnection::getDeviceList() {
         log_errno("Failure reading the device list");
         return m_devices;
     } else if (res != payloadLen) {
-        LOGE("Incorrect payload length %d - expected %d", res, payloadLen);
+        ALOGE("Incorrect payload length %d - expected %d", res, payloadLen);
         return m_devices;
     }
     msg[res] = 0;

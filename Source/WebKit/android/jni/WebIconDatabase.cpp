@@ -188,9 +188,9 @@ static void Open(JNIEnv* env, jobject obj, jstring path)
         ALOGV("Opening WebIconDatabase file '%s'", pathStr.latin1().data());
         bool res = iconDb.open(pathStr, WebCore::IconDatabase::defaultDatabaseFilename());
         if (!res)
-            LOGE("Open failed!");
+            ALOGE("Open failed!");
     } else
-        LOGE("Failed to set permissions on '%s'", fullPath.data());
+        ALOGE("Failed to set permissions on '%s'", fullPath.data());
 }
 
 static void Close(JNIEnv* env, jobject obj)

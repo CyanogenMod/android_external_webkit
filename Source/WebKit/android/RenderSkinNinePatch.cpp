@@ -53,7 +53,7 @@ bool RenderSkinNinePatch::decodeAsset(AssetManager* am, const char* filename, Ni
     SkImageDecoder* decoder = SkImageDecoder::Factory(&stream);
     if (!decoder) {
         asset->close();
-        LOGE("RenderSkinNinePatch::Failed to create an image decoder");
+        ALOGE("RenderSkinNinePatch::Failed to create an image decoder");
         return false;
     }
 
@@ -68,13 +68,13 @@ bool RenderSkinNinePatch::decodeAsset(AssetManager* am, const char* filename, Ni
     decoder->setPeeker(&peeker);
     if (!decoder->decode(&stream, &ninepatch->m_bitmap, prefConfig, mode, true)) {
         asset->close();
-        LOGE("RenderSkinNinePatch::Failed to decode nine patch asset");
+        ALOGE("RenderSkinNinePatch::Failed to decode nine patch asset");
         return false;
     }
 
     asset->close();
     if (!peeker.fPatchIsValid) {
-        LOGE("RenderSkinNinePatch::Patch data not valid");
+        ALOGE("RenderSkinNinePatch::Patch data not valid");
         return false;
     }
     void** data = &ninepatch->m_serializedPatchData;

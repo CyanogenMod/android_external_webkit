@@ -74,7 +74,7 @@ int main(int argc, char** argv) {
     Device::DeviceType type = Device::NONE;
 
     if (argc <= 1) {
-        LOGE("wdsclient takes at least 1 argument");
+        ALOGE("wdsclient takes at least 1 argument");
         return 1;
     } else {
         // Parse the options, look for -e or -d to choose a device.
@@ -94,7 +94,7 @@ int main(int argc, char** argv) {
             }
         }
         if (optind == argc) {
-            LOGE("No command specified");
+            ALOGE("No command specified");
             return 1;
         }
     }
@@ -109,10 +109,10 @@ int main(int argc, char** argv) {
 
     // No device specified and more than one connected, bail
     if (type == Device::NONE && devices.size() > 1) {
-        LOGE("More than one device/emulator, please specify with -e or -d");
+        ALOGE("More than one device/emulator, please specify with -e or -d");
         return 1;
     } else if (devices.size() == 0) {
-        LOGE("No devices connected");
+        ALOGE("No devices connected");
         return 1;
     }
 
@@ -131,13 +131,13 @@ int main(int argc, char** argv) {
     }
 
     if (!device) {
-        LOGE("No device found!");
+        ALOGE("No device found!");
         return 1;
     }
 
     // Forward tcp:9999
     if (!device->sendRequest("forward:tcp:" PORT_STR ";tcp:" PORT_STR)) {
-        LOGE("Failed to send forwarding request");
+        ALOGE("Failed to send forwarding request");
         return 1;
     }
 
@@ -147,7 +147,7 @@ int main(int argc, char** argv) {
     int commandLen = strlen(command);
 #define WDS_COMMAND_LENGTH 4
     if (commandLen != WDS_COMMAND_LENGTH) {
-        LOGE("Commands must be 4 characters '%s'", command);
+        ALOGE("Commands must be 4 characters '%s'", command);
         return 1;
     }
 

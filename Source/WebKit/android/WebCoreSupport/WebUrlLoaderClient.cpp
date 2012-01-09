@@ -200,7 +200,7 @@ bool WebUrlLoaderClient::start(bool isMainResource, bool isMainFrame, bool sync,
 
             syncCondition()->TimedWait(base::TimeDelta::FromSeconds(kCallbackWaitingTime));
             if (m_queue.empty()) {
-                LOGE("Synchronous request timed out after %d seconds for the %dth try, URL: %s",
+                ALOGE("Synchronous request timed out after %d seconds for the %dth try, URL: %s",
                      kCallbackWaitingTime, num_timeout, m_request->getUrl().c_str());
                 num_timeout++;
                 if (num_timeout >= kMaxNumTimeout) {
@@ -254,7 +254,7 @@ void WebUrlLoaderClient::downloadFile()
         if (!m_isCertMimeType)
             cancel();
     } else {
-        LOGE("Unexpected call to downloadFile() before didReceiveResponse(). URL: %s", m_request->getUrl().c_str());
+        ALOGE("Unexpected call to downloadFile() before didReceiveResponse(). URL: %s", m_request->getUrl().c_str());
         // TODO: Turn off asserts crashing before release
         // http://b/issue?id=2951985
         CRASH();

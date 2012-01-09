@@ -35,7 +35,7 @@
 #if ENABLE(WDS)
 
 #define MAX_CONNECTION_QUEUE 5
-#define log_errno(x) LOGE("%s: %d", x, strerror(errno))
+#define log_errno(x) ALOGE("%s: %d", x, strerror(errno))
 
 namespace android {
 
