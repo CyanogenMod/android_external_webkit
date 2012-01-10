@@ -31,12 +31,11 @@
 
 #include "config.h"
 
-// Undefine LOG before including chrome code, and if it was defined attempt to
-// set the macro to the Android logging macro (which is the only one that
-// actually logs).
-
+// Both WebKit and Chromium define LOG. In AOSP, the framework also defines
+// LOG. To avoid conflicts, we undefine LOG before including Chromium code,
+// then define it back to the WebKit macro.
 #ifdef LOG
-#define LOG_WAS_DEFINED LOG
+#define LOG_WAS_DEFINED
 #undef LOG
 #endif
 
@@ -116,8 +115,15 @@
 #endif
 
 #undef LOG
-#if defined(LOG_WAS_DEFINED) && defined(LOG_PRI)
-#define LOG(priority, tag, ...) LOG_PRI(ANDROID_##priority, tag, __VA_ARGS__)
+// If LOG was defined, restore it to the WebKit macro.
+#ifdef LOG_WAS_DEFINED
+// If LOG was defined, JOIN_LOG_CHANNEL_WITH_PREFIX must be too.
+// Copied from Assertions.h.
+#if LOG_DISABLED
+#define LOG(channel, ...) ((void)0)
+#else
+#define LOG(channel, ...) WTFLog(&JOIN_LOG_CHANNEL_WITH_PREFIX(LOG_CHANNEL_PREFIX, channel), __VA_ARGS__)
+#endif
 #endif
 
 #endif
