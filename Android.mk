@@ -373,10 +373,6 @@ LOCAL_SHARED_LIBRARIES := \
 	libGLESv2 \
 	libgui
 
-ifeq ($(PLATFORM_VERSION),3.1.4.1.5.9.2.6.5)
-LOCAL_SHARED_LIBRARIES += libsurfaceflinger_client
-endif
-
 # We have to use the android version of libdl
 LOCAL_SHARED_LIBRARIES += libdl libstlport
 # We have to fake out some headers when using stlport.
