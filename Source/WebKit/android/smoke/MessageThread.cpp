@@ -79,7 +79,7 @@ void MessageQueue::post(Message* message) {
     AutoMutex lock(m_mutex);
 
     double when = message->m_when;
-    LOG_ASSERT(when > 0, "Message time may not be 0");
+    ALOG_ASSERT(when > 0, "Message time may not be 0");
 
     list<Message*>::iterator it;
     for (it = m_messages.begin(); it != m_messages.end(); ++it) {

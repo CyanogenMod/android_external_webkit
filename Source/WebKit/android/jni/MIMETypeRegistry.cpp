@@ -44,11 +44,11 @@ String MIMETypeRegistry::getMIMETypeForExtension(const String& ext)
     ASSERT(isMainThread());
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     jclass mimeClass = env->FindClass("android/webkit/MimeTypeMap");
-    LOG_ASSERT(mimeClass, "Could not find class MimeTypeMap");
+    ALOG_ASSERT(mimeClass, "Could not find class MimeTypeMap");
     jmethodID mimeTypeFromExtension = env->GetStaticMethodID(mimeClass,
             "mimeTypeFromExtension",
             "(Ljava/lang/String;)Ljava/lang/String;");
-    LOG_ASSERT(mimeTypeFromExtension,
+    ALOG_ASSERT(mimeTypeFromExtension,
             "Could not find method mimeTypeFromExtension");
     jstring extString = wtfStringToJstring(env, ext);
     jobject mimeType = env->CallStaticObjectMethod(mimeClass,

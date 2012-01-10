@@ -78,7 +78,7 @@ struct WebBackForwardListFields {
 
 static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
 {
-    LOG_ASSERT(frame, "Close needs a valid Frame pointer!");
+    ALOG_ASSERT(frame, "Close needs a valid Frame pointer!");
     WebCore::Frame* pFrame = (WebCore::Frame*)frame;
 
     WebCore::BackForwardListImpl* list = static_cast<WebCore::BackForwardListImpl*>(pFrame->page()->backForwardList());
@@ -145,7 +145,7 @@ static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
 
 static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint index)
 {
-    LOG_ASSERT(frame, "RestoreState needs a valid Frame pointer!");
+    ALOG_ASSERT(frame, "RestoreState needs a valid Frame pointer!");
     WebCore::Frame* pFrame = (WebCore::Frame*)frame;
     WebCore::Page* page = pFrame->page();
     WebCore::HistoryItem* currentItem =
@@ -158,8 +158,8 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
 
 static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray data)
 {
-    LOG_ASSERT(frame, "Inflate needs a valid frame pointer!");
-    LOG_ASSERT(data, "Inflate needs a valid data pointer!");
+    ALOG_ASSERT(frame, "Inflate needs a valid frame pointer!");
+    ALOG_ASSERT(data, "Inflate needs a valid data pointer!");
 
     // Get the actual bytes and the length from the java array.
     const jbyte* bytes = env->GetByteArrayElements(data, NULL);
@@ -204,7 +204,7 @@ jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& v, WebCore::Histo
 
     // Write the top-level history item and then write all the children
     // recursively.
-    LOG_ASSERT(item->bridge(), "Why don't we have a bridge object here?");
+    ALOG_ASSERT(item->bridge(), "Why don't we have a bridge object here?");
     write_item(v, item);
     write_children_recursive(v, item);
 
@@ -311,7 +311,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
 }
 
 static void historyItemChanged(WebCore::HistoryItem* item) {
-    LOG_ASSERT(item, "historyItemChanged called with a null item");
+    ALOG_ASSERT(item, "historyItemChanged called with a null item");
 
     if (item->bridge())
         item->bridge()->updateHistoryItem(item);
@@ -319,7 +319,7 @@ static void historyItemChanged(WebCore::HistoryItem* item) {
 
 void WebHistory::AddItem(const AutoJObject& list, WebCore::HistoryItem* item)
 {
-    LOG_ASSERT(item, "newItem must take a valid HistoryItem!");
+    ALOG_ASSERT(item, "newItem must take a valid HistoryItem!");
     // Item already added. Should only happen when we are inflating the list.
     if (item->bridge() || !list.get())
         return;
@@ -414,7 +414,7 @@ static void write_item(WTF::Vector<char>& v, WebCore::HistoryItem* item)
     write_string(v, item->target());
 
     AndroidWebHistoryBridge* bridge = item->bridge();
-    LOG_ASSERT(bridge, "We should have a bridge here!");
+    ALOG_ASSERT(bridge, "We should have a bridge here!");
     // Screen scale
     const float scale = bridge->scale();
     LOG_VERBOSE(History, "Writing scale %f", scale);
@@ -455,7 +455,7 @@ static void write_children_recursive(WTF::Vector<char>& v, WebCore::HistoryItem*
     WebCore::HistoryItemVector::const_iterator end = children.end();
     for (WebCore::HistoryItemVector::const_iterator i = children.begin(); i != end; ++i) {
         WebCore::HistoryItem* item = (*i).get();
-        LOG_ASSERT(parent->bridge(),
+        ALOG_ASSERT(parent->bridge(),
                 "The parent item should have a bridge object!");
         if (!item->bridge()) {
             WebHistoryItem* bridge = new WebHistoryItem(static_cast<WebHistoryItem*>(parent->bridge()));
@@ -467,7 +467,7 @@ static void write_children_recursive(WTF::Vector<char>& v, WebCore::HistoryItem*
             // parent must not have a parent bridge.
             WebHistoryItem* bridge = static_cast<WebHistoryItem*>(item->bridge());
             WebHistoryItem* parentBridge = static_cast<WebHistoryItem*>(parent->bridge());
-            LOG_ASSERT(parentBridge->parent() == 0 ||
+            ALOG_ASSERT(parentBridge->parent() == 0 ||
                     bridge->parent() == parentBridge,
                     "Somehow this item has an incorrect parent");
             bridge->setParent(parentBridge);
@@ -602,7 +602,7 @@ static bool read_item_recursive(WebCore::HistoryItem* newItem,
         return false;
 
     AndroidWebHistoryBridge* bridge = newItem->bridge();
-    LOG_ASSERT(bridge, "There should be a bridge object during inflate");
+    ALOG_ASSERT(bridge, "There should be a bridge object during inflate");
     float fValue;
     // Read the screen scale
     memcpy(&fValue, data, sizeof(float));
@@ -716,67 +716,67 @@ static void unit_test()
     WTF::RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create();
     WebCore::HistoryItem* testItem = item.get();
     testItem->setBridge(new WebHistoryItem(0));
-    LOG_ASSERT(!read_item_recursive(testItem, &test1, 0), "0 length array should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &test1, 0), "0 length array should fail!");
     delete[] test1;
     const char* test2 = new char[2];
-    LOG_ASSERT(!read_item_recursive(testItem, &test2, 2), "Small array should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &test2, 2), "Small array should fail!");
     delete[] test2;
-    LOG_ASSERT(!read_item_recursive(testItem, NULL, HISTORY_MIN_SIZE), "Null data should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, NULL, HISTORY_MIN_SIZE), "Null data should fail!");
     // Original Url
     char* test3 = new char[HISTORY_MIN_SIZE];
     const char* ptr = (const char*)test3;
     memset(test3, 0, HISTORY_MIN_SIZE);
     *(int*)test3 = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length originalUrl should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length originalUrl should fail!");
     // Url
     int offset = 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length url should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length url should fail!");
     // Title
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length title should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length title should fail!");
     // Form content type
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length contentType should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length contentType should fail!");
     // Form data
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length form data should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length form data should fail!");
     // Target
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length target should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length target should fail!");
     offset += 4; // Scale
     // Document state 
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length document state should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length document state should fail!");
     // Is target item
     offset += 1;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(char*)(test3 + offset) = '!';
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "IsTargetItem should fail with ! as the value!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "IsTargetItem should fail with ! as the value!");
     // Child count
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 kids should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 kids should fail!");
     offset = 36;
     // Test document state
     delete[] test3;
@@ -785,7 +785,7 @@ static void unit_test()
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 1;
     *(int*)(test3 + offset + 4) = 20;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE + sizeof(unsigned)), "1 20 length document state string should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE + sizeof(unsigned)), "1 20 length document state string should fail!");
     delete[] test3;
     test3 = new char[HISTORY_MIN_SIZE + 2 * sizeof(unsigned)];
     memset(test3, 0, HISTORY_MIN_SIZE + 2 * sizeof(unsigned));
@@ -793,7 +793,7 @@ static void unit_test()
     *(int*)(test3 + offset) = 2;
     *(int*)(test3 + offset + 4) = 0;
     *(int*)(test3 + offset + 8) = 20;
-    LOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE + 2 * sizeof(unsigned) ), "2 20 length document state string should fail!");
+    ALOG_ASSERT(!read_item_recursive(testItem, &ptr, HISTORY_MIN_SIZE + 2 * sizeof(unsigned) ), "2 20 length document state string should fail!");
     delete[] test3;
 }
 #endif
@@ -822,31 +822,31 @@ int registerWebHistory(JNIEnv* env)
 #endif
     // Find WebHistoryItem, its constructor, and the update method.
     jclass clazz = env->FindClass("android/webkit/WebHistoryItem");
-    LOG_ASSERT(clazz, "Unable to find class android/webkit/WebHistoryItem");
+    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebHistoryItem");
     gWebHistoryItem.mInit = env->GetMethodID(clazz, "<init>", "()V");
-    LOG_ASSERT(gWebHistoryItem.mInit, "Could not find WebHistoryItem constructor");
+    ALOG_ASSERT(gWebHistoryItem.mInit, "Could not find WebHistoryItem constructor");
     gWebHistoryItem.mUpdate = env->GetMethodID(clazz, "update",
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Landroid/graphics/Bitmap;[B)V");
-    LOG_ASSERT(gWebHistoryItem.mUpdate, "Could not find method update in WebHistoryItem");
+    ALOG_ASSERT(gWebHistoryItem.mUpdate, "Could not find method update in WebHistoryItem");
 
     // Find the field ids for mTitle and mUrl.
     gWebHistoryItem.mTitle = env->GetFieldID(clazz, "mTitle", "Ljava/lang/String;");
-    LOG_ASSERT(gWebHistoryItem.mTitle, "Could not find field mTitle in WebHistoryItem");
+    ALOG_ASSERT(gWebHistoryItem.mTitle, "Could not find field mTitle in WebHistoryItem");
     gWebHistoryItem.mUrl = env->GetFieldID(clazz, "mUrl", "Ljava/lang/String;");
-    LOG_ASSERT(gWebHistoryItem.mUrl, "Could not find field mUrl in WebHistoryItem");
+    ALOG_ASSERT(gWebHistoryItem.mUrl, "Could not find field mUrl in WebHistoryItem");
     env->DeleteLocalRef(clazz);
 
     // Find the WebBackForwardList object and method.
     clazz = env->FindClass("android/webkit/WebBackForwardList");
-    LOG_ASSERT(clazz, "Unable to find class android/webkit/WebBackForwardList");
+    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebBackForwardList");
     gWebBackForwardList.mAddHistoryItem = env->GetMethodID(clazz, "addHistoryItem",
             "(Landroid/webkit/WebHistoryItem;)V");
-    LOG_ASSERT(gWebBackForwardList.mAddHistoryItem, "Could not find method addHistoryItem");
+    ALOG_ASSERT(gWebBackForwardList.mAddHistoryItem, "Could not find method addHistoryItem");
     gWebBackForwardList.mRemoveHistoryItem = env->GetMethodID(clazz, "removeHistoryItem",
             "(I)V");
-    LOG_ASSERT(gWebBackForwardList.mRemoveHistoryItem, "Could not find method removeHistoryItem");
+    ALOG_ASSERT(gWebBackForwardList.mRemoveHistoryItem, "Could not find method removeHistoryItem");
     gWebBackForwardList.mSetCurrentIndex = env->GetMethodID(clazz, "setCurrentIndex", "(I)V");
-    LOG_ASSERT(gWebBackForwardList.mSetCurrentIndex, "Could not find method setCurrentIndex");
+    ALOG_ASSERT(gWebBackForwardList.mSetCurrentIndex, "Could not find method setCurrentIndex");
     env->DeleteLocalRef(clazz);
 
     int result = jniRegisterNativeMethods(env, "android/webkit/WebBackForwardList",

@@ -49,7 +49,7 @@ int registerJniUtil(JNIEnv* env)
 {
 #ifndef NDEBUG
     jclass jniUtil = env->FindClass(javaJniUtilClass);
-    LOG_ASSERT(jniUtil, "Unable to find class");
+    ALOG_ASSERT(jniUtil, "Unable to find class");
     env->DeleteLocalRef(jniUtil);
 #endif
     return jniRegisterNativeMethods(env, javaJniUtilClass, gJniUtilMethods, NELEM(gJniUtilMethods));

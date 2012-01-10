@@ -175,7 +175,7 @@ int registerWebStorage(JNIEnv* env)
 {
 #ifndef NDEBUG
     jclass webStorage = env->FindClass("android/webkit/WebStorage");
-    LOG_ASSERT(webStorage, "Unable to find class android.webkit.WebStorage");
+    ALOG_ASSERT(webStorage, "Unable to find class android.webkit.WebStorage");
     env->DeleteLocalRef(webStorage);
 #endif
 

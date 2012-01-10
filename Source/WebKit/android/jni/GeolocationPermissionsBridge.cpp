@@ -102,7 +102,7 @@ int registerGeolocationPermissions(JNIEnv* env)
     const char* kGeolocationPermissionsClass = "android/webkit/GeolocationPermissions";
 #ifndef NDEBUG
     jclass geolocationPermissions = env->FindClass(kGeolocationPermissionsClass);
-    LOG_ASSERT(geolocationPermissions, "Unable to find class");
+    ALOG_ASSERT(geolocationPermissions, "Unable to find class");
     env->DeleteLocalRef(geolocationPermissions);
 #endif
 
