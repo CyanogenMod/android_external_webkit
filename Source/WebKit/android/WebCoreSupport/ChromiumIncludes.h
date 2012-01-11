@@ -31,11 +31,6 @@
 
 #include "config.h"
 
-// Include log.h before any Chromium headers to make sure we pick up
-// ALOG_ASSERT and LOG_ASSERT (if present).
-// TODO: Remove this once LOG_ASSERT is removed from the framework in AOSP.
-#include <cutils/log.h>
-
 // Undefine LOG before including chrome code, and if it was defined attempt to
 // set the macro to the Android logging macro (which is the only one that
 // actually logs).
@@ -46,14 +41,14 @@
 #endif
 
 // In AOSP, the framework still uses LOG_ASSERT (as well as ALOG_ASSERT), which
-// conflicts with Chromium's LOG_ASSERT. So if defined, we undefine LOG_ASSERT
-// before including Chromium code, then afterwards define it back to the
-// framework macro.
+// conflicts with Chromium's LOG_ASSERT. So we undefine LOG_ASSERT to allow the
+// Chromium implementation to be picked up. We also redefine ALOG_ASSERT to the
+// underlying framework implementation without using LOG_ASSERT.
 // TODO: Remove this once LOG_ASSERT is removed from the framework in AOSP.
-#ifdef LOG_ASSERT
-#define LOG_ASSERT_WAS_DEFINED
 #undef LOG_ASSERT
-#endif
+#undef ALOG_ASSERT
+// Copied from log.h.
+#define ALOG_ASSERT(cond, ...) LOG_FATAL_IF(!(cond), ## __VA_ARGS__)
 
 // Chromium won't build without NDEBUG set, so we set it for all source files
 // that use Chromium code. This means that if NDEBUG was previously unset, we
@@ -123,14 +118,6 @@
 #undef LOG
 #if defined(LOG_WAS_DEFINED) && defined(LOG_PRI)
 #define LOG(priority, tag, ...) LOG_PRI(ANDROID_##priority, tag, __VA_ARGS__)
-#endif
-
-// If LOG_ASSERT was defined, restore it to the framework macro.
-// TODO: Remove this once LOG_ASSERT is removed from the framework in AOSP.
-#ifdef LOG_ASSERT_WAS_DEFINED
-#undef LOG_ASSERT
-// Copied from log.h.
-#define LOG_ASSERT(cond, ...) LOG_FATAL_IF(!(cond), ## __VA_ARGS__)
 #endif
 
 #endif
