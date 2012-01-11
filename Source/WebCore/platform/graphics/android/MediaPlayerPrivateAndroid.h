@@ -95,6 +95,7 @@ public:
     virtual void onPosterFetched(SkBitmap*) { }
     void onBuffering(int percent);
     void onTimeupdate(int position);
+    void onRestoreState();
 
     // These following two functions are used to turn on inline video support
     bool supportsAcceleratedRendering() const { return true; }
