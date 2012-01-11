@@ -168,6 +168,14 @@ void MediaPlayerPrivate::onEnded()
     m_networkState = MediaPlayer::Idle;
 }
 
+void MediaPlayerPrivate::onRestoreState()
+{
+    if (!m_paused) {
+        //Kick off a JNI call to start the video.
+        play();
+    }
+}
+
 void MediaPlayerPrivate::onPaused()
 {
     m_paused = true;
@@ -570,6 +578,15 @@ static void OnTimeupdate(JNIEnv* env, jobject obj, int position, int pointer)
     }
 }
 
+static void OnRestoreState(JNIEnv* env, jobject obj, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onRestoreState();
+    }
+}
+
+
 // This is called on the UI thread only.
 // The video layers are composited on the webkit thread and then copied over
 // to the UI thread with the same ID. For rendering, we are only using the
@@ -632,6 +649,8 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnPaused },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",
         (void*) OnPosterFetched },
+    { "nativeOnRestoreState", "(I)V",
+        (void*) OnRestoreState },
     { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIII)Z",
         (void*) SendSurfaceTexture },
     { "nativeOnTimeupdate", "(II)V",
