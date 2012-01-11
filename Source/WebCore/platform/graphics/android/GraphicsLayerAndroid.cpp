@@ -588,8 +588,10 @@ bool GraphicsLayerAndroid::repaint()
             RenderBox* box = layer->renderBox();
             int outline = box->view()->maximalOutlineSize();
             IntRect contentsRect(0, 0,
-                                 box->borderLeft() + box->borderRight() + layer->scrollWidth(),
-                                 box->borderTop() + box->borderBottom() + layer->scrollHeight());
+                                 box->borderLeft() + box->borderRight() + layer->scrollWidth()
+                                 + layer->verticalScrollbarWidth(),
+                                 box->borderTop() + box->borderBottom() + layer->scrollHeight()
+                                 + layer->horizontalScrollbarHeight());
             contentsRect.inflate(outline);
             // Update the foreground layer size.
             m_foregroundLayer->setSize(contentsRect.width(), contentsRect.height());
