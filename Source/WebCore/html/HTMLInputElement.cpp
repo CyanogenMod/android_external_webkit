@@ -1588,4 +1588,24 @@ void HTMLInputElement::handleBeforeTextInsertedEvent(Event* event)
     InputElement::handleBeforeTextInsertedEvent(m_data, this, this, event);
 }
 
+#if PLATFORM(ANDROID) && ENABLE(MEDIA_CAPTURE)
+String HTMLInputElement::capture() const
+{
+    if (!isFileUpload()) {
+        // capture has no meaning on anything other than file pickers.
+        return String();
+    }
+
+    String capture = fastGetAttribute(captureAttr).lower();
+    if (capture == "camera"
+        || capture == "camcorder"
+        || capture == "microphone"
+        || capture == "filesystem")
+        return capture;
+    // According to the HTML Media Capture specification, the invalid and
+    // missing default value is filesystem.
+    return "filesystem";
+}
+#endif
+
 } // namespace

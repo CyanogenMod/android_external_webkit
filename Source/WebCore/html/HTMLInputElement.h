@@ -200,6 +200,10 @@ public:
     void updateCheckedRadioButtons();
 
     bool lastChangeWasUserEdit() const;
+
+#if PLATFORM(ANDROID) && ENABLE(MEDIA_CAPTURE)
+    String capture() const;
+#endif
     
 protected:
     HTMLInputElement(const QualifiedName&, Document*, HTMLFormElement*, bool createdByParser);

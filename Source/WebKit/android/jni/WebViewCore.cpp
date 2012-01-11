@@ -457,7 +457,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(IIZZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
-    m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "(Ljava/lang/String;)Ljava/lang/String;");
+    m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[II)V");
     m_javaGlue->m_jsAlert = GetJMethod(env, clazz, "jsAlert", "(Ljava/lang/String;Ljava/lang/String;)V");
     m_javaGlue->m_jsConfirm = GetJMethod(env, clazz, "jsConfirm", "(Ljava/lang/String;Ljava/lang/String;)Z");
@@ -3008,11 +3008,19 @@ void WebViewCore::openFileChooser(PassRefPtr<WebCore::FileChooser> chooser)
         return;
 
     WTF::String acceptType = chooser->acceptTypes();
+    WTF::String capture;
+
+#if ENABLE(MEDIA_CAPTURE)
+    capture = chooser->capture();
+#endif
+
     jstring jAcceptType = wtfStringToJstring(env, acceptType, true);
+    jstring jCapture = wtfStringToJstring(env, capture, true);
     jstring jName = (jstring) env->CallObjectMethod(
-            javaObject.get(), m_javaGlue->m_openFileChooser, jAcceptType);
+            javaObject.get(), m_javaGlue->m_openFileChooser, jAcceptType, jCapture);
     checkException(env);
     env->DeleteLocalRef(jAcceptType);
+    env->DeleteLocalRef(jCapture);
 
     WTF::String wtfString = jstringToWtfString(env, jName);
     env->DeleteLocalRef(jName);

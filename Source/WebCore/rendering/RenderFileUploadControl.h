@@ -68,6 +68,9 @@ private:
 #endif
     String acceptTypes();
     void chooseIconForFiles(FileChooser*, const Vector<String>&);
+#if ENABLE(MEDIA_CAPTURE)
+    String capture();
+#endif
 
     Chrome* chrome() const;
     int maxFilenameWidth() const;

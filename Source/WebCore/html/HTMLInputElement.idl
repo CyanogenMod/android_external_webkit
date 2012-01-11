@@ -107,6 +107,9 @@ module html {
         attribute [Reflect, EnabledAtRuntime] boolean webkitGrammar;
         attribute [DontEnum] EventListener onwebkitspeechchange;
 #endif
+#if defined(WTF_PLATFORM_ANDROID) && defined(ENABLE_MEDIA_CAPTURE) && ENABLE_MEDIA_CAPTURE
+        attribute [Reflect] DOMString capture;
+#endif
     };
 
 }

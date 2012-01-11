@@ -122,6 +122,13 @@ String RenderFileUploadControl::acceptTypes()
     return static_cast<HTMLInputElement*>(node())->accept();
 }
 
+#if ENABLE(MEDIA_CAPTURE)
+String RenderFileUploadControl::capture()
+{
+    return static_cast<HTMLInputElement*>(node())->capture();
+}
+#endif
+
 void RenderFileUploadControl::chooseIconForFiles(FileChooser* chooser, const Vector<String>& filenames)
 {
     if (Chrome* chromePointer = chrome())

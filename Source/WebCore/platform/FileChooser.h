@@ -50,6 +50,9 @@ public:
     virtual String acceptTypes() = 0;
     virtual void chooseIconForFiles(FileChooser*, const Vector<String>&) = 0;
     virtual ~FileChooserClient();
+#if PLATFORM(ANDROID) && ENABLE(MEDIA_CAPTURE)
+    virtual String capture() = 0;
+#endif
 };
 
 class FileChooser : public RefCounted<FileChooser> {
@@ -78,6 +81,10 @@ public:
 #endif
     // Acceptable MIME types.  It's an 'accept' attribute value of the corresponding INPUT element.
     String acceptTypes() const { return m_client ? m_client->acceptTypes() : String(); }
+
+#if PLATFORM(ANDROID) && ENABLE(MEDIA_CAPTURE)
+    String capture() const { return m_client ? m_client->capture() : String(); }
+#endif
 
 private:
     FileChooser(FileChooserClient*, const Vector<String>& initialFilenames);
