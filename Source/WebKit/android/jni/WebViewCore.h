@@ -43,6 +43,7 @@
 #include "WebCoreJni.h"
 #include "WebRequestContext.h"
 #include "android_npapi.h"
+#include "VisiblePosition.h"
 
 #include <jni.h>
 #include <ui/KeycodeLabels.h>
@@ -560,6 +561,10 @@ namespace android {
 
         void notifyWebAppCanBeInstalled();
 
+        void deleteText(int startX, int startY, int endX, int endY);
+        WTF::String getText(int startX, int startY, int endX, int endY);
+        void insertText(const WTF::String &text);
+
 #if ENABLE(VIDEO)
         void enterFullscreenForVideoLayer(int layerId, const WTF::String& url);
         void exitFullscreenVideo();
@@ -596,6 +601,19 @@ namespace android {
         static jobject getApplicationContext();
         // Check whether a media mimeType is supported in Android media framework.
         static bool isSupportedMediaMimeType(const WTF::String& mimeType);
+
+        /**
+         * Returns all text ranges consumed by the cursor points referred
+         * to by startX, startY, endX, and endY. The vector will be empty
+         * if no text is in the given area or if the positions are invalid.
+         */
+        Vector<WebCore::VisibleSelection> getTextRanges(
+                int startX, int startY, int endX, int endY);
+
+        /**
+         * Returns a text position at a given coordinate.
+         */
+        WebCore::VisiblePosition visiblePositionForWindowPoint(int x, int y);
 
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;

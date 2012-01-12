@@ -1983,6 +1983,25 @@ static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
     return reinterpret_cast<int>(frame ? frame->framePointer() : 0);
 }
 
+static bool nativeFocusCandidateIsEditableText(JNIEnv* env, jobject obj,
+        jint nativeClass)
+{
+    WebView* view = reinterpret_cast<WebView*>(nativeClass);
+    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
+    bool isEditable = false;
+    if (root) {
+        const CachedFrame* frame = NULL;
+        const CachedNode* cursor = root->currentCursor(&frame);
+        const CachedNode* focus = cursor;
+        if (!cursor || !cursor->wantsKeyEvents())
+            focus = root->currentFocus(&frame);
+        if (focus) {
+            isEditable = (focus->isTextInput() || focus->isContentEditable());
+        }
+    }
+    return isEditable;
+}
+
 static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
     const CachedInput* input = getInputCandidate(env, obj);
@@ -2950,6 +2969,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetPauseDrawing },
     { "nativeDisableNavcache", "()Z",
         (void*) nativeDisableNavcache },
+    { "nativeFocusCandidateIsEditableText", "(I)Z",
+        (void*) nativeFocusCandidateIsEditableText },
 };
 
 int registerWebView(JNIEnv* env)

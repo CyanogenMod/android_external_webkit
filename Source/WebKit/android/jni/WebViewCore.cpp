@@ -114,6 +114,7 @@
 #include "SkPicture.h"
 #include "SkUtils.h"
 #include "Text.h"
+#include "TextIterator.h"
 #include "TypingCommand.h"
 #include "WebCache.h"
 #include "WebCoreFrameBridge.h"
@@ -3997,6 +3998,137 @@ void WebViewCore::scrollRenderLayer(int layer, const SkRect& rect)
 #endif
 }
 
+Vector<VisibleSelection> WebViewCore::getTextRanges(
+        int startX, int startY, int endX, int endY)
+{
+    // These are the positions of the selection handles,
+    // which reside below the line that they are selecting.
+    // Use the vertical position higher, which will include
+    // the selected text.
+    startY--;
+    endY--;
+    VisiblePosition startSelect = visiblePositionForWindowPoint(
+            startX - m_scrollOffsetX, startY - m_scrollOffsetY);
+    VisiblePosition endSelect =  visiblePositionForWindowPoint(
+            endX - m_scrollOffsetX, endY - m_scrollOffsetY);
+    Position start = startSelect.deepEquivalent();
+    Position end = endSelect.deepEquivalent();
+    Vector<VisibleSelection> ranges;
+    if (!start.isNull() && !end.isNull()) {
+        if (comparePositions(start, end) > 0) {
+            swap(start, end); // RTL start/end positions may be swapped
+        }
+        Position nextRangeStart = start;
+        Position previousRangeEnd;
+        int i = 0;
+        do {
+            VisibleSelection selection(nextRangeStart, end);
+            ranges.append(selection);
+            previousRangeEnd = selection.end();
+            nextRangeStart = nextCandidate(previousRangeEnd);
+        } while (comparePositions(previousRangeEnd, end) < 0);
+    }
+    return ranges;
+}
+
+void WebViewCore::deleteText(int startX, int startY, int endX, int endY)
+{
+    Vector<VisibleSelection> ranges =
+            getTextRanges(startX, startY, endX, endY);
+
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    client->setUiGeneratedSelectionChange(true);
+
+    SelectionController* selector = m_mainFrame->selection();
+    for (size_t i = 0; i < ranges.size(); i++) {
+        const VisibleSelection& selection = ranges[i];
+        if (selection.isContentEditable()) {
+            selector->setSelection(selection, CharacterGranularity);
+            Document* document = selection.start().anchorNode()->document();
+            WebCore::TypingCommand::deleteSelection(document, 0);
+        }
+    }
+    client->setUiGeneratedSelectionChange(false);
+}
+
+void WebViewCore::insertText(const WTF::String &text)
+{
+    WebCore::Node* focus = currentFocus();
+    if (!focus || !isTextInput(focus))
+        return;
+
+    Document* document = focus->document();
+    Frame* frame = document->frame();
+
+    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+            m_mainFrame->editor()->client());
+    if (!client)
+        return;
+    client->setUiGeneratedSelectionChange(true);
+    WebCore::TypingCommand::insertText(document, text,
+            TypingCommand::PreventSpellChecking);
+    client->setUiGeneratedSelectionChange(false);
+}
+
+String WebViewCore::getText(int startX, int startY, int endX, int endY)
+{
+    String text;
+
+    Vector<VisibleSelection> ranges =
+            getTextRanges(startX, startY, endX, endY);
+
+    for (size_t i = 0; i < ranges.size(); i++) {
+        const VisibleSelection& selection = ranges[i];
+        PassRefPtr<Range> range = selection.firstRange();
+        String textInRange = range->text();
+        if (textInRange.length() > 0) {
+            if (text.length() > 0)
+                text.append('\n');
+            text.append(textInRange);
+        }
+    }
+
+    return text;
+}
+
+VisiblePosition WebViewCore::visiblePositionForWindowPoint(int x, int y)
+{
+    HitTestRequest::HitTestRequestType hitType = HitTestRequest::MouseMove;
+    hitType |= HitTestRequest::ReadOnly;
+    hitType |= HitTestRequest::Active;
+    HitTestRequest request(hitType);
+    FrameView* view = m_mainFrame->view();
+    IntPoint point(view->windowToContents(
+            view->convertFromContainingWindow(IntPoint(x, y))));
+
+    // Look for the inner-most frame containing the hit. Its document
+    // contains the document with the selected text.
+    Frame* frame = m_mainFrame;
+    Frame* hitFrame = m_mainFrame;
+    Node* node = 0;
+    IntPoint localPoint = point;
+    do {
+        HitTestResult result(localPoint);
+        frame = hitFrame;
+        frame->document()->renderView()->layer()->hitTest(request, result);
+        node = result.innerNode();
+        if (!node)
+            return VisiblePosition();
+
+        if (node->isFrameOwnerElement())
+            hitFrame = static_cast<HTMLFrameOwnerElement*>(node)->contentFrame();
+        localPoint = result.localPoint();
+    } while (hitFrame && hitFrame != frame);
+
+    Element* element = node->parentElement();
+    if (!node->inDocument() && element && element->inDocument())
+        node = element;
+
+    RenderObject* renderer = node->renderer();
+    return renderer->positionForPoint(localPoint);
+}
+
 //----------------------------------------------------------------------
 // Native JNI methods
 //----------------------------------------------------------------------
@@ -4634,6 +4766,29 @@ static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint nativeClass,
     reinterpret_cast<WebViewCore*>(nativeClass)->scrollRenderLayer(layer, rect);
 }
 
+static void DeleteText(JNIEnv* env, jobject obj, jint nativeClass,
+        jint startX, jint startY, jint endX, jint endY)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    viewImpl->deleteText(startX, startY, endX, endY);
+}
+
+static void InsertText(JNIEnv* env, jobject obj, jint nativeClass,
+        jstring text)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    WTF::String wtfText = jstringToWtfString(env, text);
+    viewImpl->insertText(wtfText);
+}
+
+static jobject GetText(JNIEnv* env, jobject obj, jint nativeClass,
+        jint startX, jint startY, jint endX, jint endY)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    WTF::String text = viewImpl->getText(startX, startY, endX, endY);
+    return text.isEmpty() ? 0 : wtfStringToJstring(env, text);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -4752,6 +4907,12 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ScrollRenderLayer },
     { "nativeCloseIdleConnections", "(I)V",
         (void*) CloseIdleConnections },
+    { "nativeDeleteText", "(IIIII)V",
+        (void*) DeleteText },
+    { "nativeInsertText", "(ILjava/lang/String;)V",
+        (void*) InsertText },
+    { "nativeGetText", "(IIIII)Ljava/lang/String;",
+        (void*) GetText },
 };
 
 int registerWebViewCore(JNIEnv* env)
