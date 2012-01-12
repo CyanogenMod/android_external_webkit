@@ -938,7 +938,7 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
     DBG_SET_LOG("start");
     // If there is a pending style recalculation, just return.
     if (m_mainFrame->document()->isPendingStyleRecalc()) {
-        DBG_SET_LOGD("recordContent: pending style recalc, ignoring.");
+        DBG_SET_LOG("recordContent: pending style recalc, ignoring.");
         return 0;
     }
     float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
