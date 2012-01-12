@@ -1665,7 +1665,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop,
                                                     Node** node, HitTestResult* hitTestResult)
 {
     Vector<IntRect> rects;
-    m_mousePos = IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
+    moveMouse(m_mainFrame, x, y);
     *hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
             false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
     if (!hitTestResult->innerNode() || !hitTestResult->innerNode()->inDocument()) {
@@ -1679,8 +1679,6 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop,
     }
     Frame* frame = hitTestResult->innerNode()->document()->frame();
     Vector<TouchNodeData> nodeDataList;
-    ALOGD("innerNode: %p, %s", hitTestResult->innerNode(), hitTestResult->innerNode()->nodeName().ascii().data());
-    ALOGD("innerNonSharedNode: %p, %s", hitTestResult->innerNonSharedNode(), hitTestResult->innerNonSharedNode()->nodeName().ascii().data());
     if (hitTestResult->innerNode() != hitTestResult->innerNonSharedNode()
             && hitTestResult->innerNode()->hasTagName(WebCore::HTMLNames::areaTag)) {
         TouchNodeData newNode;
@@ -1705,7 +1703,8 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop,
                 if (eventNode->supportsFocus()
                         || eventNode->hasEventListeners(eventNames().clickEvent)
                         || eventNode->hasEventListeners(eventNames().mousedownEvent)
-                        || eventNode->hasEventListeners(eventNames().mouseupEvent)) {
+                        || eventNode->hasEventListeners(eventNames().mouseupEvent)
+                        || eventNode->hasEventListeners(eventNames().mouseoverEvent)) {
                     found = true;
                     break;
                 }
@@ -1804,9 +1803,13 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop,
             area = a;
         }
     }
-    *node = final.mNode;
     // now get the node's highlight rectangles in the page coordinate system
     if (final.mNode) {
+        if (final.mNode->isElementNode()) {
+            // We found a URL element. Update the hitTestResult
+            *node = final.mNode;
+            hitTestResult->setURLElement(static_cast<Element*>(final.mNode));
+        }
         IntPoint frameAdjust;
         if (frame != m_mainFrame) {
             frameAdjust = frame->view()->contentsToWindow(IntPoint());
@@ -1871,8 +1874,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop,
                         newx = rects[0].x();
                         newy = rects[0].y();
                     }
-                    m_mousePos.setX(newx - m_scrollOffsetX);
-                    m_mousePos.setY(newy - m_scrollOffsetY);
+                    moveMouse(m_mainFrame, newx, newy);
                     DBG_NAV_LOGD("Move x/y from (%d, %d) to (%d, %d) scrollOffset is (%d, %d)",
                             x, y, m_mousePos.x() + m_scrollOffsetX, m_mousePos.y() + m_scrollOffsetY,
                             m_scrollOffsetX, m_scrollOffsetY);
@@ -1887,8 +1889,7 @@ Vector<IntRect> WebViewCore::getTouchHighlightRects(int x, int y, int slop,
         testRect.move(frameAdjust.x(), frameAdjust.y());
         testRect.intersect(rect);
         if (!testRect.contains(x, y)) {
-            m_mousePos = testRect.center();
-            m_mousePos.move(-m_scrollOffsetX, -m_scrollOffsetY);
+            moveMouse(m_mainFrame, testRect.center().x(), testRect.center().y());
             DBG_NAV_LOGD("Move x/y from (%d, %d) to (%d, %d) scrollOffset is (%d, %d)",
                     x, y, m_mousePos.x() + m_scrollOffsetX, m_mousePos.y() + m_scrollOffsetY,
                     m_scrollOffsetX, m_scrollOffsetY);
