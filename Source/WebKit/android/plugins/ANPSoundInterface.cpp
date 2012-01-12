@@ -38,7 +38,7 @@ struct ANPAudioTrack {
     android::AudioTrack* mTrack;
 };
 
-static ANPSampleFormat toANPFormat(int fm) {
+static ANPSampleFormat toANPFormat(audio_format_t fm) {
     switch (fm) {
         case AUDIO_FORMAT_PCM_16_BIT:
             return kPCM16Bit_ANPSampleFormat;
@@ -49,7 +49,7 @@ static ANPSampleFormat toANPFormat(int fm) {
     }
 }
 
-static int fromANPFormat(ANPSampleFormat fm) {
+static audio_format_t fromANPFormat(ANPSampleFormat fm) {
     switch (fm) {
         case kPCM16Bit_ANPSampleFormat:
             return AUDIO_FORMAT_PCM_16_BIT;
