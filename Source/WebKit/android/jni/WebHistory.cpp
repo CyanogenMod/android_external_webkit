@@ -477,106 +477,194 @@ static void writeChildrenRecursive(WTF::Vector<char>& vector, WebCore::HistoryIt
     }
 }
 
+bool readUnsigned(const char*& data, const char* end, unsigned& result, const char* dbgLabel = 0);
+bool readInt(const char*& data, const char* end, int& result, const char* dbgLabel = 0);
+bool readInt64(const char*& data, const char* end, int64_t& result, const char* dbgLabel = 0);
+bool readFloat(const char*& data, const char* end, float& result, const char* dbgLabel = 0);
+bool readBool(const char*& data, const char* end, bool& result, const char* dbgLabel = 0);
+bool readString(const char*& data, const char* end, String& result, const char* dbgLabel = 0);
+
+bool readUnsigned(const char*& data, const char* end, unsigned& result, const char* dbgLabel)
+{
+    // Check if we have enough data left to continue.
+    if ((end < data) || (static_cast<size_t>(end - data) < sizeof(unsigned))) {
+        ALOGW("\tNot enough data to read unsigned; end=%p data=%p", end, data);
+        return false;
+    }
+
+    memcpy(&result, data, sizeof(unsigned));
+    data += sizeof(unsigned);
+    if (dbgLabel)
+        ALOGV("Reading %-16s %u", dbgLabel, result);
+    return true;
+}
+
+bool readInt(const char*& data, const char* end, int& result, const char* dbgLabel)
+{
+    // Check if we have enough data left to continue.
+    if ((end < data) || (static_cast<size_t>(end - data) < sizeof(int))) {
+        ALOGW("\tNot enough data to read int; end=%p data=%p", end, data);
+        return false;
+    }
+
+    memcpy(&result, data, sizeof(int));
+    data += sizeof(int);
+    if (dbgLabel)
+        ALOGV("Reading %-16s %d", dbgLabel, result);
+    return true;
+}
+
+bool readInt64(const char*& data, const char* end, int64_t& result, const char* dbgLabel)
+{
+    // Check if we have enough data left to continue.
+    if ((end < data) || (static_cast<size_t>(end - data) < sizeof(int64_t))) {
+        ALOGW("\tNot enough data to read int64_t; end=%p data=%p", end, data);
+        return false;
+    }
+
+    memcpy(&result, data, sizeof(int64_t));
+    data += sizeof(int64_t);
+    if (dbgLabel)
+        ALOGV("Reading %-16s %ll", dbgLabel, result);
+    return true;
+}
+
+bool readFloat(const char*& data, const char* end, float& result, const char* dbgLabel)
+{
+    // Check if we have enough data left to continue.
+    if ((end < data) || (static_cast<size_t>(end - data) < sizeof(float))) {
+        ALOGW("\tNot enough data to read float; end=%p data=%p", end, data);
+        return false;
+    }
+
+    memcpy(&result, data, sizeof(float));
+    data += sizeof(float);
+    if (dbgLabel)
+        ALOGV("Reading %-16s %f", dbgLabel, result);
+    return true;
+}
+
+// Note that the return value indicates success or failure, while the result
+// parameter indicates the read value of the bool
+bool readBool(const char*& data, const char* end, bool& result, const char* dbgLabel)
+{
+    // Check if we have enough data left to continue.
+    if ((end < data) || (static_cast<size_t>(end - data) < sizeof(char))) {
+        ALOGW("\tNot enough data to read bool; end=%p data=%p", end, data);
+        return false;
+    }
+
+    char c;
+    memcpy(&c, data, sizeof(char));
+    data += sizeof(char);
+    if (dbgLabel)
+        ALOGV("Reading %-16s %d", dbgLabel, c);
+    result = c;
+
+    // Valid bool results are 0 or 1
+    if ((c != 0) && (c != 1)) {
+        ALOGW("\tInvalid value for bool; end=%p data=%p c=%u", end, data, c);
+        return false;
+    }
+
+    return true;
+}
+
+bool readString(const char*& data, const char* end, String& result, const char* dbgLabel)
+{
+    unsigned stringLength;
+    if (!readUnsigned(data, end, stringLength)) {
+        ALOGW("Not enough data to read string length; end=%p data=%p", end, data);
+        return false;
+    }
+
+    if (dbgLabel)
+        ALOGV("Reading %-16s %d %.*s", dbgLabel, stringLength, stringLength, data);
+
+    // If length was 0, there will be no string content, but still return true
+    if (!stringLength) {
+        result = String();
+        return true;
+    }
+
+    if ((end < data) || ((unsigned)(end - data) < stringLength)) {
+        ALOGW("\tNot enough data to read content; end=%p data=%p stringLength=%u", end, data, stringLength);
+        return false;
+    }
+
+    bool decodeFailed;
+    static const WebCore::TextEncoding& encoding = WebCore::UTF8Encoding();
+    result = encoding.decode(data, stringLength, true, decodeFailed);
+    if (decodeFailed) {
+        ALOGW("\tdecode failed, end=%p data=%p stringLength=%u content=\"%s\"",
+              end, data, stringLength, result.utf8().data());
+        // Although an error was reported, the previous implementation did not
+        // stop here, and debug output of the result, which looks correct, makes
+        // it unclear just what the error was.
+    }
+
+    data += stringLength;
+    return true;
+}
+
 static bool readItemRecursive(WebCore::HistoryItem* newItem,
         const char** pData, int length)
 {
-    if (!pData || length < HISTORY_MIN_SIZE)
+    if (!pData || length < HISTORY_MIN_SIZE) {
+        ALOGW("readItemRecursive() bad params; pData=%p length=%d", pData, length);
         return false;
+    }
 
-    const WebCore::TextEncoding& encoding = WebCore::UTF8Encoding();
     const char* data = *pData;
     const char* end = data + length;
-    int sizeofUnsigned = (int)sizeof(unsigned);
+    String content;
 
     // Read the original url
-    // Read the expected length of the string.
-    size_t fieldLength;
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    // Increment data pointer by the size of an unsigned int.
-    data += sizeofUnsigned;
-    if (fieldLength) {
-        ALOGV("Reading Original url    %d %.*s", fieldLength, fieldLength, data);
-        // If we have a length, check if that length exceeds the data length
-        // and return null if there is not enough data.
-        if (data + fieldLength < end)
-            newItem->setOriginalURLString(encoding.decode(data, fieldLength));
-        else
-            return false;
-        // Increment the data pointer by the length of the string.
-        data += fieldLength;
-    }
-    // Check if we have enough data left to continue.
-    if (end - data < sizeofUnsigned)
+    if (readString(data, end, content, "Original url"))
+        newItem->setOriginalURLString(content);
+    else
         return false;
 
     // Read the url
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    data += sizeofUnsigned;
-    if (fieldLength) {
-        ALOGV("Reading Url             %d %.*s", fieldLength, fieldLength, data);
-        if (data + fieldLength < end)
-            newItem->setURLString(encoding.decode(data, fieldLength));
-        else
-            return false;
-        data += fieldLength;
-    }
-    if (end - data < sizeofUnsigned)
+    if (readString(data, end, content, "Url"))
+        newItem->setURLString(content);
+    else
         return false;
 
     // Read the title
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    data += sizeofUnsigned;
-    if (fieldLength) {
-        ALOGV("Reading Title           %d %.*s", fieldLength, fieldLength, data);
-        if (data + fieldLength < end)
-            newItem->setTitle(encoding.decode(data, fieldLength));
-        else
-            return false;
-        data += fieldLength;
-    }
-    if (end - data < sizeofUnsigned)
+    if (readString(data, end, content, "Title"))
+        newItem->setTitle(content);
+    else
         return false;
 
     // Generate a new ResourceRequest object for populating form information.
-    WTF::String formContentType;
-    WTF::RefPtr<WebCore::FormData> formData = NULL;
-
     // Read the form content type
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    data += sizeofUnsigned;
-    if (fieldLength) {
-        ALOGV("Reading Content type    %d %.*s", fieldLength, fieldLength, data);
-        if (data + fieldLength < end)
-            formContentType = encoding.decode(data, fieldLength);
-        else
-            return false;
-        data += fieldLength;
-    }
-    if (end - data < sizeofUnsigned)
+    WTF::String formContentType;
+    if (!readString(data, end, formContentType, "Content type"))
+        return false;
+
+    // Read the form data size
+    unsigned formDataSize;
+    if (!readUnsigned(data, end, formDataSize, "Form data size"))
         return false;
 
     // Read the form data
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    data += sizeofUnsigned;
-    if (fieldLength) {
-        ALOGV("Reading Form data       %d %.*s", fieldLength, fieldLength, data);
-        if (data + fieldLength < end)
-            formData = WebCore::FormData::create(data, fieldLength);
-        else
+    WTF::RefPtr<WebCore::FormData> formData;
+    if (formDataSize) {
+        ALOGV("Reading Form data       %d %.*s", formDataSize, formDataSize, data);
+        if ((end < data) || ((size_t)(end - data) < formDataSize)) {
+            ALOGW("\tNot enough data to read form data; returning");
             return false;
-        data += fieldLength;
-        // Read the identifier
-        {
-            int64_t id;
-            int size = (int)sizeof(int64_t);
-            memcpy(&id, data, size);
-            data += size;
-            if (id)
-                formData->setIdentifier(id);
         }
+        formData = WebCore::FormData::create(data, formDataSize);
+        data += formDataSize;
+        // Read the identifier
+        int64_t id;
+        if (!readInt64(data, end, id, "Form id"))
+            return false;
+        if (id)
+            formData->setIdentifier(id);
     }
-    if (end - data < sizeofUnsigned)
-        return false;
 
     // Set up the form info
     if (formData != NULL) {
@@ -588,112 +676,76 @@ static bool readItemRecursive(WebCore::HistoryItem* newItem,
     }
 
     // Read the target
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    data += sizeofUnsigned;
-    if (fieldLength) {
-        ALOGV("Reading Target          %d %.*s", fieldLength, fieldLength, data);
-        if (data + fieldLength < end)
-            newItem->setTarget(encoding.decode(data, fieldLength));
-        else
-            return false;
-        data += fieldLength;
-    }
-    if (end - data < sizeofUnsigned)
+    if (readString(data, end, content, "Target"))
+        newItem->setTarget(content);
+    else
         return false;
 
     AndroidWebHistoryBridge* bridge = newItem->bridge();
     ALOG_ASSERT(bridge, "There should be a bridge object during inflate");
-    float fValue;
-    // Read the screen scale
-    memcpy(&fValue, data, sizeof(float));
-    ALOGV("Reading Screen scale        %f", fValue);
-    bridge->setScale(fValue);
-    data += sizeof(float);
-    memcpy(&fValue, data, sizeofUnsigned);
-    ALOGV("Reading Text wrap scale     %f", fValue);
-    bridge->setTextWrapScale(fValue);
-    data += sizeof(float);
 
-    if (end - data < sizeofUnsigned)
+    // Read the screen scale
+    float fValue;
+    if (readFloat(data, end, fValue, "Screen scale"))
+        bridge->setScale(fValue);
+    else
+        return false;
+
+    // Read the text wrap scale
+    if (readFloat(data, end, fValue, "Text wrap scale"))
+        bridge->setTextWrapScale(fValue);
+    else
         return false;
 
     // Read scroll position.
-    int scrollX = 0;
-    memcpy(&scrollX, data, sizeofUnsigned);
-    data += sizeofUnsigned;
-    int scrollY = 0;
-    memcpy(&scrollY, data, sizeofUnsigned);
-    data += sizeofUnsigned;
+    int scrollX;
+    if (!readInt(data, end, scrollX, "Scroll pos x"))
+        return false;
+    int scrollY;
+    if (!readInt(data, end, scrollY, "Scroll pos y"))
+        return false;
     newItem->setScrollPoint(IntPoint(scrollX, scrollY));
 
-    if (end - data < sizeofUnsigned)
-        return false;
-
     // Read the document state
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    ALOGV("Reading Document state      %d", fieldLength);
-    data += sizeofUnsigned;
-    if (fieldLength) {
-        // Check if we have enough data to at least parse the sizes of each
-        // document state string.
-        if (data + fieldLength * sizeofUnsigned >= end)
-            return false;
+    unsigned docStateCount;
+    if (!readUnsigned(data, end, docStateCount, "Doc state count"))
+        return false;
+    if (docStateCount) {
         // Create a new vector and reserve enough space for the document state.
         WTF::Vector<WTF::String> docState;
-        docState.reserveCapacity(fieldLength);
-        while (fieldLength--) {
-            // Check each time if we have enough to parse the length of the next
-            // string.
-            if (end - data < sizeofUnsigned)
-                return false;
-            int strLen;
-            memcpy(&strLen, data, sizeofUnsigned);
-            data += sizeofUnsigned;
-            if (data + strLen < end)
-                docState.append(encoding.decode(data, strLen));
+        docState.reserveCapacity(docStateCount);
+        while (docStateCount--) {
+            // Read a document state string
+            if (readString(data, end, content, "Document state"))
+                docState.append(content);
             else
                 return false;
-            ALOGV("\t\t%d %.*s", strLen, strLen, data);
-            data += strLen;
         }
         newItem->setDocumentState(docState);
     }
-    // Check if we have enough to read the next byte
-    if (data >= end)
-        return false;
 
     // Read is target item
-    // Cast the value to unsigned char in order to make a negative value larger
-    // than 1. A value that is not 0 or 1 is a failure.
-    unsigned char c = (unsigned char)data[0];
-    if (c > 1)
-        return false;
-    ALOGV("Reading Target item         %d", c);
-    newItem->setIsTargetItem((bool)c);
-    data++;
-    if (end - data < sizeofUnsigned)
+    bool c;
+    if (readBool(data, end, c, "Target item"))
+        newItem->setIsTargetItem(c);
+    else
         return false;
 
     // Read the child count
-    memcpy(&fieldLength, data, sizeofUnsigned);
-    ALOGV("Reading Child count         %d", fieldLength);
-    data += sizeofUnsigned;
+    unsigned count;
+    if (!readUnsigned(data, end, count, "Child count"))
+        return false;
     *pData = data;
-    if (fieldLength) {
-        // Check if we have the minimum amount need to parse l children.
-        if (data + fieldLength * HISTORY_MIN_SIZE >= end)
-            return false;
-        while (fieldLength--) {
+    if (count) {
+        while (count--) {
             // No need to check the length each time because read_item_recursive
             // will return null if there isn't enough data left to parse.
             WTF::RefPtr<WebCore::HistoryItem> child = WebCore::HistoryItem::create();
             // Set a bridge that will not call into java.
             child->setBridge(new WebHistoryItem(static_cast<WebHistoryItem*>(bridge)));
             // Read the child item.
-            if (!readItemRecursive(child.get(), pData, end - data)) {
-                child.clear();
+            if (!readItemRecursive(child.get(), pData, end - data))
                 return false;
-            }
             child->bridge()->setActive();
             newItem->addChildItem(child);
         }
