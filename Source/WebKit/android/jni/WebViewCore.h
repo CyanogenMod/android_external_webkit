@@ -26,7 +26,9 @@
 #ifndef WebViewCore_h
 #define WebViewCore_h
 
+#ifndef DISABLE_NAVCACHE
 #include "CacheBuilder.h"
+#endif
 #include "CachedHistory.h"
 #include "DeviceMotionAndOrientationManager.h"
 #include "DOMSelection.h"
@@ -432,8 +434,11 @@ namespace android {
         jobject getWebViewJavaObject();
 
         void setBackgroundColor(SkColor c);
+#ifndef DISABLE_NAVCACHE
         void updateFrameCache();
         void updateCacheOnNodeChange();
+        void updateFrameCacheIfLoading();
+#endif
         void dumpDomTree(bool);
         void dumpRenderTree(bool);
         void dumpNavTree();
@@ -519,7 +524,8 @@ namespace android {
         void centerFitRect(int x, int y, int width, int height);
 
         // return a list of rects matching the touch point (x, y) with the slop
-        Vector<IntRect> getTouchHighlightRects(int x, int y, int slop);
+        Vector<IntRect> getTouchHighlightRects(int x, int y, int slop,
+                Node** node, HitTestResult* hitTestResult);
 
         // Open a file chooser for selecting a file to upload
         void openFileChooser(PassRefPtr<WebCore::FileChooser> );
@@ -545,7 +551,6 @@ namespace android {
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
         void updateCursorBounds(const CachedRoot* root,
                 const CachedFrame* cachedFrame, const CachedNode* cachedNode);
-        void updateFrameCacheIfLoading();
 
         // utility to split slow parts of the picture set
         void splitContent(PictureSet*);
@@ -608,13 +613,14 @@ namespace android {
 
         // internal functions
     private:
+#ifndef DISABLE_NAVCACHE
         CacheBuilder& cacheBuilder();
+#endif
         WebCore::Node* currentFocus();
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPictureSet(PictureSet* master);
 
-        void doMaxScroll(CacheBuilder::Direction dir);
         SkPicture* rebuildPicture(const SkIRect& inval);
         void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
