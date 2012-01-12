@@ -71,7 +71,7 @@ static void callbackProc(int event, void* user, void* info) {
             src = reinterpret_cast<android::AudioTrack::Buffer*>(info);
             dst.bufferData      = src->raw;
             dst.channelCount    = src->channelCount;
-            dst.format          = toANPFormat(src->format);
+            dst.format          = toANPFormat((audio_format_t) src->format);
             dst.size            = src->size;
             track->mProc(kMoreData_ANPAudioEvent, track->mUser, &dst);
             // return the updated size field
