@@ -1366,7 +1366,21 @@ bool RenderLayerCompositor::needsToBeComposited(const RenderLayer* layer) const
         return false;
 
     // The root layer always has a compositing layer, but it may not have backing.
+#if PLATFORM(ANDROID)
+    // If we do not have a root platform layer, don't use the
+    // mustOverlapCompositedLayers() as a cue that this layer needs to be
+    // composited -- the layers tree has been detached.
+    // Otherwise we can end up in a cycle where updateBacking() switches composited
+    // mode on because a layer has mustOverlapCompositedLayers() (by calling
+    // enableCompositingMode()), while computeCompositingRequirements() will
+    // (correctly) say that we do not need to be in composited mode and turns it
+    // off, rince and repeat...
+    return requiresCompositingLayer(layer)
+        || (m_rootPlatformLayer && layer->mustOverlapCompositedLayers())
+        || (inCompositingMode() && layer->isRootLayer());
+#else
     return requiresCompositingLayer(layer) || layer->mustOverlapCompositedLayers() || (inCompositingMode() && layer->isRootLayer());
+#endif
 }
 
 #if PLATFORM(ANDROID)
