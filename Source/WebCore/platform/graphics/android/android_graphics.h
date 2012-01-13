@@ -52,12 +52,13 @@ class WebViewCore;
 
 class CursorRing : public DrawExtra {
 public:
-    CursorRing(WebViewCore* core) : m_viewImpl(core) {}
+    CursorRing(WebViewCore* core);
     virtual ~CursorRing() {}
     virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
     void setIsButton(const CachedNode* );
     bool setup();
     WTF::Vector<IntRect>& rings() { return m_rings; }
+    int layerId() const { return m_layerId; }
 private:
     friend class WebView;
     friend class WebCore::GLExtras;
@@ -71,6 +72,7 @@ private:
     const CachedNode* m_node;
     bool m_isButton;
     bool m_isPressed;
+    int m_layerId;
 };
 
 }
