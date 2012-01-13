@@ -146,20 +146,46 @@ bool TransferQueue::checkObsolete(const TileTransferData* data)
 }
 
 void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
+                                      BaseTileTexture* frontTex,
                                       GLuint srcTexId, GLenum srcTexTarget,
                                       int index)
 {
 #if GPU_UPLOAD_WITHOUT_DRAW
     glBindFramebuffer(GL_FRAMEBUFFER, fboID);
+    glBindTexture(GL_TEXTURE_2D, destTex->m_ownTextureId);
+
+    int textureWidth = destTex->getSize().width();
+    int textureHeight = destTex->getSize().height();
+
+    IntRect inval = m_transferQueue[index].tileInfo.m_inval;
+    bool partialInval = !inval.isEmpty();
+
+    if (partialInval && frontTex) {
+        // recopy the previous texture to the new one, as
+        // the partial update will not cover the entire texture
+        glFramebufferTexture2D(GL_FRAMEBUFFER,
+                               GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D,
+                               frontTex->m_ownTextureId,
+                               0);
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+                            textureWidth, textureHeight);
+    }
+
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_COLOR_ATTACHMENT0,
                            GL_TEXTURE_2D,
                            srcTexId,
                            0);
-    glBindTexture(GL_TEXTURE_2D, destTex->m_ownTextureId);
-    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
-                        destTex->getSize().width(),
-                        destTex->getSize().height());
+
+    if (!partialInval) {
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+                            textureWidth, textureHeight);
+    } else {
+        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, inval.x(), inval.y(), 0, 0,
+                            inval.width(), inval.height());
+    }
+
 #else
     // Then set up the FBO and copy the SurfTex content in.
     glBindFramebuffer(GL_FRAMEBUFFER, fboID);
@@ -324,8 +350,14 @@ void TransferQueue::updateDirtyBaseTiles()
             // Save the needed info, update the Surf Tex, clean up the item in
             // the queue. Then either move on to next item or copy the content.
             BaseTileTexture* destTexture = 0;
-            if (!obsoleteBaseTile)
+            BaseTileTexture* frontTexture = 0;
+            if (!obsoleteBaseTile) {
                 destTexture = m_transferQueue[index].savedBaseTilePtr->backTexture();
+                // while destTexture is guaranteed to not be null, frontTexture
+                // might be (first transfer)
+                frontTexture = m_transferQueue[index].savedBaseTilePtr->frontTexture();
+            }
+
             if (m_transferQueue[index].uploadType == GpuUpload) {
                 status_t result = m_sharedSurfaceTexture->updateTexImage();
                 if (result != OK)
@@ -344,14 +376,15 @@ void TransferQueue::updateDirtyBaseTiles()
 
             if (m_transferQueue[index].uploadType == CpuUpload) {
                 // Here we just need to upload the bitmap content to the GL Texture
-                GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId, 0, 0,
-                                                 *m_transferQueue[index].bitmap);
+                GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId,
+                                                 *m_transferQueue[index].bitmap,
+                                                 m_transferQueue[index].tileInfo.m_inval);
             } else {
                 if (!usedFboForUpload) {
                     saveGLState();
                     usedFboForUpload = true;
                 }
-                blitTileFromQueue(m_fboID, destTexture,
+                blitTileFromQueue(m_fboID, destTexture, frontTexture,
                                   m_sharedSurfaceTextureId,
                                   m_sharedSurfaceTexture->getCurrentTextureTarget(),
                                   index);
@@ -388,9 +421,9 @@ void TransferQueue::updateDirtyBaseTiles()
 }
 
 void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
-                                          int x, int y, const SkBitmap& bitmap)
+                                          const SkBitmap& bitmap)
 {
-    if (!tryUpdateQueueWithBitmap(renderInfo, x, y, bitmap)) {
+    if (!tryUpdateQueueWithBitmap(renderInfo, bitmap)) {
         // failed placing bitmap in queue, discard tile's texture so it will be
         // re-enqueued (and repainted)
         BaseTile* tile = renderInfo->baseTile;
@@ -400,7 +433,7 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
 }
 
 bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
-                                          int x, int y, const SkBitmap& bitmap)
+                                             const SkBitmap& bitmap)
 {
     m_transferQueueItemLocks.lock();
     bool ready = readyForUpdate();
@@ -427,9 +460,10 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
         int bpp = 4; // Now we only deal with RGBA8888 format.
         int width = TilesManager::instance()->tileWidth();
         int height = TilesManager::instance()->tileHeight();
-        if (!x && !y && bitmap.width() == width && bitmap.height() == height) {
+        if (bitmap.width() == width && bitmap.height() == height) {
             bitmap.lockPixels();
             uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
+
             if (buffer.stride != bitmap.width())
                 // Copied line by line since we need to handle the offsets and stride.
                 for (row = 0 ; row < bitmap.height(); row ++) {
@@ -441,9 +475,6 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
                 memcpy(img, bitmapOrigin, bpp * bitmap.width() * bitmap.height());
 
             bitmap.unlockPixels();
-        } else {
-            // TODO: implement the partial invalidate here!
-            XLOG("ERROR: don't expect to get here yet before we support partial inval");
         }
 
         ANativeWindow_unlockAndPost(m_ANW.get());
@@ -483,6 +514,15 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
 
     // Now fill the tileInfo.
     TextureTileInfo* textureInfo = &(data->tileInfo);
+
+    IntRect inval(0, 0, 0, 0);
+    if (renderInfo->invalRect) {
+        inval.setX(renderInfo->invalRect->fLeft);
+        inval.setY(renderInfo->invalRect->fTop);
+        inval.setWidth(renderInfo->invalRect->width());
+        inval.setHeight(renderInfo->invalRect->height());
+    }
+    textureInfo->m_inval = inval;
 
     textureInfo->m_x = renderInfo->x;
     textureInfo->m_y = renderInfo->y;

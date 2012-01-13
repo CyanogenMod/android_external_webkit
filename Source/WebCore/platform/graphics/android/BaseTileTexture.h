@@ -60,6 +60,7 @@ public:
     TilePainter* m_painter;
     unsigned int m_picture;
     bool m_inverted;
+    IntRect m_inval;
 };
 
 class BaseTileTexture {

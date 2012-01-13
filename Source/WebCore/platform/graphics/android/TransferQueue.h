@@ -119,7 +119,7 @@ public:
     void initSharedSurfaceTextures(int width, int height);
 
     // insert the bitmap into the queue, mark the tile dirty if failing
-    void updateQueueWithBitmap(const TileRenderInfo* renderInfo, int x, int y,
+    void updateQueueWithBitmap(const TileRenderInfo* renderInfo,
                                const SkBitmap& bitmap);
 
     void discardQueue();
@@ -149,7 +149,7 @@ public:
 
 private:
     // return true if successfully inserted into queue
-    bool tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo, int x, int y,
+    bool tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
                                   const SkBitmap& bitmap);
     bool getHasGLContext();
     void setHasGLContext(bool hasContext);
@@ -169,6 +169,7 @@ private:
     void cleanupTransportQueue();
 
     void blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
+                           BaseTileTexture* frontTex,
                            GLuint srcTexId, GLenum srcTexTarget,
                            int index);
 
