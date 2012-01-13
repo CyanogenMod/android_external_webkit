@@ -33,7 +33,6 @@
 #include <wtf/RefPtr.h>
 
 static const UChar vTextCnvTable[][2] = {
-    // TODO: uncomment mappings once we add glyphs for vertical forms.
     {0x0021, 0xfe15},  // exclamation mark
     {0x0028, 0xfe35},  // left paren
     {0x0029, 0xfe36},  // right paren
@@ -55,8 +54,7 @@ static const UChar vTextCnvTable[][2] = {
     {0x2015, 0xfe31},  // horizontal bar
     {0x2025, 0xfe30},  // two dot leader
     {0x2026, 0xfe19},  // three dot leader
-    // TODO: change the mapping 0x3001 -> 0xFE11 once Android has the glyph for 0xFE11.
-    {0x3001, 0xfe10},  // Ideographic comma
+    {0x3001, 0xfe11},  // Ideographic comma
     {0x3002, 0xfe12},  // Ideographic full stop
     {0x3008, 0xfe3f},  // left angle bracket
     {0x3009, 0xfe40},  // right angle bracket
@@ -83,8 +81,7 @@ static const UChar vTextCnvTable[][2] = {
     {0xff5c, 0xfe31},  // fullwidth vertical line
     {0xff5d, 0xfe38},  // full width right curly bracket
     {0xff5e, 0x007c},  // tilde to vertical line
-    // TODO: change the mapping 0xff64 -> 0xFE11 once Android has the glyph for 0xFE11.
-    {0xff64, 0xfe10},  // halfwidth ideo comma
+    {0xff64, 0xfe11},  // halfwidth ideo comma
     {0xff61, 0xfe12},  // halfwidth ideo full stop
 };
 
