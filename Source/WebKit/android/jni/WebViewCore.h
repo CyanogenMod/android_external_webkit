@@ -559,6 +559,7 @@ namespace android {
 
 #if ENABLE(VIDEO)
         void enterFullscreenForVideoLayer(int layerId, const WTF::String& url);
+        void exitFullscreenVideo();
 #endif
 
         void setWebTextViewAutoFillable(int queryId, const string16& previewSummary);
@@ -700,6 +701,7 @@ namespace android {
         bool m_isPaused;
         int m_cacheMode;
         bool m_shouldPaintCaret;
+        bool m_fullscreenVideoMode;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;
