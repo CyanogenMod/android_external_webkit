@@ -758,7 +758,10 @@ static void unitTest()
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
     ALOG_ASSERT(!readItemRecursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 length target should fail!");
-    offset += 4; // Scale
+    offset += 4; // Screen scale
+    offset += 4; // Text wrap scale
+    offset += 4; // Scroll pos x
+    offset += 4; // Scroll pos y
     // Document state 
     offset += 4;
     memset(test3, 0, HISTORY_MIN_SIZE);
@@ -777,8 +780,8 @@ static void unitTest()
     ptr = (const char*)test3;
     *(int*)(test3 + offset) = 4000;
     ALOG_ASSERT(!readItemRecursive(testItem, &ptr, HISTORY_MIN_SIZE), "4000 kids should fail!");
-    offset = 36;
     // Test document state
+    offset = 40;
     delete[] test3;
     test3 = new char[HISTORY_MIN_SIZE + sizeof(unsigned)];
     memset(test3, 0, HISTORY_MIN_SIZE + sizeof(unsigned));
@@ -795,6 +798,7 @@ static void unitTest()
     *(int*)(test3 + offset + 8) = 20;
     ALOG_ASSERT(!readItemRecursive(testItem, &ptr, HISTORY_MIN_SIZE + 2 * sizeof(unsigned) ), "2 20 length document state string should fail!");
     delete[] test3;
+    ALOGD("Leaving history unit test!");
 }
 #endif
 
