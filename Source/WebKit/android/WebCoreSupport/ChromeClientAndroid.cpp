@@ -638,6 +638,11 @@ void ChromeClientAndroid::enterFullscreenForNode(Node* node)
 
 void ChromeClientAndroid::exitFullscreenForNode(Node* node)
 {
+    FrameView* frameView = m_webFrame->page()->mainFrame()->view();
+    android::WebViewCore* core = android::WebViewCore::getWebViewCore(frameView);
+    if (core)
+        core->exitFullscreenVideo();
+    return;
 }
 #endif
 

@@ -305,6 +305,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_setScrollbarModes;
     jmethodID   m_setInstallableWebApp;
     jmethodID   m_enterFullscreenForVideoLayer;
+    jmethodID   m_exitFullscreenVideo;
     jmethodID   m_setWebTextViewAutoFillable;
     jmethodID   m_selectAt;
     AutoJObject object(JNIEnv* env) {
@@ -378,6 +379,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_isPaused(false)
     , m_cacheMode(0)
     , m_shouldPaintCaret(true)
+    , m_fullscreenVideoMode(false)
     , m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
     , m_screenOnCounter(0)
     , m_currentNodeDomNavigationAxis(0)
@@ -440,6 +442,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_setInstallableWebApp = GetJMethod(env, clazz, "setInstallableWebApp", "()V");
 #if ENABLE(VIDEO)
     m_javaGlue->m_enterFullscreenForVideoLayer = GetJMethod(env, clazz, "enterFullscreenForVideoLayer", "(ILjava/lang/String;)V");
+    m_javaGlue->m_exitFullscreenVideo = GetJMethod(env, clazz, "exitFullscreenVideo", "()V");
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
@@ -3901,6 +3904,20 @@ void WebViewCore::enterFullscreenForVideoLayer(int layerId, const WTF::String& u
         return;
     jstring jUrlStr = wtfStringToJstring(env, url);
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_enterFullscreenForVideoLayer, layerId, jUrlStr);
+    m_fullscreenVideoMode = true;
+    checkException(env);
+}
+
+void WebViewCore::exitFullscreenVideo()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    if (m_fullscreenVideoMode) {
+        env->CallVoidMethod(javaObject.get(), m_javaGlue->m_exitFullscreenVideo);
+        m_fullscreenVideoMode = false;
+    }
     checkException(env);
 }
 #endif
