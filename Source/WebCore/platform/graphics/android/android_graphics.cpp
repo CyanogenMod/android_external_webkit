@@ -37,6 +37,12 @@
 
 namespace android {
 
+CursorRing::CursorRing(WebViewCore* core)
+    : m_viewImpl(core)
+    , m_layerId(-1)
+{
+}
+
 // The CSS values for the inner and outer widths may be specified as fractions
 #define WIDTH_SCALE 0.0625f // 1/16, to offset the scale in CSSStyleSelector
 
@@ -116,12 +122,27 @@ void CursorRing::setIsButton(const CachedNode* node)
 
 bool CursorRing::setup()
 {
-    m_node->cursorRings(m_frame, &m_rings);
+    m_layerId = -1;
+    if (m_frame && m_root) {
+        const CachedLayer* cachedLayer = m_frame->layer(m_node);
+        if (cachedLayer) {
+            const WebCore::LayerAndroid* rootLayer = m_root->rootLayer();
+            const LayerAndroid* aLayer = cachedLayer->layer(rootLayer);
+            if (aLayer)
+                m_layerId = aLayer->uniqueId();
+        }
+    }
+    if (m_layerId == -1)
+        m_node->cursorRings(m_frame, &m_rings);
+    else
+        m_node->localCursorRings(m_frame, &m_rings);
+
     if (!m_rings.size()) {
         DBG_NAV_LOG("!rings.size()");
         m_viewImpl->m_hasCursorBounds = false;
         return false;
     }
+
     setIsButton(m_node);
     m_bounds = m_node->bounds(m_frame);
     m_viewImpl->updateCursorBounds(m_root, m_frame, m_node);

@@ -165,6 +165,10 @@ void GLExtras::drawRegion(const SkRegion& region, bool fill,
 
 void GLExtras::drawCursorRings(const LayerAndroid* layer)
 {
+    int layerId = layer ? layer->uniqueId() : -1;
+    if (layerId != m_ring->layerId())
+        return;
+
     SkRegion region;
     for (size_t i = 0; i < m_ring->rings().size(); i++) {
         IntRect rect = m_ring->rings().at(i);
