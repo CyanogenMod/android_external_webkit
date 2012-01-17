@@ -101,6 +101,7 @@ namespace android {
     class CachedNode;
     class CachedRoot;
     class ListBoxReply;
+    class AndroidHitTestResult;
 
     class WebCoreReply : public WebCoreRefObject {
     public:
@@ -526,6 +527,8 @@ namespace android {
         // return a list of rects matching the touch point (x, y) with the slop
         Vector<IntRect> getTouchHighlightRects(int x, int y, int slop,
                 Node** node, HitTestResult* hitTestResult);
+        // This does a sloppy hit test
+        AndroidHitTestResult hitTestAtPoint(int x, int y, int slop, bool doMoveMouse = false);
 
         // Open a file chooser for selecting a file to upload
         void openFileChooser(PassRefPtr<WebCore::FileChooser> );
