@@ -32,8 +32,10 @@
 #include "HitTestResult.h"
 #include "KURL.h"
 #include "PlatformString.h"
+#include "RenderObject.h"
 #include "WebCoreJni.h"
 
+#include <cutils/log.h>
 #include <JNIHelp.h>
 #include <JNIUtility.h>
 
@@ -53,6 +55,7 @@ static struct JavaGlue {
     jfieldID m_hitTestTitle;
     jfieldID m_hitTestEditable;
     jfieldID m_hitTestTouchRects;
+    jfieldID m_hitTestTapHighlightColor;
 } gJavaGlue;
 
 struct field {
@@ -86,6 +89,7 @@ static void InitJni(JNIEnv* env)
         { hitTestClass, "mImageUrl", "Ljava/lang/String;", &gJavaGlue.m_hitTestImageUrl },
         { hitTestClass, "mAltDisplayString", "Ljava/lang/String;", &gJavaGlue.m_hitTestAltDisplayString },
         { hitTestClass, "mTitle", "Ljava/lang/String;", &gJavaGlue.m_hitTestTitle },
+        { hitTestClass, "mTapHighlightColor", "I", &gJavaGlue.m_hitTestTapHighlightColor },
         {0, 0, 0, 0},
     };
 
@@ -115,6 +119,7 @@ void setStringField(JNIEnv* env, jobject obj, jfieldID field, const String& str)
 #define _SET(jtype, jfield, value) env->Set ## jtype ## Field(hitTest, gJavaGlue.m_hitTest ## jfield, value)
 #define SET_BOOL(jfield, value) _SET(Boolean, jfield, value)
 #define SET_STRING(jfield, value) setStringField(env, hitTest, gJavaGlue.m_hitTest ## jfield, value)
+#define SET_INT(jfield, value) _SET(Int, jfield, value)
 
 jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
 {
@@ -145,8 +150,14 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
     SET_STRING(ImageUrl, m_hitTestResult.absoluteImageURL().string());
     SET_STRING(AltDisplayString, m_hitTestResult.altDisplayString());
     SET_STRING(Title, m_hitTestResult.title(titleTextDirection));
-    if (m_hitTestResult.URLElement())
-        SET_STRING(AnchorText, m_hitTestResult.URLElement()->innerText());
+    if (m_hitTestResult.URLElement()) {
+        Element* urlElement = m_hitTestResult.URLElement();
+        SET_STRING(AnchorText, urlElement->innerText());
+        if (urlElement->renderer()) {
+            SET_INT(TapHighlightColor,
+                    urlElement->renderer()->style()->tapHighlightColor().rgb());
+        }
+    }
 
     return hitTest;
 }

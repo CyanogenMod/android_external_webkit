@@ -170,7 +170,7 @@ public:
     static const RGBA32 ringSelectedOuter = 0x336699FF;
 #endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
-    static const RGBA32 tap = 0x4D1A1A1A;
+    static const RGBA32 tap = 0x6633B5E5;
 #endif
 
 private:
