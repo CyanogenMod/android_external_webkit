@@ -180,6 +180,22 @@ void VideoLayerAndroid::showPreparingAnimation(const SkRect& rect,
     m_rotateDegree += ROTATESTEP;
 }
 
+SkRect VideoLayerAndroid::calVideoRect(const SkRect& rect)
+{
+    SkRect videoRect = rect;
+    VideoLayerManager* manager = TilesManager::instance()->videoLayerManager();
+    float aspectRatio = manager->getAspectRatio(uniqueId());
+    float deltaY = rect.height() - rect.width() / aspectRatio;
+    if (deltaY >= 0)
+        videoRect.inset(0, deltaY / 2);
+    else {
+        float deltaX = rect.width() - rect.height() * aspectRatio;
+        if (deltaX >= 0)
+            videoRect.inset(deltaX / 2, 0);
+    }
+    return videoRect;
+}
+
 bool VideoLayerAndroid::drawGL()
 {
     // Lazily allocated the textures.
@@ -193,17 +209,26 @@ bool VideoLayerAndroid::drawGL()
         m_createdTexture = true;
     }
 
+    ShaderProgram* shader = TilesManager::instance()->shader();
+
     SkRect rect = SkRect::MakeSize(getSize());
     GLfloat surfaceMatrix[16];
 
+    // Calculate the video rect based on the aspect ratio and the element rect.
+    SkRect videoRect = calVideoRect(rect);
+    if (videoRect != rect) {
+        // Paint the whole video element with black color when video content
+        // can't cover the whole area.
+        shader->drawLayerQuad(m_drawTransform, rect, 0, 1, true, GL_TEXTURE_2D,
+                              Color(0, 0, 0, 255));
+    }
+
+    // Inner rect is for the progressing / play / pause animation.
     SkRect innerRect = SkRect(buttonRect);
-    if (innerRect.contains(rect))
-        innerRect = rect;
-
-    innerRect.offset((rect.width() - IMAGESIZE) / 2 , (rect.height() - IMAGESIZE) / 2);
-
-    ShaderProgram* shader = TilesManager::instance()->shader();
-    VideoLayerManager* manager =  TilesManager::instance()->videoLayerManager();
+    if (innerRect.contains(videoRect))
+        innerRect = videoRect;
+    innerRect.offset(videoRect.fLeft + (videoRect.width() - IMAGESIZE) / 2,
+                     videoRect.fTop + (videoRect.height() - IMAGESIZE) / 2);
 
     // When we are drawing the animation of the play/pause button in the
     // middle of the video, we need to ask for redraw.
@@ -211,9 +236,10 @@ bool VideoLayerAndroid::drawGL()
 
     // Draw the poster image, the progressing image or the Video depending
     // on the player's state.
+    VideoLayerManager* manager = TilesManager::instance()->videoLayerManager();
     if (m_playerState == PREPARING) {
         // Show the progressing animation, with two rotating circles
-        showPreparingAnimation(rect, innerRect);
+        showPreparingAnimation(videoRect, innerRect);
         needRedraw = true;
     } else if (m_playerState == PLAYING && m_surfaceTexture.get()) {
         // Show the real video.
@@ -221,12 +247,12 @@ bool VideoLayerAndroid::drawGL()
         m_surfaceTexture->getTransformMatrix(surfaceMatrix);
         GLuint textureId = manager->getTextureId(uniqueId());
         shader->drawVideoLayerQuad(m_drawTransform, surfaceMatrix,
-                                   rect, textureId);
+                                   videoRect, textureId);
         manager->updateMatrix(uniqueId(), surfaceMatrix);
 
         // Use the scale to control the fading the sizing during animation
         double scale = manager->drawIcon(uniqueId(), PlayIcon);
-        if (scale != 0) {
+        if (scale) {
             innerRect.inset(IMAGESIZE / 4 * scale, IMAGESIZE / 4 * scale);
             shader->drawLayerQuad(m_drawTransform, innerRect,
                                   m_playTextureId, scale, true);
@@ -239,10 +265,10 @@ bool VideoLayerAndroid::drawGL()
         if (textureId && matrix) {
             // Show the screen shot for each video.
             shader->drawVideoLayerQuad(m_drawTransform, matrix,
-                                       rect, textureId);
+                                       videoRect, textureId);
         } else {
             // Show the static poster b/c there is no screen shot available.
-            shader->drawLayerQuad(m_drawTransform, rect, m_backgroundTextureId,
+            shader->drawLayerQuad(m_drawTransform, videoRect, m_backgroundTextureId,
                                   1, true);
             shader->drawLayerQuad(m_drawTransform, innerRect, m_posterTextureId,
                                   1, true);
@@ -250,7 +276,7 @@ bool VideoLayerAndroid::drawGL()
 
         // Use the scale to control the fading and the sizing during animation.
         double scale = manager->drawIcon(uniqueId(), PauseIcon);
-        if (scale != 0) {
+        if (scale) {
             innerRect.inset(IMAGESIZE / 4 * scale, IMAGESIZE / 4 * scale);
             shader->drawLayerQuad(m_drawTransform, innerRect,
                                   m_pauseTextureId, scale, true);

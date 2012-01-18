@@ -301,7 +301,8 @@ public:
         m_player->durationChanged();
         m_player->sizeChanged();
         TilesManager::instance()->videoLayerManager()->updateVideoLayerSize(
-            m_player->platformLayer()->uniqueId(), width*height);
+            m_player->platformLayer()->uniqueId(), width * height,
+            width / (float)height);
     }
 
     virtual bool hasAudio() const { return false; } // do not display the audio UI
