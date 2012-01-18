@@ -1412,14 +1412,11 @@ SelectText::~SelectText()
 
 void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
 {
-    if (m_layerId != layer->uniqueId())
+    int drawingLayerId = layer ? layer->uniqueId() : -1;
+    if (m_layerId != drawingLayerId)
         return;
-    // reset m_picture to match m_layerId
-    SkSafeUnref(m_picture);
-    m_picture = layer->picture();
-    SkSafeRef(m_picture);
     DBG_NAV_LOGD("m_extendSelection=%d m_drawPointer=%d layer [%d]",
-        m_extendSelection, m_drawPointer, layer->uniqueId());
+        m_extendSelection, m_drawPointer, drawingLayerId);
     if (m_extendSelection)
         drawSelectionRegion(canvas, inval);
     if (m_drawPointer)

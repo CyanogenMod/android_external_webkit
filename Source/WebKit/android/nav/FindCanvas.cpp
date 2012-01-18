@@ -571,7 +571,7 @@ void FindOnPage::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval) {
     }
     if (!m_hasCurrentLocation || !m_matches || !m_matches->size())
         return;
-    int layerId = layer->uniqueId();
+    int layerId = layer ? layer->uniqueId() : -1;
     if (m_findIndex >= m_matches->size())
         m_findIndex = 0;
     const MatchInfo& matchInfo = (*m_matches)[m_findIndex];

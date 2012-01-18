@@ -581,10 +581,10 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
         m_baseLayer->setMatrix(canvas->getTotalMatrix());
         canvas->resetMatrix();
         m_baseLayer->draw(canvas);
-        if (extra) {
-            IntRect dummy; // inval area, unused for now
-            extra->draw(canvas, compositeLayer, &dummy);
-        }
+    }
+    if (extra) {
+        IntRect dummy; // inval area, unused for now
+        extra->draw(canvas, compositeLayer, &dummy);
     }
 #endif
     return ret;
