@@ -54,7 +54,8 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
     }
 #if USE(ACCELERATED_COMPOSITING)
     int layerId = m_node->isInLayer() ? m_frame->layer(m_node)->uniqueId() : -1;
-    if (layer->uniqueId() != layerId)
+    int drawingLayerId = layer ? layer->uniqueId() : -1;
+    if (drawingLayerId != layerId)
         return;
 #endif
     if (canvas->quickReject(m_bounds, SkCanvas::kAA_EdgeType)) {
