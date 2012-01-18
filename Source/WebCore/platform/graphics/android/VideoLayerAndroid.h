@@ -71,6 +71,7 @@ private:
     void init();
     void showPreparingAnimation(const SkRect& rect,
                                 const SkRect innerRect);
+    SkRect calVideoRect(const SkRect& rect);
     // Surface texture for showing the video is actually allocated in Java side
     // and passed into this native code.
     sp<android::SurfaceTexture> m_surfaceTexture;

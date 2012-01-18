@@ -25,6 +25,7 @@
 
 #include "config.h"
 #include "VideoLayerManager.h"
+
 #include <wtf/CurrentTime.h>
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -54,6 +55,10 @@
 // screenshots would not be above 8M.
 #define MAX_VIDEOSIZE_SUM 2097152
 
+// We don't preload the video data, so we don't have the exact size yet.
+// Assuming 16:9 by default, this will be corrected after video prepared.
+#define DEFAULT_VIDEO_ASPECT_RATIO 1.78
+
 namespace WebCore {
 
 VideoLayerManager::VideoLayerManager()
@@ -68,6 +73,16 @@ GLuint VideoLayerManager::getTextureId(const int layerId)
     GLuint result = 0;
     if (m_videoLayerInfoMap.contains(layerId))
         result = m_videoLayerInfoMap.get(layerId)->textureId;
+    return result;
+}
+
+// Getting the aspect ratio for GL draw call, in the UI thread.
+float VideoLayerManager::getAspectRatio(const int layerId)
+{
+    android::Mutex::Autolock lock(m_videoLayerInfoMapLock);
+    float result = 0;
+    if (m_videoLayerInfoMap.contains(layerId))
+        result = m_videoLayerInfoMap.get(layerId)->aspectRatio;
     return result;
 }
 
@@ -108,6 +123,7 @@ void VideoLayerManager::registerTexture(const int layerId, const GLuint textureI
     pInfo->textureId = textureId;
     memset(pInfo->surfaceMatrix, 0, sizeof(pInfo->surfaceMatrix));
     pInfo->videoSize = 0;
+    pInfo->aspectRatio = DEFAULT_VIDEO_ASPECT_RATIO;
     m_currentTimeStamp++;
     pInfo->timeStamp = m_currentTimeStamp;
     pInfo->lastIconShownTime = 0;
@@ -122,13 +138,16 @@ void VideoLayerManager::registerTexture(const int layerId, const GLuint textureI
 // Only when the video is prepared, we got the video size. So we should update
 // the size for the video accordingly.
 // This is called from webcore thread, from MediaPlayerPrivateAndroid.
-void VideoLayerManager::updateVideoLayerSize(const int layerId, const int size )
+void VideoLayerManager::updateVideoLayerSize(const int layerId, const int size,
+                                             const float ratio)
 {
     android::Mutex::Autolock lock(m_videoLayerInfoMapLock);
     if (m_videoLayerInfoMap.contains(layerId)) {
         VideoLayerInfo* pInfo = m_videoLayerInfoMap.get(layerId);
-        if (pInfo)
+        if (pInfo) {
             pInfo->videoSize = size;
+            pInfo->aspectRatio = ratio;
+        }
     }
 
     // If the memory usage is out of bound, then just delete the oldest ones.
@@ -255,7 +274,7 @@ double VideoLayerManager::drawIcon(const int layerId, IconType type)
         VideoLayerInfo* pInfo = m_videoLayerInfoMap.get(layerId);
         // If this is state switching moment, reset the time and state
         if ((type == PlayIcon && pInfo->iconState != PlayIconShown)
-            ||(type == PauseIcon && pInfo->iconState != PauseIconShown)) {
+            || (type == PauseIcon && pInfo->iconState != PauseIconShown)) {
             pInfo->lastIconShownTime = WTF::currentTime();
             pInfo->iconState = (type == PlayIcon) ? PlayIconShown : PauseIconShown;
         }
@@ -269,7 +288,7 @@ double VideoLayerManager::drawIcon(const int layerId, IconType type)
         }
     }
 
-    if (ratio > 1 || ratio < 0 )
+    if (ratio > 1 || ratio < 0)
         ratio = 0;
     return ratio;
 }

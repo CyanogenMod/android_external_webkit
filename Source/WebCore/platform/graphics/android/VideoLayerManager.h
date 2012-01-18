@@ -50,6 +50,7 @@ enum IconType {
 struct VideoLayerInfo {
     GLuint textureId; // GL texture bound with the surface texture.
     int videoSize; // The size of the video.
+    float aspectRatio; // The aspect ratio of the video.
     int timeStamp; // Used to decide which VideoLayerInfo is the oldest one.
     GLfloat surfaceMatrix[16];
 
@@ -68,7 +69,7 @@ public:
     // Register the texture when we got setSurfaceTexture call.
     void registerTexture(const int layerId, const GLuint textureId);
     // Update the size when the video is prepared.
-    void updateVideoLayerSize(const int layerId, const int size);
+    void updateVideoLayerSize(const int layerId, const int size, const float ratio);
     // At draw time, update the matrix for every video frame update.
     void updateMatrix(const int layerId, const GLfloat* matrix);
     // Remove the layer info from the mapping.
@@ -78,6 +79,8 @@ public:
     GLuint getTextureId(const int layerId);
     // Return the matrix for surface texture corresponding to the layerId
     GLfloat* getMatrix(const int layerId);
+    // Return the aspect ratio for the video corresponding to the layerId
+    float getAspectRatio(const int layerId);
 
     // Delete the GL textures
     void deleteUnusedTextures();
