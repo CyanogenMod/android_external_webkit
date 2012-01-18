@@ -261,20 +261,6 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
                 return value->cssText();
         }
 #endif
-#ifdef ANDROID_CSS_RING
-        case CSSPropertyWebkitRing: {
-            const int properties[9] = { CSSPropertyWebkitRingFillColor,
-                                        CSSPropertyWebkitRingInnerWidth,
-                                        CSSPropertyWebkitRingOuterWidth,
-                                        CSSPropertyWebkitRingOutset,
-                                        CSSPropertyWebkitRingPressedInnerColor,
-                                        CSSPropertyWebkitRingPressedOuterColor,
-                                        CSSPropertyWebkitRingRadius,
-                                        CSSPropertyWebkitRingSelectedInnerColor,
-                                        CSSPropertyWebkitRingSelectedOuterColor };
-            return getLayeredShorthandValue(properties, 9);
-        }
-#endif
     }
     return String();
 }

@@ -938,35 +938,6 @@ static void AddLayer(CachedFrame* frame, size_t index, const IntPoint& location,
 }
 #endif
 
-static int FindColorIndex(WTF::Vector<CachedColor>& colorTracker,
-    const CachedColor& cachedColor)
-{
-    CachedColor* work = colorTracker.begin() - 1;
-    CachedColor* end = colorTracker.end();
-    while (++work < end) {
-        if (*work == cachedColor)
-            return work - colorTracker.begin();
-    }
-    int result = colorTracker.size();
-    colorTracker.grow(result + 1);
-    CachedColor& newColor = colorTracker.last();
-    newColor = cachedColor;
-    return result;
-}
-
-static void InitColor(CachedColor* color)
-{
-    color->setFillColor(RenderStyle::initialRingFillColor());
-    color->setInnerWidth(RenderStyle::initialRingInnerWidth());
-    color->setOuterWidth(RenderStyle::initialRingOuterWidth());
-    color->setOutset(RenderStyle::initialRingOutset());
-    color->setPressedInnerColor(RenderStyle::initialRingPressedInnerColor());
-    color->setPressedOuterColor(RenderStyle::initialRingPressedOuterColor());
-    color->setRadius(RenderStyle::initialRingRadius());
-    color->setSelectedInnerColor(RenderStyle::initialRingSelectedInnerColor());
-    color->setSelectedOuterColor(RenderStyle::initialRingSelectedOuterColor());
-}
-
 // when new focus is found, push it's parent on a stack
     // as long as more focii are found with the same (grand) parent, note it
     // (which only requires retrieving the last parent on the stack)
@@ -994,8 +965,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
     bzero(clipTracker.data(), sizeof(ClipColumnTracker));
     WTF::Vector<TabIndexTracker> tabIndexTracker(1); // sentinel
     bzero(tabIndexTracker.data(), sizeof(TabIndexTracker));
-    WTF::Vector<CachedColor> colorTracker(1);
-    InitColor(colorTracker.data());
 #if DUMP_NAV_CACHE
     char* frameNamePtr = cachedFrame->mDebug.mFrameName;
     Builder(frame)->mDebug.frameName(frameNamePtr, frameNamePtr + 
@@ -1011,7 +980,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
 #if DUMP_NAV_CACHE
     cachedParentNode.mDebug.mNodeIndex = nodeIndex;
 #endif
-    cachedFrame->add(colorTracker[0]);
     cachedFrame->add(cachedParentNode);
     Node* node = parent;
     int cacheIndex = 1;
@@ -1131,7 +1099,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         TextDirection direction = LTR;
         String exported;
         CachedNodeType type = NORMAL_CACHEDNODETYPE;
-        CachedColor cachedColor;
         CachedInput cachedInput;
         IntRect bounds;
         IntRect absBounds;
@@ -1328,28 +1295,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
         cachedNode.setBounds(bounds);
         cachedNode.mCursorRing.append(bounds);
     keepTextNode:
-        if (nodeRenderer) { // area tags' node->renderer() == 0
-            RenderStyle* style = nodeRenderer->style();
-            const void* styleDataPtr = style->ringData();
-            // to save time, see if we're pointing to the same style data as before
-            if (lastStyleDataPtr != styleDataPtr) {
-                lastStyleDataPtr = styleDataPtr;
-                cachedColor.setFillColor(style->ringFillColor());
-                cachedColor.setInnerWidth(style->ringInnerWidth());
-                cachedColor.setOuterWidth(style->ringOuterWidth());
-                cachedColor.setOutset(style->ringOutset());
-                cachedColor.setPressedInnerColor(style->ringPressedInnerColor());
-                cachedColor.setPressedOuterColor(style->ringPressedOuterColor());
-                cachedColor.setRadius(style->ringRadius());
-                cachedColor.setSelectedInnerColor(style->ringSelectedInnerColor());
-                cachedColor.setSelectedOuterColor(style->ringSelectedOuterColor());
-                int oldSize = colorTracker.size();
-                colorIndex = FindColorIndex(colorTracker, cachedColor);
-                if (colorIndex == oldSize)
-                    cachedFrame->add(cachedColor);
-            }
-        } else
-            colorIndex = 0;
         IntRect clip = hasClip ? bounds : absBounds;
         size_t clipIndex = clipTracker.size();
         if (clipTracker.last().mNode == node)
@@ -1395,7 +1340,6 @@ void CacheBuilder::BuildFrame(Frame* root, Frame* frame,
             else if (cachedNode.clip(clip) == false)
                 continue; // skip this node if outside of the clip
         }
-        cachedNode.setColorIndex(colorIndex);
         cachedNode.setExport(exported);
         cachedNode.setHasCursorRing(hasCursorRing);
         cachedNode.setHasMouseOver(hasMouseOver);

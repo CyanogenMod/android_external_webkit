@@ -758,7 +758,6 @@
 #define ANDROID_ALLOW_TURNING_OFF_CARET
 #define ANDROID_META_SUPPORT
 #define ANDROID_MULTIPLE_WINDOWS
-#define ANDROID_CSS_RING
 #define ANDROID_CSS_TAP_HIGHLIGHT_COLOR
 #define ANDROID_BLOCK_NETWORK_IMAGE
 // Changes needed to support native plugins (npapi.h). If the change is generic,

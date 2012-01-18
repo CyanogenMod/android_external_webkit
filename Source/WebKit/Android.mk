@@ -85,7 +85,6 @@ LOCAL_SRC_FILES += \
 	android/jni/ViewStateSerializer.cpp \
 	\
 	android/nav/CacheBuilder.cpp \
-	android/nav/CachedColor.cpp \
 	android/nav/CachedFrame.cpp \
 	android/nav/CachedHistory.cpp \
 	android/nav/CachedInput.cpp \
