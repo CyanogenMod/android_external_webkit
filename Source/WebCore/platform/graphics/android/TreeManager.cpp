@@ -159,9 +159,14 @@ void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
     if (m_queuedTree || m_paintingTree) {
         // currently painting, so defer this new tree
         if (m_queuedTree) {
-            // have a queued tree, copy over invals so the regions are
-            // eventually repainted
+            // already have a queued tree, copy over invals so the regions are
+            // eventually repainted and let the old queued tree be discarded
             m_queuedTree->mergeInvalsInto(newTree);
+
+            if (!TilesManager::instance()->useDoubleBuffering()) {
+                // not double buffering, count discarded tree/webkit paint as an update
+                TilesManager::instance()->incTreeUpdates();
+            }
 
             XLOG("DISCARDING tree - %p, has children %d, has animations %d",
                  newTree, newTree && newTree->countChildren(),
@@ -222,9 +227,10 @@ bool TreeManager::drawGL(double currentTime, IntRect& viewRect,
         if (laTree)
             laTree->computeTexturesAmount(texturesResultPtr);
 
-        if (/*!m_fastSwapMode && */ m_paintingTree->isReady()) {
+        if (!TilesManager::instance()->useDoubleBuffering() || m_paintingTree->isReady()) {
             XLOG("have painting tree %p ready, swapping!", m_paintingTree);
             didTreeSwap = true;
+            TilesManager::instance()->incTreeUpdates();
             swap();
             if (treesSwappedPtr)
                 *treesSwappedPtr = true;

@@ -178,6 +178,16 @@ public:
         return m_useMinimalMemory;
     }
 
+    void setUseDoubleBuffering(bool useDoubleBuffering)
+    {
+        m_useDoubleBuffering = useDoubleBuffering;
+    }
+    bool useDoubleBuffering() { return m_useDoubleBuffering; }
+
+    void incTreeUpdates() { m_treeUpdates++; }
+    unsigned int getTreeUpdates() { return m_treeUpdates; }
+    void clearTreeUpdates() { m_treeUpdates = 0; }
+
     void incDrawGLCount()
     {
         m_drawGLCount++;
@@ -226,6 +236,9 @@ private:
     bool m_invertedScreenSwitch;
 
     bool m_useMinimalMemory;
+
+    bool m_useDoubleBuffering;
+    unsigned int m_treeUpdates;
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 

@@ -2600,10 +2600,8 @@ static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
     WTF::String key = jstringToWtfString(env, jkey);
     WTF::String value = jstringToWtfString(env, jvalue);
     if (key == "inverted") {
-        if (value == "true")
-            TilesManager::instance()->setInvertedScreen(true);
-        else
-            TilesManager::instance()->setInvertedScreen(false);
+        bool shouldInvert = (value == "true");
+        TilesManager::instance()->setInvertedScreen(shouldInvert);
         return true;
     }
     else if (key == "inverted_contrast") {
@@ -2620,11 +2618,25 @@ static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
         TilesManager::instance()->setUseMinimalMemory(value == "true");
         return true;
     }
+    else if (key == "use_double_buffering") {
+        TilesManager::instance()->setUseDoubleBuffering(value == "true");
+        return true;
+    }
+    else if (key == "tree_updates") {
+        TilesManager::instance()->clearTreeUpdates();
+        return true;
+    }
     return false;
 }
 
-static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring key)
+static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring jkey)
 {
+    WTF::String key = jstringToWtfString(env, jkey);
+    if (key == "tree_updates") {
+        int updates = TilesManager::instance()->getTreeUpdates();
+        WTF::String wtfUpdates = WTF::String::number(updates);
+        return wtfStringToJstring(env, wtfUpdates);
+    }
     return 0;
 }
 
