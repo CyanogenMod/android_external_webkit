@@ -25,7 +25,6 @@
 
 #include "CachedPrefix.h"
 #include "android_graphics.h"
-#include "CachedColor.h"
 #include "CachedRoot.h"
 #include "IntRect.h"
 #include "LayerAndroid.h"
@@ -36,6 +35,18 @@
 #include "WebViewCore.h"
 
 namespace android {
+
+#define RING_OUTSET 3
+#define RING_RADIUS 1
+#define RING_INNER_WIDTH 16
+#define RING_OUTER_WIDTH 16
+
+static const RGBA32 ringFill = 0x666699FF;
+static const RGBA32 ringPressedInner = 0x006699FF;
+static const RGBA32 ringPressedOuter = 0x336699FF;
+static const RGBA32 ringSelectedInner = 0xAA6699FF;
+static const RGBA32 ringSelectedOuter = 0x336699FF;
+
 
 CursorRing::CursorRing(WebViewCore* core)
     : m_viewImpl(core)
@@ -64,7 +75,6 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
             m_bounds.x(), m_bounds.y(), m_bounds.width(), m_bounds.height());
         return;
     }
-    const CachedColor& colors = m_frame->color(m_node);
     unsigned rectCount = m_rings.size();
     SkRegion rgn;
     SkPath path;
@@ -74,7 +84,7 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
         SkIRect ir;
 
         r.round(&ir);
-        ir.inset(-colors.outset(), -colors.outset());
+        ir.inset(-RING_OUTSET, -RING_OUTSET);
         rgn.op(ir, SkRegion::kUnion_Op);
     }
     rgn.getBoundaryPath(&path);
@@ -82,30 +92,30 @@ void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
     SkPaint paint;
     paint.setAntiAlias(true);
     paint.setPathEffect(new SkCornerPathEffect(
-        SkIntToScalar(colors.radius())))->unref();
+        SkIntToScalar(RING_RADIUS)))->unref();
     SkColor outer;
     SkColor inner;
     if (m_isPressed) {
         SkColor pressed;
-        pressed = colors.fillColor();
+        pressed = ringFill;
         paint.setColor(pressed);
         canvas->drawPath(path, paint);
-        outer = colors.pressedOuterColor();
-        inner = colors.pressedInnerColor();
+        outer = ringPressedInner;
+        inner = ringPressedOuter;
     } else {
-        outer = colors.selectedOuterColor();
-        inner = colors.selectedInnerColor();
+        outer = ringSelectedOuter;
+        inner = ringSelectedInner;
     }
     paint.setStyle(SkPaint::kStroke_Style);
-    paint.setStrokeWidth(colors.outerWidth() * WIDTH_SCALE);
+    paint.setStrokeWidth(RING_OUTER_WIDTH * WIDTH_SCALE);
     paint.setColor(outer);
     canvas->drawPath(path, paint);
-    paint.setStrokeWidth(colors.innerWidth() * WIDTH_SCALE);
+    paint.setStrokeWidth(RING_INNER_WIDTH * WIDTH_SCALE);
     paint.setColor(inner);
     canvas->drawPath(path, paint);
     SkRect localBounds, globalBounds;
     localBounds = path.getBounds();
-    float width = std::max(colors.innerWidth(), colors.outerWidth());
+    float width = std::max(RING_INNER_WIDTH, RING_OUTER_WIDTH);
     width *= WIDTH_SCALE;
     localBounds.inset(-width, -width);
     const SkMatrix& matrix = canvas->getTotalMatrix();
@@ -156,9 +166,8 @@ bool CursorRing::setup()
         m_rings.append(m_bounds);
     }
     m_absBounds = m_node->bounds(m_frame);
-    const CachedColor& colors = m_frame->color(m_node);
-    m_bounds.inflate(SkScalarCeil(colors.outerWidth()));
-    m_absBounds.inflate(SkScalarCeil(colors.outerWidth()));
+    m_bounds.inflate(SkScalarCeil(RING_OUTER_WIDTH));
+    m_absBounds.inflate(SkScalarCeil(RING_OUTER_WIDTH));
     if (!m_node->hasCursorRing() || (m_node->isPlugin() && m_node->isFocus()))
         return false;
 #if DEBUG_NAV_UI
@@ -169,12 +178,6 @@ bool CursorRing::setup()
         m_isPressed ? "true" : "false",
         m_rings.size(), ring.x(), ring.y(), ring.width(), ring.height(),
         m_node->isPlugin() ? "true" : "false");
-    DBG_NAV_LOGD("[%d] inner=%d outer=%d outset=%d radius=%d"
-        " fill=0x%08x pin=0x%08x pout=0x%08x sin=0x%08x sout=0x%08x",
-        m_node->colorIndex(), colors.innerWidth(), colors.outerWidth(),
-        colors.outset(), colors.radius(), colors.fillColor(),
-        colors.pressedInnerColor(), colors.pressedOuterColor(),
-        colors.selectedInnerColor(), colors.selectedInnerColor());
 #endif
     return true;
 }

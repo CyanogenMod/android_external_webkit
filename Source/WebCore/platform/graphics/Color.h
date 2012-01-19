@@ -162,13 +162,6 @@ public:
     static const RGBA32 lightGray = 0xFFC0C0C0;
     static const RGBA32 transparent = 0x00000000;
 
-#ifdef ANDROID_CSS_RING
-    static const RGBA32 ringFill = 0x666699FF;
-    static const RGBA32 ringPressedInner = 0x006699FF;
-    static const RGBA32 ringPressedOuter = 0x336699FF;
-    static const RGBA32 ringSelectedInner = 0xAA6699FF;
-    static const RGBA32 ringSelectedOuter = 0x336699FF;
-#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     static const RGBA32 tap = 0x6633B5E5;
 #endif

@@ -58,17 +58,6 @@ public:
     Color textFillColor;
     Color textEmphasisColor;
 
-#ifdef ANDROID_CSS_RING
-    Color ringFillColor;
-    Length ringInnerWidth;
-    Length ringOuterWidth;
-    Length ringOutset;
-    Color ringPressedInnerColor;
-    Color ringPressedOuterColor;
-    Length ringRadius;
-    Color ringSelectedInnerColor;
-    Color ringSelectedOuterColor;
-#endif
 #ifdef ANDROID_CSS_TAP_HIGHLIGHT_COLOR
     Color tapHighlightColor;
 #endif
