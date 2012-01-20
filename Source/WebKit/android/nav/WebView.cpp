@@ -305,7 +305,7 @@ void scrollToCurrentMatch()
     }
 
     SkRect matchBounds = m_findOnPage.currentMatchBounds();
-    LayerAndroid* rootLayer = getFrameCache(DontAllowNewer)->rootLayer();
+    LayerAndroid* rootLayer = compositeRoot();
     if (!rootLayer)
         return;
 
@@ -2295,8 +2295,9 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
     }
     WebView* view = GET_NATIVE_VIEW(env, obj);
     ALOG_ASSERT(view, "view not set in nativeFindAll");
-    CachedRoot* root = view->getFrameCache(WebView::AllowNewer);
-    if (!root) {
+    BaseLayerAndroid* baseLayer = view->getBaseLayer();
+    android::PictureSet* pictureSet = baseLayer ? baseLayer->content() : 0;
+    if (!pictureSet) {
         env->ReleaseStringChars(findLower, findLowerChars);
         env->ReleaseStringChars(findUpper, findUpperChars);
         checkException(env);
@@ -2311,8 +2312,8 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
         checkException(env);
         return 0;
     }
-    int width = root->documentWidth();
-    int height = root->documentHeight();
+    int width = pictureSet->width();
+    int height = pictureSet->height();
     // Create a FindCanvas, which allows us to fake draw into it so we can
     // figure out where our search string is rendered (and how many times).
     FindCanvas canvas(width, height, (const UChar*) findLowerChars,
@@ -2321,14 +2322,11 @@ static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     canvas.setBitmapDevice(bitmap);
     FindOnPage& findOnPage = view->findOnPage();
-    BaseLayerAndroid* baseLayer = view->getBaseLayer();
-    if (baseLayer) {
-        canvas.setLayerId(-1);
-        unsigned matchesBegin = canvas.found();
-        baseLayer->drawCanvas(&canvas);
-        findOnPage.setLayerMatchRange(-1,
-            std::pair<unsigned, unsigned>(matchesBegin, canvas.found()));
-    }
+    canvas.setLayerId(-1);
+    unsigned matchesBegin = canvas.found();
+    baseLayer->drawCanvas(&canvas);
+    findOnPage.setLayerMatchRange(-1,
+        std::pair<unsigned, unsigned>(matchesBegin, canvas.found()));
 #if USE(ACCELERATED_COMPOSITING)
     LayerAndroid* compositeLayer = view->compositeRoot();
     if (compositeLayer)
