@@ -35,6 +35,7 @@
 #include "FileChooser.h"
 #include "PictureSet.h"
 #include "PlatformGraphicsContext.h"
+#include "Position.h"
 #include "SkColor.h"
 #include "SkTDArray.h"
 #include "SkRegion.h"
@@ -362,14 +363,6 @@ namespace android {
         void deleteSelection(int start, int end, int textGeneration);
 
         /**
-         * Delete text near the cursor (assumed to be at selection end).
-         * leftLength and rightLength refer to the number of characters
-         * left and right of the cursor to delete. The cursor will be
-         * set to the beginning of the deleted text.
-         */
-        void deleteSurroundingText(int leftLength, int rightLength);
-
-        /**
          *  Set the selection of the currently focused textfield to (start, end).
          *  If start and end are out of order, swap them.
          */
@@ -675,6 +668,39 @@ namespace android {
         void advanceAnchorNode(DOMSelection* selection, int direction, String& markup, bool ignoreFirstNode, ExceptionCode& ec);
         Node* getNextAnchorNode(Node* anchorNode, bool skipFirstHack, int direction);
         Node* getImplicitBoundaryNode(Node* node, unsigned offset, int direction);
+        /**
+         * Calls into java to reset the text edit field with the
+         * current contents and selection. This currently works only with
+         * content-editable fields.
+         */
+        void initEditField(Node* node);
+        /**
+         * Returns the offsets of the selection area for both normal text
+         * fields and content-editable fields. start and end are modified
+         * by this method.
+         */
+        static void getSelectionOffsets(Node* node, int& start, int& end);
+        /**
+         * Gets the plain text of the specified editable text field. node
+         * may be content-editable or a plain text fields.
+         */
+        static String getInputText(Node* node);
+        /**
+         * Gets the RenderTextControl for the given node if it has one.
+         * If its renderer isn't a RenderTextControl, then NULL is returned.
+         */
+        static RenderTextControl* toRenderTextControl(Node *node);
+        /**
+         * Sets the selection for node's editable field to the offsets
+         * between start (inclusive) and end (exclusive).
+         */
+        static void setSelection(Node* node, int start, int end);
+        /**
+         * Returns the Position for the given offset for an editable
+         * field. If node is editable the offset relative to the highest
+         * editable node. If it is not editable, the offset is relative to node.
+         */
+        static WebCore::Position getPositionForOffset(Node* node, int offset);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);

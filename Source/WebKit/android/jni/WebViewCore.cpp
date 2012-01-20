@@ -309,6 +309,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_exitFullscreenVideo;
     jmethodID   m_setWebTextViewAutoFillable;
     jmethodID   m_selectAt;
+    jmethodID   m_initEditField;
     AutoJObject object(JNIEnv* env) {
         // We hold a weak reference to the Java WebViewCore to avoid memeory
         // leaks due to circular references when WebView.destroy() is not
@@ -447,6 +448,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(Ljava/lang/String;II)V");
     env->DeleteLocalRef(clazz);
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
@@ -716,13 +718,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     int oldSelEnd = 0;
     if (oldFocusNode) {
         oldBounds = oldFocusNode->getRect();
-        RenderObject* renderer = oldFocusNode->renderer();
-        if (renderer && (renderer->isTextArea() || renderer->isTextField())) {
-            WebCore::RenderTextControl* rtc =
-                static_cast<WebCore::RenderTextControl*>(renderer);
-            oldSelStart = rtc->selectionStart();
-            oldSelEnd = rtc->selectionEnd();
-        }
+        getSelectionOffsets(oldFocusNode, oldSelStart, oldSelEnd);
     } else
         oldBounds = WebCore::IntRect(0,0,0,0);
     unsigned latestVersion = 0;
@@ -2151,29 +2147,53 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
 #endif
 }
 
+Position WebViewCore::getPositionForOffset(Node* node, int offset)
+{
+    Position positionInNode(node, 0);
+    Node* highest = highestEditableRoot(positionInNode);
+    if (!highest)
+        highest = node;
+    Position start = firstPositionInNode(highest);
+    Position end = lastPositionInNode(highest);
+    Document* document = node->document();
+    PassRefPtr<Range> range = Range::create(document, start, end);
+    WebCore::CharacterIterator iterator(range.get());
+    iterator.advance(offset);
+    return iterator.range()->startPosition();
+}
+
+void WebViewCore::setSelection(Node* node, int start, int end)
+{
+    RenderTextControl* control = toRenderTextControl(node);
+    if (control)
+        setSelectionRange(node, start, end);
+    else {
+        Position startPosition = getPositionForOffset(node, start);
+        Position endPosition = getPositionForOffset(node, end);
+        VisibleSelection selection(startPosition, endPosition);
+        SelectionController* selector = node->document()->frame()->selection();
+        selector->setSelection(selection);
+    }
+}
+
 void WebViewCore::setSelection(int start, int end)
 {
     WebCore::Node* focus = currentFocus();
     if (!focus)
         return;
-    WebCore::RenderObject* renderer = focus->renderer();
-    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea()))
-        return;
-    if (start > end) {
-        int temp = start;
-        start = end;
-        end = temp;
-    }
+    if (start > end)
+        swap(start, end);
+
     // Tell our EditorClient that this change was generated from the UI, so it
     // does not need to echo it to the UI.
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
             m_mainFrame->editor()->client());
     client->setUiGeneratedSelectionChange(true);
-    setSelectionRange(focus, start, end);
-    if (start != end) {
+    setSelection(focus, start, end);
+    RenderTextControl* control = toRenderTextControl(focus);
+    if (start != end && control) {
         // Fire a select event. No event is sent when the selection reduces to
         // an insertion point
-        RenderTextControl* control = toRenderTextControl(renderer);
         control->selectionChanged(true);
     }
     client->setUiGeneratedSelectionChange(false);
@@ -2186,7 +2206,7 @@ void WebViewCore::setSelection(int start, int end)
     }
     // For password fields, this is done in the UI side via
     // bringPointIntoView, since the UI does the drawing.
-    if (renderer->isTextArea() || !isPasswordField)
+    if (control && control->isTextArea() || !isPasswordField)
         revealSelection();
 }
 
@@ -2887,47 +2907,6 @@ void WebViewCore::deleteSelection(int start, int end, int textGeneration)
     m_shouldPaintCaret = true;
 }
 
-void WebViewCore::deleteSurroundingText(int leftLength, int rightLength)
-{
-    WebCore::Node* focus = currentFocus();
-    if (!isTextInput(focus))
-        return;
-
-    Frame* frame = focus->document()->frame();
-    if (!frame)
-        return;
-    SelectionController* selection = frame->selection();
-    Position endPosition = selection->end();
-
-    Position deleteStart = endPosition;
-    int leftDelete = leftLength;
-    while (leftDelete > 0) {
-        leftDelete--;
-        deleteStart = deleteStart.previous(Character);
-    }
-    Position deleteEnd = endPosition;
-    int rightDelete = rightLength;
-    while (rightDelete > 0) {
-        rightDelete--;
-        deleteEnd = deleteEnd.next(Character);
-    }
-
-    // Select the text to delete.
-    VisibleSelection deletedText(deleteStart, deleteEnd);
-    selection->setSelection(deletedText);
-    // Prevent our editor client from passing a message to change the
-    // selection.
-    EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
-            m_mainFrame->editor()->client());
-    client->setUiGeneratedSelectionChange(true);
-    WebCore::TypingCommand::deleteSelection(focus->document(), 0);
-    client->setUiGeneratedSelectionChange(false);
-
-    // set the new cursor position
-    VisibleSelection endCarat(deleteStart);
-    selection->setSelection(endCarat);
-}
-
 void WebViewCore::replaceTextfieldText(int oldStart,
         int oldEnd, const WTF::String& replace, int start, int end,
         int textGeneration)
@@ -2941,8 +2920,11 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
             m_mainFrame->editor()->client());
     client->setUiGeneratedSelectionChange(true);
-    WebCore::TypingCommand::insertText(focus->document(), replace,
-        false);
+    if (replace.length())
+        WebCore::TypingCommand::insertText(focus->document(), replace,
+                false);
+    else
+        WebCore::TypingCommand::deleteSelection(focus->document());
     client->setUiGeneratedSelectionChange(false);
     // setSelection calls revealSelection, so there is no need to do it here.
     setSelection(start, end);
@@ -2959,12 +2941,6 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
         clearTextEntry();
         return;
     }
-    WebCore::RenderObject* renderer = focus->renderer();
-    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
-        DBG_NAV_LOGD("renderer==%p || not text", renderer);
-        clearTextEntry();
-        return;
-    }
     // Block text field updates during a key press.
     m_blockTextfieldUpdates = true;
     // Also prevent our editor client from passing a message to change the
@@ -2976,9 +2952,7 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     client->setUiGeneratedSelectionChange(false);
     m_blockTextfieldUpdates = false;
     m_textGeneration = generation;
-    WebCore::RenderTextControl* renderText =
-        static_cast<WebCore::RenderTextControl*>(renderer);
-    WTF::String test = renderText->text();
+    WTF::String test = getInputText(focus);
     if (test != current) {
         // If the text changed during the key event, update the UI text field.
         updateTextfield(focus, false, test);
@@ -2998,14 +2972,13 @@ void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
         clearTextEntry();
         return;
     }
-    WebCore::RenderObject* renderer = focus->renderer();
-    if (!renderer || (!renderer->isTextField() && !renderer->isTextArea())) {
+    WebCore::RenderTextControl* renderText = toRenderTextControl(focus);
+    if (!renderText) {
         DBG_NAV_LOGD("renderer==%p || not text", renderer);
         clearTextEntry();
         return;
     }
-    WebCore::RenderTextControl* renderText =
-        static_cast<WebCore::RenderTextControl*>(renderer);
+
     int x = (int) (xPercent * (renderText->scrollWidth() -
         renderText->clientWidth()));
     DBG_NAV_LOGD("x=%d y=%d xPercent=%g scrollW=%d clientW=%d", x, y,
@@ -3363,21 +3336,19 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     DBG_NAV_LOGD("m_mousePos={%d,%d} focusNode=%p handled=%s", m_mousePos.x(),
         m_mousePos.y(), focusNode, handled ? "true" : "false");
     if (focusNode) {
-        WebCore::RenderObject* renderer = focusNode->renderer();
-        if (renderer && (renderer->isTextField() || renderer->isTextArea())) {
+        WebCore::RenderTextControl* rtc = toRenderTextControl(focusNode);
+        if (rtc) {
             bool ime = !shouldSuppressKeyboard(focusNode)
                     && !(static_cast<WebCore::HTMLInputElement*>(focusNode))->readOnly();
             if (ime) {
 #if ENABLE(WEB_AUTOFILL)
-                if (renderer->isTextField()) {
+                if (rtc->isTextField()) {
                     EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(framePtr->page()->editorClient());
                     WebAutofill* autoFill = editorC->getAutofill();
                     autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusNode));
                 }
 #endif
                 if (!fake) {
-                    RenderTextControl* rtc
-                            = static_cast<RenderTextControl*> (renderer);
 #if ENABLE(ANDROID_NAVCACHE)
                     // Force an update of the navcache as this will fire off a
                     // message to WebView that *must* have an updated focus.
@@ -3395,6 +3366,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             // user can type.  Otherwise hide the keyboard because no text
             // input is needed.
             if (isContentEditable(focusNode)) {
+                initEditField(focusNode);
                 requestKeyboard(true);
             } else if (!nodeIsPlugin(focusNode)) {
                 clearTextEntry();
@@ -3405,6 +3377,22 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
         clearTextEntry();
     }
     return handled;
+}
+
+void WebViewCore::initEditField(Node* node)
+{
+    String text = getInputText(node);
+    int start = 0;
+    int end = 0;
+    getSelectionOffsets(node, start, end);
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    jstring fieldText = wtfStringToJstring(env, text, true);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
+            fieldText, start, end);
+    checkException(env);
 }
 
 void WebViewCore::popupReply(int index)
@@ -3648,6 +3636,60 @@ WebViewCore::getWebViewJavaObject()
     return env->GetObjectField(javaObject.get(), gWebViewCoreFields.m_webView);
 }
 
+RenderTextControl* WebViewCore::toRenderTextControl(Node* node)
+{
+    RenderTextControl* rtc = 0;
+    RenderObject* renderer = node->renderer();
+    if (renderer && renderer->isTextControl()) {
+        rtc = WebCore::toRenderTextControl(renderer);
+    }
+    return rtc;
+}
+
+void WebViewCore::getSelectionOffsets(Node* node, int& start, int& end)
+{
+    RenderTextControl* rtc = toRenderTextControl(node);
+    if (rtc) {
+        start = rtc->selectionStart();
+        end = rtc->selectionEnd();
+    } else {
+        // It must be content editable field.
+        Document* document = node->document();
+        Frame* frame = document->frame();
+        SelectionController* selector = frame->selection();
+        Position selectionStart = selector->start();
+        Position selectionEnd = selector->end();
+        Node* editable = highestEditableRoot(selectionStart);
+        Position startOfNode = firstPositionInNode(editable);
+        RefPtr<Range> startRange = Range::create(document, startOfNode,
+                selectionStart);
+        start = TextIterator::rangeLength(startRange.get(), true);
+        RefPtr<Range> endRange = Range::create(document, startOfNode,
+                selectionEnd);
+        end = TextIterator::rangeLength(endRange.get(), true);
+    }
+}
+
+String WebViewCore::getInputText(Node* node)
+{
+    String text;
+    WebCore::RenderTextControl* renderText = toRenderTextControl(node);
+    if (renderText)
+        text = renderText->text();
+    else {
+        // It must be content editable field.
+        Position inNode(node, 0);
+        Node* editable = highestEditableRoot(inNode);
+        if (editable) {
+            Position start = firstPositionInNode(editable);
+            Position end = lastPositionInNode(editable);
+            VisibleSelection allEditableText(start, end);
+            text = allEditableText.firstRange()->text();
+        }
+    }
+    return text;
+}
+
 void WebViewCore::updateTextSelection()
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -3657,13 +3699,12 @@ void WebViewCore::updateTextSelection()
     WebCore::Node* focusNode = currentFocus();
     if (!focusNode)
         return;
-    RenderObject* renderer = focusNode->renderer();
-    if (!renderer || (!renderer->isTextArea() && !renderer->isTextField()))
-        return;
-    RenderTextControl* rtc = static_cast<RenderTextControl*>(renderer);
+    int start = 0;
+    int end = 0;
+    getSelectionOffsets(focusNode, start, end);
     env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(focusNode),
-            rtc->selectionStart(), rtc->selectionEnd(), m_textGeneration);
+            start, end, m_textGeneration);
     checkException(env);
 }
 
@@ -4216,13 +4257,6 @@ static void DeleteSelection(JNIEnv* env, jobject obj, jint nativeClass,
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     viewImpl->deleteSelection(start, end, textGeneration);
-}
-
-static void DeleteSurroundingText(JNIEnv *env, jobject obj, jint nativeClass,
-        jint leftLength, jint rightLength)
-{
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    viewImpl->deleteSurroundingText(leftLength, rightLength);
 }
 
 static void SetSelection(JNIEnv* env, jobject obj, jint nativeClass,
@@ -4821,8 +4855,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ModifySelection },
     { "nativeDeleteSelection", "(IIII)V",
         (void*) DeleteSelection } ,
-    { "nativeDeleteSurroundingText", "(III)V",
-        (void*) DeleteSurroundingText } ,
     { "nativeReplaceTextfieldText", "(IIILjava/lang/String;III)V",
         (void*) ReplaceTextfieldText } ,
     { "nativeMoveFocus", "(III)V",
