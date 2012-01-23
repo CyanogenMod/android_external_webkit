@@ -24,7 +24,6 @@
  */
 
 #define LOG_TAG "webhistory"
-#define LOG_NDEBUG 0  // enable ALOGV and ALOG_ASSERT
 
 #include "config.h"
 #include "WebHistory.h"
