@@ -94,6 +94,7 @@ LOCAL_SRC_FILES += \
 	bindings/v8/V8NodeFilterCondition.cpp \
 	bindings/v8/V8Proxy.cpp \
 	bindings/v8/V8Utilities.cpp \
+	bindings/v8/V8WorkerContextErrorHandler.cpp \
 	bindings/v8/V8WindowErrorHandler.cpp \
 	bindings/v8/V8WorkerContextEventListener.cpp \
 	bindings/v8/WorkerContextExecutionProxy.cpp \
