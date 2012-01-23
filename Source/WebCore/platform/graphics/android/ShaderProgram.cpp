@@ -219,11 +219,15 @@ ShaderProgram::ShaderProgram()
     , m_currentScale(1.0f)
     , m_needsInit(true)
 {
-    init();
 }
 
 void ShaderProgram::init()
 {
+    // To detect whether or not resources for ShaderProgram allocated
+    // successfully, we clean up pre-existing errors here and will check for
+    // new errors at the end of this function.
+    GLUtils::checkGlError("before init");
+
     GLint tex2DProgram = createProgram(gVertexShader, gFragmentShader);
     GLint pureColorProgram = createProgram(gPureColorVertexShader, gPureColorFragmentShader);
     GLint tex2DInvProgram = createProgram(gVertexShader, gFragmentShaderInverted);
@@ -242,7 +246,6 @@ void ShaderProgram::init()
         m_needsInit = true;
         return;
     }
-    m_needsInit = false;
 
     GLint pureColorPosition = glGetAttribLocation(pureColorProgram, "vPosition");
     GLint pureColorProjMtx = glGetUniformLocation(pureColorProgram, "projectionMatrix");
@@ -309,7 +312,12 @@ void ShaderProgram::init()
     matrix.translate3d(-0.5, -0.5, 0);
     GLUtils::toGLMatrix(m_transferProjMtx, matrix);
 
-    GLUtils::checkGlError("init");
+    if (GLUtils::checkGlError("init"))
+        m_needsInit = true;
+    else
+        m_needsInit = false;
+
+    return;
 }
 
 void ShaderProgram::resetBlending()
