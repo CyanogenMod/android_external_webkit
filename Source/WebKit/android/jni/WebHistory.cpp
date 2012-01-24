@@ -607,16 +607,14 @@ bool readString(const char*& data, const char* end, String& result, const char* 
               end, data, stringLength);
     }
 
-    bool decodeFailed;
+    bool decodeFailed = false;
     static const WebCore::TextEncoding& encoding = WebCore::UTF8Encoding();
     result = encoding.decode(data, stringLength, true, decodeFailed);
     if (decodeFailed) {
         ALOGW("Decode failed, tag=\"%s\" end=%p data=%p stringLength=%u content=\"%s\"",
               dbgLabel ? dbgLabel : "<no tag>", end, data, stringLength,
               result.utf8().data());
-        // Although an error was reported, the previous implementation did not
-        // stop here, and debug output of the result, which looks correct, makes
-        // it unclear just what the error was.
+        return false;
     }
 
     if (stringLength > MAX_REASONABLE_STRING_LENGTH) {
