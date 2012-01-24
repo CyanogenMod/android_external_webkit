@@ -199,7 +199,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_baseLayer = 0;
     m_glDrawFunctor = 0;
     m_isDrawingPaused = false;
-    m_buttonSkin = drawableDir.isEmpty() ? 0 : new RenderSkinButton(drawableDir);
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
     m_pageSwapCallbackRegistered = false;
@@ -223,7 +222,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     delete m_frameCacheUI;
     SkSafeUnref(m_baseLayer);
     delete m_glDrawFunctor;
-    delete m_buttonSkin;
 }
 
 void stopGL()
@@ -1536,7 +1534,6 @@ private: // local state for WebView
     GLWebViewState* m_glWebViewState;
     bool m_pageSwapCallbackRegistered;
 #endif
-    RenderSkinButton* m_buttonSkin;
     SkRect m_visibleRect;
     bool m_isHighEndGfx;
 }; // end of WebView class

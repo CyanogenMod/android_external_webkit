@@ -31,7 +31,6 @@
 
 namespace WebCore {
 
-class RenderSkinButton;
 class RenderSkinRadio;
 class RenderSkinCombo;
 

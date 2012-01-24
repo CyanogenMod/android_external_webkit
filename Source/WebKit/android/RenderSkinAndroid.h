@@ -36,7 +36,6 @@ class SkBitmap;
 
 namespace WebCore {
 class Node;
-class RenderSkinButton;
 
 class RenderSkinAndroid
 {
@@ -69,12 +68,9 @@ public:
     static String DrawableDirectory() { return s_drawableDirectory; }
     static Resolution DrawableResolution() { return s_drawableResolution; }
 
-    RenderSkinButton* renderSkinButton() const { return m_button; }
-
 private:
     static String s_drawableDirectory;
     static Resolution s_drawableResolution;
-    RenderSkinButton* m_button;
 };
 
 } // WebCore

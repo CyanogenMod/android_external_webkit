@@ -49,7 +49,6 @@ endif # HTTP_STACK == chrome
 
 LOCAL_SRC_FILES += \
 	android/RenderSkinAndroid.cpp \
-	android/RenderSkinButton.cpp \
 	android/RenderSkinCombo.cpp \
 	android/RenderSkinMediaButton.cpp \
 	android/RenderSkinNinePatch.cpp \

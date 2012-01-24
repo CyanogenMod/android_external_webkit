@@ -38,10 +38,10 @@
 #include "RenderMediaControls.h"
 #endif
 #include "RenderSkinAndroid.h"
-#include "RenderSkinButton.h"
 #include "RenderSkinCombo.h"
 #include "RenderSkinMediaButton.h"
 #include "RenderSkinRadio.h"
+#include "RoundedIntRect.h"
 #include "SkCanvas.h"
 #include "UserAgentStyleSheets.h"
 #include "WebCoreFrameBridge.h"
@@ -62,6 +62,20 @@ const int listboxPadding = 5;
 // B = ( 57 * 153 + 255 * (255 - 153)) / 255  -> 136.2
 
 const RGBA32 selectionColor = makeRGB(181, 224, 136);
+
+// Colors copied from the holo resources
+const RGBA32 defaultBgColor = makeRGBA(204, 204, 204, 197);
+const RGBA32 defaultBgBright = makeRGBA(213, 213, 213, 221);
+const RGBA32 defaultBgDark = makeRGBA(92, 92, 92, 160);
+const RGBA32 defaultFgColor = makeRGBA(101, 101, 101, 225);
+
+const RGBA32 disabledBgColor = makeRGBA(205, 205, 205, 107);
+const RGBA32 disabledBgBright = makeRGBA(213, 213, 213, 133);
+const RGBA32 disabledBgDark = makeRGBA(92, 92, 92, 96);
+const RGBA32 disabledFgColor = makeRGBA(148, 148, 148, 137);
+
+const int paddingButton = 2;
+const int cornerButton = 2;
 
 static SkCanvas* getCanvasFromInfo(const PaintInfo& info)
 {
@@ -174,10 +188,10 @@ void RenderThemeAndroid::addIntrinsicMargins(RenderStyle* style) const
     // Cut out the intrinsic margins completely if we end up using a small font size
     if (style->fontSize() < 11)
         return;
-    
+
     // Intrinsic margin value.
     const int m = 2;
-    
+
     // FIXME: Using width/height alone and not also dealing with min-width/max-width is flawed.
     if (style->width().isIntrinsicOrAuto()) {
         if (style->marginLeft().quirk())
@@ -210,17 +224,6 @@ bool RenderThemeAndroid::supportsFocus(ControlPart appearance)
 
 void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector*, RenderStyle* style, WebCore::Element*) const
 {
-    // Code is taken from RenderThemeSafari.cpp
-    // It makes sure we have enough space for the button text.
-    const int paddingHoriz = 12;
-    const int paddingVert = 8;
-    style->setPaddingLeft(Length(paddingHoriz, Fixed));
-    style->setPaddingRight(Length(paddingHoriz, Fixed));
-    style->setPaddingTop(Length(paddingVert, Fixed));
-    style->setPaddingBottom(Length(paddingVert, Fixed));
-
-    // Set a min-height so that we can't get smaller than the mini button.
-    style->setMinHeight(Length(15, Fixed));
 }
 
 bool RenderThemeAndroid::paintCheckbox(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
@@ -237,15 +240,41 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
     if (formControlElement) {
         android::WebFrame* webFrame = getWebFrame(node);
         if (webFrame) {
-            RenderSkinAndroid* skins = webFrame->renderSkins();
-            if (skins) {
-                RenderSkinAndroid::State state = RenderSkinAndroid::kNormal;
-                if (!formControlElement->isEnabledFormControl())
-                    state = RenderSkinAndroid::kDisabled;
-                skins->renderSkinButton()->draw(getCanvasFromInfo(info), rect, state);
+            GraphicsContext *context = info.context;
+            IntRect innerrect = IntRect(rect.x() + paddingButton, rect.y() + paddingButton,
+                    rect.width() - 2 * paddingButton, rect.height() - 2 * paddingButton);
+            IntSize cornerrect = IntSize(cornerButton, cornerButton);
+            Color bg, bright, dark;
+            if (formControlElement->isEnabledFormControl()) {
+                bg = Color(defaultBgColor);
+                bright = Color(defaultBgBright);
+                dark = Color(defaultBgDark);
+            } else {
+                bg = Color(disabledBgColor);
+                bright = Color(disabledBgBright);
+                dark = Color(disabledBgDark);
             }
+            context->save();
+            context->clip(
+                    IntRect(innerrect.x(), innerrect.y(), innerrect.width(), 1));
+            context->fillRoundedRect(innerrect, cornerrect, cornerrect,
+                    cornerrect, cornerrect, bright, context->fillColorSpace());
+            context->restore();
+            context->save();
+            context->clip(IntRect(innerrect.x(), innerrect.y() + innerrect.height() - 1,
+                    innerrect.width(), 1));
+            context->fillRoundedRect(innerrect, cornerrect, cornerrect,
+                    cornerrect, cornerrect, dark, context->fillColorSpace());
+            context->restore();
+            context->save();
+            context->clip(IntRect(innerrect.x(), innerrect.y() + 1, innerrect.width(),
+                    innerrect.height() - 2));
+            context->fillRoundedRect(innerrect, cornerrect, cornerrect,
+                    cornerrect, cornerrect, bg, context->fillColorSpace());
+            context->restore();
         }
     }
+
 
     // We always return false so we do not request to be redrawn.
     return false;
@@ -400,7 +429,7 @@ void RenderThemeAndroid::adjustTextFieldStyle(CSSStyleSelector*, RenderStyle* st
 
 bool RenderThemeAndroid::paintTextField(RenderObject*, const PaintInfo&, const IntRect&)
 {
-    return true;    
+    return true;
 }
 
 void RenderThemeAndroid::adjustTextAreaStyle(CSSStyleSelector*, RenderStyle* style, WebCore::Element*) const
@@ -422,7 +451,7 @@ void RenderThemeAndroid::adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle* 
 
 bool RenderThemeAndroid::paintSearchField(RenderObject*, const PaintInfo&, const IntRect&)
 {
-    return true;    
+    return true;
 }
 
 static void adjustMenuListStyleCommon(RenderStyle* style)
@@ -453,8 +482,8 @@ bool RenderThemeAndroid::paintCombo(RenderObject* obj, const PaintInfo& info,  c
     return RenderSkinCombo::Draw(getCanvasFromInfo(info), obj->node(), rect.x(), rect.y(), rect.width(), rect.height());
 }
 
-bool RenderThemeAndroid::paintMenuList(RenderObject* obj, const PaintInfo& info, const IntRect& rect) 
-{ 
+bool RenderThemeAndroid::paintMenuList(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
+{
     return paintCombo(obj, info, rect);
 }
 
@@ -465,13 +494,13 @@ void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector*,
     const float baseFontSize = 11.0f;
     const int baseBorderRadius = 5;
     float fontScale = style->fontSize() / baseFontSize;
-    
+
     style->resetPadding();
     style->setBorderRadius(IntSize(int(baseBorderRadius + fontScale - 1), int(baseBorderRadius + fontScale - 1))); // FIXME: Round up?
 
     const int minHeight = 15;
     style->setMinHeight(Length(minHeight, Fixed));
-    
+
     style->setLineHeight(RenderStyle::initialLineHeight());
     // Found these padding numbers by trial and error.
     const int padding = 4;
@@ -480,7 +509,7 @@ void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector*,
     adjustMenuListStyleCommon(style);
 }
 
-bool RenderThemeAndroid::paintMenuListButton(RenderObject* obj, const PaintInfo& info, const IntRect& rect) 
+bool RenderThemeAndroid::paintMenuListButton(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
 {
     return paintCombo(obj, info, rect);
 }
@@ -488,10 +517,10 @@ bool RenderThemeAndroid::paintMenuListButton(RenderObject* obj, const PaintInfo&
 bool RenderThemeAndroid::supportsFocusRing(const RenderStyle* style) const
 {
     return style->opacity() > 0
-        && style->hasAppearance() 
-        && style->appearance() != TextFieldPart 
-        && style->appearance() != SearchFieldPart 
-        && style->appearance() != TextAreaPart 
+        && style->hasAppearance()
+        && style->appearance() != TextFieldPart
+        && style->appearance() != SearchFieldPart
+        && style->appearance() != TextAreaPart
         && style->appearance() != CheckboxPart
         && style->appearance() != RadioPart
         && style->appearance() != PushButtonPart

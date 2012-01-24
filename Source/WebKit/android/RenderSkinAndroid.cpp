@@ -27,7 +27,6 @@
 
 #include "config.h"
 #include "RenderSkinAndroid.h"
-#include "RenderSkinButton.h"
 #include "RenderSkinCombo.h"
 #include "RenderSkinMediaButton.h"
 #include "RenderSkinRadio.h"
@@ -43,7 +42,6 @@ RenderSkinAndroid::Resolution RenderSkinAndroid::s_drawableResolution = RenderSk
 
 RenderSkinAndroid::~RenderSkinAndroid()
 {
-    delete m_button;
 }
 RenderSkinAndroid::RenderSkinAndroid(String drawableDirectory)
 {
@@ -56,7 +54,6 @@ RenderSkinAndroid::RenderSkinAndroid(String drawableDirectory)
 
         s_drawableDirectory = drawableDirectory;
     }
-    m_button = new RenderSkinButton(drawableDirectory);
 }
 
 bool RenderSkinAndroid::DecodeBitmap(android::AssetManager* am, const char* fileName, SkBitmap* bitmap)
