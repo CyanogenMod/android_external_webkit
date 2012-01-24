@@ -24,7 +24,6 @@
  */
 
 #define LOG_TAG "webhistory"
-#define LOG_NDEBUG 0  // enable ALOGV and ALOG_ASSERT
 
 #include "config.h"
 #include "WebHistory.h"
@@ -489,7 +488,8 @@ bool readUnsigned(const char*& data, const char* end, unsigned& result, const ch
 {
     // Check if we have enough data left to continue.
     if ((end < data) || (static_cast<size_t>(end - data) < sizeof(unsigned))) {
-        ALOGW("\tNot enough data to read unsigned; end=%p data=%p", end, data);
+        ALOGW("\tNot enough data to read unsigned; tag=\"%s\" end=%p data=%p",
+              dbgLabel ? dbgLabel : "<no tag>", end, data);
         return false;
     }
 
@@ -504,7 +504,8 @@ bool readInt(const char*& data, const char* end, int& result, const char* dbgLab
 {
     // Check if we have enough data left to continue.
     if ((end < data) || (static_cast<size_t>(end - data) < sizeof(int))) {
-        ALOGW("\tNot enough data to read int; end=%p data=%p", end, data);
+        ALOGW("Not enough data to read int; tag=\"%s\" end=%p data=%p",
+              dbgLabel ? dbgLabel : "<no tag>", end, data);
         return false;
     }
 
@@ -519,7 +520,8 @@ bool readInt64(const char*& data, const char* end, int64_t& result, const char* 
 {
     // Check if we have enough data left to continue.
     if ((end < data) || (static_cast<size_t>(end - data) < sizeof(int64_t))) {
-        ALOGW("\tNot enough data to read int64_t; end=%p data=%p", end, data);
+        ALOGW("Not enough data to read int64_t; tag=\"%s\" end=%p data=%p",
+              dbgLabel ? dbgLabel : "<no tag>", end, data);
         return false;
     }
 
@@ -534,7 +536,8 @@ bool readFloat(const char*& data, const char* end, float& result, const char* db
 {
     // Check if we have enough data left to continue.
     if ((end < data) || (static_cast<size_t>(end - data) < sizeof(float))) {
-        ALOGW("\tNot enough data to read float; end=%p data=%p", end, data);
+        ALOGW("Not enough data to read float; tag=\"%s\" end=%p data=%p",
+              dbgLabel ? dbgLabel : "<no tag>", end, data);
         return false;
     }
 
@@ -551,7 +554,8 @@ bool readBool(const char*& data, const char* end, bool& result, const char* dbgL
 {
     // Check if we have enough data left to continue.
     if ((end < data) || (static_cast<size_t>(end - data) < sizeof(char))) {
-        ALOGW("\tNot enough data to read bool; end=%p data=%p", end, data);
+        ALOGW("Not enough data to read bool; tag=\"%s\" end=%p data=%p",
+              dbgLabel ? dbgLabel : "<no tag>", end, data);
         return false;
     }
 
@@ -564,7 +568,8 @@ bool readBool(const char*& data, const char* end, bool& result, const char* dbgL
 
     // Valid bool results are 0 or 1
     if ((c != 0) && (c != 1)) {
-        ALOGW("\tInvalid value for bool; end=%p data=%p c=%u", end, data, c);
+        ALOGW("Invalid value for bool; tag=\"%s\" end=%p data=%p c=%u",
+              dbgLabel ? dbgLabel : "<no tag>", end, data, c);
         return false;
     }
 
@@ -575,7 +580,8 @@ bool readString(const char*& data, const char* end, String& result, const char* 
 {
     unsigned stringLength;
     if (!readUnsigned(data, end, stringLength)) {
-        ALOGW("Not enough data to read string length; end=%p data=%p", end, data);
+        ALOGW("Not enough data to read string length; tag=\"%s\" end=%p data=%p",
+              dbgLabel ? dbgLabel : "<no tag>", end, data);
         return false;
     }
 
@@ -589,19 +595,31 @@ bool readString(const char*& data, const char* end, String& result, const char* 
     }
 
     if ((end < data) || ((unsigned)(end - data) < stringLength)) {
-        ALOGW("\tNot enough data to read content; end=%p data=%p stringLength=%u", end, data, stringLength);
+        ALOGW("Not enough data to read content; tag=\"%s\" end=%p data=%p stringLength=%u",
+              dbgLabel ? dbgLabel : "<no tag>", end, data, stringLength);
         return false;
     }
 
-    bool decodeFailed;
+    const unsigned MAX_REASONABLE_STRING_LENGTH = 10000;
+    if (stringLength > MAX_REASONABLE_STRING_LENGTH) {
+        ALOGW("String length is suspiciously large (>%d); tag=\"%s\" end=%p data=%p stringLength=%u",
+              MAX_REASONABLE_STRING_LENGTH, dbgLabel ? dbgLabel : "<no tag>",
+              end, data, stringLength);
+    }
+
+    bool decodeFailed = false;
     static const WebCore::TextEncoding& encoding = WebCore::UTF8Encoding();
     result = encoding.decode(data, stringLength, true, decodeFailed);
     if (decodeFailed) {
-        ALOGW("\tdecode failed, end=%p data=%p stringLength=%u content=\"%s\"",
-              end, data, stringLength, result.utf8().data());
-        // Although an error was reported, the previous implementation did not
-        // stop here, and debug output of the result, which looks correct, makes
-        // it unclear just what the error was.
+        ALOGW("Decode failed, tag=\"%s\" end=%p data=%p stringLength=%u content=\"%s\"",
+              dbgLabel ? dbgLabel : "<no tag>", end, data, stringLength,
+              result.utf8().data());
+        return false;
+    }
+
+    if (stringLength > MAX_REASONABLE_STRING_LENGTH) {
+        ALOGW("\tdecodeFailed=%d (flag is ignored) content=\"%s\"",
+              decodeFailed, result.utf8().data());
     }
 
     data += stringLength;
