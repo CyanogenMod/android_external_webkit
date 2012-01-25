@@ -59,9 +59,6 @@ BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     m_size.set(w, h);
     m_ownTextureId = 0;
 
-    // Make sure they are created on the UI thread.
-    TilesManager::instance()->transferQueue()->initSharedSurfaceTextures(w, h);
-
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("BaseTileTexture");
 #endif

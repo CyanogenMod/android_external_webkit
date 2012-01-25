@@ -96,6 +96,7 @@ int TilesManager::getMaxTextureAllocation()
 
 TilesManager::TilesManager()
     : m_layerTexturesRemain(true)
+    , m_highEndGfx(false)
     , m_maxTextureCount(0)
     , m_maxLayerTextureCount(0)
     , m_generatorReady(false)
@@ -354,6 +355,16 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     printTextures();
 #endif // DEBUG
     return 0;
+}
+
+void TilesManager::setHighEndGfx(bool highEnd)
+{
+    m_highEndGfx = highEnd;
+}
+
+bool TilesManager::highEndGfx()
+{
+    return m_highEndGfx;
 }
 
 int TilesManager::maxTextureCount()

@@ -106,6 +106,10 @@ public:
 
     void resetTextureUsage(TiledPage* page);
 
+    // m_highEndGfx is written/read only on UI thread, no need for a lock.
+    void setHighEndGfx(bool highEnd);
+    bool highEndGfx();
+
     int maxTextureCount();
     int maxLayerTextureCount();
     void setMaxTextureCount(int max);
@@ -226,6 +230,7 @@ private:
 
     Vector<PaintedSurface*> m_paintedSurfaces;
 
+    bool m_highEndGfx;
     int m_maxTextureCount;
     int m_maxLayerTextureCount;
 

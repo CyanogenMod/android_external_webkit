@@ -92,7 +92,6 @@ GLWebViewState::GLWebViewState()
     , m_goingLeft(false)
     , m_expandedTileBoundsX(0)
     , m_expandedTileBoundsY(0)
-    , m_highEndGfx(false)
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
 {
@@ -276,10 +275,11 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
     int viewMaxTileX = static_cast<int>(ceilf((viewport.width()-1) * invTileContentWidth)) + 1;
     int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
 
+    TilesManager* manager = TilesManager::instance();
     int maxTextureCount = (viewMaxTileX + m_expandedTileBoundsX * 2) *
-        (viewMaxTileY + m_expandedTileBoundsY * 2) * (m_highEndGfx ? 4 : 2);
+        (viewMaxTileY + m_expandedTileBoundsY * 2) * (manager->highEndGfx() ? 4 : 2);
 
-    TilesManager::instance()->setMaxTextureCount(maxTextureCount);
+    manager->setMaxTextureCount(maxTextureCount);
     m_tiledPageA->updateBaseTileSize();
     m_tiledPageB->updateBaseTileSize();
 }
@@ -350,11 +350,18 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
     int width = viewRect.width();
     int height = viewRect.height();
 
+    // Make sure GL resources are created on the UI thread.
     ShaderProgram* shader = TilesManager::instance()->shader();
     if (shader->needsInit()) {
         XLOG("Reinit shader");
         shader->init();
     }
+    TransferQueue* transferQueue = TilesManager::instance()->transferQueue();
+    if (transferQueue->needsInit()) {
+        transferQueue->initGLResources(TilesManager::tileWidth(),
+                                       TilesManager::tileHeight());
+    }
+
     shader->setViewport(visibleRect, scale);
     shader->setViewRect(viewRect);
     shader->setWebViewRect(webViewRect);

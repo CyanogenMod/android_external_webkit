@@ -99,7 +99,7 @@ TiledPage::~TiledPage()
     tilesManager->removeOperationsForPage(this);
     // Discard the transfer queue after the removal operation to make sure
     // no tiles for this page will be left in the transfer queue.
-    tilesManager->transferQueue()->discardQueue();
+    tilesManager->transferQueue()->setPendingDiscardWithLock();
     delete[] m_baseTiles;
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("TiledPage");

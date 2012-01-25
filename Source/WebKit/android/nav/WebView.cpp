@@ -450,8 +450,9 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
         return false;
 
     if (!m_glWebViewState) {
+        TilesManager::instance()->setHighEndGfx(m_isHighEndGfx);
+
         m_glWebViewState = new GLWebViewState();
-        m_glWebViewState->setHighEndGfx(m_isHighEndGfx);
         m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
         m_glWebViewState->glExtras()->setFindOnPageExtra(&m_findOnPage);
         if (m_baseLayer->content()) {
@@ -2640,6 +2641,14 @@ static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring jkey)
 static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
 {
     if (TilesManager::hardwareAccelerationEnabled()) {
+        // When we got TRIM_MEMORY_MODERATE or TRIM_MEMORY_COMPLETE, we should
+        // make sure the transfer queue is empty and then abandon the Surface
+        // Texture to avoid ANR b/c framework may destroy the EGL context.
+        // Refer to WindowManagerImpl.java for conditions we followed.
+        if (level >= TRIM_MEMORY_MODERATE
+            && !TilesManager::instance()->highEndGfx())
+            TilesManager::instance()->transferQueue()->emptyQueue();
+
         bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN), glTextures = true;
         TilesManager::instance()->discardTextures(freeAllTextures, glTextures);
     }
