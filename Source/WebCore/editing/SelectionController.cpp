@@ -1562,6 +1562,9 @@ bool SelectionController::isFocusedAndActive() const
 
 void SelectionController::updateAppearance()
 {
+#if PLATFORM(ANDROID)
+    return;
+#endif
     ASSERT(!m_isDragCaretController);
 
 #if ENABLE(TEXT_CARET)

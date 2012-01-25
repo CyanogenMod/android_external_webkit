@@ -57,7 +57,7 @@ CursorRing::CursorRing(WebViewCore* core)
 // The CSS values for the inner and outer widths may be specified as fractions
 #define WIDTH_SCALE 0.0625f // 1/16, to offset the scale in CSSStyleSelector
 
-void CursorRing::draw(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
+void CursorRing::drawLegacy(SkCanvas* canvas, LayerAndroid* layer, IntRect* inval)
 {
     if (!m_lastBounds.isEmpty()) {
         *inval = m_lastBounds;

@@ -31,6 +31,7 @@ class SkCanvas;
 namespace WebCore {
     class IntRect;
     class LayerAndroid;
+    class GLExtras;
 }
 
 using namespace WebCore;
@@ -40,7 +41,9 @@ namespace android {
 class DrawExtra {
 public:
     virtual ~DrawExtra() {}
-    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* ) = 0;
+    virtual void drawLegacy(SkCanvas* , LayerAndroid* , IntRect* ) {}
+    virtual void draw(SkCanvas*, LayerAndroid*) {}
+    virtual void drawGL(GLExtras*, const LayerAndroid*) {}
 };
 
 }

@@ -26,7 +26,9 @@
 #define LOG_TAG "webcoreglue"
 
 #include "config.h"
+#include "IntRect.h"
 #include "WebCoreJni.h"
+#include "wtf/Vector.h"
 
 #include "NotImplemented.h"
 #include <JNIUtility.h>
@@ -113,5 +115,26 @@ jstring stdStringToJstring(JNIEnv* env, const std::string& str, bool validOnZero
 }
 
 #endif
+
+jobjectArray intRectVectorToRectArray(JNIEnv* env, Vector<WebCore::IntRect>& rects)
+{
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    ALOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
+    jmethodID rectInit = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    ALOG_ASSERT(rectInit, "Could not find init method on Rect");
+    jobjectArray array = env->NewObjectArray(rects.size(), rectClass, 0);
+    ALOG_ASSERT(array, "Could not create a Rect array");
+    for (size_t i = 0; i < rects.size(); i++) {
+        jobject rect = env->NewObject(rectClass, rectInit,
+                rects[i].x(), rects[i].y(),
+                rects[i].maxX(), rects[i].maxY());
+        if (rect) {
+            env->SetObjectArrayElement(array, i, rect);
+            env->DeleteLocalRef(rect);
+        }
+    }
+    env->DeleteLocalRef(rectClass);
+    return array;
+}
 
 }

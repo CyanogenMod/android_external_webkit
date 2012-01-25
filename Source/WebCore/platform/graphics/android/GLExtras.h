@@ -26,6 +26,7 @@
 #ifndef GLExtras_h
 #define GLExtras_h
 
+#include "Color.h"
 #include "SkRect.h"
 #include "SkRegion.h"
 
@@ -53,19 +54,18 @@ public:
     void setDrawExtra(android::DrawExtra* extra) { m_drawExtra = extra; }
     void setViewport(const SkRect & viewport) { m_viewport = viewport; }
 
-private:
-    void drawRing(SkRect& srcRect, int* texture, int r, int g, int b, float a,
-                  const TransformationMatrix* drawMat);
     void drawRegion(const SkRegion& region, bool fill, bool drawBorder,
                     const TransformationMatrix* drawMat, bool useDark = false);
+
+private:
+    void drawRing(SkRect& srcRect, Color color, float alpha,
+                  const TransformationMatrix* drawMat);
     void drawCursorRings(const LayerAndroid* layer);
     void drawFindOnPage(const LayerAndroid* layer);
 
     android::FindOnPage* m_findOnPage;
     android::CursorRing* m_ring;
     android::DrawExtra* m_drawExtra;
-    int m_lightRingTexture;
-    int m_darkRingTexture;
     SkRect m_viewport;
 };
 

@@ -1022,7 +1022,7 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas)
         layerRect.fTop = 0;
         layerRect.fRight = getWidth();
         layerRect.fBottom = getHeight();
-        onDraw(canvas, m_drawOpacity);
+        onDraw(canvas, m_drawOpacity, 0);
     }
 
     // When the layer is dirty, the UI thread should be notified to redraw.
@@ -1133,7 +1133,7 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
     }
 }
 
-void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
+void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity, android::DrawExtra* extra)
 {
     if (m_haveClip) {
         SkRect r;
@@ -1163,6 +1163,8 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity)
         ImagesManager::instance()->releaseImage(m_imageCRC);
     }
     contentDraw(canvas);
+    if (extra)
+        extra->draw(canvas, this);
 }
 
 SkPicture* LayerAndroid::recordContext()

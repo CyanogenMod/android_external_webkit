@@ -105,6 +105,7 @@
 #include "RuntimeEnabledFeatures.h"
 #include "SchemeRegistry.h"
 #include "SelectionController.h"
+#include "SelectText.h"
 #include "Settings.h"
 #include "SkANP.h"
 #include "SkTemplates.h"
@@ -124,6 +125,7 @@
 #include "autofill/WebAutofill.h"
 #include "htmlediting.h"
 #include "markup.h"
+#include "visible_units.h"
 
 #include <JNIHelp.h>
 #include <JNIUtility.h>
@@ -410,7 +412,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
-    m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIII)V");
+    m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(FF)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
@@ -1656,6 +1658,226 @@ static IntRect getAbsoluteBoundingBox(Node* node) {
     FloatPoint absPos = render->localToAbsolute();
     rect.move(absPos.x(), absPos.y());
     return rect;
+}
+
+VisiblePosition WebViewCore::visiblePositionForContentPoint(int x, int y)
+{
+    IntPoint point(x, y);
+
+    // Hit test of this kind required for this to work inside input fields
+    HitTestRequest request(HitTestRequest::Active | HitTestRequest::MouseMove | HitTestRequest::ReadOnly);
+
+    // Look for the inner-most frame containing the hit. Its document
+    // contains the document with the selected text.
+    Frame* frame = m_mainFrame;
+    Frame* hitFrame = m_mainFrame;
+    Node* node = 0;
+    IntPoint localPoint = point;
+    do {
+        HitTestResult result(localPoint);
+        frame = hitFrame;
+        frame->document()->renderView()->layer()->hitTest(request, result);
+        node = result.innerNode();
+        if (!node)
+            return VisiblePosition();
+
+        if (node->isFrameOwnerElement())
+            hitFrame = static_cast<HTMLFrameOwnerElement*>(node)->contentFrame();
+        localPoint = result.localPoint();
+    } while (hitFrame && hitFrame != frame);
+
+    Element* element = node->parentElement();
+    if (!node->inDocument() && element && element->inDocument())
+        node = element;
+
+    RenderObject* renderer = node->renderer();
+    return renderer->positionForPoint(localPoint);
+}
+
+void WebViewCore::selectWordAt(int x, int y)
+{
+    IntPoint point(x, y);
+
+    // Hit test of this kind required for this to work inside input fields
+    HitTestRequest request(HitTestRequest::Active);
+    HitTestResult result(point);
+    m_mainFrame->document()->renderView()->layer()->hitTest(request, result);
+
+    // Matching the logic in MouseEventWithHitTestResults::targetNode()
+    Node* node = result.innerNode();
+    if (!node)
+        return;
+    Element* element = node->parentElement();
+    if (!node->inDocument() && element && element->inDocument())
+        node = element;
+
+    SelectionController* sc = m_mainFrame->selection();
+    if (!sc->contains(point) && (node->isContentEditable() || node->isTextNode()) && !result.isLiveLink()
+            && node->dispatchEvent(Event::create(eventNames().selectstartEvent, true, true))) {
+        VisiblePosition pos(node->renderer()->positionForPoint(result.localPoint()));
+        selectWordAroundPosition(node->document()->frame(), pos);
+    }
+}
+
+void WebViewCore::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
+{
+    VisibleSelection selection(pos);
+    selection.expandUsingGranularity(WordGranularity);
+
+    if (frame->selection()->shouldChangeSelection(selection)) {
+        bool allWhitespaces = true;
+        RefPtr<Range> firstRange = selection.firstRange();
+        String text = firstRange.get() ? firstRange->text() : "";
+        for (size_t i = 0; i < text.length(); ++i) {
+            if (!isSpaceOrNewline(text[i])) {
+                allWhitespaces = false;
+                break;
+            }
+        }
+
+        if (allWhitespaces) {
+            VisibleSelection emptySelection(selection.visibleStart(), selection.visibleStart());
+            frame->selection()->setSelection(emptySelection);
+        }
+        frame->selection()->setSelection(selection);
+    }
+}
+
+int WebViewCore::platformLayerIdFromNode(Node* node, LayerAndroid** outLayer)
+{
+    if (!node || !node->renderer())
+        return -1;
+    RenderLayer* renderLayer = node->renderer()->enclosingLayer();
+    if (!renderLayer || !renderLayer->isComposited())
+        return -1;
+    GraphicsLayer* graphicsLayer = renderLayer->backing()->graphicsLayer();
+    if (!graphicsLayer)
+        return -1;
+    GraphicsLayerAndroid* agl = static_cast<GraphicsLayerAndroid*>(graphicsLayer);
+    LayerAndroid* layer = agl->foregroundLayer();
+    if (!layer)
+        layer = agl->contentLayer();
+    if (!layer)
+        return -1;
+    if (outLayer)
+        *outLayer = layer;
+    return layer->uniqueId();
+}
+
+void WebViewCore::layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& offset)
+{
+    while (layer) {
+        const SkPoint& pos = layer->getPosition();
+        offset.move(pos.fX, pos.fY);
+        const IntPoint& scroll = layer->scrollOffset();
+        offset.move(-scroll.x(), -scroll.y());
+        layer = static_cast<LayerAndroid*>(layer->getParent());
+    }
+}
+
+void setCaretInfo(const VisiblePosition& pos, SelectText::HandleId handle,
+                               SelectText* target)
+{
+    IntPoint offset;
+    LayerAndroid* layer = 0;
+    IntRect rect = pos.absoluteCaretBounds();
+    int layerId = WebViewCore::platformLayerIdFromNode(pos.deepEquivalent().anchorNode(), &layer);
+    WebViewCore::layerToAbsoluteOffset(layer, offset);
+    rect.move(-offset.x(), -offset.y());
+    target->setCaretRect(handle, rect);
+    target->setCaretLayerId(handle, layerId);
+}
+
+SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
+{
+    if (!selection.isRange())
+        return 0;
+
+    RefPtr<Range> range = selection.firstRange();
+    Node* startContainer = range->startContainer();
+    Node* endContainer = range->endContainer();
+
+    if (!startContainer || !endContainer)
+        return 0;
+
+    SelectText* selectTextContainer = new SelectText();
+
+    Node* stopNode = range->pastLastNode();
+    for (Node* node = range->firstNode(); node != stopNode; node = node->traverseNextNode()) {
+        RenderObject* r = node->renderer();
+        if (!r || !r->isText() || r->style()->visibility() != VISIBLE)
+            continue;
+        RenderText* renderText = toRenderText(r);
+        int startOffset = node == startContainer ? range->startOffset() : 0;
+        int endOffset = node == endContainer ? range->endOffset() : numeric_limits<int>::max();
+        LayerAndroid* layer = 0;
+        int layerId = platformLayerIdFromNode(node, &layer);
+        SkRegion* region = selectTextContainer->getHightlightRegionsForLayer(layerId);
+        bool needsSet = false;
+        if (!region)
+            selectTextContainer->setHighlightRegionsForLayer(layerId, region = new SkRegion());
+        Vector<IntRect> rects;
+        renderText->absoluteRectsForRange(rects, startOffset, endOffset, true);
+        IntPoint offset;
+        layerToAbsoluteOffset(layer, offset);
+        for (size_t i = 0; i < rects.size(); i++) {
+            IntRect& r = rects.at(i);
+            r.move(-offset.x(), -offset.y());
+            region->op(r.x(), r.y(), r.maxX(), r.maxY(), SkRegion::kUnion_Op);
+        }
+    }
+
+    IntRect caretRect;
+    int layerId;
+    selectTextContainer->setBaseFirst(selection.isBaseFirst());
+    ALOGD("isBaseFirst: %s", selectTextContainer->isBaseFirst() ? "true" : "false");
+    setCaretInfo(selection.visibleStart(), SelectText::StartHandle, selectTextContainer);
+    setCaretInfo(selection.visibleEnd(), SelectText::EndHandle, selectTextContainer);
+
+    selectTextContainer->setText(range->text());
+
+    return selectTextContainer;
+}
+
+void WebViewCore::selectText(int startX, int startY, int endX, int endY)
+{
+    SelectionController* sc = m_mainFrame->selection();
+    VisiblePosition startPosition(visiblePositionForContentPoint(startX, startY));
+    VisiblePosition endPosition(visiblePositionForContentPoint(endX, endY));
+
+    if (startPosition.isNull() || endPosition.isNull() || startPosition == endPosition) {
+        return;
+    }
+
+    // Ensure startPosition is before endPosition
+    if (comparePositions(startPosition, endPosition) > 0)
+        swap(startPosition, endPosition);
+
+    if (sc->isContentEditable()) {
+        startPosition = sc->selection().visibleStart().honorEditableBoundaryAtOrAfter(startPosition);
+        endPosition = sc->selection().visibleEnd().honorEditableBoundaryAtOrBefore(endPosition);
+        if (startPosition.isNull() || endPosition.isNull()) {
+            return;
+        }
+    }
+
+    // Ensure startPosition is not at end of block
+    if (startPosition != endPosition && isEndOfBlock(startPosition)) {
+        VisiblePosition nextStartPosition(startPosition.next());
+        if (!nextStartPosition.isNull())
+            startPosition = nextStartPosition;
+    }
+    // Ensure endPosition is not at start of block
+    if (startPosition != endPosition && isStartOfBlock(endPosition)) {
+        VisiblePosition prevEndPosition(endPosition.previous());
+        if (!prevEndPosition.isNull())
+            endPosition = prevEndPosition;
+    }
+
+    VisibleSelection selection(startPosition, endPosition);
+    if (selection.isRange() && sc->shouldChangeSelection(selection)) {
+        sc->setSelection(selection);
+    }
 }
 
 // get the highlight rectangles for the touch point (x, y) with the slop
@@ -3693,14 +3915,14 @@ void WebViewCore::updateTextSelection()
     if (!javaObject.get())
         return;
     WebCore::Node* focusNode = currentFocus();
-    if (!focusNode)
-        return;
     int start = 0;
     int end = 0;
-    getSelectionOffsets(focusNode, start, end);
+    if (focusNode)
+        getSelectionOffsets(focusNode, start, end);
+    SelectText* selectText = createSelectText(m_mainFrame->selection()->selection());
     env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(focusNode),
-            start, end, m_textGeneration);
+            start, end, m_textGeneration, selectText);
     checkException(env);
 }
 
@@ -4044,10 +4266,8 @@ Vector<VisibleSelection> WebViewCore::getTextRanges(
     // the selected text.
     startY--;
     endY--;
-    VisiblePosition startSelect = visiblePositionForWindowPoint(
-            startX - m_scrollOffsetX, startY - m_scrollOffsetY);
-    VisiblePosition endSelect =  visiblePositionForWindowPoint(
-            endX - m_scrollOffsetX, endY - m_scrollOffsetY);
+    VisiblePosition startSelect = visiblePositionForContentPoint(startX, startY);
+    VisiblePosition endSelect =  visiblePositionForContentPoint(endX, endY);
     Position start = startSelect.deepEquivalent();
     Position end = endSelect.deepEquivalent();
     Vector<VisibleSelection> ranges;
@@ -4127,43 +4347,6 @@ String WebViewCore::getText(int startX, int startY, int endX, int endY)
     }
 
     return text;
-}
-
-VisiblePosition WebViewCore::visiblePositionForWindowPoint(int x, int y)
-{
-    HitTestRequest::HitTestRequestType hitType = HitTestRequest::MouseMove;
-    hitType |= HitTestRequest::ReadOnly;
-    hitType |= HitTestRequest::Active;
-    HitTestRequest request(hitType);
-    FrameView* view = m_mainFrame->view();
-    IntPoint point(view->windowToContents(
-            view->convertFromContainingWindow(IntPoint(x, y))));
-
-    // Look for the inner-most frame containing the hit. Its document
-    // contains the document with the selected text.
-    Frame* frame = m_mainFrame;
-    Frame* hitFrame = m_mainFrame;
-    Node* node = 0;
-    IntPoint localPoint = point;
-    do {
-        HitTestResult result(localPoint);
-        frame = hitFrame;
-        frame->document()->renderView()->layer()->hitTest(request, result);
-        node = result.innerNode();
-        if (!node)
-            return VisiblePosition();
-
-        if (node->isFrameOwnerElement())
-            hitFrame = static_cast<HTMLFrameOwnerElement*>(node)->contentFrame();
-        localPoint = result.localPoint();
-    } while (hitFrame && hitFrame != frame);
-
-    Element* element = node->parentElement();
-    if (!node->inDocument() && element && element->inDocument())
-        node = element;
-
-    RenderObject* renderer = node->renderer();
-    return renderer->positionForPoint(localPoint);
 }
 
 //----------------------------------------------------------------------
@@ -4819,6 +5002,25 @@ static jobject GetText(JNIEnv* env, jobject obj, jint nativeClass,
     return text.isEmpty() ? 0 : wtfStringToJstring(env, text);
 }
 
+static void SelectText(JNIEnv* env, jobject obj, jint nativeClass,
+        jint startX, jint startY, jint endX, jint endY)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    viewImpl->selectText(startX, startY, endX, endY);
+}
+
+static void ClearSelection(JNIEnv* env, jobject obj, jint nativeClass)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    viewImpl->mainFrame()->selection()->clear();
+}
+
+static void SelectWordAt(JNIEnv* env, jobject obj, jint nativeClass, jint x, jint y)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    viewImpl->selectWordAt(x, y);
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -4941,6 +5143,12 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) InsertText },
     { "nativeGetText", "(IIIII)Ljava/lang/String;",
         (void*) GetText },
+    { "nativeSelectText", "(IIIII)V",
+        (void*) SelectText },
+    { "nativeClearTextSelection", "(I)V",
+        (void*) ClearSelection },
+    { "nativeSelectWordAt", "(III)V",
+        (void*) SelectWordAt },
 };
 
 int registerWebViewCore(JNIEnv* env)

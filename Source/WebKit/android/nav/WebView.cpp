@@ -107,6 +107,7 @@ enum FrameCachePermission {
     AllowNewer
 };
 
+#define DRAW_EXTRAS_SIZE 3
 enum DrawExtras { // keep this in sync with WebView.java
     DrawExtrasNone = 0,
     DrawExtrasFind = 1,
@@ -139,7 +140,6 @@ struct JavaGlue {
     jfieldID    m_rectFTop;
     jmethodID   m_rectFWidth;
     jmethodID   m_rectFHeight;
-    jmethodID   m_getTextHandleScale;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -150,6 +150,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_ring((WebViewCore*) viewImpl)
     , m_isHighEndGfx(isHighEndGfx)
 {
+    memset(m_extras, 0, DRAW_EXTRAS_SIZE * sizeof(DrawExtra*));
     jclass clazz = env->FindClass("android/webkit/WebView");
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
@@ -169,7 +170,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
         "viewInvalidateDelayed", "(JIIII)V");
     m_javaGlue.m_pageSwapCallback = GetJMethod(env, clazz, "pageSwapCallback", "(Z)V");
-    m_javaGlue.m_getTextHandleScale = GetJMethod(env, clazz, "getTextHandleScale", "()F");
     env->DeleteLocalRef(clazz);
 
     jclass rectClass = env->FindClass("android/graphics/Rect");
@@ -222,6 +222,45 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     delete m_frameCacheUI;
     SkSafeUnref(m_baseLayer);
     delete m_glDrawFunctor;
+    for (int i = 0; i < DRAW_EXTRAS_SIZE; i++)
+        delete m_extras[i];
+}
+
+DrawExtra* getDrawExtra(DrawExtras extras)
+{
+    if (extras == DrawExtrasNone)
+        return 0;
+    return m_extras[extras - 1];
+}
+
+DrawExtra* getDrawExtraLegacy(DrawExtras extras)
+{
+    CachedRoot* root = getFrameCache(AllowNewer);
+    if (!root) {
+        DBG_NAV_LOG("!root");
+        if (extras == DrawExtrasCursorRing)
+            resetCursorRing();
+    }
+    DrawExtra* extra = getDrawExtra(extras);
+    if (!extra) {
+        switch (extras) {
+            case DrawExtrasFind:
+                extra = &m_findOnPage;
+                break;
+            case DrawExtrasCursorRing:
+                if (drawCursorPreamble(root) && m_ring.setup()) {
+                    if (m_ring.m_isPressed || m_ringAnimationEnd == UINT_MAX)
+                        extra = &m_ring;
+                    drawCursorPostamble();
+                }
+                break;
+            // Just to prevent compiler warnings
+            case DrawExtrasSelection:
+            case DrawExtrasNone:
+                break;
+        }
+    }
+    return extra;
 }
 
 void stopGL()
@@ -234,26 +273,6 @@ void stopGL()
 
 WebViewCore* getWebViewCore() const {
     return m_viewImpl;
-}
-
-float getTextHandleScale()
-{
-    ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return 0;
-    float result = env->CallFloatMethod(javaObject.get(), m_javaGlue.m_getTextHandleScale);
-    checkException(env);
-    return result;
-}
-
-void updateSelectionHandles()
-{
-    if (!m_baseLayer)
-        return;
-    // Adjust for device density & scale
-    m_selectText.updateHandleScale(getTextHandleScale());
 }
 
 // removes the cursor altogether (e.g., when going to a new page)
@@ -464,34 +483,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
         }
     }
 
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        if (extras == DrawExtrasCursorRing)
-            resetCursorRing();
-    }
-    DrawExtra* extra = 0;
-    switch (extras) {
-        case DrawExtrasFind:
-            extra = &m_findOnPage;
-            break;
-        case DrawExtrasSelection:
-            // This will involve a JNI call, but under normal circumstances we will
-            // not hit this anyway. Only if USE_JAVA_TEXT_SELECTION is disabled
-            // in WebView.java will we hit this (so really debug only)
-            updateSelectionHandles();
-            extra = &m_selectText;
-            break;
-        case DrawExtrasCursorRing:
-            if (drawCursorPreamble(root) && m_ring.setup()) {
-                if (m_ring.m_isPressed || m_ringAnimationEnd == UINT_MAX)
-                    extra = &m_ring;
-                drawCursorPostamble();
-            }
-            break;
-        default:
-            ;
-    }
+    DrawExtra* extra = getDrawExtraLegacy((DrawExtras) extras);
 
     unsigned int pic = m_glWebViewState->currentPictureCounter();
     m_glWebViewState->glExtras()->setDrawExtra(extra);
@@ -522,7 +514,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     return false;
 }
 
-PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
+PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool split)
 {
     PictureSet* ret = 0;
     if (!m_baseLayer) {
@@ -540,33 +532,10 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
     if (content->draw(canvas))
         ret = split ? new PictureSet(*content) : 0;
 
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        if (extras == DrawExtrasCursorRing)
-            resetCursorRing();
-    }
-    DrawExtra* extra = 0;
-    switch (extras) {
-        case DrawExtrasFind:
-            extra = &m_findOnPage;
-            break;
-        case DrawExtrasSelection:
-            // This will involve a JNI call, but under normal circumstances we will
-            // not hit this anyway. Only if USE_JAVA_TEXT_SELECTION is disabled
-            // in WebView.java will we hit this (so really debug only)
-            updateSelectionHandles();
-            extra = &m_selectText;
-            break;
-        case DrawExtrasCursorRing:
-            if (drawCursorPreamble(root) && m_ring.setup()) {
-                extra = &m_ring;
-                drawCursorPostamble();
-            }
-            break;
-        default:
-            ;
-    }
+    DrawExtra* extra = getDrawExtraLegacy(extras);
+    if (extra)
+        extra->draw(canvas, 0);
+
 #if USE(ACCELERATED_COMPOSITING)
     LayerAndroid* compositeLayer = compositeRoot();
     if (compositeLayer) {
@@ -579,11 +548,11 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, int extras, bool split)
         SkAutoCanvasRestore restore(canvas, true);
         m_baseLayer->setMatrix(canvas->getTotalMatrix());
         canvas->resetMatrix();
-        m_baseLayer->draw(canvas);
+        m_baseLayer->draw(canvas, extra);
     }
     if (extra) {
         IntRect dummy; // inval area, unused for now
-        extra->draw(canvas, compositeLayer, &dummy);
+        extra->drawLegacy(canvas, compositeLayer, &dummy);
     }
 #endif
     return ret;
@@ -1144,85 +1113,11 @@ void setHeightCanMeasure(bool measure)
 
 String getSelection()
 {
-    return m_selectText.getSelection();
-}
-
-void moveSelection(int x, int y)
-{
-    m_selectText.moveSelection(getVisibleRect(), x, y);
-}
-
-IntPoint selectableText()
-{
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return IntPoint(0, 0);
-    return m_selectText.selectableText(root);
-}
-
-void selectAll()
-{
-    m_selectText.selectAll();
-}
-
-int selectionX()
-{
-    return m_selectText.selectionX();
-}
-
-int selectionY()
-{
-    return m_selectText.selectionY();
-}
-
-void resetSelection()
-{
-    m_selectText.reset();
-}
-
-bool startSelection(int x, int y)
-{
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return false;
-    updateSelectionHandles();
-    return m_selectText.startSelection(root, getVisibleRect(), x, y);
-}
-
-bool wordSelection(int x, int y)
-{
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return false;
-    updateSelectionHandles();
-    return m_selectText.wordSelection(root, getVisibleRect(), x, y);
-}
-
-bool extendSelection(int x, int y)
-{
-    m_selectText.extendSelection(getVisibleRect(), x, y);
-    return true;
-}
-
-bool hitSelection(int x, int y)
-{
-    updateSelectionHandles();
-    return m_selectText.hitSelection(x, y);
-}
-
-void setExtendSelection()
-{
-    m_selectText.setExtendSelection(true);
-}
-
-void setSelectionPointer(bool set, float scale, int x, int y)
-{
-    m_selectText.setDrawPointer(set);
-    if (!set)
-        return;
-    m_selectText.m_inverseScale = scale;
-    m_selectText.m_selectX = x;
-    m_selectText.m_selectY = y;
+    SelectText* select = static_cast<SelectText*>(
+            getDrawExtra(WebView::DrawExtrasSelection));
+    if (select)
+        return select->getText();
+    return String();
 }
 
 void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
@@ -1460,16 +1355,6 @@ void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
     root->setRootLayer(compositeRoot());
 }
 
-void getTextSelectionRegion(SkRegion *region)
-{
-    m_selectText.getSelectionRegion(getVisibleRect(), region, compositeRoot());
-}
-
-void getTextSelectionHandles(int* handles)
-{
-    m_selectText.getSelectionHandles(handles, compositeRoot());
-}
-
 void replaceBaseContent(PictureSet* set)
 {
     if (!m_baseLayer)
@@ -1515,6 +1400,38 @@ FindOnPage& findOnPage() {
     return m_findOnPage;
 }
 
+void setDrawExtra(DrawExtra *extra, DrawExtras type)
+{
+    if (type == DrawExtrasNone)
+        return;
+    DrawExtra* old = m_extras[type - 1];
+    m_extras[type - 1] = extra;
+    if (old != extra) {
+        delete old;
+    }
+}
+
+void setTextSelection(SelectText *selection) {
+    setDrawExtra(selection, DrawExtrasSelection);
+}
+
+int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
+    SelectText* selectText = static_cast<SelectText*>(getDrawExtra(DrawExtrasSelection));
+    if (!selectText)
+        return -1;
+    int layerId = selectText->caretLayerId(handleId);
+    const IntRect& r = selectText->caretRect(handleId);
+    cursorRect.set(r.x(), r.y(), r.maxX(), r.maxY());
+    if (layerId != -1) {
+        LayerAndroid* root = compositeRoot();
+        LayerAndroid* layer = root ? root->findById(layerId) : 0;
+        IntPoint offset;
+        WebViewCore::layerToAbsoluteOffset(layer, offset);
+        cursorRect.offset(offset.x(), offset.y());
+    }
+    return layerId;
+}
+
     bool m_isDrawingPaused;
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
@@ -1526,9 +1443,9 @@ private: // local state for WebView
     bool m_heightCanMeasure;
     int m_lastDx;
     SkMSec m_lastDxTime;
-    SelectText m_selectText;
     FindOnPage m_findOnPage;
     CursorRing m_ring;
+    DrawExtra* m_extras[DRAW_EXTRAS_SIZE];
     BaseLayerAndroid* m_baseLayer;
     Functor* m_glDrawFunctor;
 #if USE(ACCELERATED_COMPOSITING)
@@ -1852,7 +1769,8 @@ static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv,
     WebView* webView = GET_NATIVE_VIEW(env, obj);
     SkRect visibleRect = jrectf_to_rect(env, visible);
     webView->setVisibleRect(visibleRect);
-    PictureSet* pictureSet = webView->draw(canvas, color, extras, split);
+    PictureSet* pictureSet = webView->draw(canvas, color,
+            static_cast<WebView::DrawExtras>(extras), split);
     return reinterpret_cast<jint>(pictureSet);
 }
 
@@ -1918,24 +1836,6 @@ static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint l
     ((WebView*)nativeView)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
                                             isPictureAfterFirstLayout,
                                             registerPageSwapCallback);
-}
-
-static void nativeGetTextSelectionRegion(JNIEnv *env, jobject obj, jint view,
-                                         jobject region)
-{
-    if (!region)
-        return;
-    SkRegion* nregion = GraphicsJNI::getNativeRegion(env, region);
-    ((WebView*)view)->getTextSelectionRegion(nregion);
-}
-
-static void nativeGetSelectionHandles(JNIEnv *env, jobject obj, jint view,
-                                      jintArray arr)
-{
-    int handles[4];
-    ((WebView*)view)->getTextSelectionHandles(handles);
-    env->SetIntArrayRegion(arr, 0, 4, handles);
-    checkException(env);
 }
 
 static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
@@ -2449,78 +2349,12 @@ static int nativeMoveGeneration(JNIEnv *env, jobject obj)
     return view->moveGeneration();
 }
 
-static void nativeMoveSelection(JNIEnv *env, jobject obj, int x, int y)
-{
-    GET_NATIVE_VIEW(env, obj)->moveSelection(x, y);
-}
-
-static void nativeResetSelection(JNIEnv *env, jobject obj)
-{
-    return GET_NATIVE_VIEW(env, obj)->resetSelection();
-}
-
-static jobject nativeSelectableText(JNIEnv* env, jobject obj)
-{
-    IntPoint pos = GET_NATIVE_VIEW(env, obj)->selectableText();
-    jclass pointClass = env->FindClass("android/graphics/Point");
-    jmethodID init = env->GetMethodID(pointClass, "<init>", "(II)V");
-    jobject point = env->NewObject(pointClass, init, pos.x(), pos.y());
-    env->DeleteLocalRef(pointClass);
-    return point;
-}
-
-static void nativeSelectAll(JNIEnv* env, jobject obj)
-{
-    GET_NATIVE_VIEW(env, obj)->selectAll();
-}
-
-static void nativeSetExtendSelection(JNIEnv *env, jobject obj)
-{
-    GET_NATIVE_VIEW(env, obj)->setExtendSelection();
-}
-
-static jboolean nativeStartSelection(JNIEnv *env, jobject obj, int x, int y)
-{
-    return GET_NATIVE_VIEW(env, obj)->startSelection(x, y);
-}
-
-static jboolean nativeWordSelection(JNIEnv *env, jobject obj, int x, int y)
-{
-    return GET_NATIVE_VIEW(env, obj)->wordSelection(x, y);
-}
-
-static void nativeExtendSelection(JNIEnv *env, jobject obj, int x, int y)
-{
-    GET_NATIVE_VIEW(env, obj)->extendSelection(x, y);
-}
-
 static jobject nativeGetSelection(JNIEnv *env, jobject obj)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
     String selection = view->getSelection();
     return wtfStringToJstring(env, selection);
-}
-
-static jboolean nativeHitSelection(JNIEnv *env, jobject obj, int x, int y)
-{
-    return GET_NATIVE_VIEW(env, obj)->hitSelection(x, y);
-}
-
-static jint nativeSelectionX(JNIEnv *env, jobject obj)
-{
-    return GET_NATIVE_VIEW(env, obj)->selectionX();
-}
-
-static jint nativeSelectionY(JNIEnv *env, jobject obj)
-{
-    return GET_NATIVE_VIEW(env, obj)->selectionY();
-}
-
-static void nativeSetSelectionPointer(JNIEnv *env, jobject obj, jint nativeView,
-                                      jboolean set, jfloat scale, jint x, jint y)
-{
-    ((WebView*)nativeView)->setSelectionPointer(set, scale, x, y);
 }
 
 static void nativeRegisterPageSwapCallback(JNIEnv *env, jobject obj, jint nativeView)
@@ -2675,7 +2509,7 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
             SkDumpCanvas canvas(&dumper);
             // this will playback the picture into the canvas, which will
             // spew its contents to the dumper
-            view->draw(&canvas, 0, 0, false);
+            view->draw(&canvas, 0, WebView::DrawExtrasNone, false);
             // we're done with the file now
             fwrite("\n", 1, 1, file);
             fclose(file);
@@ -2767,6 +2601,32 @@ static bool nativeDisableNavcache(JNIEnv *env, jobject obj)
 #endif
 }
 
+static void nativeSetTextSelection(JNIEnv *env, jobject obj, jint nativeView,
+                                   jint selectionPtr)
+{
+    SelectText* selection = reinterpret_cast<SelectText*>(selectionPtr);
+    reinterpret_cast<WebView*>(nativeView)->setTextSelection(selection);
+}
+
+static jint nativeGetHandleLayerId(JNIEnv *env, jobject obj, jint nativeView,
+                                     jint handleIndex, jobject cursorRect)
+{
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    SkIRect nativeRect;
+    int layerId = webview->getHandleLayerId((SelectText::HandleId) handleIndex, nativeRect);
+    if (cursorRect)
+        GraphicsJNI::irect_to_jrect(nativeRect, env, cursorRect);
+    return layerId;
+}
+
+static jboolean nativeIsBaseFirst(JNIEnv *env, jobject obj, jint nativeView)
+{
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    SelectText* select = static_cast<SelectText*>(
+            webview->getDrawExtra(WebView::DrawExtrasSelection));
+    return select ? select->isBaseFirst() : false;
+}
+
 /*
  * JNI registration
  */
@@ -2817,8 +2677,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDumpDisplayTree },
     { "nativeEvaluateLayersAnimations", "(I)Z",
         (void*) nativeEvaluateLayersAnimations },
-    { "nativeExtendSelection", "(II)V",
-        (void*) nativeExtendSelection },
     { "nativeFindAll", "(Ljava/lang/String;Ljava/lang/String;Z)I",
         (void*) nativeFindAll },
     { "nativeFindNext", "(Z)V",
@@ -2875,8 +2733,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeHasFocusNode },
     { "nativeHideCursor", "()V",
         (void*) nativeHideCursor },
-    { "nativeHitSelection", "(II)Z",
-        (void*) nativeHitSelection },
     { "nativeImageURI", "(II)Ljava/lang/String;",
         (void*) nativeImageURI },
     { "nativeLayerBounds", "(I)Landroid/graphics/Rect;",
@@ -2889,26 +2745,12 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMoveCursorToNextTextInput },
     { "nativeMoveGeneration", "()I",
         (void*) nativeMoveGeneration },
-    { "nativeMoveSelection", "(II)V",
-        (void*) nativeMoveSelection },
     { "nativePointInNavCache", "(III)Z",
         (void*) nativePointInNavCache },
-    { "nativeResetSelection", "()V",
-        (void*) nativeResetSelection },
-    { "nativeSelectableText", "()Landroid/graphics/Point;",
-        (void*) nativeSelectableText },
-    { "nativeSelectAll", "()V",
-        (void*) nativeSelectAll },
     { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",
         (void*) nativeSelectBestAt },
     { "nativeSelectAt", "(II)V",
         (void*) nativeSelectAt },
-    { "nativeSelectionX", "()I",
-        (void*) nativeSelectionX },
-    { "nativeSelectionY", "()I",
-        (void*) nativeSelectionY },
-    { "nativeSetExtendSelection", "()V",
-        (void*) nativeSetExtendSelection },
     { "nativeSetFindIsEmpty", "()V",
         (void*) nativeSetFindIsEmpty },
     { "nativeSetFindIsUp", "(Z)V",
@@ -2917,10 +2759,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(IILandroid/graphics/Region;ZZZ)V",
         (void*) nativeSetBaseLayer },
-    { "nativeGetTextSelectionRegion", "(ILandroid/graphics/Region;)V",
-        (void*) nativeGetTextSelectionRegion },
-    { "nativeGetSelectionHandles", "(I[I)V",
-        (void*) nativeGetSelectionHandles },
     { "nativeGetBaseLayer", "()I",
         (void*) nativeGetBaseLayer },
     { "nativeReplaceBaseContent", "(I)V",
@@ -2929,8 +2767,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCopyBaseContentToPicture },
     { "nativeHasContent", "()Z",
         (void*) nativeHasContent },
-    { "nativeSetSelectionPointer", "(IZFII)V",
-        (void*) nativeSetSelectionPointer },
     { "nativeShowCursorTimed", "()V",
         (void*) nativeShowCursorTimed },
     { "nativeRegisterPageSwapCallback", "(I)V",
@@ -2951,8 +2787,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTileProfilingGetInt },
     { "nativeTileProfilingGetFloat", "(IILjava/lang/String;)F",
         (void*) nativeTileProfilingGetFloat },
-    { "nativeStartSelection", "(II)Z",
-        (void*) nativeStartSelection },
     { "nativeStopGL", "()V",
         (void*) nativeStopGL },
     { "nativeSubtractLayers", "(Landroid/graphics/Rect;)Landroid/graphics/Rect;",
@@ -2961,8 +2795,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTextGeneration },
     { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",
         (void*) nativeUpdateCachedTextfield },
-    {  "nativeWordSelection", "(II)Z",
-        (void*) nativeWordSelection },
     { "nativeGetBlockLeftEdge", "(IIF)I",
         (void*) nativeGetBlockLeftEdge },
     { "nativeScrollableLayer", "(IILandroid/graphics/Rect;Landroid/graphics/Rect;)I",
@@ -2987,6 +2819,12 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDisableNavcache },
     { "nativeFocusCandidateIsEditableText", "(I)Z",
         (void*) nativeFocusCandidateIsEditableText },
+    { "nativeSetTextSelection", "(II)V",
+        (void*) nativeSetTextSelection },
+    { "nativeGetHandleLayerId", "(IILandroid/graphics/Rect;)I",
+        (void*) nativeGetHandleLayerId },
+    { "nativeIsBaseFirst", "(I)Z",
+        (void*) nativeIsBaseFirst },
 };
 
 int registerWebView(JNIEnv* env)

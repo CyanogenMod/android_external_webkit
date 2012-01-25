@@ -27,6 +27,7 @@
 #define WebCoreJni_h
 
 #include "ChromiumIncludes.h"
+#include "IntRect.h"
 #include "PlatformString.h"
 #include <jni.h>
 
@@ -90,6 +91,8 @@ std::string jstringToStdString(JNIEnv*, jstring);
 // an empty std::string returns 0.
 jstring stdStringToJstring(JNIEnv*, const std::string&, bool validOnZeroLength = false);
 #endif
+
+jobjectArray intRectVectorToRectArray(JNIEnv*, Vector<WebCore::IntRect>&);
 
 }
 

@@ -54,7 +54,7 @@ class CursorRing : public DrawExtra {
 public:
     CursorRing(WebViewCore* core);
     virtual ~CursorRing() {}
-    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
+    virtual void drawLegacy(SkCanvas* , LayerAndroid* , IntRect* );
     void setIsButton(const CachedNode* );
     bool setup();
     WTF::Vector<IntRect>& rings() { return m_rings; }

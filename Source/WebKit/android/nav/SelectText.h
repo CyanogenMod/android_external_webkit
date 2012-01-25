@@ -34,83 +34,53 @@
 #include "SkPicture.h"
 #include "SkRect.h"
 #include "SkRegion.h"
+#include "wtf/Vector.h"
 
 namespace android {
 
-class CachedRoot;
-
 class SelectText : public DrawExtra {
 public:
-    SelectText();
+    enum HandleId {
+        StartHandle = 0,
+        EndHandle = 1,
+        BaseHandle = 2,
+        ExtentHandle = 3,
+    };
+
+    SelectText() {}
     virtual ~SelectText();
-    virtual void draw(SkCanvas* , LayerAndroid* , IntRect* );
-    void extendSelection(const IntRect& vis, int x, int y);
-    const String getSelection();
-    bool hitSelection(int x, int y) const;
-    void moveSelection(const IntRect& vis, int x, int y);
-    void reset();
-    IntPoint selectableText(const CachedRoot* );
-    void selectAll();
-    int selectionX() const;
-    int selectionY() const;
-    void setDrawPointer(bool drawPointer) { m_drawPointer = drawPointer; }
-    void setExtendSelection(bool extend) { m_extendSelection = extend; }
-    bool startSelection(const CachedRoot* , const IntRect& vis, int x, int y);
-    bool wordSelection(const CachedRoot* , const IntRect& vis, int x, int y);
-    void getSelectionRegion(const IntRect& vis, SkRegion *region, LayerAndroid* root);
-    void updateHandleScale(float handleScale);
-    void getSelectionHandles(int* handles, LayerAndroid* root);
-public:
-    float m_inverseScale; // inverse scale, x, y used for drawing select path
-    int m_selectX;
-    int m_selectY;
+
+    SkRegion* getHightlightRegionsForLayer(int layerId) {
+        return m_highlightRegions.get(layerId);
+    }
+
+    void setHighlightRegionsForLayer(int layerId, SkRegion* region) {
+        m_highlightRegions.set(layerId, region);
+    }
+
+    virtual void draw(SkCanvas*, LayerAndroid*);
+    virtual void drawGL(GLExtras*, const LayerAndroid*);
+
+    IntRect& caretRect(HandleId id) { return m_caretRects[mapId(id)]; }
+    void setCaretRect(HandleId id, const IntRect& rect) { m_caretRects[mapId(id)] = rect; }
+    int caretLayerId(HandleId id) { return m_caretLayerId[mapId(id)]; }
+    void setCaretLayerId(HandleId id, int layerId) { m_caretLayerId[mapId(id)] = layerId; }
+
+    bool isBaseFirst() const { return m_baseIsFirst; }
+    void setBaseFirst(bool isFirst) { m_baseIsFirst = isFirst; }
+
+    void setText(const String& text) { m_text = text.threadsafeCopy(); }
+    String& getText() { return m_text; }
+
 private:
-    int m_controlWidth;
-    int m_controlHeight;
-    int m_controlSlop;
-    class FirstCheck;
-    class EdgeCheck;
-    void drawSelectionPointer(SkCanvas* , IntRect* );
-    void drawSelectionRegion(SkCanvas* , IntRect* );
-    SkIRect findClosest(FirstCheck& , const SkPicture& , int* base);
-    SkIRect findEdge(const SkPicture& , const SkIRect& area,
-        int x, int y, bool left, int* base);
-    SkIRect findLeft(const SkPicture& picture, const SkIRect& area,
-        int x, int y, int* base);
-    SkIRect findRight(const SkPicture& picture, const SkIRect& area,
-        int x, int y, int* base);
-    static void getSelectionArrow(SkPath* );
-    void getSelectionCaret(SkPath* );
-    bool hitCorner(int cx, int cy, int x, int y) const;
-    bool hitStartHandle(int x, int y) const;
-    bool hitEndHandle(int x, int y) const;
-    void setVisibleRect(const IntRect& );
-    void swapAsNeeded();
-    SkIPoint m_original; // computed start of extend selection
-    SkIPoint m_startOffset; // difference from global to layer
-    SkIRect m_selStart;
-    SkIRect m_selEnd;
-    SkIRect m_lastStart;
-    SkIRect m_lastEnd;
-    SkIRect m_lastDrawnStart;
-    SkIRect m_lastDrawnEnd;
-    SkIRect m_wordBounds;
-    int m_startBase;
-    int m_endBase;
-    int m_layerId;
-    SkIRect m_visibleRect; // constrains picture computations to visible area
-    SkRegion m_lastSelRegion;
-    SkRegion m_selRegion; // computed from sel start, end
-    SkPicture m_startControl;
-    SkPicture m_endControl;
-    const SkPicture* m_picture;
-    bool m_drawPointer;
-    bool m_extendSelection; // false when trackball is moving pointer
-    bool m_flipped;
-    bool m_hitTopLeft;
-    bool m_startSelection;
-    bool m_wordSelection;
-    bool m_outsideWord;
+    HandleId mapId(HandleId id);
+
+    typedef HashMap<int, SkRegion* > HighlightRegionMap;
+    HighlightRegionMap m_highlightRegions;
+    IntRect m_caretRects[2];
+    int m_caretLayerId[2];
+    bool m_baseIsFirst;
+    String m_text;
 };
 
 }

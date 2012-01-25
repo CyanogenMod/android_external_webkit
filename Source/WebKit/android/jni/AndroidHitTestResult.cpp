@@ -31,9 +31,14 @@
 #include "Element.h"
 #include "HitTestResult.h"
 #include "KURL.h"
+#include "LayerAndroid.h"
 #include "PlatformString.h"
+#include "Range.h"
+#include "RenderLayer.h"
+#include "RenderLayerBacking.h"
 #include "RenderObject.h"
 #include "WebCoreJni.h"
+#include "WebViewCore.h"
 
 #include <cutils/log.h>
 #include <JNIHelp.h>
@@ -45,8 +50,6 @@ using namespace WebCore;
 
 static bool gJniInitialized = false;
 static struct JavaGlue {
-    jmethodID m_rectInit;
-
     jmethodID m_hitTestInit;
     jfieldID m_hitTestLinkUrl;
     jfieldID m_hitTestAnchorText;
@@ -74,9 +77,6 @@ static void InitJni(JNIEnv* env)
     ALOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
     jclass hitTestClass = env->FindClass("android/webkit/WebViewCore$WebKitHitTest");
     ALOG_ASSERT(hitTestClass, "Could not find android/webkit/WebViewCore$WebKitHitTest");
-
-    gJavaGlue.m_rectInit = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    ALOG_ASSERT(gJavaGlue.m_rectInit, "Could not find init method on Rect");
 
     gJavaGlue.m_hitTestInit = env->GetMethodID(hitTestClass, "<init>",  "()V");
     ALOG_ASSERT(gJavaGlue.m_hitTestInit, "Could not find init method on android/webkit/WebViewCore$WebKitHitTest");
@@ -115,6 +115,13 @@ void setStringField(JNIEnv* env, jobject obj, jfieldID field, const String& str)
     env->DeleteLocalRef(jstr);
 }
 
+void setRectArray(JNIEnv* env, jobject obj, jfieldID field, Vector<IntRect> &rects)
+{
+    jobjectArray array = intRectVectorToRectArray(env, rects);
+    env->SetObjectField(obj, field, array);
+    env->DeleteLocalRef(array);
+}
+
 // Some helper macros specific to setting hitTest fields
 #define _SET(jtype, jfield, value) env->Set ## jtype ## Field(hitTest, gJavaGlue.m_hitTest ## jfield, value)
 #define SET_BOOL(jfield, value) _SET(Boolean, jfield, value)
@@ -124,31 +131,17 @@ void setStringField(JNIEnv* env, jobject obj, jfieldID field, const String& str)
 jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
 {
     InitJni(env);
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    ALOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
     jclass hitTestClass = env->FindClass("android/webkit/WebViewCore$WebKitHitTest");
     ALOG_ASSERT(hitTestClass, "Could not find android/webkit/WebViewCore$WebKitHitTest");
 
-    jobjectArray array = env->NewObjectArray(m_highlightRects.size(), rectClass, 0);
-    ALOG_ASSERT(array, "Could not create a Rect array");
-
-    for (size_t i = 0; i < m_highlightRects.size(); i++) {
-        jobject rect = env->NewObject(rectClass, gJavaGlue.m_rectInit,
-                m_highlightRects[i].x(), m_highlightRects[i].y(),
-                m_highlightRects[i].maxX(), m_highlightRects[i].maxY());
-        if (rect) {
-            env->SetObjectArrayElement(array, i, rect);
-            env->DeleteLocalRef(rect);
-        }
-    }
-
-    TextDirection titleTextDirection;
     jobject hitTest = env->NewObject(hitTestClass, gJavaGlue.m_hitTestInit);
-    env->SetObjectField(hitTest, gJavaGlue.m_hitTestTouchRects, array);
+    setRectArray(env, hitTest, gJavaGlue.m_hitTestTouchRects, m_highlightRects);
+
     SET_BOOL(Editable, m_hitTestResult.isContentEditable());
     SET_STRING(LinkUrl, m_hitTestResult.absoluteLinkURL().string());
     SET_STRING(ImageUrl, m_hitTestResult.absoluteImageURL().string());
     SET_STRING(AltDisplayString, m_hitTestResult.altDisplayString());
+    TextDirection titleTextDirection;
     SET_STRING(Title, m_hitTestResult.title(titleTextDirection));
     if (m_hitTestResult.URLElement()) {
         Element* urlElement = m_hitTestResult.URLElement();
@@ -158,6 +151,8 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
                     urlElement->renderer()->style()->tapHighlightColor().rgb());
         }
     }
+
+    env->DeleteLocalRef(hitTestClass);
 
     return hitTest;
 }

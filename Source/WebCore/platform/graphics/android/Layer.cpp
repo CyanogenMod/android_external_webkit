@@ -158,13 +158,13 @@ void Layer::localToAncestor(const Layer* ancestor, SkMatrix* matrix) const {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void Layer::onDraw(SkCanvas*, SkScalar opacity) {
+void Layer::onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra) {
 //    SkDebugf("----- no onDraw for %p\n", this);
 }
 
 #include "SkString.h"
 
-void Layer::draw(SkCanvas* canvas, SkScalar opacity) {
+void Layer::draw(SkCanvas* canvas, android::DrawExtra* extra, SkScalar opacity) {
 #if 0
     SkString str1, str2;
  //   getMatrix().toDumpString(&str1);
@@ -193,7 +193,7 @@ void Layer::draw(SkCanvas* canvas, SkScalar opacity) {
         canvas->concat(tmp);
     }
 
-    onDraw(canvas, opacity);
+    onDraw(canvas, opacity, extra);
 
 #ifdef DEBUG_DRAW_LAYER_BOUNDS
     {
@@ -213,7 +213,7 @@ void Layer::draw(SkCanvas* canvas, SkScalar opacity) {
     if (count > 0) {
         canvas->concat(getChildrenMatrix());
         for (int i = 0; i < count; i++) {
-            getChild(i)->draw(canvas, opacity);
+            getChild(i)->draw(canvas, extra, opacity);
         }
     }
 }

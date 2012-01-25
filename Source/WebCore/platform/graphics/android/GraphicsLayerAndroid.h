@@ -25,6 +25,7 @@
 #include "GraphicsLayerClient.h"
 #include "LayerAndroid.h"
 #include "RefPtr.h"
+#include "ScrollableLayerAndroid.h"
 #include "SkBitmapRef.h"
 #include "Vector.h"
 
@@ -122,6 +123,7 @@ public:
     void notifyClientAnimationStarted();
 
     LayerAndroid* contentLayer() { return m_contentLayer; }
+    ScrollableLayerAndroid* foregroundLayer() { return m_foregroundLayer; }
 
     static int instancesCount();
 

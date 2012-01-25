@@ -17,6 +17,7 @@
 #ifndef Layer_DEFINED
 #define Layer_DEFINED
 
+#include "DrawExtra.h"
 #include "TestExport.h"
 #include "SkRefCnt.h"
 #include "SkTDArray.h"
@@ -165,17 +166,14 @@ public:
     // paint method
 
     virtual bool drawCanvas(SkCanvas*) { return false; }
-    void draw(SkCanvas*, SkScalar opacity);
-    void draw(SkCanvas* canvas) {
-        this->draw(canvas, SK_Scalar1);
-    }
+    void draw(SkCanvas*, android::DrawExtra* extra, SkScalar opacity = SK_Scalar1);
 
     void setHasOverflowChildren(bool value) { m_hasOverflowChildren = value; }
 
     virtual bool contentIsScrollable() const { return false; }
 
 protected:
-    virtual void onDraw(SkCanvas*, SkScalar opacity);
+    virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra);
 
     bool m_hasOverflowChildren;
 

@@ -104,6 +104,7 @@ namespace android {
     class CachedRoot;
     class ListBoxReply;
     class AndroidHitTestResult;
+    class SelectText;
 
     class WebCoreReply : public WebCoreRefObject {
     public:
@@ -602,6 +603,11 @@ namespace android {
          */
         Vector<WebCore::VisibleSelection> getTextRanges(
                 int startX, int startY, int endX, int endY);
+        static int platformLayerIdFromNode(Node* node, LayerAndroid** outLayer = 0);
+        void selectText(int startX, int startY, int endX, int endY);
+        void selectWordAt(int x, int y);
+
+        static void layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& offset);
 
         /**
          * Returns a text position at a given coordinate.
@@ -700,6 +706,10 @@ namespace android {
          * editable node. If it is not editable, the offset is relative to node.
          */
         static WebCore::Position getPositionForOffset(Node* node, int offset);
+
+        VisiblePosition visiblePositionForContentPoint(int x, int y);
+        void selectWordAroundPosition(Frame* frame, VisiblePosition pos);
+        static SelectText* createSelectText(const VisibleSelection&);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);

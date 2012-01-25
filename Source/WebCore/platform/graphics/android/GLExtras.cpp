@@ -52,10 +52,10 @@
 
 // Touch ring border width. This is doubled if the ring is not pressed
 #define RING_BORDER_WIDTH 1
-// Color of the ring is 0x6633b5e5 (copied from framework's holo_light)
-#define COLOR_HOLO_LIGHT &m_lightRingTexture, 0x33, 0xb5, 0xe5, 0.4f
-// Color of the ring is 0x660099cc (copied from framework's holo_dark)
-#define COLOR_HOLO_DARK &m_darkRingTexture, 0x00, 0x99, 0xcc, 0.6f
+// Color of the ring copied from framework's holo_light
+#define COLOR_HOLO_LIGHT 0xFF33b5e5, .4f
+// Color of the ring copied from framework's holo_dark
+#define COLOR_HOLO_DARK 0xFF0099cc, .4f
 // Put a cap on the number of matches to draw.  If the current page has more
 // matches than this, only draw the focused match. This both prevents clutter
 // on the page and keeps the performance happy
@@ -65,8 +65,6 @@ GLExtras::GLExtras()
     : m_findOnPage(0)
     , m_ring(0)
     , m_drawExtra(0)
-    , m_lightRingTexture(-1)
-    , m_darkRingTexture(-1)
     , m_viewport()
 {
 }
@@ -75,22 +73,20 @@ GLExtras::~GLExtras()
 {
 }
 
-void GLExtras::drawRing(SkRect& srcRect, int* texture, int r, int g, int b, float a,
+void GLExtras::drawRing(SkRect& srcRect, Color color, float alpha,
                         const TransformationMatrix* drawMat)
 {
-    if (*texture == -1)
-        *texture = GLUtils::createSampleColorTexture(r, g, b);
-
     if (srcRect.fRight <= srcRect.fLeft || srcRect.fBottom <= srcRect.fTop) {
         // Invalid rect, reject it
         return;
     }
     XLOG("drawQuad [%fx%f, %f, %f]", srcRect.fLeft, srcRect.fTop,
          srcRect.width(), srcRect.height());
-    if (drawMat)
-        TilesManager::instance()->shader()->drawLayerQuad(*drawMat, srcRect, *texture, a);
-    else
-        TilesManager::instance()->shader()->drawQuad(srcRect, *texture, a);
+    if (drawMat) {
+        TilesManager::instance()->shader()->drawLayerQuad(*drawMat, srcRect, 0,
+                alpha, false, 0, color);
+    } else
+        TilesManager::instance()->shader()->drawQuad(srcRect, 0, alpha, color);
 }
 
 void GLExtras::drawRegion(const SkRegion& region, bool fill,
@@ -234,7 +230,6 @@ void GLExtras::drawGL(const LayerAndroid* layer)
         else if (m_drawExtra == m_findOnPage)
             drawFindOnPage(layer);
         else
-            XLOGC("m_drawExtra %p is unknown! (cursor: %p, find: %p",
-                  m_drawExtra, m_ring, m_findOnPage);
+            m_drawExtra->drawGL(this, layer);
     }
 }
