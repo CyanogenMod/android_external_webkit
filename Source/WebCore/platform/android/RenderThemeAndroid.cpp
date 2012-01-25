@@ -40,7 +40,6 @@
 #include "RenderSkinAndroid.h"
 #include "RenderSkinCombo.h"
 #include "RenderSkinMediaButton.h"
-#include "RenderSkinRadio.h"
 #include "RoundedIntRect.h"
 #include "SkCanvas.h"
 #include "UserAgentStyleSheets.h"
@@ -67,15 +66,26 @@ const RGBA32 selectionColor = makeRGB(181, 224, 136);
 const RGBA32 defaultBgColor = makeRGBA(204, 204, 204, 197);
 const RGBA32 defaultBgBright = makeRGBA(213, 213, 213, 221);
 const RGBA32 defaultBgDark = makeRGBA(92, 92, 92, 160);
+const RGBA32 defaultBgMedium = makeRGBA(132, 132, 132, 111);
 const RGBA32 defaultFgColor = makeRGBA(101, 101, 101, 225);
+const RGBA32 defaultCheckColor = makeRGBA(154, 204, 2, 255);
 
 const RGBA32 disabledBgColor = makeRGBA(205, 205, 205, 107);
 const RGBA32 disabledBgBright = makeRGBA(213, 213, 213, 133);
 const RGBA32 disabledBgDark = makeRGBA(92, 92, 92, 96);
+const RGBA32 disabledBgMedium = makeRGBA(132, 132, 132, 111);
 const RGBA32 disabledFgColor = makeRGBA(148, 148, 148, 137);
 
 const int paddingButton = 2;
 const int cornerButton = 2;
+
+// scale factors for various resolutions
+const float scaleFactor[RenderSkinAndroid::ResolutionCount] = {
+    1.0f, // medium res
+    1.5f, // high res
+    2.0f  // extra high res
+};
+
 
 static SkCanvas* getCanvasFromInfo(const PaintInfo& info)
 {
@@ -180,7 +190,7 @@ int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
     // controls that need to do this.
     //
     // Our checkboxes and radio buttons need to be offset to line up properly.
-    return RenderTheme::baselinePosition(obj) - 2;
+    return RenderTheme::baselinePosition(obj) - 8;
 }
 
 void RenderThemeAndroid::addIntrinsicMargins(RenderStyle* style) const
@@ -228,7 +238,7 @@ void RenderThemeAndroid::adjustButtonStyle(CSSStyleSelector*, RenderStyle* style
 
 bool RenderThemeAndroid::paintCheckbox(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
 {
-    RenderSkinRadio::Draw(getCanvasFromInfo(info), obj->node(), rect, true);
+    paintRadio(obj, info, rect);
     return false;
 }
 
@@ -244,15 +254,17 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
             IntRect innerrect = IntRect(rect.x() + paddingButton, rect.y() + paddingButton,
                     rect.width() - 2 * paddingButton, rect.height() - 2 * paddingButton);
             IntSize cornerrect = IntSize(cornerButton, cornerButton);
-            Color bg, bright, dark;
+            Color bg, bright, dark, medium;
             if (formControlElement->isEnabledFormControl()) {
                 bg = Color(defaultBgColor);
                 bright = Color(defaultBgBright);
                 dark = Color(defaultBgDark);
+                medium = Color(defaultBgMedium);
             } else {
                 bg = Color(disabledBgColor);
                 bright = Color(disabledBgBright);
                 dark = Color(disabledBgDark);
+                medium = Color(disabledBgMedium);
             }
             context->save();
             context->clip(
@@ -272,6 +284,12 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
             context->fillRoundedRect(innerrect, cornerrect, cornerrect,
                     cornerrect, cornerrect, bg, context->fillColorSpace());
             context->restore();
+            context->setStrokeColor(medium, context->strokeColorSpace());
+            context->setStrokeThickness(1.0f);
+            context->drawLine(IntPoint(innerrect.x(), innerrect.y() + cornerButton),
+                    IntPoint(innerrect.x(), innerrect.y() + innerrect.height() - cornerButton));
+            context->drawLine(IntPoint(innerrect.x() + innerrect.width(), innerrect.y() + cornerButton),
+                    IntPoint(innerrect.x() + innerrect.width(), innerrect.y() + innerrect.height() - cornerButton));
         }
     }
 
@@ -406,7 +424,49 @@ void RenderThemeAndroid::adjustSliderThumbSize(RenderObject* o) const
 
 bool RenderThemeAndroid::paintRadio(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
 {
-    RenderSkinRadio::Draw(getCanvasFromInfo(info), obj->node(), rect, false);
+    Node* node = obj->node();
+    Element* element = static_cast<Element*>(node);
+    if (element) {
+        InputElement* input = element->toInputElement();
+        GraphicsContext* context = info.context;
+        if (!element->isEnabledFormControl()) {
+            context->setAlpha(0.5f);
+        }
+        const IntRect inner = IntRect(rect.x() - 2, rect.y() - 2, rect.width() - 4, rect.height() - 4);
+        context->setFillColor(Color(defaultBgBright), context->fillColorSpace());
+        context->setStrokeColor(Color(defaultBgBright), context->strokeColorSpace());
+        context->setStrokeThickness(1.0f);
+        if (input->isCheckbox()) {
+            context->drawRect(inner);
+        } else {
+            context->drawEllipse(inner);
+        }
+        context->setStrokeColor(Color(defaultFgColor), context->strokeColorSpace());
+        if (input->isCheckbox()) {
+            context->drawRect(IntRect(inner.x() + 2, inner.y() + 2, inner.width() -4, inner.height() - 4));
+        } else {
+            context->drawEllipse(IntRect(inner.x() + 2, inner.y() + 2, inner.width() -4, inner.height() - 4));
+        }
+        if (input->isChecked()) {
+            context->setFillColor(Color(defaultCheckColor), context->fillColorSpace());
+            context->setStrokeColor(Color(defaultCheckColor), context->strokeColorSpace());
+            if (input->isCheckbox()) {
+                const float w2 = ((float) rect.width() / 2);
+                const float cx = ((float) rect.x());
+                const float cy = ((float) rect.y());
+                context->save();
+                // magic numbers due to weird scale in context
+                context->translate(cx + w2 / 2.2f, cy + w2 / 1.2f);
+                context->rotate(3.93f); // 225 degrees
+                context->drawRect(IntRect(0, 0, rect.width() / 4, 2));
+                context->rotate(1.57f); // 90 degrees
+                context->drawRect(IntRect(0, 0, rect.width() / 2, 2));
+                context->restore();
+            } else {
+                context->drawEllipse(IntRect(inner.x() + 5, inner.y() + 5, inner.width() - 10, inner.height() - 10));
+            }
+        }
+    }
     return false;
 }
 

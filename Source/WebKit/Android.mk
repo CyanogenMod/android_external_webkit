@@ -52,7 +52,6 @@ LOCAL_SRC_FILES += \
 	android/RenderSkinCombo.cpp \
 	android/RenderSkinMediaButton.cpp \
 	android/RenderSkinNinePatch.cpp \
-	android/RenderSkinRadio.cpp \
 	\
 	android/benchmark/Intercept.cpp \
 	android/benchmark/MyJavaVM.cpp \
