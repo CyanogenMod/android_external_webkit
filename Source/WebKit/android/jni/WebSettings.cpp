@@ -408,6 +408,10 @@ public:
 
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptEnabled);
         s->setJavaScriptEnabled(flag);
+        // Hyperlink auditing (the ping attribute) has similar privacy
+        // considerations as does the running of JavaScript, so to keep the UI
+        // simpler, we leverage the same setting.
+        s->setHyperlinkAuditingEnabled(flag);
 
         // ON = 0
         // ON_DEMAND = 1
