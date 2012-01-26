@@ -67,9 +67,9 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
   endif
 endif
 
-# V8 also requires an ARMv7 CPU, and since we must use jsc, we cannot
+# V8 also requires a VFP CPU, and since we must use jsc, we cannot
 # use the Chrome http stack either.
-ifneq ($(strip $(ARCH_ARM_HAVE_ARMV7A)),true)
+ifneq ($(ARCH_ARM_HAVE_VFP),true)
   JAVASCRIPT_ENGINE := jsc
   USE_ALT_HTTP := true
 endif
