@@ -31,7 +31,6 @@
 
 namespace WebCore {
 
-class RenderSkinRadio;
 class RenderSkinCombo;
 
 struct ThemeData {
