@@ -77,16 +77,32 @@ TransferQueue::TransferQueue()
 
 TransferQueue::~TransferQueue()
 {
-    glDeleteFramebuffers(1, &m_fboID);
-    m_fboID = 0;
-    glDeleteTextures(1, &m_sharedSurfaceTextureId);
-    m_sharedSurfaceTextureId = 0;
-
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+    cleanupGLResources();
     delete[] m_transferQueue;
 }
 
-void TransferQueue::initSharedSurfaceTextures(int width, int height)
+// This should be called within the m_transferQueueItemLocks.
+// Now only called by emptyQueue() and destructor.
+void TransferQueue::cleanupGLResources()
 {
+    if (m_sharedSurfaceTexture.get()) {
+        m_sharedSurfaceTexture->abandon();
+        m_sharedSurfaceTexture.clear();
+    }
+    if (m_fboID) {
+        glDeleteFramebuffers(1, &m_fboID);
+        m_fboID = 0;
+    }
+    if (m_sharedSurfaceTextureId) {
+        glDeleteTextures(1, &m_sharedSurfaceTextureId);
+        m_sharedSurfaceTextureId = 0;
+    }
+}
+
+void TransferQueue::initGLResources(int width, int height)
+{
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
     if (!m_sharedSurfaceTextureId) {
         glGenTextures(1, &m_sharedSurfaceTextureId);
         m_sharedSurfaceTexture =
@@ -260,11 +276,27 @@ void TransferQueue::setHasGLContext(bool hasContext)
     m_hasGLContext = hasContext;
 }
 
-// Only called when WebView is destroyed or switching the uploadType.
-void TransferQueue::discardQueue()
+void TransferQueue::setPendingDiscardWithLock()
 {
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
+    setPendingDiscard();
+}
 
+void TransferQueue::emptyQueue()
+{
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+    setPendingDiscard();
+    cleanupPendingDiscard();
+    cleanupGLResources();
+}
+
+// Set all the content in the queue to pendingDiscard, after this, there will
+// be nothing added to the queue, and this can be called in any thread.
+// However, in order to discard the content in the Surface Texture using
+// updateTexImage, cleanupPendingDiscard need to be called on the UI thread.
+// Must be called within a m_transferQueueItemLocks.
+void TransferQueue::setPendingDiscard()
+{
     for (int i = 0 ; i < ST_BUFFER_NUMBER; i++)
         if (m_transferQueue[i].status == pendingBlit)
             m_transferQueue[i].status = pendingDiscard;
@@ -306,7 +338,7 @@ void TransferQueue::updateDirtyBaseTiles()
 {
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
 
-    cleanupTransportQueue();
+    cleanupPendingDiscard();
     if (!getHasGLContext())
         setHasGLContext(true);
 
@@ -402,10 +434,13 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
 bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
                                           int x, int y, const SkBitmap& bitmap)
 {
-    m_transferQueueItemLocks.lock();
+    // This lock need to cover the full update since it is possible that queue
+    // will be cleaned up in the middle of this update without the lock.
+    // The Surface Texture will not block us since the readyForUpdate will check
+    // availability of the slots in the queue first.
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
     bool ready = readyForUpdate();
     TextureUploadType currentUploadType = m_currentUploadType;
-    m_transferQueueItemLocks.unlock();
     if (!ready) {
         XLOG("Quit bitmap update: not ready! for tile x y %d %d",
              renderInfo->x, renderInfo->y);
@@ -449,11 +484,9 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
         ANativeWindow_unlockAndPost(m_ANW.get());
     }
 
-    m_transferQueueItemLocks.lock();
     // b) After update the Surface Texture, now udpate the transfer queue info.
     addItemInTransferQueue(renderInfo, currentUploadType, &bitmap);
 
-    m_transferQueueItemLocks.unlock();
     XLOG("Bitmap updated x, y %d %d, baseTile %p",
          renderInfo->x, renderInfo->y, renderInfo->baseTile);
     return true;
@@ -524,19 +557,19 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
 
 void TransferQueue::setTextureUploadType(TextureUploadType type)
 {
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
     if (m_currentUploadType == type)
         return;
 
-    discardQueue();
+    setPendingDiscard();
 
-    android::Mutex::Autolock lock(m_transferQueueItemLocks);
     m_currentUploadType = type;
     XLOGC("Now we set the upload to %s", m_currentUploadType == GpuUpload ? "GpuUpload" : "CpuUpload");
 }
 
-// Note: this need to be called within th lock.
-// Only called by updateDirtyBaseTiles() for now
-void TransferQueue::cleanupTransportQueue()
+// Note: this need to be called within the lock and on the UI thread.
+// Only called by updateDirtyBaseTiles() and emptyQueue() for now
+void TransferQueue::cleanupPendingDiscard()
 {
     int index = getNextTransferQueueIndex();
 

@@ -113,16 +113,14 @@ public:
 
     // This will be called by the browser through nativeSetProperty
     void setTextureUploadType(TextureUploadType type);
-
+    void cleanupGLResources();
     void updateDirtyBaseTiles();
 
-    void initSharedSurfaceTextures(int width, int height);
+    void initGLResources(int width, int height);
 
     // insert the bitmap into the queue, mark the tile dirty if failing
     void updateQueueWithBitmap(const TileRenderInfo* renderInfo, int x, int y,
                                const SkBitmap& bitmap);
-
-    void discardQueue();
 
     void addItemInTransferQueue(const TileRenderInfo* info,
                                 TextureUploadType type,
@@ -138,6 +136,10 @@ public:
 
     void addItemInPureColorQueue(const TileRenderInfo* renderInfo, Color color);
 
+    void setPendingDiscardWithLock();
+    void emptyQueue();
+
+    bool needsInit() { return !m_sharedSurfaceTextureId; }
     // This queue can be accessed from UI and TexGen thread, therefore, we need
     // a lock to protect its access
     TileTransferData* m_transferQueue;
@@ -164,9 +166,10 @@ private:
     // Check the current transfer queue item is obsolete or not.
     bool checkObsolete(const TileTransferData* data);
 
+    void setPendingDiscard();
     // Before each draw call and the blit operation, clean up all the
     // pendingDiscard items.
-    void cleanupTransportQueue();
+    void cleanupPendingDiscard();
 
     void blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
                            GLuint srcTexId, GLenum srcTexTarget,
