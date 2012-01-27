@@ -27,7 +27,6 @@
 
 #include "config.h"
 #include "RenderSkinAndroid.h"
-#include "RenderSkinCombo.h"
 #include "RenderSkinMediaButton.h"
 #include "SkImageDecoder.h"
 
