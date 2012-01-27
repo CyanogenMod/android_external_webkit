@@ -38,7 +38,6 @@
 #include "RenderMediaControls.h"
 #endif
 #include "RenderSkinAndroid.h"
-#include "RenderSkinCombo.h"
 #include "RenderSkinMediaButton.h"
 #include "RoundedIntRect.h"
 #include "SkCanvas.h"
@@ -517,19 +516,23 @@ bool RenderThemeAndroid::paintSearchField(RenderObject*, const PaintInfo&, const
 static void adjustMenuListStyleCommon(RenderStyle* style)
 {
     // Added to make room for our arrow and make the touch target less cramped.
-    style->setPaddingLeft(Length(RenderSkinCombo::padding(), Fixed));
-    style->setPaddingTop(Length(RenderSkinCombo::padding(), Fixed));
-    style->setPaddingBottom(Length(RenderSkinCombo::padding(), Fixed));
-    style->setPaddingRight(Length(RenderSkinCombo::extraWidth(), Fixed));
-    style->setMinHeight(Length(RenderSkinCombo::minHeight(), Fixed));
+    const int padding = (int)(scaleFactor[RenderSkinAndroid::DrawableResolution()] + 0.5f);
+    style->setPaddingLeft(Length(padding,Fixed));
+    style->setPaddingTop(Length(padding, Fixed));
+    style->setPaddingBottom(Length(padding, Fixed));
+    // allocate height as arrow size
+    int arrow = std::max(18, style->fontMetrics().height() + 2 * padding);
+    style->setPaddingRight(Length(arrow, Fixed));
+    style->setMinHeight(Length(arrow, Fixed));
+    style->setHeight(Length(arrow, Fixed));
 }
 
-void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
+void RenderThemeAndroid::adjustListboxStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const
 {
     adjustMenuListButtonStyle(0, style, 0);
 }
 
-void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element* e) const
+void RenderThemeAndroid::adjustMenuListStyle(CSSStyleSelector*, RenderStyle* style, Element*) const
 {
     adjustMenuListStyleCommon(style);
     addIntrinsicMargins(style);
@@ -539,7 +542,51 @@ bool RenderThemeAndroid::paintCombo(RenderObject* obj, const PaintInfo& info,  c
 {
   if (obj->style() && !obj->style()->visitedDependentColor(CSSPropertyBackgroundColor).alpha())
         return true;
-    return RenderSkinCombo::Draw(getCanvasFromInfo(info), obj->node(), rect.x(), rect.y(), rect.width(), rect.height());
+    Node* node = obj->node();
+    Element* element = static_cast<Element*>(node);
+    if (element) {
+        InputElement* input = element->toInputElement();
+        GraphicsContext* context = info.context;
+        if (!element->isEnabledFormControl()) {
+            context->setAlpha(0.5f);
+        }
+        IntRect bounds = IntRect(rect.x(), rect.y(), rect.width(), rect.height());
+        // paint bg color
+        RenderStyle* style = obj->style();
+        context->setFillColor(style->visitedDependentColor(CSSPropertyBackgroundColor),
+                context->fillColorSpace());
+        context->fillRect(FloatRect(bounds));
+        // copied form the original RenderSkinCombo:
+        // If this is an appearance where RenderTheme::paint returns true
+        // without doing anything, this means that
+        // RenderBox::PaintBoxDecorationWithSize will end up painting the
+        // border, so we shouldn't paint a border here.
+        if (style->appearance() != MenulistButtonPart &&
+                style->appearance() != ListboxPart &&
+                style->appearance() != TextFieldPart &&
+                style->appearance() != TextAreaPart) {
+            const int arrowSize = bounds.height();
+            // dropdown button bg
+            context->setFillColor(Color(defaultBgColor), context->fillColorSpace());
+            context->fillRect(FloatRect(bounds.maxX() - arrowSize + 0.5f, bounds.y() + .5f,
+                    arrowSize - 1, bounds.height() - 1));
+            // outline
+            context->setStrokeThickness(1.0f);
+            context->setStrokeColor(Color(defaultBgDark), context->strokeColorSpace());
+            context->strokeRect(bounds, 1.0f);
+            // arrow
+            context->setFillColor(Color(defaultFgColor), context->fillColorSpace());
+            Path tri = Path();
+            tri.clear();
+            const float aw = arrowSize - 10;
+            FloatPoint br = FloatPoint(bounds.maxX() - 4, bounds.maxY() - 4);
+            tri.moveTo(br);
+            tri.addLineTo(FloatPoint(br.x() - aw, br.y()));
+            tri.addLineTo(FloatPoint(br.x(), br.y() - aw));
+            context->fillPath(tri);
+        }
+    }
+    return false;
 }
 
 bool RenderThemeAndroid::paintMenuList(RenderObject* obj, const PaintInfo& info, const IntRect& rect)

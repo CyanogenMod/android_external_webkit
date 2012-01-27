@@ -53,7 +53,6 @@
 #include "RenderInline.h"
 #include "RenderLayerBacking.h"
 #include "RenderListBox.h"
-#include "RenderSkinCombo.h"
 #include "RenderTextControl.h"
 #include "RenderView.h"
 #include "RenderWidget.h"

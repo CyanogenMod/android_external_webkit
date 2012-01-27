@@ -31,8 +31,6 @@
 
 namespace WebCore {
 
-class RenderSkinCombo;
-
 struct ThemeData {
     ThemeData()
         : m_part(0)
