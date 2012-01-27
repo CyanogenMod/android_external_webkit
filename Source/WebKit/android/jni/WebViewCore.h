@@ -611,7 +611,6 @@ namespace android {
         // these members are shared with webview.cpp
         static Mutex gFrameCacheMutex;
         CachedRoot* m_frameCacheKit; // nav data being built by webcore
-        SkPicture* m_navPictureKit;
         int m_moveGeneration; // copy of state in WebViewNative triggered by move
         int m_touchGeneration; // copy of state in WebViewNative triggered by touch
         int m_lastGeneration; // last action using up to date cache
@@ -728,8 +727,6 @@ namespace android {
         // Passed in with key events to know when they were generated.  Store it
         // with the cache so that we can ignore stale text changes.
         int m_textGeneration;
-        CachedRoot* m_temp;
-        SkPicture* m_tempPict;
         int m_maxXScroll;
         int m_maxYScroll;
         int m_scrollOffsetX; // webview.java's current scroll in X

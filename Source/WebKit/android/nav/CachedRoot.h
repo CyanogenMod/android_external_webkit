@@ -45,6 +45,8 @@ class CachedNode;
 
 class CachedRoot : public CachedFrame {
 public:
+    CachedRoot();
+    ~CachedRoot();
     bool adjustForScroll(BestData* , Direction , WebCore::IntPoint* scrollPtr,
         bool findClosest);
     const SkRegion& baseUncovered() const { return mBaseUncovered; }
@@ -96,7 +98,11 @@ public:
     void setFocusBounds(const WebCore::IntRect& r) { mFocusBounds = r; }
     void setTextGeneration(int textGeneration) { mTextGeneration = textGeneration; }
     void setMaxScroll(int x, int y) { mMaxXScroll = x; mMaxYScroll = y; }
-    void setPicture(SkPicture* picture) { mPicture = picture; }
+    void setPicture(SkPicture* picture) {
+        SkSafeRef(picture);
+        SkSafeUnref(mPicture);
+        mPicture = picture;
+    }
     void setRootLayer(WebCore::LayerAndroid* layer) {
         mRootLayer = layer;
         resetLayers();

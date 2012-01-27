@@ -1023,6 +1023,16 @@ private:
     typedef BoundsCanvas INHERITED;
 };
 
+CachedRoot::CachedRoot()
+    : mPicture(0)
+{
+}
+
+CachedRoot::~CachedRoot()
+{
+    SkSafeUnref(mPicture);
+}
+
 bool CachedRoot::adjustForScroll(BestData* best, CachedFrame::Direction direction,
     WebCore::IntPoint* scrollPtr, bool findClosest)
 {
@@ -1264,7 +1274,8 @@ void CachedRoot::init(WebCore::Frame* frame, CachedHistory* history)
     CachedFrame::init(this, -1, frame);
     reset();
     mHistory = history;
-    mPicture = NULL;
+    SkSafeUnref(mPicture);
+    mPicture = 0;
 }
 
 bool CachedRoot::innerDown(const CachedNode* test, BestData* bestData) const

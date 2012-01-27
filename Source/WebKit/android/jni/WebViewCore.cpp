@@ -338,7 +338,6 @@ Mutex WebViewCore::gCursorBoundsMutex;
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
     : m_frameCacheKit(0)
-    , m_navPictureKit(0)
     , m_moveGeneration(0)
     , m_touchGeneration(0)
     , m_lastGeneration(0)
@@ -362,8 +361,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_focusBoundsChanged(false)
     , m_skipContentDraw(false)
     , m_textGeneration(0)
-    , m_temp(0)
-    , m_tempPict(0)
     , m_maxXScroll(320/4)
     , m_maxYScroll(240/4)
     , m_scrollOffsetX(0)
@@ -495,7 +492,6 @@ WebViewCore::~WebViewCore()
     }
     delete m_javaGlue;
     delete m_frameCacheKit;
-    delete m_navPictureKit;
 }
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
@@ -1587,12 +1583,12 @@ void WebViewCore::updateFrameCache()
         return;
     }
     m_frameCacheOutOfDate = false;
-    m_temp = new CachedRoot();
-    m_temp->init(m_mainFrame, &m_history);
+    CachedRoot* tempCacheRoot = new CachedRoot();
+    tempCacheRoot->init(m_mainFrame, &m_history);
 #if USE(ACCELERATED_COMPOSITING)
     GraphicsLayerAndroid* graphicsLayer = graphicsRootLayer();
     if (graphicsLayer)
-        m_temp->setRootLayer(graphicsLayer->contentLayer());
+        tempCacheRoot->setRootLayer(graphicsLayer->contentLayer());
 #endif
     CacheBuilder& builder = cacheBuilder();
     WebCore::Settings* settings = m_mainFrame->page()->settings();
@@ -1607,19 +1603,19 @@ void WebViewCore::updateFrameCache()
             builder.disallowPhoneDetection();
     }
 #endif
-    builder.buildCache(m_temp);
-    m_tempPict = new SkPicture();
-    recordPicture(m_tempPict);
-    m_temp->setPicture(m_tempPict);
-    m_temp->setTextGeneration(m_textGeneration);
+    builder.buildCache(tempCacheRoot);
+    SkPicture* tempPict = new SkPicture();
+    recordPicture(tempPict);
+    tempCacheRoot->setPicture(tempPict);
+    SkSafeUnref(tempPict);
+    tempPict = 0;
+    tempCacheRoot->setTextGeneration(m_textGeneration);
     WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
-    m_temp->setVisibleRect(WebCore::IntRect(m_scrollOffsetX,
+    tempCacheRoot->setVisibleRect(WebCore::IntRect(m_scrollOffsetX,
         m_scrollOffsetY, window->width(), window->height()));
     gFrameCacheMutex.lock();
     delete m_frameCacheKit;
-    delete m_navPictureKit;
-    m_frameCacheKit = m_temp;
-    m_navPictureKit = m_tempPict;
+    m_frameCacheKit = tempCacheRoot;
     m_updatedFrameCache = true;
 #if DEBUG_NAV_UI
     const CachedNode* cachedFocusNode = m_frameCacheKit->currentFocus();
@@ -2206,7 +2202,7 @@ void WebViewCore::setSelection(int start, int end)
     }
     // For password fields, this is done in the UI side via
     // bringPointIntoView, since the UI does the drawing.
-    if (control && control->isTextArea() || !isPasswordField)
+    if ((control && control->isTextArea()) || !isPasswordField)
         revealSelection();
 }
 
