@@ -67,11 +67,14 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
   endif
 endif
 
-# V8 also requires an ARMv7 CPU, and since we must use jsc, we cannot
-# use the Chrome http stack either.
-ifneq ($(strip $(ARCH_ARM_HAVE_ARMV7A)),true)
-  JAVASCRIPT_ENGINE := jsc
-  USE_ALT_HTTP := true
+# Check if V8 can be supported by seeing if the device supports it 
+# through either the flag or by having VFP
+# If it cannot then switch to jsc
+ifneq ($(ARCH_ARM_HAVE_VFP),true)
+  ifneq ($(TARGET_WEBKIT_USE_MORE_MEMORY),true)
+    JAVASCRIPT_ENGINE := jsc
+    USE_ALT_HTTP := true
+  endif
 endif
 
 # See if the user has specified a stack they want to use
@@ -336,8 +339,13 @@ endif
 
 # need a flag to tell the C side when we're on devices with large memory
 # budgets (i.e. larger than the low-end devices that initially shipped)
-ifeq ($(ARCH_ARM_HAVE_VFP),true)
-LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
+ifneq ($(TARGET_WEBKIT_USE_MORE_MEMORY),false)
+  ifeq ($(ARCH_ARM_HAVE_VFP),true)
+    LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
+  endif
+  ifeq ($(TARGET_WEBKIT_USE_MORE_MEMORY),true)
+    LOCAL_CFLAGS += -DANDROID_LARGE_MEMORY_DEVICE
+  endif
 endif
 
 ifeq ($(ENABLE_SVG),true)
