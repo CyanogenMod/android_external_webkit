@@ -178,6 +178,7 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     , m_completelyLoaded(false)
 #if PLATFORM(ANDROID)
     , m_lastTouch(0)
+    , m_userGestureInitiated(false)
 #endif
 {
     LOG(Media, "HTMLMediaElement::HTMLMediaElement");
@@ -187,8 +188,8 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
     // Enable the Media Element to listen to all the touch events
     document->addListenerTypeIfNeeded(eventNames().touchstartEvent);
+    m_restrictions |= RequireUserGestureForRateChangeRestriction;
 #endif
-
 }
 
 HTMLMediaElement::~HTMLMediaElement()
@@ -515,6 +516,9 @@ void HTMLMediaElement::load(bool isUserGesture, ExceptionCode& ec)
         ec = INVALID_STATE_ERR;
     else {
         m_loadInitiatedByUserGesture = isUserGesture;
+#if PLATFORM(ANDROID)
+        m_userGestureInitiated |= isUserGesture;
+#endif
         prepareForLoad();
         loadInternal();
     }
@@ -1417,8 +1421,18 @@ void HTMLMediaElement::play(bool isUserGesture)
 {
     LOG(Media, "HTMLMediaElement::play(isUserGesture : %s)", boolString(isUserGesture));
 
-    if (m_restrictions & RequireUserGestureForRateChangeRestriction && !isUserGesture)
+    if (m_restrictions & RequireUserGestureForRateChangeRestriction && !isUserGesture
+#if PLATFORM(ANDROID)
+        && !m_userGestureInitiated
+#endif
+        )
         return;
+
+#if PLATFORM(ANDROID)
+    // B/c we set the restriction to require gesture for rate change for
+    // Android, when we don't early return, we can safely set this to true.
+    m_userGestureInitiated = true;
+#endif
 
     Document* doc = document();
     Settings* settings = doc->settings();
@@ -1466,9 +1480,17 @@ void HTMLMediaElement::pause(bool isUserGesture)
 {
     LOG(Media, "HTMLMediaElement::pause(isUserGesture : %s)", boolString(isUserGesture));
 
-    if (m_restrictions & RequireUserGestureForRateChangeRestriction && !isUserGesture)
+    if (m_restrictions & RequireUserGestureForRateChangeRestriction && !isUserGesture
+#if PLATFORM(ANDROID)
+        && !m_userGestureInitiated
+#endif
+        )
         return;
-
+#if PLATFORM(ANDROID)
+    // B/c we set the restriction to require gesture for rate change for
+    // Android, when we don't early return, we can safely set this to true.
+    m_userGestureInitiated = true;
+#endif
     pauseInternal();
 }
 
@@ -2406,8 +2428,10 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
     // It is really hard to hit the play/pause button on mobile devices.
     // This allows user to click the video area to toggle play/pause state.
     if (event->type() == eventNames().clickEvent
-        && !hasEventListeners(eventNames().clickEvent))
+        && !hasEventListeners(eventNames().clickEvent)) {
+        m_userGestureInitiated = true;
         togglePlayState();
+    }
 #endif
     HTMLElement::defaultEventHandler(event);
 #endif
