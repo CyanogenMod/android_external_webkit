@@ -45,7 +45,7 @@ RegionLayerDrawExtra::~RegionLayerDrawExtra()
     }
 }
 
-SkRegion* RegionLayerDrawExtra::getHightlightRegionsForLayer(const LayerAndroid* layer)
+SkRegion* RegionLayerDrawExtra::getHighlightRegionsForLayer(const LayerAndroid* layer)
 {
     int layerId = layer ? layer->uniqueId() : 0;
     return m_highlightRegions.get(layerId);
@@ -72,7 +72,7 @@ void RegionLayerDrawExtra::addHighlightRegion(const LayerAndroid* layer, const V
 
 void RegionLayerDrawExtra::draw(SkCanvas* canvas, LayerAndroid* layer)
 {
-    SkRegion* region = getHightlightRegionsForLayer(layer);
+    SkRegion* region = getHighlightRegionsForLayer(layer);
     if (!region || region->isEmpty())
         return;
     SkRegion::Iterator rgnIter(*region);
@@ -87,7 +87,7 @@ void RegionLayerDrawExtra::draw(SkCanvas* canvas, LayerAndroid* layer)
 
 void RegionLayerDrawExtra::drawGL(GLExtras* glExtras, const LayerAndroid* layer)
 {
-    SkRegion* region = getHightlightRegionsForLayer(layer);
+    SkRegion* region = getHighlightRegionsForLayer(layer);
     if (!region || region->isEmpty())
         return;
     const TransformationMatrix* transform = layer ? layer->drawTransform() : 0;

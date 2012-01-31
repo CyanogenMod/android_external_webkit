@@ -70,7 +70,7 @@ public:
     virtual void drawGL(GLExtras*, const LayerAndroid*);
 
 private:
-    SkRegion* getHightlightRegionsForLayer(const LayerAndroid* layer);
+    SkRegion* getHighlightRegionsForLayer(const LayerAndroid* layer);
 
     typedef HashMap<int, SkRegion* > HighlightRegionMap;
     HighlightRegionMap m_highlightRegions;
