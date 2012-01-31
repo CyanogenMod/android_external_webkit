@@ -27,13 +27,13 @@
 #define GLExtras_h
 
 #include "Color.h"
+#include "DrawExtra.h"
 #include "SkRect.h"
 #include "SkRegion.h"
 
 namespace android {
     class FindOnPage;
     class CursorRing;
-    class DrawExtra;
 }
 
 namespace WebCore {
@@ -55,11 +55,10 @@ public:
     void setViewport(const SkRect & viewport) { m_viewport = viewport; }
 
     void drawRegion(const SkRegion& region, bool fill, bool drawBorder,
-                    const TransformationMatrix* drawMat, bool useDark = false);
+                    const TransformationMatrix* drawMat, Color color = COLOR_HOLO_LIGHT);
 
 private:
-    void drawRing(SkRect& srcRect, Color color, float alpha,
-                  const TransformationMatrix* drawMat);
+    void drawRing(SkRect& srcRect, Color color, const TransformationMatrix* drawMat);
     void drawCursorRings(const LayerAndroid* layer);
     void drawFindOnPage(const LayerAndroid* layer);
 

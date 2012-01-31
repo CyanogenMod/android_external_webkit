@@ -27,18 +27,12 @@
 #define SelectText_h
 
 #include "DrawExtra.h"
-#include "IntPoint.h"
 #include "IntRect.h"
 #include "PlatformString.h"
-#include "SkPath.h"
-#include "SkPicture.h"
-#include "SkRect.h"
-#include "SkRegion.h"
-#include "wtf/Vector.h"
 
 namespace android {
 
-class SelectText : public DrawExtra {
+class SelectText : public RegionLayerDrawExtra {
 public:
     enum HandleId {
         StartHandle = 0,
@@ -46,20 +40,6 @@ public:
         BaseHandle = 2,
         ExtentHandle = 3,
     };
-
-    SelectText() {}
-    virtual ~SelectText();
-
-    SkRegion* getHightlightRegionsForLayer(int layerId) {
-        return m_highlightRegions.get(layerId);
-    }
-
-    void setHighlightRegionsForLayer(int layerId, SkRegion* region) {
-        m_highlightRegions.set(layerId, region);
-    }
-
-    virtual void draw(SkCanvas*, LayerAndroid*);
-    virtual void drawGL(GLExtras*, const LayerAndroid*);
 
     IntRect& caretRect(HandleId id) { return m_caretRects[mapId(id)]; }
     void setCaretRect(HandleId id, const IntRect& rect) { m_caretRects[mapId(id)] = rect; }
@@ -75,8 +55,6 @@ public:
 private:
     HandleId mapId(HandleId id);
 
-    typedef HashMap<int, SkRegion* > HighlightRegionMap;
-    HighlightRegionMap m_highlightRegions;
     IntRect m_caretRects[2];
     int m_caretLayerId[2];
     bool m_baseIsFirst;

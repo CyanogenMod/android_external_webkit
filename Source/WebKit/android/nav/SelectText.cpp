@@ -146,40 +146,6 @@ void ReverseBidi(UChar* chars, int len) {
 
 namespace android {
 
-SelectText::~SelectText()
-{
-    HighlightRegionMap::iterator end = m_highlightRegions.end();
-    for (HighlightRegionMap::iterator it = m_highlightRegions.begin(); it != end; ++it) {
-        delete it->second;
-        it->second = 0;
-    }
-}
-
-void SelectText::drawGL(GLExtras* extras, const LayerAndroid* layer)
-{
-    SkRegion* region = getHightlightRegionsForLayer(layer ? layer->uniqueId() : -1);
-    if (!region || region->isEmpty())
-        return;
-    extras->drawRegion(*region, true, false, layer ? layer->drawTransform() : 0, false);
-}
-
-void SelectText::draw(SkCanvas* canvas, LayerAndroid* layer)
-{
-    SkRegion* region = getHightlightRegionsForLayer(layer ? layer->uniqueId() : -1);
-    if (!region || region->isEmpty())
-        return;
-    SkRegion::Iterator rgnIter(*region);
-    SkPaint paint;
-    paint.setARGB(0x66, 0x33, 0xb5, 0xe5);
-    while (!rgnIter.done()) {
-        const SkIRect& ir = rgnIter.rect();
-        SkRect r;
-        r.set(ir.fLeft, ir.fTop, ir.fRight, ir.fBottom);
-        canvas->drawRect(r, paint);
-        rgnIter.next();
-    }
-}
-
 SelectText::HandleId SelectText::mapId(HandleId id)
 {
     if (id == StartHandle || id == EndHandle)

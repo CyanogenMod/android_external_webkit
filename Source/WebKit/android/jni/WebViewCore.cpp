@@ -1811,20 +1811,10 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
         int startOffset = node == startContainer ? range->startOffset() : 0;
         int endOffset = node == endContainer ? range->endOffset() : numeric_limits<int>::max();
         LayerAndroid* layer = 0;
-        int layerId = platformLayerIdFromNode(node, &layer);
-        SkRegion* region = selectTextContainer->getHightlightRegionsForLayer(layerId);
-        bool needsSet = false;
-        if (!region)
-            selectTextContainer->setHighlightRegionsForLayer(layerId, region = new SkRegion());
+        platformLayerIdFromNode(node, &layer);
         Vector<IntRect> rects;
         renderText->absoluteRectsForRange(rects, startOffset, endOffset, true);
-        IntPoint offset;
-        layerToAbsoluteOffset(layer, offset);
-        for (size_t i = 0; i < rects.size(); i++) {
-            IntRect& r = rects.at(i);
-            r.move(-offset.x(), -offset.y());
-            region->op(r.x(), r.y(), r.maxX(), r.maxY(), SkRegion::kUnion_Op);
-        }
+        selectTextContainer->addHighlightRegion(layer, rects);
     }
 
     IntRect caretRect;

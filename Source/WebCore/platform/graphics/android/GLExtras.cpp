@@ -52,10 +52,6 @@
 
 // Touch ring border width. This is doubled if the ring is not pressed
 #define RING_BORDER_WIDTH 1
-// Color of the ring copied from framework's holo_light
-#define COLOR_HOLO_LIGHT 0xFF33b5e5, .4f
-// Color of the ring copied from framework's holo_dark
-#define COLOR_HOLO_DARK 0xFF0099cc, .4f
 // Put a cap on the number of matches to draw.  If the current page has more
 // matches than this, only draw the focused match. This both prevents clutter
 // on the page and keeps the performance happy
@@ -73,8 +69,7 @@ GLExtras::~GLExtras()
 {
 }
 
-void GLExtras::drawRing(SkRect& srcRect, Color color, float alpha,
-                        const TransformationMatrix* drawMat)
+void GLExtras::drawRing(SkRect& srcRect, Color color, const TransformationMatrix* drawMat)
 {
     if (srcRect.fRight <= srcRect.fLeft || srcRect.fBottom <= srcRect.fTop) {
         // Invalid rect, reject it
@@ -82,16 +77,20 @@ void GLExtras::drawRing(SkRect& srcRect, Color color, float alpha,
     }
     XLOG("drawQuad [%fx%f, %f, %f]", srcRect.fLeft, srcRect.fTop,
          srcRect.width(), srcRect.height());
+    // Pull the alpha out of the color so that the shader applies it correctly.
+    // Otherwise we either don't have blending enabled, or the alpha will get
+    // double applied
+    Color colorWithoutAlpha(0xFF000000 | color.rgb());
+    float alpha = color.alpha() / (float) 255;
     if (drawMat) {
         TilesManager::instance()->shader()->drawLayerQuad(*drawMat, srcRect, 0,
-                alpha, false, 0, color);
+                alpha, false, 0, colorWithoutAlpha);
     } else
-        TilesManager::instance()->shader()->drawQuad(srcRect, 0, alpha, color);
+        TilesManager::instance()->shader()->drawQuad(srcRect, 0, alpha, colorWithoutAlpha);
 }
 
-void GLExtras::drawRegion(const SkRegion& region, bool fill,
-                          bool drawBorder, const TransformationMatrix* drawMat,
-                          bool useDark)
+void GLExtras::drawRegion(const SkRegion& region, bool fill, bool drawBorder,
+                          const TransformationMatrix* drawMat, Color color)
 {
     if (region.isEmpty())
         return;
@@ -101,10 +100,7 @@ void GLExtras::drawRegion(const SkRegion& region, bool fill,
             const SkIRect& ir = rgnIter.rect();
             SkRect r;
             r.set(ir.fLeft, ir.fTop, ir.fRight, ir.fBottom);
-            if (useDark)
-                drawRing(r, COLOR_HOLO_DARK, drawMat);
-            else
-                drawRing(r, COLOR_HOLO_LIGHT, drawMat);
+            drawRing(r, color, drawMat);
             rgnIter.next();
         }
     }
@@ -145,10 +141,7 @@ void GLExtras::drawRegion(const SkRegion& region, bool fill,
                 clip.setRect(line);
             }
             r.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
-            if (useDark)
-                drawRing(r, COLOR_HOLO_DARK, drawMat);
-            else
-                drawRing(r, COLOR_HOLO_LIGHT, drawMat);
+            drawRing(r, color, drawMat);
             if (startRect.isEmpty()) {
                 startRect.set(line.fLeft, line.fTop, line.fRight, line.fBottom);
             }
@@ -174,7 +167,7 @@ void GLExtras::drawCursorRings(const LayerAndroid* layer)
             region.op(rect, SkRegion::kUnion_Op);
     }
     drawRegion(region, m_ring->m_isPressed, !m_ring->m_isButton,
-               layer ? layer->drawTransform() : 0, false);
+               layer ? layer->drawTransform() : 0);
 }
 
 void GLExtras::drawFindOnPage(const LayerAndroid* layer)
@@ -207,7 +200,7 @@ void GLExtras::drawFindOnPage(const LayerAndroid* layer)
             }
             if (rect.intersect(m_viewport.fLeft, m_viewport.fTop,
                                m_viewport.fRight, m_viewport.fBottom))
-                drawRegion(region, i == current, false, drawTransform, true);
+                drawRegion(region, i == current, false, drawTransform, COLOR_HOLO_DARK);
 #ifdef DEBUG
             else
                 XLOG("Quick rejecting [%dx%d, %d, %d", rect.fLeft, rect.fTop,
@@ -217,7 +210,7 @@ void GLExtras::drawFindOnPage(const LayerAndroid* layer)
     else {
         if (matchRange.first <= current && current < matchRange.second) {
             MatchInfo& info = matches->at(current);
-            drawRegion(info.getLocation(), true, false, drawTransform, true);
+            drawRegion(info.getLocation(), true, false, drawTransform, COLOR_HOLO_DARK);
         }
     }
 }
