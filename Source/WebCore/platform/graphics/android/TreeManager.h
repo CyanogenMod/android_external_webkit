@@ -36,16 +36,17 @@ class SkCanvas;
 
 namespace WebCore {
 
+class GLWebViewState;
 class IntRect;
 class TexturesResult;
 
 class TEST_EXPORT TreeManager {
 public:
-    TreeManager();
+    TreeManager(GLWebViewState* state);
 
     ~TreeManager();
 
-    void updateWithTree(Layer* tree, bool brandNew);
+    bool updateWithTree(Layer* tree, bool brandNew);
 
     void updateScrollableLayer(int layerId, int x, int y);
 
@@ -69,6 +70,8 @@ private:
     void clearTrees();
 
     android::Mutex m_paintSwapLock;
+
+    GLWebViewState* m_state;
 
     Layer* m_drawingTree;
     Layer* m_paintingTree;

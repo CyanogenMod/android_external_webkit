@@ -52,8 +52,9 @@
 
 namespace WebCore {
 
-TreeManager::TreeManager()
-    : m_drawingTree(0)
+TreeManager::TreeManager(GLWebViewState* state)
+    : m_state(state)
+    , m_drawingTree(0)
     , m_paintingTree(0)
     , m_queuedTree(0)
     , m_fastSwapMode(false)
@@ -110,18 +111,13 @@ void TreeManager::clearTrees()
 {
     // remove painted surfaces from any tree in this view, and set trees as no
     // longer drawing, to clear ptrs from surfaces to layers
-    GLWebViewState* oldState = 0;
-    if (m_drawingTree) {
-        oldState = m_drawingTree->state();
+    if (m_drawingTree)
         m_drawingTree->setIsDrawing(false);
-    }
-    if (m_paintingTree) {
-        oldState = m_paintingTree->state();
+    if (m_paintingTree)
         m_paintingTree->setIsDrawing(false);
-    }
 
-    XLOG("TreeManager %p removing PS from state %p", this, oldState);
-    TilesManager::instance()->paintedSurfacesCleanup(oldState);
+    XLOG("TreeManager %p removing PS from state %p", this, m_state);
+    TilesManager::instance()->paintedSurfacesCleanup(m_state);
 
     SkSafeUnref(m_drawingTree);
     m_drawingTree = 0;
@@ -132,8 +128,9 @@ void TreeManager::clearTrees()
 }
 
 // a new layer tree has arrived, queue it if we're painting something already,
-// or start painting it if we aren't
-void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
+// or start painting it if we aren't. Returns true if the manager has two trees
+// already queued.
+bool TreeManager::updateWithTree(Layer* newTree, bool brandNew)
 {
     XLOG("updateWithTree - %p, has children %d, has animations %d",
          newTree, newTree && newTree->countChildren(),
@@ -153,7 +150,7 @@ void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
             m_paintingTree = newTree;
             m_paintingTree->setIsPainting(m_drawingTree);
         }
-        return;
+        return false;
     }
 
     if (m_queuedTree || m_paintingTree) {
@@ -175,12 +172,12 @@ void TreeManager::updateWithTree(Layer* newTree, bool brandNew)
         }
         SkSafeUnref(m_queuedTree);
         m_queuedTree = newTree;
-        return;
+    } else {
+        // don't have painting tree, paint this one!
+        m_paintingTree = newTree;
+        m_paintingTree->setIsPainting(m_drawingTree);
     }
-
-    // don't have painting tree, paint this one!
-    m_paintingTree = newTree;
-    m_paintingTree->setIsPainting(m_drawingTree);
+    return m_drawingTree && TilesManager::instance()->useDoubleBuffering();
 }
 
 void TreeManager::updateScrollableLayerInTree(Layer* tree, int layerId, int x, int y)

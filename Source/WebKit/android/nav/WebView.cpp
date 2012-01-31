@@ -201,7 +201,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_isDrawingPaused = false;
 #if USE(ACCELERATED_COMPOSITING)
     m_glWebViewState = 0;
-    m_pageSwapCallbackRegistered = false;
 #endif
 }
 
@@ -470,7 +469,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
 
     if (!m_glWebViewState) {
         TilesManager::instance()->setHighEndGfx(m_isHighEndGfx);
-
         m_glWebViewState = new GLWebViewState();
         m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
         m_glWebViewState->glExtras()->setFindOnPageExtra(&m_findOnPage);
@@ -479,7 +477,8 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
             SkIRect rect;
             rect.set(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
             region.setRect(rect);
-            m_glWebViewState->setBaseLayer(m_baseLayer, region, false, true);
+            m_baseLayer->markAsDirty(region);
+            m_glWebViewState->setBaseLayer(m_baseLayer, false, true);
         }
     }
 
@@ -498,8 +497,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     bool ret = m_glWebViewState->drawGL(viewRect, m_visibleRect, invalRect,
                                         webViewRect, titleBarHeight, clip, scale,
                                         &treesSwapped, &newTreeHasAnim);
-    if (treesSwapped && (m_pageSwapCallbackRegistered || newTreeHasAnim)) {
-        m_pageSwapCallbackRegistered = false;
+    if (treesSwapped) {
         ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         AutoJObject javaObject = m_javaGlue.object(env);
@@ -1324,19 +1322,17 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 }
 #endif
 
-void registerPageSwapCallback()
+bool setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator,
+                  bool isPictureAfterFirstLayout)
 {
-    m_pageSwapCallbackRegistered = true;
-}
-
-void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator,
-                  bool isPictureAfterFirstLayout, bool registerPageSwapCallback)
-{
+    bool queueFull = false;
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_glWebViewState)
-        m_glWebViewState->setBaseLayer(layer, inval, showVisualIndicator,
-                                       isPictureAfterFirstLayout);
-    m_pageSwapCallbackRegistered |= registerPageSwapCallback;
+    if (m_glWebViewState) {
+        if (layer)
+            layer->markAsDirty(inval);
+        queueFull = m_glWebViewState->setBaseLayer(layer, showVisualIndicator,
+                                                   isPictureAfterFirstLayout);
+    }
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -1349,10 +1345,12 @@ void setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
     SkSafeUnref(m_baseLayer);
     m_baseLayer = layer;
     CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root)
-        return;
-    root->resetLayers();
-    root->setRootLayer(compositeRoot());
+    if (root) {
+        root->resetLayers();
+        root->setRootLayer(compositeRoot());
+    }
+
+    return queueFull;
 }
 
 void replaceBaseContent(PictureSet* set)
@@ -1450,7 +1448,6 @@ private: // local state for WebView
     Functor* m_glDrawFunctor;
 #if USE(ACCELERATED_COMPOSITING)
     GLWebViewState* m_glWebViewState;
-    bool m_pageSwapCallbackRegistered;
 #endif
     SkRect m_visibleRect;
     bool m_isHighEndGfx;
@@ -1824,18 +1821,16 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint native
     return false;
 }
 
-static void nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint layer, jobject inval,
-                                jboolean showVisualIndicator,
-                                jboolean isPictureAfterFirstLayout,
-                                jboolean registerPageSwapCallback)
+static bool nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint layer, jobject inval,
+                               jboolean showVisualIndicator,
+                               jboolean isPictureAfterFirstLayout)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
     SkRegion invalRegion;
     if (inval)
         invalRegion = *GraphicsJNI::getNativeRegion(env, inval);
-    ((WebView*)nativeView)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
-                                            isPictureAfterFirstLayout,
-                                            registerPageSwapCallback);
+    return ((WebView*)nativeView)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
+                                                isPictureAfterFirstLayout);
 }
 
 static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
@@ -2357,11 +2352,6 @@ static jobject nativeGetSelection(JNIEnv *env, jobject obj)
     return wtfStringToJstring(env, selection);
 }
 
-static void nativeRegisterPageSwapCallback(JNIEnv *env, jobject obj, jint nativeView)
-{
-    ((WebView*)nativeView)->registerPageSwapCallback();
-}
-
 static void nativeDiscardAllTextures(JNIEnv *env, jobject obj)
 {
     //discard all textures for debugging/test purposes, but not gl backing memory
@@ -2757,7 +2747,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(IILandroid/graphics/Region;ZZZ)V",
+    { "nativeSetBaseLayer", "(IILandroid/graphics/Region;ZZ)Z",
         (void*) nativeSetBaseLayer },
     { "nativeGetBaseLayer", "()I",
         (void*) nativeGetBaseLayer },
@@ -2769,8 +2759,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeHasContent },
     { "nativeShowCursorTimed", "()V",
         (void*) nativeShowCursorTimed },
-    { "nativeRegisterPageSwapCallback", "(I)V",
-        (void*) nativeRegisterPageSwapCallback },
     { "nativeDiscardAllTextures", "()V",
         (void*) nativeDiscardAllTextures },
     { "nativeTileProfilingStart", "()V",
