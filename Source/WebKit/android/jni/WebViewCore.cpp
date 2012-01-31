@@ -5021,6 +5021,12 @@ static void SelectWordAt(JNIEnv* env, jobject obj, jint nativeClass, jint x, jin
     viewImpl->selectWordAt(x, y);
 }
 
+static void SelectAll(JNIEnv* env, jobject obj, jint nativeClass)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    viewImpl->mainFrame()->selection()->selectAll();
+}
+
 // ----------------------------------------------------------------------------
 
 /*
@@ -5149,6 +5155,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) ClearSelection },
     { "nativeSelectWordAt", "(III)V",
         (void*) SelectWordAt },
+    { "nativeSelectAll", "(I)V",
+        (void*) SelectAll },
 };
 
 int registerWebViewCore(JNIEnv* env)
