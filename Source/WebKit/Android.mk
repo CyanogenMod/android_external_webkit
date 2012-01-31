@@ -88,6 +88,7 @@ LOCAL_SRC_FILES += \
 	android/nav/CachedLayer.cpp \
 	android/nav/CachedNode.cpp \
 	android/nav/CachedRoot.cpp \
+	android/nav/DrawExtra.cpp \
 	android/nav/FindCanvas.cpp \
 	android/nav/SelectText.cpp \
 	android/nav/WebView.cpp \

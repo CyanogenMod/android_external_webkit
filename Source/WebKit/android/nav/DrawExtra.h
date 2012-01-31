@@ -26,10 +26,23 @@
 #ifndef DrawExtra_h
 #define DrawExtra_h
 
+#include "config.h"
+
+#include "Color.h"
+#include "IntPoint.h"
+#include "IntRect.h"
+#include "wtf/HashMap.h"
+#include "wtf/Vector.h"
+
+// Color of the ring copied from framework's holo_light
+#define COLOR_HOLO_LIGHT 0x6633B5E5
+// Color of the ring copied from framework's holo_dark
+#define COLOR_HOLO_DARK 0x660099CC
+
 class SkCanvas;
+class SkRegion;
 
 namespace WebCore {
-    class IntRect;
     class LayerAndroid;
     class GLExtras;
 }
@@ -44,6 +57,24 @@ public:
     virtual void drawLegacy(SkCanvas* , LayerAndroid* , IntRect* ) {}
     virtual void draw(SkCanvas*, LayerAndroid*) {}
     virtual void drawGL(GLExtras*, const LayerAndroid*) {}
+};
+
+// A helper extra that has a SkRegion per LayerAndroid
+class RegionLayerDrawExtra : public DrawExtra {
+public:
+    RegionLayerDrawExtra();
+    virtual ~RegionLayerDrawExtra();
+
+    void addHighlightRegion(const LayerAndroid* layer, const Vector<IntRect>& rects);
+    virtual void draw(SkCanvas*, LayerAndroid*);
+    virtual void drawGL(GLExtras*, const LayerAndroid*);
+
+private:
+    SkRegion* getHightlightRegionsForLayer(const LayerAndroid* layer);
+
+    typedef HashMap<int, SkRegion* > HighlightRegionMap;
+    HighlightRegionMap m_highlightRegions;
+    Color m_highlightColor;
 };
 
 }
