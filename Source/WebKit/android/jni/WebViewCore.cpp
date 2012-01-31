@@ -283,7 +283,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_restoreScale;
     jmethodID   m_needTouchEvents;
     jmethodID   m_requestKeyboard;
-    jmethodID   m_requestKeyboardWithSelection;
     jmethodID   m_exceededDatabaseQuota;
     jmethodID   m_reachedMaxAppCacheSize;
     jmethodID   m_populateVisitedLinks;
@@ -417,7 +416,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(FF)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
-    m_javaGlue->m_requestKeyboardWithSelection = GetJMethod(env, clazz, "requestKeyboardWithSelection", "(IIII)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
     m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
     m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
@@ -447,7 +445,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
-    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(Ljava/lang/String;II)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;II)V");
     env->DeleteLocalRef(clazz);
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
@@ -1154,22 +1152,6 @@ void WebViewCore::needTouchEvents(bool need)
 
     m_forwardingTouchEvents = need;
 #endif
-}
-
-void WebViewCore::requestKeyboardWithSelection(const WebCore::Node* node,
-        int selStart, int selEnd)
-{
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
-    ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue->object(env);
-    if (!javaObject.get())
-        return;
-    env->CallVoidMethod(javaObject.get(),
-            m_javaGlue->m_requestKeyboardWithSelection,
-            reinterpret_cast<int>(node), selStart, selEnd, m_textGeneration);
-    checkException(env);
 }
 
 void WebViewCore::requestKeyboard(bool showKeyboard)
@@ -2357,12 +2339,8 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y)
 
 Position WebViewCore::getPositionForOffset(Node* node, int offset)
 {
-    Position positionInNode(node, 0);
-    Node* highest = highestEditableRoot(positionInNode);
-    if (!highest)
-        highest = node;
-    Position start = firstPositionInNode(highest);
-    Position end = lastPositionInNode(highest);
+    Position start = firstPositionInNode(node);
+    Position end = lastPositionInNode(node);
     Document* document = node->document();
     PassRefPtr<Range> range = Range::create(document, start, end);
     WebCore::CharacterIterator iterator(range.get());
@@ -3563,8 +3541,7 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                     m_frameCacheOutOfDate = true;
                     updateFrameCache();
 #endif
-                    requestKeyboardWithSelection(focusNode, rtc->selectionStart(),
-                            rtc->selectionEnd());
+                    initEditField(focusNode);
                 }
             } else if (!fake) {
                 requestKeyboard(false);
@@ -3575,7 +3552,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             // input is needed.
             if (isContentEditable(focusNode)) {
                 initEditField(focusNode);
-                requestKeyboard(true);
             } else if (!nodeIsPlugin(focusNode)) {
                 clearTextEntry();
             }
@@ -3597,9 +3573,10 @@ void WebViewCore::initEditField(Node* node)
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
         return;
+    m_textGeneration = 0;
     jstring fieldText = wtfStringToJstring(env, text, true);
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
-            fieldText, start, end);
+            reinterpret_cast<int>(node), fieldText, start, end);
     checkException(env);
 }
 
@@ -3867,8 +3844,7 @@ void WebViewCore::getSelectionOffsets(Node* node, int& start, int& end)
         SelectionController* selector = frame->selection();
         Position selectionStart = selector->start();
         Position selectionEnd = selector->end();
-        Node* editable = highestEditableRoot(selectionStart);
-        Position startOfNode = firstPositionInNode(editable);
+        Position startOfNode = firstPositionInNode(node);
         RefPtr<Range> startRange = Range::create(document, startOfNode,
                 selectionStart);
         start = TextIterator::rangeLength(startRange.get(), true);
@@ -3887,13 +3863,10 @@ String WebViewCore::getInputText(Node* node)
     else {
         // It must be content editable field.
         Position inNode(node, 0);
-        Node* editable = highestEditableRoot(inNode);
-        if (editable) {
-            Position start = firstPositionInNode(editable);
-            Position end = lastPositionInNode(editable);
-            VisibleSelection allEditableText(start, end);
-            text = allEditableText.firstRange()->text();
-        }
+        Position start = firstPositionInNode(node);
+        Position end = lastPositionInNode(node);
+        VisibleSelection allEditableText(start, end);
+        text = allEditableText.firstRange()->text();
     }
     return text;
 }
