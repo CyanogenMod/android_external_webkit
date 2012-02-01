@@ -54,6 +54,13 @@
 
 #endif // DEBUG
 
+// If the dirty portion of a tile exceeds this ratio, fully repaint.
+// Lower values give fewer partial repaints, thus fewer front-to-back
+// texture copies (cost will vary by device). It's a tradeoff between
+// the rasterization cost and the FBO texture recopy cost when using
+// GPU for the transfer queue.
+#define MAX_INVAL_AREA 0.6
+
 namespace WebCore {
 
 BaseTile::BaseTile(bool isLayerTile)
@@ -369,55 +376,65 @@ void BaseTile::paintBitmap()
         fullRepaint = true;
     }
 
-    // With SurfaceTexture, just repaint the entire tile if we intersect.
-    // TODO: Implement the partial invalidate in Surface Texture Mode.
-    // Such that the code of partial invalidation below is preserved.
+    // For now, only do full repaint
     fullRepaint = true;
 
-    while (!fullRepaint && !cliperator.done()) {
-        SkRect realTileRect;
-        SkRect dirtyRect;
-        dirtyRect.set(cliperator.rect());
-        bool intersect = intersectWithRect(x, y, tileWidth, tileHeight,
-                                           scale, dirtyRect, realTileRect);
+    if (!fullRepaint) {
+        // compute the partial inval area
+        SkIRect totalRect;
+        totalRect.set(0, 0, 0, 0);
+        float tileSurface = tileWidth * tileHeight;
+        float tileSurfaceCap = MAX_INVAL_AREA * tileSurface;
 
-        if (intersect) {
-            // initialize finalRealRect to the rounded values of realTileRect
-            SkIRect finalRealRect;
-            realTileRect.roundOut(&finalRealRect);
+        // We join all the invals in the same tile for now
+        while (!fullRepaint && !cliperator.done()) {
+            SkRect realTileRect;
+            SkRect dirtyRect;
+            dirtyRect.set(cliperator.rect());
+            bool intersect = intersectWithRect(x, y, tileWidth, tileHeight,
+                                               scale, dirtyRect, realTileRect);
+            if (intersect) {
+                // initialize finalRealRect to the rounded values of realTileRect
+                SkIRect finalRealRect;
+                realTileRect.roundOut(&finalRealRect);
 
-            // stash the int values of the current width and height
-            const int iWidth = finalRealRect.width();
-            const int iHeight = finalRealRect.height();
+                // stash the int values of the current width and height
+                const int iWidth = finalRealRect.width();
+                const int iHeight = finalRealRect.height();
 
-            if (iWidth == tileWidth || iHeight == tileHeight) {
-                fullRepaint = true;
-                break;
+                if (iWidth == tileWidth || iHeight == tileHeight) {
+                    fullRepaint = true;
+                    break;
+                }
+
+                // translate the rect into tile space coordinates
+                finalRealRect.fLeft = finalRealRect.fLeft % static_cast<int>(tileWidth);
+                finalRealRect.fTop = finalRealRect.fTop % static_cast<int>(tileHeight);
+                finalRealRect.fRight = finalRealRect.fLeft + iWidth;
+                finalRealRect.fBottom = finalRealRect.fTop + iHeight;
+                totalRect.join(finalRealRect);
+                float repaintSurface = totalRect.width() * totalRect.height();
+
+                if (repaintSurface > tileSurfaceCap) {
+                    fullRepaint = true;
+                    break;
+                }
             }
 
-            // translate the rect into tile space coordinates
-            finalRealRect.fLeft = finalRealRect.fLeft % static_cast<int>(tileWidth);
-            finalRealRect.fTop = finalRealRect.fTop % static_cast<int>(tileHeight);
-            finalRealRect.fRight = finalRealRect.fLeft + iWidth;
-            finalRealRect.fBottom = finalRealRect.fTop + iHeight;
-
-            renderInfo.invalRect = &finalRealRect;
-            renderInfo.measurePerf = false;
-
-            pictureCount = m_renderer->renderTiledContent(renderInfo);
+            cliperator.next();
         }
 
-        cliperator.next();
+        if (!fullRepaint) {
+            renderInfo.invalRect = &totalRect;
+            renderInfo.measurePerf = false;
+            pictureCount = m_renderer->renderTiledContent(renderInfo);
+        }
     }
 
     // Do a full repaint if needed
     if (fullRepaint) {
-        SkIRect rect;
-        rect.set(0, 0, tileWidth, tileHeight);
-
-        renderInfo.invalRect = &rect;
+        renderInfo.invalRect = 0;
         renderInfo.measurePerf = TilesManager::instance()->getShowVisualIndicator();
-
         pictureCount = m_renderer->renderTiledContent(renderInfo);
     }
 

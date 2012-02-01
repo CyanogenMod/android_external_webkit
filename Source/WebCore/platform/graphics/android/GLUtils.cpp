@@ -36,11 +36,13 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
-
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "GLUtils", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GLUtils", __VA_ARGS__)
@@ -425,6 +427,10 @@ bool GLUtils::skipTransferForPureColor(const TileRenderInfo* renderInfo,
     bool skipTransfer = false;
     BaseTile* tilePtr = renderInfo->baseTile;
 
+    // TODO: use pure color for partial invals as well
+    if (renderInfo->invalRect)
+        return false;
+
     if (tilePtr) {
         BaseTileTexture* tileTexture = tilePtr->backTexture();
         // Check the bitmap, and make everything ready here.
@@ -450,8 +456,6 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
 {
     if (!renderInfo)
         return;
-    const int x = renderInfo->invalRect->fLeft;
-    const int y = renderInfo->invalRect->fTop;
     const SkSize& requiredSize = renderInfo->tileSize;
     TextureInfo* textureInfo = renderInfo->textureInfo;
 
@@ -459,14 +463,14 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
         return;
 
     if (requiredSize.equals(textureInfo->m_width, textureInfo->m_height))
-        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, x, y, bitmap);
+        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, bitmap);
     else {
         if (!requiredSize.equals(bitmap.width(), bitmap.height())) {
             XLOG("The bitmap size (%d,%d) does not equal the texture size (%d,%d)",
                     bitmap.width(), bitmap.height(),
                     requiredSize.width(), requiredSize.height());
         }
-        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, 0, 0, bitmap);
+        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, bitmap);
 
         textureInfo->m_width = bitmap.width();
         textureInfo->m_height = bitmap.height();
@@ -474,14 +478,14 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
     }
 }
 
-void GLUtils::updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* renderInfo, int x, int y, const SkBitmap& bitmap)
+void GLUtils::updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap)
 {
     if (!renderInfo
         || !renderInfo->textureInfo
         || !renderInfo->baseTile)
         return;
 
-    TilesManager::instance()->transferQueue()->updateQueueWithBitmap(renderInfo, x, y, bitmap);
+    TilesManager::instance()->transferQueue()->updateQueueWithBitmap(renderInfo, bitmap);
 }
 
 void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter)
@@ -515,7 +519,8 @@ void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GL
     glDeleteFramebuffers(1, &fboID);
 }
 
-void GLUtils::updateTextureWithBitmap(GLuint texture, int x, int y, const SkBitmap& bitmap, GLint filter)
+void GLUtils::updateTextureWithBitmap(GLuint texture, const SkBitmap& bitmap,
+                                      const IntRect& inval, GLint filter)
 {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glBindTexture(GL_TEXTURE_2D, texture);
@@ -524,13 +529,18 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, int x, int y, const SkBitm
     int internalformat = getInternalFormat(config);
     int type = getType(config);
     bitmap.lockPixels();
-    glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, bitmap.width(), bitmap.height(),
-                    internalformat, type, bitmap.getPixels());
+    if (inval.isEmpty()) {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, bitmap.width(), bitmap.height(),
+                        internalformat, type, bitmap.getPixels());
+    } else {
+        glTexSubImage2D(GL_TEXTURE_2D, 0, inval.x(), inval.y(), inval.width(), inval.height(),
+                        internalformat, type, bitmap.getPixels());
+    }
     bitmap.unlockPixels();
     if (GLUtils::checkGlError("glTexSubImage2D")) {
         XLOG("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
-             " x %d, y %d, internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
-             bitmap.width(), bitmap.height(), x, y, internalformat, type, bitmap.getPixels());
+             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
+             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);

@@ -112,8 +112,14 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
     device->unref();
 
-    // ensure the canvas origin is translated to the coordinates of our inval rect
-    canvas->translate(-renderInfo.invalRect->fLeft, -renderInfo.invalRect->fTop);
+    // If we have a partially painted bitmap
+    if (renderInfo.invalRect) {
+        SkRect clipRect = SkRect::MakeWH(renderInfo.invalRect->width(),
+                                         renderInfo.invalRect->height());
+        // ensure the canvas origin is translated to the coordinates of our inval rect
+        canvas->clipRect(clipRect);
+        canvas->translate(-renderInfo.invalRect->fLeft, -renderInfo.invalRect->fTop);
+    }
 }
 
 void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
