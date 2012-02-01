@@ -51,7 +51,8 @@ SkRegion* RegionLayerDrawExtra::getHighlightRegionsForLayer(const LayerAndroid* 
     return m_highlightRegions.get(layerId);
 }
 
-void RegionLayerDrawExtra::addHighlightRegion(const LayerAndroid* layer, const Vector<IntRect>& rects)
+void RegionLayerDrawExtra::addHighlightRegion(const LayerAndroid* layer, const Vector<IntRect>& rects,
+                                              const IntPoint& additionalOffset)
 {
     if (rects.isEmpty())
         return;
@@ -61,7 +62,7 @@ void RegionLayerDrawExtra::addHighlightRegion(const LayerAndroid* layer, const V
         region = new SkRegion();
         m_highlightRegions.set(layerId, region);
     }
-    IntPoint offset;
+    IntPoint offset = additionalOffset;
     WebViewCore::layerToAbsoluteOffset(layer, offset);
     for (size_t i = 0; i < rects.size(); i++) {
         IntRect r = rects.at(i);

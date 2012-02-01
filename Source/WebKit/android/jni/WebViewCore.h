@@ -305,7 +305,7 @@ namespace android {
         void recordPicture(SkPicture* picture);
 
         void moveFocus(WebCore::Frame* frame, WebCore::Node* node);
-        void moveMouse(WebCore::Frame* frame, int x, int y);
+        void moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* hoveredNode = 0);
         void moveMouseIfLatest(int moveGeneration,
             WebCore::Frame* frame, int x, int y);
 
@@ -547,6 +547,7 @@ namespace android {
         float scale() const { return m_scale; }
         float textWrapScale() const { return m_screenWidth * m_scale / m_textWrapWidth; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
+        WebCore::Frame* focusedFrame() const;
         void updateCursorBounds(const CachedRoot* root,
                 const CachedFrame* cachedFrame, const CachedNode* cachedNode);
 
@@ -607,6 +608,9 @@ namespace android {
         void selectText(int startX, int startY, int endX, int endY);
         void selectWordAt(int x, int y);
 
+        // Converts from the global content coordinates that WebView sends
+        // to frame-local content coordinates using the focused frame
+        IntPoint convertGlobalContentToFrameContent(const IntPoint& point);
         static void layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& offset);
 
         /**
@@ -708,8 +712,9 @@ namespace android {
         static WebCore::Position getPositionForOffset(Node* node, int offset);
 
         VisiblePosition visiblePositionForContentPoint(int x, int y);
+        VisiblePosition visiblePositionForContentPoint(const IntPoint& point);
         void selectWordAroundPosition(Frame* frame, VisiblePosition pos);
-        static SelectText* createSelectText(const VisibleSelection&);
+        SelectText* createSelectText(const VisibleSelection&);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);
