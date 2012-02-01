@@ -1796,7 +1796,9 @@ void setCaretInfo(const VisiblePosition& pos, SelectText::HandleId handle,
 
 SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 {
-    if (!selection.isRange())
+    // We need to agressively check to see if this is an empty selection to prevent
+    // accidentally entering text selection mode
+    if (!selection.isRange() || !comparePositions(selection.start(), selection.end()))
         return 0;
 
     RefPtr<Range> range = selection.firstRange();
@@ -1804,6 +1806,8 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
     Node* endContainer = range->endContainer();
 
     if (!startContainer || !endContainer)
+        return 0;
+    if (startContainer == endContainer && range->startOffset() == range->endOffset())
         return 0;
 
     SelectText* selectTextContainer = new SelectText();

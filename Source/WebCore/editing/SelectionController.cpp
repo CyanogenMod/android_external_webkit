@@ -1562,9 +1562,6 @@ bool SelectionController::isFocusedAndActive() const
 
 void SelectionController::updateAppearance()
 {
-#if PLATFORM(ANDROID)
-    return;
-#endif
     ASSERT(!m_isDragCaretController);
 
 #if ENABLE(TEXT_CARET)
@@ -1594,6 +1591,10 @@ void SelectionController::updateAppearance()
 
     // We need to update style in case the node containing the selection is made display:none.
     m_frame->document()->updateStyleIfNeeded();
+
+#if PLATFORM(ANDROID)
+    return;
+#endif
 
     RenderView* view = m_frame->contentRenderer();
     if (!view)
