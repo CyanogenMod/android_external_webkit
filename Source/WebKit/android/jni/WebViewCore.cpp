@@ -1675,7 +1675,8 @@ VisiblePosition WebViewCore::visiblePositionForContentPoint(const IntPoint& poin
     // Hit test of this kind required for this to work inside input fields
     HitTestRequest request(HitTestRequest::Active
                            | HitTestRequest::MouseMove
-                           | HitTestRequest::ReadOnly);
+                           | HitTestRequest::ReadOnly
+                           | HitTestRequest::IgnoreClipping);
     HitTestResult result(point);
     focusedFrame()->document()->renderView()->layer()->hitTest(request, result);
 
