@@ -1781,19 +1781,6 @@ void WebViewCore::layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& off
     }
 }
 
-void setCaretInfo(const VisiblePosition& pos, SelectText::HandleId handle,
-                               SelectText* target)
-{
-    IntPoint offset;
-    LayerAndroid* layer = 0;
-    IntRect rect = pos.absoluteCaretBounds();
-    int layerId = WebViewCore::platformLayerIdFromNode(pos.deepEquivalent().anchorNode(), &layer);
-    WebViewCore::layerToAbsoluteOffset(layer, offset);
-    rect.move(-offset.x(), -offset.y());
-    target->setCaretRect(handle, rect);
-    target->setCaretLayerId(handle, layerId);
-}
-
 SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 {
     // We need to agressively check to see if this is an empty selection to prevent
@@ -1813,6 +1800,8 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
     SelectText* selectTextContainer = new SelectText();
     IntPoint frameOffset = convertGlobalContentToFrameContent(IntPoint());
 
+    IntRect startHandle;
+    IntRect endHandle;
     Node* stopNode = range->pastLastNode();
     for (Node* node = range->firstNode(); node != stopNode; node = node->traverseNextNode()) {
         RenderObject* r = node->renderer();
@@ -1822,21 +1811,36 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
         int startOffset = node == startContainer ? range->startOffset() : 0;
         int endOffset = node == endContainer ? range->endOffset() : numeric_limits<int>::max();
         LayerAndroid* layer = 0;
-        platformLayerIdFromNode(node, &layer);
+        int layerId = platformLayerIdFromNode(node, &layer);
         Vector<IntRect> rects;
         renderText->absoluteRectsForRange(rects, startOffset, endOffset, true);
+        if (rects.size()) {
+            IntPoint offset;
+            layerToAbsoluteOffset(layer, offset);
+            endHandle = rects[rects.size() - 1];
+            endHandle.move(-offset.x(), -offset.y());
+            selectTextContainer->setCaretLayerId(SelectText::EndHandle, layerId);
+            if (startHandle.isEmpty()) {
+                startHandle = rects[0];
+                startHandle.move(-offset.x(), -offset.y());
+                selectTextContainer->setCaretLayerId(SelectText::StartHandle, layerId);
+            }
+        }
         selectTextContainer->addHighlightRegion(layer, rects, frameOffset);
     }
 
     IntRect caretRect;
     int layerId;
     selectTextContainer->setBaseFirst(selection.isBaseFirst());
-    setCaretInfo(selection.visibleStart(), SelectText::StartHandle, selectTextContainer);
-    setCaretInfo(selection.visibleEnd(), SelectText::EndHandle, selectTextContainer);
-    selectTextContainer->caretRect(SelectText::StartHandle)
-            .move(-frameOffset.x(), -frameOffset.y());
-    selectTextContainer->caretRect(SelectText::EndHandle)
-            .move(-frameOffset.x(), -frameOffset.y());
+
+    // Squish the handle rects
+    startHandle.setWidth(1);
+    endHandle.move(endHandle.width() - 1, 0);
+    endHandle.setWidth(1);
+    startHandle.move(-frameOffset.x(), -frameOffset.y());
+    selectTextContainer->setCaretRect(SelectText::StartHandle, startHandle);
+    endHandle.move(-frameOffset.x(), -frameOffset.y());
+    selectTextContainer->setCaretRect(SelectText::EndHandle, endHandle);
 
     selectTextContainer->setText(range->text());
 
