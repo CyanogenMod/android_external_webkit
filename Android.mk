@@ -35,46 +35,7 @@ ifneq ($(SUPPORT_COMPLEX_SCRIPTS),false)
     SUPPORT_COMPLEX_SCRIPTS = true
 endif
 
-# Two ways to control which JS engine is used:
-# 1. use JS_ENGINE environment variable, value can be either 'jsc' or 'v8'
-#    This is the preferred way.
-# 2. if JS_ENGINE is not set, or is not 'jsc' or 'v8', this makefile picks
-#    up a default engine to build.
-#    To help setup buildbot, a new environment variable, USE_ALT_JS_ENGINE,
-#    can be set to true, so that two builds can be different but without
-#    specifying which JS engine to use.
-# To enable JIT in Android's JSC, please set ENABLE_JSC_JIT environment
-# variable to true.
-
-# To enable JIT in Android's JSC, please set ENABLE_JSC_JIT environment
-# variable to true.
-
-# Read JS_ENGINE environment variable
-JAVASCRIPT_ENGINE = $(JS_ENGINE)
-
-# We default to the V8 JS engine.
-DEFAULT_ENGINE = v8
-ALT_ENGINE = jsc
-
-ifneq ($(JAVASCRIPT_ENGINE),jsc)
-  ifneq ($(JAVASCRIPT_ENGINE),v8)
-    # No JS engine is specified, pickup the one we want as default.
-    ifeq ($(USE_ALT_JS_ENGINE),true)
-      JAVASCRIPT_ENGINE = $(ALT_ENGINE)
-    else
-      JAVASCRIPT_ENGINE = $(DEFAULT_ENGINE)
-    endif
-  endif
-endif
-
-# V8 also requires an ARMv7 CPU, and since we must use jsc, we cannot
-# use the Chrome http stack either.
-ifneq ($(strip $(ARCH_ARM_HAVE_ARMV7A)),true)
-  JAVASCRIPT_ENGINE := jsc
-  USE_ALT_HTTP := true
-endif
-
-# See if the user has specified a stack they want to use
+# See if the desired HTTP stack has been specified.
 HTTP_STACK = $(HTTP)
 # We default to the Chrome HTTP stack.
 DEFAULT_HTTP = chrome
@@ -88,14 +49,6 @@ ifneq ($(HTTP_STACK),chrome)
     else
       HTTP_STACK = $(DEFAULT_HTTP)
     endif
-  endif
-endif
-
-# The Chrome stack can not be used with JSC and hence can not be used be used
-# with the simulator.
-ifeq ($(JAVASCRIPT_ENGINE),jsc)
-  ifeq ($(HTTP_STACK),chrome)
-    $(error Can not build with JSC and the Chrome HTTP stack)
   endif
 endif
 
@@ -260,38 +213,26 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	external/chromium/chrome \
 	external/skia
 
-ifeq ($(JAVASCRIPT_ENGINE),v8)
 # Include WTF source file.
 d := Source/JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.v8.wtf.mk
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
-endif  # JAVASCRIPT_ENGINE == v8
 
 # Include source files for WebCore
 d := Source/WebCore
 LOCAL_PATH := $(BASE_PATH)/$d
 intermediates := $(base_intermediates)/$d
 include $(LOCAL_PATH)/Android.mk
-ifeq ($(JAVASCRIPT_ENGINE),jsc)
-include $(LOCAL_PATH)/Android.jscbindings.mk
-endif
-ifeq ($(JAVASCRIPT_ENGINE),v8)
 include $(LOCAL_PATH)/Android.v8bindings.mk
-endif
 WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 LOCAL_C_INCLUDES += $(BINDING_C_INCLUDES)
 
 # Include the derived source files for WebCore. Uses the same path as
 # WebCore
 include $(LOCAL_PATH)/Android.derived.mk
-ifeq ($(JAVASCRIPT_ENGINE),jsc)
-include $(LOCAL_PATH)/Android.derived.jscbindings.mk
-endif
-ifeq ($(JAVASCRIPT_ENGINE),v8)
 include $(LOCAL_PATH)/Android.derived.v8bindings.mk
-endif
 
 # Include source files for android WebKit port
 d := Source/WebKit
@@ -320,14 +261,6 @@ LOCAL_CPPFLAGS := -Wno-c++0x-compat
 
 # Adds GL and EGL extensions for the GL backend
 LOCAL_CFLAGS += -DGL_GLEXT_PROTOTYPES -DEGL_EGLEXT_PROTOTYPES
-
-# Enable JSC JIT if JSC is used and ENABLE_JSC_JIT environment
-# variable is set to true
-ifeq ($(JAVASCRIPT_ENGINE),jsc)
-ifeq ($(ENABLE_JSC_JIT),true)
-LOCAL_CFLAGS += -DENABLE_ANDROID_JSC_JIT=1
-endif
-endif
 
 ifeq ($(TARGET_ARCH),arm)
 LOCAL_CFLAGS += -Darm
@@ -391,10 +324,7 @@ LOCAL_CFLAGS += -DSUPPORT_COMPLEX_SCRIPTS=1
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu
-ifeq ($(JAVASCRIPT_ENGINE),v8)
-LOCAL_STATIC_LIBRARIES += libv8
-endif
+LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu libv8
 
 ifeq ($(HTTP_STACK),chrome)
 LOCAL_SHARED_LIBRARIES += libcrypto libssl libz libchromium_net
@@ -419,34 +349,6 @@ WEBKIT_STATIC_LIBRARIES := $(LOCAL_STATIC_LIBRARIES)
 # Build the library all at once
 include $(BUILD_STATIC_LIBRARY)
 
-ifeq ($(JAVASCRIPT_ENGINE),jsc)
-# Now build libjs as a static library.
-include $(CLEAR_VARS)
-LOCAL_MODULE := libjs
-LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
-LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
-LOCAL_STATIC_LIBRARIES := $(WEBKIT_STATIC_LIBRARIES)
-LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
-# Include source files for JavaScriptCore
-d := Source/JavaScriptCore
-LOCAL_PATH := $(BASE_PATH)/$d
-LOCAL_MODULE_CLASS := STATIC_LIBRARIES
-# Cannot use base_intermediates as this is a new module
-intermediates := $(call local-intermediates-dir)
-include $(LOCAL_PATH)/Android.mk
-# Redefine LOCAL_SRC_FILES with the correct prefix
-LOCAL_SRC_FILES := $(addprefix $d/,$(LOCAL_SRC_FILES))
-# Use the base path to resolve file names
-LOCAL_PATH := $(BASE_PATH)
-# Append jsc intermediate include paths to the WebKit include list.
-LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES) \
-	$(intermediates) \
-	$(intermediates)/parser \
-	$(intermediates)/runtime \
-# Build libjs
-include $(BUILD_STATIC_LIBRARY)
-endif  # JAVASCRIPT_ENGINE == jsc
-
 # Now build the shared library using only the exported jni entry point. This
 # will strip out any unused code from the entry point.
 include $(CLEAR_VARS)
@@ -458,9 +360,6 @@ LOCAL_MODULE := libwebcore
 LOCAL_LDLIBS := $(WEBKIT_LDLIBS)
 LOCAL_SHARED_LIBRARIES := $(WEBKIT_SHARED_LIBRARIES)
 LOCAL_STATIC_LIBRARIES := libwebcore $(WEBKIT_STATIC_LIBRARIES)
-ifeq ($(JAVASCRIPT_ENGINE),jsc)
-LOCAL_STATIC_LIBRARIES += libjs
-endif
 LOCAL_LDFLAGS := -fvisibility=hidden
 LOCAL_CFLAGS := $(WEBKIT_CFLAGS)
 LOCAL_CPPFLAGS := $(WEBKIT_CPPFLAGS)
