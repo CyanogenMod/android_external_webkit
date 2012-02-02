@@ -1420,15 +1420,16 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
     if (!selectText)
         return -1;
     int layerId = selectText->caretLayerId(handleId);
-    const IntRect& r = selectText->caretRect(handleId);
-    cursorRect.set(r.x(), r.y(), r.maxX(), r.maxY());
+    IntRect rect = selectText->caretRect(handleId);
     if (layerId != -1) {
+        // We need to make sure the drawTransform is up to date as this is
+        // called before a draw() or drawGL()
+        m_baseLayer->updateLayerPositions(m_visibleRect);
         LayerAndroid* root = compositeRoot();
         LayerAndroid* layer = root ? root->findById(layerId) : 0;
-        IntPoint offset;
-        WebViewCore::layerToAbsoluteOffset(layer, offset);
-        cursorRect.offset(offset.x(), offset.y());
+        rect = layer->drawTransform()->mapRect(rect);
     }
+    cursorRect.set(rect.x(), rect.y(), rect.maxX(), rect.maxY());
     return layerId;
 }
 
