@@ -3346,7 +3346,11 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
         WebFrame* webFrame = WebFrame::getWebFrame(frame);
         eventHandler = frame->eventHandler();
         VisibleSelection old = frame->selection()->selection();
+        EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
+                m_mainFrame->editor()->client());
+        client->setUiGeneratedSelectionChange(true);
         bool handled = eventHandler->keyEvent(event);
+        client->setUiGeneratedSelectionChange(false);
         if (isContentEditable(focusNode)) {
             // keyEvent will return true even if the contentEditable did not
             // change its selection.  In the case that it does not, we want to
