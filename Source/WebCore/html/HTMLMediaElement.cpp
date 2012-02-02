@@ -2429,7 +2429,7 @@ void HTMLMediaElement::defaultEventHandler(Event* event)
     // This allows user to click the video area to toggle play/pause state.
     if (event->type() == eventNames().clickEvent
         && !hasEventListeners(eventNames().clickEvent)) {
-        m_userGestureInitiated = true;
+        m_userGestureInitiated = processingUserGesture();
         togglePlayState();
     }
 #endif
