@@ -679,13 +679,12 @@ namespace android {
         Node* getImplicitBoundaryNode(Node* node, unsigned offset, int direction);
         /**
          * Calls into java to reset the text edit field with the
-         * current contents and selection. This currently works only with
-         * content-editable fields.
+         * current contents and selection.
          */
         void initEditField(Node* node);
         /**
          * Returns the offsets of the selection area for both normal text
-         * fields and content-editable fields. start and end are modified
+         * fields and content editable fields. start and end are modified
          * by this method.
          */
         static void getSelectionOffsets(Node* node, int& start, int& end);
@@ -706,8 +705,7 @@ namespace android {
         static void setSelection(Node* node, int start, int end);
         /**
          * Returns the Position for the given offset for an editable
-         * field. If node is editable the offset relative to the highest
-         * editable node. If it is not editable, the offset is relative to node.
+         * field. The offset is relative to the node start.
          */
         static WebCore::Position getPositionForOffset(Node* node, int offset);
 
