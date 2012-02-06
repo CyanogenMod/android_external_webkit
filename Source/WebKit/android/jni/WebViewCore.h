@@ -610,7 +610,7 @@ namespace android {
 
         // Converts from the global content coordinates that WebView sends
         // to frame-local content coordinates using the focused frame
-        IntPoint convertGlobalContentToFrameContent(const IntPoint& point);
+        IntPoint convertGlobalContentToFrameContent(const IntPoint& point, WebCore::Frame* frame = 0);
         static void layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& offset);
 
         /**

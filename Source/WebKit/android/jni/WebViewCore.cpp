@@ -1830,10 +1830,11 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
     return selectTextContainer;
 }
 
-IntPoint WebViewCore::convertGlobalContentToFrameContent(const IntPoint& point)
+IntPoint WebViewCore::convertGlobalContentToFrameContent(const IntPoint& point, WebCore::Frame* frame)
 {
+    if (!frame) frame = focusedFrame();
     IntPoint frameOffset(-m_scrollOffsetX, -m_scrollOffsetY);
-    frameOffset = focusedFrame()->view()->windowToContents(frameOffset);
+    frameOffset = frame->view()->windowToContents(frameOffset);
     return IntPoint(point.x() + frameOffset.x(), point.y() + frameOffset.y());
 }
 
@@ -1885,7 +1886,7 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
         moveMouse(m_mainFrame, x, y);
     HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
             false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
-    AndroidHitTestResult androidHitResult(hitTestResult);
+    AndroidHitTestResult androidHitResult(this, hitTestResult);
     if (!hitTestResult.innerNode() || !hitTestResult.innerNode()->inDocument()) {
         ALOGE("Should not happen: no in document Node found");
         return androidHitResult;

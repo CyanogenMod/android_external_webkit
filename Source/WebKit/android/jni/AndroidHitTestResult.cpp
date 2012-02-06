@@ -59,6 +59,7 @@ static struct JavaGlue {
     jfieldID m_hitTestEditable;
     jfieldID m_hitTestTouchRects;
     jfieldID m_hitTestTapHighlightColor;
+    jfieldID m_hitTestEnclosingParentRects;
 } gJavaGlue;
 
 struct field {
@@ -90,6 +91,7 @@ static void InitJni(JNIEnv* env)
         { hitTestClass, "mAltDisplayString", "Ljava/lang/String;", &gJavaGlue.m_hitTestAltDisplayString },
         { hitTestClass, "mTitle", "Ljava/lang/String;", &gJavaGlue.m_hitTestTitle },
         { hitTestClass, "mTapHighlightColor", "I", &gJavaGlue.m_hitTestTapHighlightColor },
+        { hitTestClass, "mEnclosingParentRects", "[Landroid/graphics/Rect;", &gJavaGlue.m_hitTestEnclosingParentRects },
         {0, 0, 0, 0},
     };
 
@@ -103,8 +105,9 @@ static void InitJni(JNIEnv* env)
     gJniInitialized = true;
 }
 
-AndroidHitTestResult::AndroidHitTestResult(WebCore::HitTestResult& hitTestResult)
-    : m_hitTestResult(hitTestResult)
+AndroidHitTestResult::AndroidHitTestResult(WebViewCore* webViewCore, WebCore::HitTestResult& hitTestResult)
+    : m_webViewCore(webViewCore)
+    , m_hitTestResult(hitTestResult)
 {
 }
 
@@ -137,6 +140,9 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
     jobject hitTest = env->NewObject(hitTestClass, gJavaGlue.m_hitTestInit);
     setRectArray(env, hitTest, gJavaGlue.m_hitTestTouchRects, m_highlightRects);
 
+    Vector<IntRect> rects = enclosingParentRects(m_hitTestResult.innerNode());
+    setRectArray(env, hitTest, gJavaGlue.m_hitTestEnclosingParentRects, rects);
+
     SET_BOOL(Editable, m_hitTestResult.isContentEditable());
     SET_STRING(LinkUrl, m_hitTestResult.absoluteLinkURL().string());
     SET_STRING(ImageUrl, m_hitTestResult.absoluteImageURL().string());
@@ -155,6 +161,33 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
     env->DeleteLocalRef(hitTestClass);
 
     return hitTest;
+}
+
+Vector<IntRect> AndroidHitTestResult::enclosingParentRects(Node* node)
+{
+    int lastX;
+    int count = 0;
+    Vector<IntRect> rects;
+
+    while (node && count < 5) {
+        RenderObject* render = node->renderer();
+        if (!render || render->isBody())
+            break;
+
+        IntPoint frameOffset = m_webViewCore->convertGlobalContentToFrameContent(IntPoint(),
+                node->document()->frame());
+        IntRect rect = render->absoluteBoundingBoxRect();
+        rect.move(-frameOffset.x(), -frameOffset.y());
+        if (rect.x() != lastX) {
+            rects.append(rect);
+            lastX = rect.x();
+            count++;
+        }
+
+        node = node->parentNode();
+    }
+
+    return rects;
 }
 
 } /* namespace android */

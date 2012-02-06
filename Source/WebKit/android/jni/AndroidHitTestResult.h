@@ -34,10 +34,12 @@
 
 namespace android {
 
+class WebViewCore;
+
 class AndroidHitTestResult
 {
 public:
-    AndroidHitTestResult(WebCore::HitTestResult&);
+    AndroidHitTestResult(WebViewCore*, WebCore::HitTestResult&);
     ~AndroidHitTestResult() {}
 
     WebCore::HitTestResult& hitTestResult() { return m_hitTestResult; }
@@ -46,6 +48,9 @@ public:
     jobject createJavaObject(JNIEnv*);
 
 private:
+    Vector<WebCore::IntRect> enclosingParentRects(WebCore::Node* node);
+
+    WebViewCore* m_webViewCore;
     WebCore::HitTestResult m_hitTestResult;
     Vector<WebCore::IntRect> m_highlightRects;
 };
