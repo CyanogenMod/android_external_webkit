@@ -94,6 +94,7 @@ GLWebViewState::GLWebViewState()
     , m_expandedTileBoundsY(0)
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
+    , m_treeManager(this)
 {
     m_viewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
@@ -129,8 +130,8 @@ GLWebViewState::~GLWebViewState()
 
 }
 
-void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval,
-                                  bool showVisualIndicator, bool isPictureAfterFirstLayout)
+bool GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndicator,
+                                  bool isPictureAfterFirstLayout)
 {
     if (!layer || isPictureAfterFirstLayout) {
         // TODO: move this into TreeManager
@@ -142,9 +143,8 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
     if (layer) {
         XLOG("new base layer %p, (inval region empty %d) with child %p", layer, inval.isEmpty(), layer->getChild(0));
         layer->setState(this);
-        layer->markAsDirty(inval); // TODO: set in webview.cpp
     }
-    m_treeManager.updateWithTree(layer, isPictureAfterFirstLayout);
+    bool queueFull = m_treeManager.updateWithTree(layer, isPictureAfterFirstLayout);
     m_glExtras.setDrawExtra(0);
 
 #ifdef MEASURES_PERF
@@ -154,6 +154,7 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
 #endif
 
     TilesManager::instance()->setShowVisualIndicator(showVisualIndicator);
+    return queueFull;
 }
 
 void GLWebViewState::scrollLayer(int layerId, int x, int y)
@@ -244,8 +245,24 @@ int GLWebViewState::baseContentHeight()
 
 void GLWebViewState::setViewport(SkRect& viewport, float scale)
 {
+    // allocate max possible number of tiles visible with this viewport / expandedTileBounds
+    const float invTileContentWidth = scale / TilesManager::tileWidth();
+    const float invTileContentHeight = scale / TilesManager::tileHeight();
+
+    int viewMaxTileX = static_cast<int>(ceilf((viewport.width()-1) * invTileContentWidth)) + 1;
+    int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
+
+    TilesManager* manager = TilesManager::instance();
+    int maxTextureCount = (viewMaxTileX + m_expandedTileBoundsX * 2) *
+        (viewMaxTileY + m_expandedTileBoundsY * 2) * (manager->highEndGfx() ? 4 : 2);
+
+    manager->setMaxTextureCount(maxTextureCount);
+    m_tiledPageA->updateBaseTileSize();
+    m_tiledPageB->updateBaseTileSize();
+
     if ((m_viewport == viewport) &&
         (zoomManager()->futureScale() == scale)) {
+        // everything below will stay the same, early return.
         m_isViewportScrolling = false;
         return;
     }
@@ -262,26 +279,11 @@ void GLWebViewState::setViewport(SkRect& viewport, float scale)
          m_viewport.width(), m_viewport.height(), scale,
          zoomManager()->currentScale(), zoomManager()->futureScale());
 
-    const float invTileContentWidth = scale / TilesManager::tileWidth();
-    const float invTileContentHeight = scale / TilesManager::tileHeight();
-
     m_viewportTileBounds.set(
             static_cast<int>(floorf(viewport.fLeft * invTileContentWidth)),
             static_cast<int>(floorf(viewport.fTop * invTileContentHeight)),
             static_cast<int>(ceilf(viewport.fRight * invTileContentWidth)),
             static_cast<int>(ceilf(viewport.fBottom * invTileContentHeight)));
-
-    // allocate max possible number of tiles visible with this viewport
-    int viewMaxTileX = static_cast<int>(ceilf((viewport.width()-1) * invTileContentWidth)) + 1;
-    int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
-
-    TilesManager* manager = TilesManager::instance();
-    int maxTextureCount = (viewMaxTileX + m_expandedTileBoundsX * 2) *
-        (viewMaxTileY + m_expandedTileBoundsY * 2) * (manager->highEndGfx() ? 4 : 2);
-
-    manager->setMaxTextureCount(maxTextureCount);
-    m_tiledPageA->updateBaseTileSize();
-    m_tiledPageB->updateBaseTileSize();
 }
 
 #ifdef MEASURES_PERF

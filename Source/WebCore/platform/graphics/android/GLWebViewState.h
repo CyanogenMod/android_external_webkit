@@ -176,7 +176,7 @@ public:
     void setFutureViewport(const SkIRect& viewport) { m_futureViewportTileBounds = viewport; }
 
     unsigned int paintBaseLayerContent(SkCanvas* canvas);
-    void setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval, bool showVisualIndicator,
+    bool setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndicator,
                       bool isPictureAfterFirstLayout);
     void paintExtras();
 
