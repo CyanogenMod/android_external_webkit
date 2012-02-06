@@ -292,6 +292,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_getDeviceOrientationService;
     jmethodID   m_addMessageToConsole;
     jmethodID   m_formDidBlur;
+    jmethodID   m_focusNodeChanged;
     jmethodID   m_getPluginClass;
     jmethodID   m_showFullScreenPlugin;
     jmethodID   m_hideFullScreenPlugin;
@@ -378,7 +379,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_groupForVisitedLinks(0)
     , m_isPaused(false)
     , m_cacheMode(0)
-    , m_shouldPaintCaret(true)
     , m_fullscreenVideoMode(false)
     , m_pluginInvalTimer(this, &WebViewCore::pluginInvalTimerFired)
     , m_screenOnCounter(0)
@@ -425,6 +425,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_getDeviceOrientationService = GetJMethod(env, clazz, "getDeviceOrientationService", "()Landroid/webkit/DeviceOrientationService;");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
     m_javaGlue->m_formDidBlur = GetJMethod(env, clazz, "formDidBlur", "(I)V");
+    m_javaGlue->m_focusNodeChanged = GetJMethod(env, clazz, "focusNodeChanged", "(Landroid/webkit/WebViewCore$WebKitHitTest;)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;II)V");
     m_javaGlue->m_hideFullScreenPlugin = GetJMethod(env, clazz, "hideFullScreenPlugin", "()V");
@@ -3117,7 +3118,6 @@ void WebViewCore::deleteSelection(int start, int end, int textGeneration)
     key(up);
     client->setUiGeneratedSelectionChange(false);
     m_textGeneration = textGeneration;
-    m_shouldPaintCaret = true;
 }
 
 void WebViewCore::replaceTextfieldText(int oldStart,
@@ -3142,7 +3142,6 @@ void WebViewCore::replaceTextfieldText(int oldStart,
     // setSelection calls revealSelection, so there is no need to do it here.
     setSelection(start, end);
     m_textGeneration = textGeneration;
-    m_shouldPaintCaret = true;
 }
 
 void WebViewCore::passToJs(int generation, const WTF::String& current,
@@ -3174,7 +3173,6 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     }
     // Now that the selection has settled down, send it.
     updateTextSelection();
-    m_shouldPaintCaret = true;
 }
 
 void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
@@ -3323,8 +3321,6 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
 {
     WebCore::EventHandler* eventHandler;
     WebCore::Node* focusNode = currentFocus();
-    DBG_NAV_LOGD("keyCode=%s unichar=%d focusNode=%p",
-        event.keyIdentifier().utf8().data(), event.unichar(), focusNode);
     if (focusNode) {
         WebCore::Frame* frame = focusNode->document()->frame();
         WebFrame* webFrame = WebFrame::getWebFrame(frame);
@@ -3344,7 +3340,7 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
         }
         return handled;
     } else {
-        eventHandler = m_mainFrame->eventHandler();
+        eventHandler = focusedFrame()->eventHandler();
     }
     return eventHandler->keyEvent(event);
 }
@@ -3638,19 +3634,66 @@ void WebViewCore::formDidBlur(const WebCore::Node* node)
         m_blurringNodePointer = reinterpret_cast<int>(node);
 }
 
-void WebViewCore::focusNodeChanged(const WebCore::Node* newFocus)
+// This is a slightly modified Node::nextNodeConsideringAtomicNodes() with the
+// extra constraint of limiting the search to inside a containing parent
+WebCore::Node* nextNodeWithinParent(WebCore::Node* parent, WebCore::Node* start)
 {
-    if (isTextInput(newFocus))
-        m_shouldPaintCaret = true;
-    else if (m_blurringNodePointer) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        AutoJObject javaObject = m_javaGlue->object(env);
-        if (!javaObject.get())
-            return;
+    if (!isAtomicNode(start) && start->firstChild())
+        return start->firstChild();
+    if (start->nextSibling())
+        return start->nextSibling();
+    const Node *n = start;
+    while (n && !n->nextSibling()) {
+        n = n->parentNode();
+        if (n == parent)
+            return 0;
+    }
+    if (n)
+        return n->nextSibling();
+    return 0;
+}
+
+void WebViewCore::focusNodeChanged(WebCore::Node* newFocus)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    if (!isTextInput(newFocus) && m_blurringNodePointer) {
         env->CallVoidMethod(javaObject.get(), m_javaGlue->m_formDidBlur, m_blurringNodePointer);
         checkException(env);
         m_blurringNodePointer = 0;
     }
+    HitTestResult focusHitResult;
+    focusHitResult.setInnerNode(newFocus);
+    focusHitResult.setInnerNonSharedNode(newFocus);
+    if (newFocus && newFocus->isLink() && newFocus->isElementNode()) {
+        focusHitResult.setURLElement(static_cast<Element*>(newFocus));
+        if (newFocus->hasChildNodes() && !newFocus->hasTagName(HTMLNames::imgTag)) {
+            // Check to see if any of the children are images, and if so
+            // set them as the innerNode and innerNonSharedNode
+            // This will stop when it hits the first image. I'm not sure what
+            // should be done in the case of multiple images inside one anchor...
+            Node* nextNode = newFocus->firstChild();
+            bool found = false;
+            while (nextNode) {
+                if (nextNode->hasTagName(HTMLNames::imgTag)) {
+                    found = true;
+                    break;
+                }
+                nextNode = nextNodeWithinParent(newFocus, nextNode);
+            }
+            if (found) {
+                focusHitResult.setInnerNode(nextNode);
+                focusHitResult.setInnerNonSharedNode(nextNode);
+            }
+        }
+    }
+    AndroidHitTestResult androidHitTest(this, focusHitResult);
+    androidHitTest.highlightRects();
+    jobject jHitTestObj = androidHitTest.createJavaObject(env);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_focusNodeChanged, jHitTestObj);
+    env->DeleteLocalRef(jHitTestObj);
 }
 
 void WebViewCore::addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel) {
@@ -4647,11 +4690,6 @@ static jstring RetrieveImageSource(JNIEnv* env, jobject obj, jint nativeClass,
     return !result.isEmpty() ? wtfStringToJstring(env, result) : 0;
 }
 
-static void StopPaintingCaret(JNIEnv* env, jobject obj, jint nativeClass)
-{
-    reinterpret_cast<WebViewCore*>(nativeClass)->setShouldPaintCaret(false);
-}
-
 static void MoveFocus(JNIEnv* env, jobject obj, jint nativeClass, jint framePtr,
         jint nodePtr)
 {
@@ -4936,7 +4974,6 @@ static jobject HitTest(JNIEnv* env, jobject obj, jint nativeClass, jint x,
         return 0;
     Node* node = 0;
     AndroidHitTestResult result = viewImpl->hitTestAtPoint(x, y, slop, doMoveMouse);
-    Vector<IntRect>& rects = result.highlightRects();
     return result.createJavaObject(env);
 }
 
@@ -5081,8 +5118,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RetrieveAnchorText },
     { "nativeRetrieveImageSource", "(III)Ljava/lang/String;",
         (void*) RetrieveImageSource },
-    { "nativeStopPaintingCaret", "(I)V",
-        (void*) StopPaintingCaret },
     { "nativeUpdateFrameCache", "(I)V",
         (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "(I)I",

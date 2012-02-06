@@ -591,6 +591,9 @@ public:
         // This is required to enable the XMLTreeViewer when loading an XML document that
         // has no style attached to it. http://trac.webkit.org/changeset/79799
         s->setDeveloperExtrasEnabled(true);
+#if !ENABLE(ANDROID_NAVCACHE)
+        s->setSpatialNavigationEnabled(true);
+#endif
     }
 };
 

@@ -754,8 +754,6 @@
 // Passes the webkit-originated changes of a focused textfield to our UI
 // thread
 #define ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-// Allow us to turn off the blinking caret as desired.
-#define ANDROID_ALLOW_TURNING_OFF_CARET
 #define ANDROID_META_SUPPORT
 #define ANDROID_MULTIPLE_WINDOWS
 #define ANDROID_CSS_TAP_HIGHLIGHT_COLOR

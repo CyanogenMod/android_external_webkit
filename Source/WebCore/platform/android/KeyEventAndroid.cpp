@@ -191,7 +191,7 @@ static String keyIdentifierForAndroidKeyCode(int keyCode)
         return "U+00007F";
     default:
         char upper[16];
-        sprintf(upper, "U+%06X", windowsKeyCodeForKeyEvent(keyCode));
+        sprintf(upper, "U+%04X", windowsKeyCodeForKeyEvent(keyCode));
         return String(upper);
     }
 }

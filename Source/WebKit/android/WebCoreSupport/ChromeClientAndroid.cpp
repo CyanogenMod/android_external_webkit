@@ -298,7 +298,7 @@ bool ChromeClientAndroid::shouldInterruptJavaScript() {
 
 KeyboardUIMode ChromeClientAndroid::keyboardUIMode()
 {
-    return KeyboardAccessDefault;
+    return KeyboardAccessTabsToLinks;
 }
 
 IntRect ChromeClientAndroid::windowResizerRect() const { return IntRect(0, 0, 0, 0); }

@@ -60,6 +60,7 @@ public:
     virtual Color platformActiveSelectionForegroundColor() const;
     virtual Color platformInactiveSelectionForegroundColor() const;
     virtual Color platformTextSearchHighlightColor() const;
+    virtual Color platformFocusRingColor() const;
 
     virtual Color platformActiveListBoxSelectionBackgroundColor() const;
     virtual Color platformInactiveListBoxSelectionBackgroundColor() const;
