@@ -101,7 +101,7 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
         g_bitmap->eraseARGB(255, 255, 255, 255);
     }
 
-    SkDevice* device = new SkDevice(NULL, *g_bitmap, false);
+    SkDevice* device = new SkDevice(*g_bitmap);
 
     if (renderInfo.measurePerf) {
         m_perfMon.stop(TAG_CREATE_BITMAP);

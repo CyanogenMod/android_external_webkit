@@ -191,12 +191,7 @@ SkDevice* GaneshContext::getDeviceForBaseTileSurface(const TileRenderInfo& rende
         GrContext* grContext = getGrContext();
         GrRenderTarget* renderTarget = (GrRenderTarget*) grContext->createPlatformSurface(surfaceDesc);
 
-        SkBitmap bitmap;
-        bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                         renderInfo.tileSize.width(),
-                         renderInfo.tileSize.height());
-
-        m_baseTileDeviceSurface = new SkGpuDevice(grContext, bitmap, renderTarget);
+        m_baseTileDeviceSurface = new SkGpuDevice(grContext, renderTarget);
         renderTarget->unref();
         XLOG("generated device %p", m_baseTileDeviceSurface);
     }
@@ -262,11 +257,7 @@ SkDevice* GaneshContext::getDeviceForBaseTileFBO(const TileRenderInfo& renderInf
         GrContext* grContext = getGrContext();
         GrRenderTarget* renderTarget = (GrRenderTarget*) grContext->createPlatformSurface(surfaceDesc);
 
-        SkBitmap bitmap;
-        bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                         TilesManager::tileWidth(), TilesManager::tileWidth());
-
-        m_baseTileDeviceFBO = new SkGpuDevice(grContext, bitmap, renderTarget);
+        m_baseTileDeviceFBO = new SkGpuDevice(grContext, renderTarget);
         renderTarget->unref();
         XLOG("generated device %p", m_baseTileDeviceFBO);
     }
