@@ -108,7 +108,7 @@ public:
 
 class TransferQueue {
 public:
-    TransferQueue();
+    TransferQueue(bool useMinimalMem);
     ~TransferQueue();
 
     // This will be called by the browser through nativeSetProperty
@@ -220,6 +220,9 @@ private:
     // resource limited. To get better performance, it is better to separate
     // the pure color tile into another queue.
     WTF::Vector<TileTransferData> m_pureColorTileQueue;
+
+    // The number of items transfer queue can buffer up.
+    int m_transferQueueSize;
 };
 
 } // namespace WebCore
