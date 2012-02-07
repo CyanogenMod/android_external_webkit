@@ -127,9 +127,6 @@ public:
         SkColor fillColor;
         SkColor strokeColor;
         bool useAA;
-        // This is a list of clipping paths which are currently active, in the
-        // order in which they were pushed.
-        WTF::Vector<SkPath> antiAliasClipPaths;
 
         State()
             : pathEffect(0)
@@ -246,9 +243,6 @@ public:
 
     void restore()
     {
-        if (!m_state->antiAliasClipPaths.isEmpty())
-            applyAntiAliasedClipPaths(m_state->antiAliasClipPaths);
-
         m_state->~State();
         m_stateStack.pop_back();
         m_state = static_cast<State*>(m_stateStack.back());
@@ -368,51 +362,6 @@ public:
             return justSqrs;
         }
         return false;
-    }
-
-    void clipPathAntiAliased(const SkPath& clipPath)
-    {
-        // If we are currently tracking any anti-alias clip paths, then we already
-        // have a layer in place and don't need to add another.
-        bool haveLayerOutstanding = m_state->antiAliasClipPaths.size();
-
-        // See comments in applyAntiAliasedClipPaths about how this works.
-        m_state->antiAliasClipPaths.append(clipPath);
-        if (!haveLayerOutstanding) {
-            SkRect bounds = clipPath.getBounds();
-            if (m_platformGfxCtx && m_platformGfxCtx->mCanvas) {
-                m_platformGfxCtx->mCanvas->saveLayerAlpha(&bounds, 255,
-                    static_cast<SkCanvas::SaveFlags>(SkCanvas::kHasAlphaLayer_SaveFlag
-                        | SkCanvas::kFullColorLayer_SaveFlag
-                        | SkCanvas::kClipToLayer_SaveFlag));
-                m_platformGfxCtx->mCanvas->save();
-            } else
-                ASSERT(0);
-        }
-    }
-
-    void applyAntiAliasedClipPaths(WTF::Vector<SkPath>& paths)
-    {
-        // Anti-aliased clipping:
-        //
-        // Refer to PlatformContextSkia.cpp's applyAntiAliasedClipPaths() for more details
-
-        if (m_platformGfxCtx && m_platformGfxCtx->mCanvas)
-            m_platformGfxCtx->mCanvas->restore();
-
-        SkPaint paint;
-        paint.setXfermodeMode(SkXfermode::kClear_Mode);
-        paint.setAntiAlias(true);
-        paint.setStyle(SkPaint::kFill_Style);
-
-        if (m_platformGfxCtx && m_platformGfxCtx->mCanvas)  {
-            for (size_t i = paths.size() - 1; i < paths.size(); --i) {
-                paths[i].setFillType(SkPath::kInverseWinding_FillType);
-                m_platformGfxCtx->mCanvas->drawPath(paths[i], paint);
-            }
-            m_platformGfxCtx->mCanvas->restore();
-        } else
-            ASSERT(0);
     }
 
     PlatformGraphicsContext* getPlatformGfxCtx()
@@ -848,7 +797,7 @@ void GraphicsContext::clip(const Path& path)
     if (paintingDisabled())
         return;
 
-    m_data->clipPathAntiAliased(*path.platformPath());
+    GC2CANVAS(this)->clipPath(*path.platformPath(), SkRegion::kIntersect_Op, true);
 }
 
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
@@ -868,7 +817,7 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
         r.inset(SkIntToScalar(thickness + 1), SkIntToScalar(thickness + 1));
         path.addOval(r, SkPath::kCCW_Direction);
     }
-    m_data->clipPathAntiAliased(path);
+    GC2CANVAS(this)->clipPath(path, SkRegion::kIntersect_Op, true);
 }
 
 void GraphicsContext::canvasClip(const Path& path)
