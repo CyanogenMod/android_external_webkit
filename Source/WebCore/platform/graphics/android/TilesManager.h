@@ -82,7 +82,7 @@ public:
     void addPaintedSurface(PaintedSurface* surface);
 
     ShaderProgram* shader() { return &m_shader; }
-    TransferQueue* transferQueue() { return &m_queue; }
+    TransferQueue* transferQueue();
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
     void gatherLayerTextures();
@@ -254,7 +254,7 @@ private:
     static TilesManager* gInstance;
 
     ShaderProgram m_shader;
-    TransferQueue m_queue;
+    TransferQueue* m_queue;
 
     VideoLayerManager m_videoLayerManager;
 

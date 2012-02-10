@@ -106,6 +106,7 @@ TilesManager::TilesManager()
     , m_useMinimalMemory(true)
     , m_useDoubleBuffering(true)
     , m_treeUpdates(0)
+    , m_queue(0)
     , m_drawGLCount(1)
     , m_lastTimeLayersUsed(0)
     , m_hasLayerTextures(false)
@@ -427,6 +428,14 @@ void TilesManager::setMaxLayerTextureCount(int max)
     m_hasLayerTextures = true;
 }
 
+TransferQueue* TilesManager::transferQueue()
+{
+    // To minimize the memory usage, transfer queue can be set to minimal size
+    // if required.
+    if (!m_queue)
+        m_queue = new TransferQueue(m_useMinimalMemory);
+    return m_queue;
+}
 
 float TilesManager::tileWidth()
 {

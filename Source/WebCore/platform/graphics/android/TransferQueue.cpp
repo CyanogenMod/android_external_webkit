@@ -50,7 +50,10 @@
 
 #endif // DEBUG
 
-#define ST_BUFFER_NUMBER 6
+// For simple webView usage, MINIMAL_SIZE is recommended for memory saving.
+// In browser case, EFFICIENT_SIZE is preferred.
+#define MINIMAL_SIZE 1
+#define EFFICIENT_SIZE 6
 
 // Set this to 1 if we would like to take the new GpuUpload approach which
 // relied on the glCopyTexSubImage2D instead of a glDraw call
@@ -58,7 +61,7 @@
 
 namespace WebCore {
 
-TransferQueue::TransferQueue()
+TransferQueue::TransferQueue(bool useMinimalMem)
     : m_eglSurface(EGL_NO_SURFACE)
     , m_transferQueueIndex(0)
     , m_fboID(0)
@@ -69,10 +72,9 @@ TransferQueue::TransferQueue()
     , m_currentUploadType(DEFAULT_UPLOAD_TYPE)
 {
     memset(&m_GLStateBeforeBlit, 0, sizeof(m_GLStateBeforeBlit));
-
-    m_emptyItemCount = ST_BUFFER_NUMBER;
-
-    m_transferQueue = new TileTransferData[ST_BUFFER_NUMBER];
+    m_transferQueueSize = useMinimalMem ? MINIMAL_SIZE : EFFICIENT_SIZE;
+    m_emptyItemCount = m_transferQueueSize;
+    m_transferQueue = new TileTransferData[m_transferQueueSize];
 }
 
 TransferQueue::~TransferQueue()
@@ -118,7 +120,7 @@ void TransferQueue::initGLResources(int width, int height)
         int extraBuffersNeeded = 0;
         m_ANW->query(m_ANW.get(), NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS,
                      &extraBuffersNeeded);
-        m_sharedSurfaceTexture->setBufferCount(ST_BUFFER_NUMBER + extraBuffersNeeded);
+        m_sharedSurfaceTexture->setBufferCount(m_transferQueueSize + extraBuffersNeeded);
 
         int result = native_window_set_buffers_geometry(m_ANW.get(),
                 width, height, HAL_PIXEL_FORMAT_RGBA_8888);
@@ -324,7 +326,7 @@ void TransferQueue::emptyQueue()
 // Must be called within a m_transferQueueItemLocks.
 void TransferQueue::setPendingDiscard()
 {
-    for (int i = 0 ; i < ST_BUFFER_NUMBER; i++)
+    for (int i = 0 ; i < m_transferQueueSize; i++)
         if (m_transferQueue[i].status == pendingBlit)
             m_transferQueue[i].status = pendingDiscard;
 
@@ -377,7 +379,7 @@ void TransferQueue::updateDirtyBaseTiles()
     const int nextItemIndex = getNextTransferQueueIndex();
     int index = nextItemIndex;
     bool usedFboForUpload = false;
-    for (int k = 0; k < ST_BUFFER_NUMBER ; k++) {
+    for (int k = 0; k < m_transferQueueSize ; k++) {
         if (m_transferQueue[index].status == pendingBlit) {
             bool obsoleteBaseTile = checkObsolete(&m_transferQueue[index]);
             // Save the needed info, update the Surf Tex, clean up the item in
@@ -400,7 +402,7 @@ void TransferQueue::updateDirtyBaseTiles()
             m_transferQueue[index].status = emptyItem;
             if (obsoleteBaseTile) {
                 XLOG("Warning: the texture is obsolete for this baseTile");
-                index = (index + 1) % ST_BUFFER_NUMBER;
+                index = (index + 1) % m_transferQueueSize;
                 continue;
             }
 
@@ -437,7 +439,7 @@ void TransferQueue::updateDirtyBaseTiles()
                  destTexture,
                  destTexture->m_ownTextureId);
         }
-        index = (index + 1) % ST_BUFFER_NUMBER;
+        index = (index + 1) % m_transferQueueSize;
     }
 
     // Clean up FBO setup. Doing this for both CPU/GPU upload can make the
@@ -449,7 +451,7 @@ void TransferQueue::updateDirtyBaseTiles()
         GLUtils::checkGlError("updateDirtyBaseTiles");
     }
 
-    m_emptyItemCount = ST_BUFFER_NUMBER;
+    m_emptyItemCount = m_transferQueueSize;
     m_transferQueueItemCond.signal();
 }
 
@@ -572,7 +574,7 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
                                            TextureUploadType type,
                                            const SkBitmap* bitmap)
 {
-    m_transferQueueIndex = (m_transferQueueIndex + 1) % ST_BUFFER_NUMBER;
+    m_transferQueueIndex = (m_transferQueueIndex + 1) % m_transferQueueSize;
 
     int index = m_transferQueueIndex;
     if (m_transferQueue[index].savedBaseTilePtr
@@ -614,7 +616,7 @@ void TransferQueue::cleanupPendingDiscard()
 {
     int index = getNextTransferQueueIndex();
 
-    for (int i = 0 ; i < ST_BUFFER_NUMBER; i++) {
+    for (int i = 0 ; i < m_transferQueueSize; i++) {
         if (m_transferQueue[index].status == pendingDiscard) {
             // No matter what the current upload type is, as long as there has
             // been a Surf Tex enqueue operation, this updateTexImage need to
@@ -640,7 +642,7 @@ void TransferQueue::cleanupPendingDiscard()
             m_transferQueue[index].savedBaseTileTexturePtr = 0;
             m_transferQueue[index].status = emptyItem;
         }
-        index = (index + 1) % ST_BUFFER_NUMBER;
+        index = (index + 1) % m_transferQueueSize;
     }
 }
 
@@ -689,7 +691,7 @@ void TransferQueue::restoreGLState()
 
 int TransferQueue::getNextTransferQueueIndex()
 {
-    return (m_transferQueueIndex + 1) % ST_BUFFER_NUMBER;
+    return (m_transferQueueIndex + 1) % m_transferQueueSize;
 }
 
 } // namespace WebCore
