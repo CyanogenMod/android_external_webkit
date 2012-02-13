@@ -42,7 +42,10 @@ enum TextIteratorBehavior {
     TextIteratorEntersTextControls = 1 << 1,
     TextIteratorEmitsTextsWithoutTranscoding = 1 << 2,
     TextIteratorIgnoresStyleVisibility = 1 << 3,
-    TextIteratorEmitsObjectReplacementCharacters = 1 << 4
+    TextIteratorEmitsObjectReplacementCharacters = 1 << 4,
+#if OS(ANDROID)
+    TextIteratorStopsOnFormControls = 1 << 6
+#endif
 };
     
 // FIXME: Can't really answer this question correctly without knowing the white-space mode.
@@ -88,7 +91,7 @@ public:
     ~TextIterator();
     explicit TextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
 
-    bool atEnd() const { return !m_positionNode; }
+    bool atEnd() const;
     void advance();
     
     int length() const { return m_textLength; }
@@ -182,6 +185,12 @@ private:
     bool m_ignoresStyleVisibility;
     // Used when emitting the special 0xFFFC character is required.
     bool m_emitsObjectReplacementCharacters;
+#if OS(ANDROID)
+    // Used when the iteration should stop if form controls are reached.
+    bool m_stopsOnFormControls;
+    // Used when m_stopsOnFormControls is set to determine if the iterator should keep advancing.
+    bool m_shouldStop;
+#endif
 };
 
 // Iterates through the DOM range, returning all the text, and 0-length boundaries
@@ -192,7 +201,7 @@ public:
     SimplifiedBackwardsTextIterator();
     explicit SimplifiedBackwardsTextIterator(const Range*, TextIteratorBehavior = TextIteratorDefaultBehavior);
     
-    bool atEnd() const { return !m_positionNode; }
+    bool atEnd() const;
     void advance();
     
     int length() const { return m_textLength; }
@@ -240,6 +249,13 @@ private:
 
     // Whether m_node has advanced beyond the iteration range (i.e. m_startNode).
     bool m_havePassedStartNode;
+
+#if OS(ANDROID)
+    // Used when the iteration should stop if form controls are reached.
+    bool m_stopsOnFormControls;
+    // Used when m_stopsOnFormControls is set to determine if the iterator should keep advancing.
+    bool m_shouldStop;
+#endif
 };
 
 // Builds on the text iterator, adding a character position so we can walk one

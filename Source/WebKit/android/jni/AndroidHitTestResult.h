@@ -26,6 +26,7 @@
 #ifndef AndroidHitTestResult_h
 #define AndroidHitTestResult_h
 
+#include "content/content_detector.h"
 #include "Element.h"
 #include "HitTestResult.h"
 #include "IntRect.h"
@@ -48,6 +49,7 @@ public:
 
     void setURLElement(WebCore::Element* element);
     void buildHighlightRects();
+    void searchContentDetectors();
 
     jobject createJavaObject(JNIEnv*);
 
@@ -57,6 +59,7 @@ private:
     WebViewCore* m_webViewCore;
     WebCore::HitTestResult m_hitTestResult;
     Vector<WebCore::IntRect> m_highlightRects;
+    ContentDetector::Result m_searchResult;
 };
 
 }   // namespace android

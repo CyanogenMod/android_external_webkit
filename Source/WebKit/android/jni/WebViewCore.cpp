@@ -2014,6 +2014,7 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
         }
     }
     if (!nodeDataList.size()) {
+        androidHitResult.searchContentDetectors();
         return androidHitResult;
     }
     // finally select the node with the largest overlap with the fat point
@@ -2061,6 +2062,8 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
                         m_scrollOffsetX, m_scrollOffsetY);
             }
         }
+    } else {
+        androidHitResult.searchContentDetectors();
     }
     return androidHitResult;
 }

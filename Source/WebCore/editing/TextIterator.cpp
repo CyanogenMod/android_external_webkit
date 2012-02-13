@@ -239,6 +239,20 @@ static void setUpFullyClippedStack(BitStack& stack, Node* node)
     ASSERT(stack.size() == 1 + depthCrossingShadowBoundaries(node));
 }
 
+#if OS(ANDROID)
+static bool checkFormControlElement(Node* startNode)
+{
+    Node* node = startNode;
+    while (node) {
+        if (node->isElementNode() && static_cast<Element*>(node)->isFormControlElement())
+            return true;
+        node = node->parentNode();
+    }
+    return false;
+}
+#endif
+
+
 // --------
 
 TextIterator::TextIterator()
@@ -258,6 +272,10 @@ TextIterator::TextIterator()
     , m_handledFirstLetter(false)
     , m_ignoresStyleVisibility(false)
     , m_emitsObjectReplacementCharacters(false)
+#if OS(ANDROID)
+    , m_stopsOnFormControls(false)
+    , m_shouldStop(false)
+#endif
 {
 }
 
@@ -277,6 +295,10 @@ TextIterator::TextIterator(const Range* r, TextIteratorBehavior behavior)
     , m_handledFirstLetter(false)
     , m_ignoresStyleVisibility(behavior & TextIteratorIgnoresStyleVisibility)
     , m_emitsObjectReplacementCharacters(behavior & TextIteratorEmitsObjectReplacementCharacters)
+#if OS(ANDROID)
+    , m_stopsOnFormControls(behavior & TextIteratorStopsOnFormControls)
+    , m_shouldStop(false)
+#endif
 {
     if (!r)
         return;
@@ -334,8 +356,21 @@ TextIterator::~TextIterator()
 {
 }
 
+bool TextIterator::atEnd() const
+{
+#if OS(ANDROID)
+    return !m_positionNode || m_shouldStop;
+#else
+    return !m_positionNode;
+#endif
+}
+
 void TextIterator::advance()
 {
+#if OS(ANDROID)
+    if (m_shouldStop)
+        return;
+#endif
     // reset the run information
     m_positionNode = 0;
     m_textLength = 0;
@@ -368,6 +403,10 @@ void TextIterator::advance()
     }
 
     while (m_node && m_node != m_pastEndNode) {
+#if OS(ANDROID)
+        if (!m_shouldStop && m_stopsOnFormControls && checkFormControlElement(m_node))
+            m_shouldStop = true;
+#endif
         // if the range ends at offset 0 of an element, represent the
         // position, but not the content, of that element e.g. if the
         // node is a blockflow element, emit a newline that
@@ -1034,6 +1073,10 @@ SimplifiedBackwardsTextIterator::SimplifiedBackwardsTextIterator()
     : m_behavior(TextIteratorDefaultBehavior)
     , m_node(0)
     , m_positionNode(0)
+#if OS(ANDROID)
+    , m_stopsOnFormControls(false)
+    , m_shouldStop(false)
+#endif
 {
 }
 
@@ -1041,8 +1084,16 @@ SimplifiedBackwardsTextIterator::SimplifiedBackwardsTextIterator(const Range* r,
     : m_behavior(behavior)
     , m_node(0)
     , m_positionNode(0)
+#if OS(ANDROID)
+    , m_stopsOnFormControls(behavior & TextIteratorStopsOnFormControls)
+    , m_shouldStop(false)
+#endif
 {
+#if OS(ANDROID)
+    ASSERT(m_behavior == TextIteratorDefaultBehavior || m_behavior == TextIteratorStopsOnFormControls);
+#else
     ASSERT(m_behavior == TextIteratorDefaultBehavior);
+#endif
 
     if (!r)
         return;
@@ -1091,9 +1142,29 @@ SimplifiedBackwardsTextIterator::SimplifiedBackwardsTextIterator(const Range* r,
     advance();
 }
 
+bool SimplifiedBackwardsTextIterator::atEnd() const
+{
+#if OS(ANDROID)
+    return !m_positionNode || m_shouldStop;
+#else
+    return !m_positionNode;
+#endif
+}
+
 void SimplifiedBackwardsTextIterator::advance()
 {
     ASSERT(m_positionNode);
+
+#if OS(ANDROID)
+    if (m_shouldStop)
+        return;
+
+    // Prevent changing the iterator position if a form control element was found and advance should stop on it.
+    if (m_stopsOnFormControls && checkFormControlElement(m_node)) {
+        m_shouldStop = true;
+        return;
+    }
+#endif
 
     m_positionNode = 0;
     m_textLength = 0;

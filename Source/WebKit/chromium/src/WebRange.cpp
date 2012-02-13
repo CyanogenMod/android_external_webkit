@@ -32,7 +32,6 @@
 #include "WebRange.h"
 
 #include "Range.h"
-#include "WebNode.h"
 #include "WebString.h"
 #include <wtf/PassRefPtr.h>
 
@@ -66,14 +65,14 @@ int WebRange::endOffset() const
     return m_private->endOffset();
 }
 
-WebNode WebRange::startContainer(int& exceptionCode) const
+Node* WebRange::startContainer(int& exceptionCode) const
 {
-    return PassRefPtr<Node>(m_private->startContainer(exceptionCode));
+    return m_private->startContainer(exceptionCode);
 }
 
-WebNode WebRange::endContainer(int& exceptionCode) const
+Node* WebRange::endContainer(int& exceptionCode) const
 {
-    return PassRefPtr<Node>(m_private->endContainer(exceptionCode));
+    return m_private->endContainer(exceptionCode);
 }
 
 WebString WebRange::toHTMLText() const

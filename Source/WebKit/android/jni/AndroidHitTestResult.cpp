@@ -28,6 +28,8 @@
 #include "config.h"
 #include "AndroidHitTestResult.h"
 
+#include "content/address_detector.h"
+#include "android/WebHitTestInfo.h"
 #include "Document.h"
 #include "Element.h"
 #include "Frame.h"
@@ -63,6 +65,7 @@ static struct {
     jfieldID m_TapHighlightColor;
     jfieldID m_EnclosingParentRects;
     jfieldID m_HasFocus;
+    jfieldID m_IntentUrl;
 } gHitTestGlue;
 
 struct field {
@@ -89,6 +92,7 @@ static void InitJni(JNIEnv* env)
         { hitTestClass, "mTouchRects", "[Landroid/graphics/Rect;", &gHitTestGlue.m_TouchRects },
         { hitTestClass, "mEditable", "Z", &gHitTestGlue.m_Editable },
         { hitTestClass, "mLinkUrl", "Ljava/lang/String;", &gHitTestGlue.m_LinkUrl },
+        { hitTestClass, "mIntentUrl", "Ljava/lang/String;", &gHitTestGlue.m_IntentUrl },
         { hitTestClass, "mAnchorText", "Ljava/lang/String;", &gHitTestGlue.m_AnchorText },
         { hitTestClass, "mImageUrl", "Ljava/lang/String;", &gHitTestGlue.m_ImageUrl },
         { hitTestClass, "mAltDisplayString", "Ljava/lang/String;", &gHitTestGlue.m_AltDisplayString },
@@ -135,16 +139,35 @@ void AndroidHitTestResult::buildHighlightRects()
     RenderObject* renderer = node->renderer();
     Vector<FloatQuad> quads;
     renderer->absoluteFocusRingQuads(quads);
-    for (int i = 0; i < quads.size(); i++) {
+    for (size_t i = 0; i < quads.size(); i++) {
         IntRect boundingBox = quads[i].enclosingBoundingBox();
         boundingBox.move(-frameOffset.x(), -frameOffset.y());
         m_highlightRects.append(boundingBox);
     }
 }
 
+void AndroidHitTestResult::searchContentDetectors()
+{
+    AddressDetector address;
+    WebKit::WebHitTestInfo webHitTest(m_hitTestResult);
+    m_searchResult = address.FindTappedContent(webHitTest);
+    if (m_searchResult.valid) {
+        m_highlightRects.clear();
+        RefPtr<Range> range = (PassRefPtr<Range>) m_searchResult.range;
+        range->textRects(m_highlightRects, true);
+    }
+}
+
 void setStringField(JNIEnv* env, jobject obj, jfieldID field, const String& str)
 {
     jstring jstr = wtfStringToJstring(env, str, false);
+    env->SetObjectField(obj, field, jstr);
+    env->DeleteLocalRef(jstr);
+}
+
+void setStringField(JNIEnv* env, jobject obj, jfieldID field, const GURL& url)
+{
+    jstring jstr = stdStringToJstring(env, url.spec(), false);
     env->SetObjectField(obj, field, jstr);
     env->DeleteLocalRef(jstr);
 }
@@ -176,6 +199,8 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
 
     SET_BOOL(Editable, m_hitTestResult.isContentEditable());
     SET_STRING(LinkUrl, m_hitTestResult.absoluteLinkURL().string());
+    if (m_searchResult.valid)
+        SET_STRING(IntentUrl, m_searchResult.intent_url);
     SET_STRING(ImageUrl, m_hitTestResult.absoluteImageURL().string());
     SET_STRING(AltDisplayString, m_hitTestResult.altDisplayString());
     TextDirection titleTextDirection;
@@ -201,8 +226,8 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
 
 Vector<IntRect> AndroidHitTestResult::enclosingParentRects(Node* node)
 {
-    int lastX;
     int count = 0;
+    int lastX = 0;
     Vector<IntRect> rects;
 
     while (node && count < 5) {
@@ -214,7 +239,7 @@ Vector<IntRect> AndroidHitTestResult::enclosingParentRects(Node* node)
                 node->document()->frame());
         IntRect rect = render->absoluteBoundingBoxRect();
         rect.move(-frameOffset.x(), -frameOffset.y());
-        if (rect.x() != lastX) {
+        if (count == 0 || rect.x() != lastX) {
             rects.append(rect);
             lastX = rect.x();
             count++;
