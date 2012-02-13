@@ -34,7 +34,6 @@
 #include "CachedNode.h"
 #include "CachedRoot.h"
 #include "DrawExtra.h"
-#include "FindCanvas.h"
 #include "Frame.h"
 #include "GraphicsJNI.h"
 #include "HTMLInputElement.h"
@@ -107,12 +106,11 @@ enum FrameCachePermission {
     AllowNewer
 };
 
-#define DRAW_EXTRAS_SIZE 3
+#define DRAW_EXTRAS_SIZE 2
 enum DrawExtras { // keep this in sync with WebView.java
     DrawExtrasNone = 0,
-    DrawExtrasFind = 1,
-    DrawExtrasSelection = 2,
-    DrawExtrasCursorRing = 3
+    DrawExtrasSelection = 1,
+    DrawExtrasCursorRing = 2
 };
 
 struct JavaGlue {
@@ -243,9 +241,6 @@ DrawExtra* getDrawExtraLegacy(DrawExtras extras)
     DrawExtra* extra = getDrawExtra(extras);
     if (!extra) {
         switch (extras) {
-            case DrawExtrasFind:
-                extra = &m_findOnPage;
-                break;
             case DrawExtrasCursorRing:
                 if (drawCursorPreamble(root) && m_ring.setup()) {
                     if (m_ring.m_isPressed || m_ringAnimationEnd == UINT_MAX)
@@ -312,71 +307,6 @@ void debugDump()
         root->mDebug.print();
 }
 #endif
-
-void scrollToCurrentMatch()
-{
-    if (!m_findOnPage.currentMatchIsInLayer()) {
-        scrollRectOnScreen(m_findOnPage.currentMatchBounds());
-        return;
-    }
-
-    SkRect matchBounds = m_findOnPage.currentMatchBounds();
-    LayerAndroid* rootLayer = compositeRoot();
-    if (!rootLayer)
-        return;
-
-    Layer* layerContainingMatch = rootLayer->findById(m_findOnPage.currentMatchLayerId());
-    if (!layerContainingMatch)
-        return;
-
-    // If the match is in a fixed position layer, there's nothing to do.
-    if (layerContainingMatch->shouldInheritFromRootTransform())
-        return;
-
-    // If the match is in a scrollable layer or a descendant of such a layer,
-    // there may be a range of of scroll configurations that will make the
-    // current match visible. Our approach is the simplest possible. Starting at
-    // the layer in which the match is found, we move up the layer tree,
-    // scrolling any scrollable layers as little as possible to make sure that
-    // the current match is in view. This approach has the disadvantage that we
-    // may end up scrolling a larger number of elements than is necessary, which
-    // may be visually jarring. However, minimising the number of layers
-    // scrolled would complicate the code significantly.
-
-    bool didScrollLayer = false;
-    for (Layer* layer = layerContainingMatch; layer; layer = layer->getParent()) {
-        ASSERT(layer->getParent() || layer == rootLayer);
-
-        if (layer->contentIsScrollable()) {
-            // Convert the match location to layer's local space and scroll it.
-            // Repeatedly calling Layer::localToAncestor() is inefficient as
-            // each call repeats part of the calculation. It would be more
-            // efficient to maintain the transform here and update it on each
-            // iteration, but that would mean duplicating logic from
-            // Layer::localToAncestor() and would complicate things.
-            SkMatrix transform;
-            layerContainingMatch->localToAncestor(layer, &transform);
-            SkRect transformedMatchBounds;
-            transform.mapRect(&transformedMatchBounds, matchBounds);
-            SkIRect roundedTransformedMatchBounds;
-            transformedMatchBounds.roundOut(&roundedTransformedMatchBounds);
-            // Only ScrollableLayerAndroid returns true for contentIsScrollable().
-            didScrollLayer |= static_cast<ScrollableLayerAndroid*>(layer)->scrollRectIntoView(roundedTransformedMatchBounds);
-        }
-    }
-    // Invalidate, as the call below to scroll the main page may be a no-op.
-    if (didScrollLayer)
-        viewInvalidate();
-
-    // Convert matchBounds to the global space so we can scroll the main page.
-    SkMatrix transform;
-    layerContainingMatch->localToGlobal(&transform);
-    SkRect transformedMatchBounds;
-    transform.mapRect(&transformedMatchBounds, matchBounds);
-    SkIRect roundedTransformedMatchBounds;
-    transformedMatchBounds.roundOut(&roundedTransformedMatchBounds);
-    scrollRectOnScreen(roundedTransformedMatchBounds);
-}
 
 void scrollRectOnScreen(const IntRect& rect)
 {
@@ -471,7 +401,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
         TilesManager::instance()->setHighEndGfx(m_isHighEndGfx);
         m_glWebViewState = new GLWebViewState();
         m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
-        m_glWebViewState->glExtras()->setFindOnPageExtra(&m_findOnPage);
         if (m_baseLayer->content()) {
             SkRegion region;
             SkIRect rect;
@@ -1083,12 +1012,6 @@ void setFindIsUp(bool up)
     m_viewImpl->m_findIsUp = up;
 }
 
-void setFindIsEmpty()
-{
-    DBG_NAV_LOG("");
-    m_findOnPage.clearCurrentLocation();
-}
-
 void showCursorTimed()
 {
     DBG_NAV_LOG("");
@@ -1163,39 +1086,6 @@ void sendMotionUp(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y
     m_viewImpl->m_touchGeneration = ++m_generation;
     env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMotionUp, m_generation, (jint) framePtr, (jint) nodePtr, x, y);
     checkException(env);
-}
-
-void findNext(bool forward)
-{
-    m_findOnPage.findNext(forward);
-    scrollToCurrentMatch();
-    viewInvalidate();
-}
-
-// With this call, WebView takes ownership of matches, and is responsible for
-// deleting it.
-void setMatches(WTF::Vector<MatchInfo>* matches, jboolean sameAsLastSearch)
-{
-    // If this search is the same as the last one, check against the old
-    // location to determine whether to scroll.  If the same word is found
-    // in the same place, then do not scroll.
-    IntRect oldLocation;
-    bool checkAgainstOldLocation = false;
-    if (sameAsLastSearch && m_findOnPage.isCurrentLocationValid()) {
-        oldLocation = m_findOnPage.currentMatchBounds();
-        checkAgainstOldLocation = true;
-    }
-
-    m_findOnPage.setMatches(matches);
-
-    if (!checkAgainstOldLocation || oldLocation != m_findOnPage.currentMatchBounds())
-        scrollToCurrentMatch();
-    viewInvalidate();
-}
-
-int currentMatchIndex()
-{
-    return m_findOnPage.currentMatchIndex();
 }
 
 bool scrollBy(int dx, int dy)
@@ -1394,10 +1284,6 @@ void setVisibleRect(SkRect& visibleRect) {
     m_visibleRect = visibleRect;
 }
 
-FindOnPage& findOnPage() {
-    return m_findOnPage;
-}
-
 void setDrawExtra(DrawExtra *extra, DrawExtras type)
 {
     if (type == DrawExtrasNone)
@@ -1442,7 +1328,6 @@ private: // local state for WebView
     bool m_heightCanMeasure;
     int m_lastDx;
     SkMSec m_lastDxTime;
-    FindOnPage m_findOnPage;
     CursorRing m_ring;
     DrawExtra* m_extras[DRAW_EXTRAS_SIZE];
     BaseLayerAndroid* m_baseLayer;
@@ -2163,11 +2048,6 @@ static void nativeSetFindIsUp(JNIEnv *env, jobject obj, jboolean isUp)
     view->setFindIsUp(isUp);
 }
 
-static void nativeSetFindIsEmpty(JNIEnv *env, jobject obj)
-{
-    GET_NATIVE_VIEW(env, obj)->setFindIsEmpty();
-}
-
 static void nativeShowCursorTimed(JNIEnv *env, jobject obj)
 {
     GET_NATIVE_VIEW(env, obj)->showCursorTimed();
@@ -2194,88 +2074,6 @@ static jobject nativeGetCursorRingBounds(JNIEnv *env, jobject obj)
         webRect.y(), webRect.maxX(), webRect.maxY());
     env->DeleteLocalRef(rectClass);
     return rect;
-}
-
-static int nativeFindAll(JNIEnv *env, jobject obj, jstring findLower,
-        jstring findUpper, jboolean sameAsLastSearch)
-{
-    // If one or the other is null, do not search.
-    if (!(findLower && findUpper))
-        return 0;
-    // Obtain the characters for both the lower case string and the upper case
-    // string representing the same word.
-    const jchar* findLowerChars = env->GetStringChars(findLower, 0);
-    const jchar* findUpperChars = env->GetStringChars(findUpper, 0);
-    // If one or the other is null, do not search.
-    if (!(findLowerChars && findUpperChars)) {
-        if (findLowerChars)
-            env->ReleaseStringChars(findLower, findLowerChars);
-        if (findUpperChars)
-            env->ReleaseStringChars(findUpper, findUpperChars);
-        checkException(env);
-        return 0;
-    }
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in nativeFindAll");
-    BaseLayerAndroid* baseLayer = view->getBaseLayer();
-    android::PictureSet* pictureSet = baseLayer ? baseLayer->content() : 0;
-    if (!pictureSet) {
-        env->ReleaseStringChars(findLower, findLowerChars);
-        env->ReleaseStringChars(findUpper, findUpperChars);
-        checkException(env);
-        return 0;
-    }
-    int length = env->GetStringLength(findLower);
-    // If the lengths of the strings do not match, then they are not the same
-    // word, so do not search.
-    if (!length || env->GetStringLength(findUpper) != length) {
-        env->ReleaseStringChars(findLower, findLowerChars);
-        env->ReleaseStringChars(findUpper, findUpperChars);
-        checkException(env);
-        return 0;
-    }
-    int width = pictureSet->width();
-    int height = pictureSet->height();
-    // Create a FindCanvas, which allows us to fake draw into it so we can
-    // figure out where our search string is rendered (and how many times).
-    FindCanvas canvas(width, height, (const UChar*) findLowerChars,
-            (const UChar*) findUpperChars, length << 1);
-    SkBitmap bitmap;
-    bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
-    canvas.setBitmapDevice(bitmap);
-    FindOnPage& findOnPage = view->findOnPage();
-    canvas.setLayerId(-1);
-    unsigned matchesBegin = canvas.found();
-    baseLayer->drawCanvas(&canvas);
-    findOnPage.setLayerMatchRange(-1,
-        std::pair<unsigned, unsigned>(matchesBegin, canvas.found()));
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* compositeLayer = view->compositeRoot();
-    if (compositeLayer)
-        canvas.drawLayers(compositeLayer, findOnPage);
-#endif
-    WTF::Vector<MatchInfo>* matches = canvas.detachMatches();
-    // With setMatches, the WebView takes ownership of matches
-    view->setMatches(matches, sameAsLastSearch);
-
-    env->ReleaseStringChars(findLower, findLowerChars);
-    env->ReleaseStringChars(findUpper, findUpperChars);
-    checkException(env);
-    return canvas.found();
-}
-
-static void nativeFindNext(JNIEnv *env, jobject obj, bool forward)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in nativeFindNext");
-    view->findNext(forward);
-}
-
-static int nativeFindIndex(JNIEnv *env, jobject obj)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in nativeFindIndex");
-    return view->currentMatchIndex();
 }
 
 static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring updatedText, jint generation)
@@ -2677,12 +2475,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDumpDisplayTree },
     { "nativeEvaluateLayersAnimations", "(I)Z",
         (void*) nativeEvaluateLayersAnimations },
-    { "nativeFindAll", "(Ljava/lang/String;Ljava/lang/String;Z)I",
-        (void*) nativeFindAll },
-    { "nativeFindNext", "(Z)V",
-        (void*) nativeFindNext },
-    { "nativeFindIndex", "()I",
-        (void*) nativeFindIndex},
     { "nativeFocusCandidateFramePointer", "()I",
         (void*) nativeFocusCandidateFramePointer },
     { "nativeFocusCandidateHasNextTextfield", "()Z",
@@ -2751,8 +2543,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSelectBestAt },
     { "nativeSelectAt", "(II)V",
         (void*) nativeSelectAt },
-    { "nativeSetFindIsEmpty", "()V",
-        (void*) nativeSetFindIsEmpty },
     { "nativeSetFindIsUp", "(Z)V",
         (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",

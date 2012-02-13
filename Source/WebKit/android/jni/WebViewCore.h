@@ -560,6 +560,12 @@ namespace android {
         WTF::String getText(int startX, int startY, int endX, int endY);
         void insertText(const WTF::String &text);
 
+        // find on page
+        void resetFindOnPage();
+        int findTextOnPage(const WTF::String &text);
+        void findNextOnPage(bool forward);
+        void updateMatchCount() const;
+
 #if ENABLE(VIDEO)
         void enterFullscreenForVideoLayer(int layerId, const WTF::String& url);
         void exitFullscreenVideo();
@@ -756,6 +762,12 @@ namespace android {
         bool m_isPaused;
         int m_cacheMode;
         bool m_fullscreenVideoMode;
+
+        // find on page data
+        WTF::String m_searchText;
+        int m_matchCount;
+        int m_activeMatchIndex;
+        RefPtr<WebCore::Range> m_activeMatch;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;

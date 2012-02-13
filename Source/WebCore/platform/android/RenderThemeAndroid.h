@@ -67,6 +67,9 @@ public:
     virtual Color platformActiveListBoxSelectionForegroundColor() const;
     virtual Color platformInactiveListBoxSelectionForegroundColor() const;
 
+    virtual Color platformActiveTextSearchHighlightColor() const;
+    virtual Color platformInactiveTextSearchHighlightColor() const;
+
     virtual void systemFont(int, WebCore::FontDescription&) const {}
 
     virtual int minimumMenuListSize(RenderStyle*) const { return 0; }

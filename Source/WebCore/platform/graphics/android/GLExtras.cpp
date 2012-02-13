@@ -26,7 +26,6 @@
 #include "config.h"
 
 #include "DrawExtra.h"
-#include "FindCanvas.h"
 #include "GLExtras.h"
 #include "IntRect.h"
 #include "TilesManager.h"
@@ -58,8 +57,7 @@
 #define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
 
 GLExtras::GLExtras()
-    : m_findOnPage(0)
-    , m_ring(0)
+    : m_ring(0)
     , m_drawExtra(0)
     , m_viewport()
 {
@@ -170,58 +168,11 @@ void GLExtras::drawCursorRings(const LayerAndroid* layer)
                layer ? layer->drawTransform() : 0);
 }
 
-void GLExtras::drawFindOnPage(const LayerAndroid* layer)
-{
-    WTF::Vector<MatchInfo>* matches = m_findOnPage->matches();
-    XLOG("drawFindOnPage, matches: %p", matches);
-    if (!matches || !m_findOnPage->isCurrentLocationValid())
-        return;
-    std::pair<unsigned, unsigned> matchRange =
-        m_findOnPage->getLayerMatchRange(layer ? layer->uniqueId() : -1);
-    if (matchRange.first >= matchRange.second)
-        return;
-
-    int count = matches->size();
-    unsigned current = m_findOnPage->currentMatchIndex();
-    XLOG("match count: %d", count);
-    const TransformationMatrix* drawTransform =
-        layer ? layer->drawTransform() : 0;
-    if (count < MAX_NUMBER_OF_MATCHES_TO_DRAW)
-        for (unsigned i = matchRange.first; i < matchRange.second; i++) {
-            MatchInfo& info = matches->at(i);
-            const SkRegion& region = info.getLocation();
-            SkIRect rect = region.getBounds();
-            if (drawTransform) {
-                IntRect intRect(rect.fLeft, rect.fTop, rect.width(),
-                    rect.height());
-                IntRect transformedRect = drawTransform->mapRect(intRect);
-                rect.setXYWH(transformedRect.x(), transformedRect.y(),
-                    transformedRect.width(), transformedRect.height());
-            }
-            if (rect.intersect(m_viewport.fLeft, m_viewport.fTop,
-                               m_viewport.fRight, m_viewport.fBottom))
-                drawRegion(region, i == current, false, drawTransform, COLOR_HOLO_DARK);
-#ifdef DEBUG
-            else
-                XLOG("Quick rejecting [%dx%d, %d, %d", rect.fLeft, rect.fTop,
-                     rect.width(), rect.height());
-#endif // DEBUG
-        }
-    else {
-        if (matchRange.first <= current && current < matchRange.second) {
-            MatchInfo& info = matches->at(current);
-            drawRegion(info.getLocation(), true, false, drawTransform, COLOR_HOLO_DARK);
-        }
-    }
-}
-
 void GLExtras::drawGL(const LayerAndroid* layer)
 {
     if (m_drawExtra) {
         if (m_drawExtra == m_ring)
             drawCursorRings(layer);
-        else if (m_drawExtra == m_findOnPage)
-            drawFindOnPage(layer);
         else
             m_drawExtra->drawGL(this, layer);
     }

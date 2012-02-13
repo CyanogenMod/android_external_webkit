@@ -32,7 +32,6 @@
 #include "SkRegion.h"
 
 namespace android {
-    class FindOnPage;
     class CursorRing;
 }
 
@@ -47,9 +46,6 @@ public:
     virtual ~GLExtras();
 
     void drawGL(const LayerAndroid* layer);
-    void setFindOnPageExtra(android::FindOnPage* findOnPage) {
-        m_findOnPage = findOnPage;
-    }
     void setCursorRingExtra(android::CursorRing* ring) { m_ring = ring; }
     void setDrawExtra(android::DrawExtra* extra) { m_drawExtra = extra; }
     void setViewport(const SkRect & viewport) { m_viewport = viewport; }
@@ -60,9 +56,7 @@ public:
 private:
     void drawRing(SkRect& srcRect, Color color, const TransformationMatrix* drawMat);
     void drawCursorRings(const LayerAndroid* layer);
-    void drawFindOnPage(const LayerAndroid* layer);
 
-    android::FindOnPage* m_findOnPage;
     android::CursorRing* m_ring;
     android::DrawExtra* m_drawExtra;
     SkRect m_viewport;

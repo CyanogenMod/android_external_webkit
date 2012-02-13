@@ -181,6 +181,16 @@ Color RenderThemeAndroid::platformInactiveListBoxSelectionForegroundColor() cons
     return Color(Color::transparent);
 }
 
+Color RenderThemeAndroid::platformActiveTextSearchHighlightColor() const
+{
+    return Color(0x00, 0x99, 0xcc, 0x99); // HOLO_DARK
+}
+
+Color RenderThemeAndroid::platformInactiveTextSearchHighlightColor() const
+{
+    return Color(0x33, 0xb5, 0xe5, 0x66); // HOLO_LIGHT
+}
+
 int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
 {
     // From the description of this function in RenderTheme.h:
