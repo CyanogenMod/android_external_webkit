@@ -1520,6 +1520,9 @@ class GLDrawFunctor : Functor {
     void updateViewRect(WebCore::IntRect& _viewRect) {
         webViewRect = _viewRect;
     }
+    void updateScale(float _scale) {
+        scale = _scale;
+    }
     private:
     WebView* wvInstance;
     bool (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
@@ -1794,7 +1797,7 @@ static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
 }
 
 static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
-        jobject jviewrect, jobject jvisiblerect) {
+        jobject jviewrect, jobject jvisiblerect, jfloat scale) {
     WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
     if (wvInstance) {
         GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
@@ -1807,6 +1810,8 @@ static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
 
             WebCore::IntRect webViewRect = jrect_to_webrect(env, jviewrect);
             functor->updateViewRect(webViewRect);
+
+            functor->updateScale(scale);
         }
     }
 }
@@ -2671,7 +2676,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDraw },
     { "nativeGetDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;FI)I",
         (void*) nativeGetDrawGLFunction },
-    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;)V",
+    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;F)V",
         (void*) nativeUpdateDrawGLFunction },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
