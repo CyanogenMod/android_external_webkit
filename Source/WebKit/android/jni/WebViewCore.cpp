@@ -444,7 +444,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
-    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZLjava/lang/String;II)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZLjava/lang/String;III)V");
     m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
     env->DeleteLocalRef(clazz);
 
@@ -539,7 +539,7 @@ CacheBuilder& WebViewCore::cacheBuilder()
 
 WebCore::Node* WebViewCore::currentFocus()
 {
-    return m_mainFrame->document()->focusedNode();
+    return focusedFrame()->document()->focusedNode();
 }
 
 void WebViewCore::recordPicture(SkPicture* picture)
@@ -1757,7 +1757,8 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 {
     // We need to agressively check to see if this is an empty selection to prevent
     // accidentally entering text selection mode
-    if (!selection.isRange() || !comparePositions(selection.start(), selection.end()))
+    bool isCaret = selection.isCaret();
+    if (selection.isNone() || (!selection.isContentEditable() && isCaret))
         return 0;
 
     RefPtr<Range> range = selection.firstRange();
@@ -1766,7 +1767,8 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 
     if (!startContainer || !endContainer)
         return 0;
-    if (startContainer == endContainer && range->startOffset() == range->endOffset())
+    if (!isCaret && startContainer == endContainer
+            && range->startOffset() == range->endOffset())
         return 0;
 
     SelectText* selectTextContainer = new SelectText();
@@ -1774,35 +1776,56 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 
     IntRect startHandle;
     IntRect endHandle;
-    Node* stopNode = range->pastLastNode();
-    for (Node* node = range->firstNode(); node != stopNode; node = node->traverseNextNode()) {
-        RenderObject* r = node->renderer();
-        if (!r || !r->isText() || r->style()->visibility() != VISIBLE)
-            continue;
-        RenderText* renderText = toRenderText(r);
-        int startOffset = node == startContainer ? range->startOffset() : 0;
-        int endOffset = node == endContainer ? range->endOffset() : numeric_limits<int>::max();
+    if (isCaret) {
+        // Caret selection
+        Position start = selection.start();
+        Node* node = start.anchorNode();
         LayerAndroid* layer = 0;
         int layerId = platformLayerIdFromNode(node, &layer);
-        Vector<IntRect> rects;
-        renderText->absoluteRectsForRange(rects, startOffset, endOffset, true);
-        if (rects.size()) {
-            IntPoint offset;
-            layerToAbsoluteOffset(layer, offset);
-            endHandle = rects[rects.size() - 1];
-            endHandle.move(-offset.x(), -offset.y());
-            selectTextContainer->setCaretLayerId(SelectText::EndHandle, layerId);
-            if (startHandle.isEmpty()) {
-                startHandle = rects[0];
-                startHandle.move(-offset.x(), -offset.y());
-                selectTextContainer->setCaretLayerId(SelectText::StartHandle, layerId);
+        selectTextContainer->setCaretLayerId(SelectText::EndHandle, layerId);
+        selectTextContainer->setCaretLayerId(SelectText::StartHandle, layerId);
+        IntPoint layerOffset;
+        layerToAbsoluteOffset(layer, layerOffset);
+        RenderObject* r = node->renderer();
+        RenderText* renderText = toRenderText(r);
+        int caretOffset;
+        InlineBox* inlineBox;
+        start.getInlineBoxAndOffset(DOWNSTREAM, inlineBox, caretOffset);
+        startHandle = renderText->localCaretRect(inlineBox, caretOffset);
+        FloatPoint absoluteOffset = renderText->localToAbsolute(startHandle.location());
+        startHandle.setX(absoluteOffset.x() - layerOffset.x());
+        startHandle.setY(absoluteOffset.y() - layerOffset.y());
+        endHandle = startHandle;
+    } else {
+        // Selected range
+        Node* stopNode = range->pastLastNode();
+        for (Node* node = range->firstNode(); node != stopNode; node = node->traverseNextNode()) {
+            RenderObject* r = node->renderer();
+            if (!r || !r->isText() || r->style()->visibility() != VISIBLE)
+                continue;
+            RenderText* renderText = toRenderText(r);
+            int startOffset = node == startContainer ? range->startOffset() : 0;
+            int endOffset = node == endContainer ? range->endOffset() : numeric_limits<int>::max();
+            LayerAndroid* layer = 0;
+            int layerId = platformLayerIdFromNode(node, &layer);
+            Vector<IntRect> rects;
+            renderText->absoluteRectsForRange(rects, startOffset, endOffset, true);
+            if (rects.size()) {
+                IntPoint offset;
+                layerToAbsoluteOffset(layer, offset);
+                endHandle = rects[rects.size() - 1];
+                endHandle.move(-offset.x(), -offset.y());
+                selectTextContainer->setCaretLayerId(SelectText::EndHandle, layerId);
+                if (startHandle.isEmpty()) {
+                    startHandle = rects[0];
+                    startHandle.move(-offset.x(), -offset.y());
+                    selectTextContainer->setCaretLayerId(SelectText::StartHandle, layerId);
+                }
             }
+            selectTextContainer->addHighlightRegion(layer, rects, frameOffset);
         }
-        selectTextContainer->addHighlightRegion(layer, rects, frameOffset);
     }
 
-    IntRect caretRect;
-    int layerId;
     selectTextContainer->setBaseFirst(selection.isBaseFirst());
 
     // Squish the handle rects
@@ -1835,7 +1858,7 @@ void WebViewCore::selectText(int startX, int startY, int endX, int endY)
     IntPoint endPoint = convertGlobalContentToFrameContent(IntPoint(endX, endY));
     VisiblePosition endPosition(visiblePositionForContentPoint(endPoint));
 
-    if (startPosition.isNull() || endPosition.isNull() || startPosition == endPosition)
+    if (startPosition.isNull() || endPosition.isNull())
         return;
 
     // Ensure startPosition is before endPosition
@@ -1864,7 +1887,9 @@ void WebViewCore::selectText(int startX, int startY, int endX, int endY)
     }
 
     VisibleSelection selection(startPosition, endPosition);
-    if (selection.isRange() && sc->shouldChangeSelection(selection))
+    // Only allow changes between caret positions or to text selection.
+    bool selectChangeAllowed = (!selection.isCaret() || sc->isCaret());
+    if (selectChangeAllowed && sc->shouldChangeSelection(selection))
         sc->setSelection(selection);
 }
 
@@ -3567,9 +3592,11 @@ void WebViewCore::initEditField(Node* node)
     String label = requestLabel(document->frame(), node);
     jstring fieldText = wtfStringToJstring(env, text, true);
     jstring labelText = wtfStringToJstring(env, text, false);
+    SelectText* selectText = createSelectText(focusedFrame()->selection()->selection());
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
             reinterpret_cast<int>(node), fieldText, inputType,
-            spellCheckEnabled, isNextText, labelText, start, end);
+            spellCheckEnabled, isNextText, labelText, start, end,
+            reinterpret_cast<int>(selectText));
     checkException(env);
 }
 
@@ -3924,7 +3951,7 @@ void WebViewCore::updateTextSelection()
     SelectText* selectText = createSelectText(focusedFrame()->selection()->selection());
     env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(focusNode),
-            start, end, m_textGeneration, selectText);
+            start, end, m_textGeneration, reinterpret_cast<int>(selectText));
     checkException(env);
 }
 
