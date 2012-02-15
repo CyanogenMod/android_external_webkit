@@ -58,9 +58,9 @@ public:
         return gInstance != 0;
     }
 
-    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning = false)
+    void removeOperationsForFilter(OperationFilter* filter)
     {
-        m_pixmapsGenerationThread->removeOperationsForFilter(filter, waitForRunning);
+        m_pixmapsGenerationThread->removeOperationsForFilter(filter);
     }
 
     void removeOperationsForPage(TiledPage* page)
@@ -68,9 +68,9 @@ public:
         m_pixmapsGenerationThread->removeOperationsForPage(page);
     }
 
-    void removePaintOperationsForPage(TiledPage* page, bool waitForCompletion)
+    void removePaintOperationsForPage(TiledPage* page)
     {
-        m_pixmapsGenerationThread->removePaintOperationsForPage(page, waitForCompletion);
+        m_pixmapsGenerationThread->removePaintOperationsForPage(page);
     }
 
     void scheduleOperation(QueuedOperation* operation)

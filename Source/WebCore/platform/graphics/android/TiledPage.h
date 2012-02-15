@@ -105,9 +105,10 @@ private:
 
     BaseTile* getBaseTile(int x, int y) const;
 
-    // array of tiles used to compose a page. The tiles are allocated in the
+    // array of tile ptrs used to compose a page. The tiles are allocated in the
     // constructor to prevent them from potentially being allocated on the stack
-    BaseTile* m_baseTiles;
+    BaseTile** m_baseTiles;
+
     // stores the number of tiles in the m_baseTiles array. This enables us to
     // quickly iterate over the array without have to check it's size
     int m_baseTileSize;

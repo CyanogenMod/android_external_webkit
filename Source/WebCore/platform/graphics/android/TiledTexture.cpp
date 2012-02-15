@@ -317,9 +317,8 @@ const TransformationMatrix* TiledTexture::transform()
 
 void TiledTexture::removeTiles()
 {
-    for (unsigned int i = 0; i < m_tiles.size(); i++) {
-        delete m_tiles[i];
-    }
+    for (unsigned int i = 0; i < m_tiles.size(); i++)
+        SkSafeUnref(m_tiles[i]);
     m_tiles.clear();
 }
 

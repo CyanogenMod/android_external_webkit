@@ -59,8 +59,7 @@ namespace WebCore {
 using namespace android;
 
 TiledPage::TiledPage(int id, GLWebViewState* state)
-    : m_baseTiles(0)
-    , m_baseTileSize(0)
+    : m_baseTileSize(0)
     , m_id(id)
     , m_scale(1)
     , m_invScale(1)
@@ -70,7 +69,11 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_isPrefetchPage(false)
     , m_willDraw(false)
 {
-    m_baseTiles = new BaseTile[TilesManager::getMaxTextureAllocation() + 1];
+    int maxTiles = TilesManager::getMaxTextureAllocation() + 1;
+    m_baseTiles = new BaseTile*[maxTiles];
+    for (int i = 0; i < maxTiles; i++)
+        m_baseTiles[i] = new BaseTile();
+
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("TiledPage");
 #endif
@@ -94,13 +97,14 @@ void TiledPage::updateBaseTileSize()
 TiledPage::~TiledPage()
 {
     TilesManager* tilesManager = TilesManager::instance();
-    // In order to delete the page we must ensure that none of its BaseTiles are
-    // currently painting or scheduled to be painted by the TextureGenerator
+    // remove as many painting operations for this page as possible, to avoid
+    // unnecessary work.
     tilesManager->removeOperationsForPage(this);
-    // Discard the transfer queue after the removal operation to make sure
-    // no tiles for this page will be left in the transfer queue.
-    tilesManager->transferQueue()->setPendingDiscardWithLock();
-    delete[] m_baseTiles;
+
+    int maxTiles = TilesManager::getMaxTextureAllocation() + 1;
+    for (int i = 0; i < maxTiles; i++)
+        SkSafeUnref(m_baseTiles[i]);
+    delete m_baseTiles;
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("TiledPage");
 #endif
@@ -110,9 +114,9 @@ BaseTile* TiledPage::getBaseTile(int x, int y) const
 {
     // TODO: replace loop over array with HashMap indexing
     for (int j = 0; j < m_baseTileSize; j++) {
-        BaseTile& tile = m_baseTiles[j];
-        if (tile.x() == x && tile.y() == y)
-            return &tile;
+        BaseTile* tile = m_baseTiles[j];
+        if (tile->x() == x && tile->y() == y)
+            return tile;
     }
     return 0;
 }
@@ -120,8 +124,8 @@ BaseTile* TiledPage::getBaseTile(int x, int y) const
 void TiledPage::discardTextures()
 {
     for (int j = 0; j < m_baseTileSize; j++) {
-        BaseTile& tile = m_baseTiles[j];
-        tile.discardTextures();
+        BaseTile* tile = m_baseTiles[j];
+        tile->discardTextures();
     }
     return;
 }
@@ -161,14 +165,14 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
         BaseTile* currentTile = 0;
         BaseTile* availableTile = 0;
         for (int j = 0; j < m_baseTileSize; j++) {
-            BaseTile& tile = m_baseTiles[j];
-            if (tile.x() == x && tile.y() == y) {
-                currentTile = &tile;
+            BaseTile* tile = m_baseTiles[j];
+            if (tile->x() == x && tile->y() == y) {
+                currentTile = tile;
                 break;
             }
 
-            if (!availableTile || (tile.drawCount() < availableTile->drawCount()))
-                availableTile = &tile;
+            if (!availableTile || (tile->drawCount() < availableTile->drawCount()))
+                availableTile = tile;
         }
 
         if (!currentTile && availableTile) {
@@ -216,12 +220,12 @@ bool TiledPage::updateTileDirtiness(const SkIRect& tileBounds)
     bool visibleTileIsDirty = false;
     for (int x = 0; x < m_baseTileSize; x++) {
 
-        BaseTile& tile = m_baseTiles[x];
+        BaseTile* tile = m_baseTiles[x];
 
         // if the tile is in the dirty region then we must invalidate it
-        if (m_invalRegion.contains(tile.x(), tile.y())) {
-            tile.markAsDirty(m_latestPictureInval, m_invalTilesRegion);
-            if (tileBounds.contains(tile.x(), tile.y()))
+        if (m_invalRegion.contains(tile->x(), tile->y())) {
+            tile->markAsDirty(m_latestPictureInval, m_invalTilesRegion);
+            if (tileBounds.contains(tile->x(), tile->y()))
                 visibleTileIsDirty = true;
         }
     }
@@ -301,9 +305,9 @@ bool TiledPage::hasMissingContent(const SkIRect& tileBounds)
 {
     int neededTiles = tileBounds.width() * tileBounds.height();
     for (int j = 0; j < m_baseTileSize; j++) {
-        BaseTile& tile = m_baseTiles[j];
-        if (tileBounds.contains(tile.x(), tile.y())) {
-            if (tile.frontTexture())
+        BaseTile* tile = m_baseTiles[j];
+        if (tileBounds.contains(tile->x(), tile->y())) {
+            if (tile->frontTexture())
                 neededTiles--;
         }
     }
@@ -315,9 +319,9 @@ bool TiledPage::isReady(const SkIRect& tileBounds)
     int neededTiles = tileBounds.width() * tileBounds.height();
     XLOG("tiled page %p needs %d ready tiles", this, neededTiles);
     for (int j = 0; j < m_baseTileSize; j++) {
-        BaseTile& tile = m_baseTiles[j];
-        if (tileBounds.contains(tile.x(), tile.y())) {
-            if (tile.isTileReady())
+        BaseTile* tile = m_baseTiles[j];
+        if (tileBounds.contains(tile->x(), tile->y())) {
+            if (tile->isTileReady())
                 neededTiles--;
         }
     }
@@ -348,8 +352,8 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale)
 
     // swap every tile on page (even if off screen)
     for (int j = 0; j < m_baseTileSize; j++) {
-        BaseTile& tile = m_baseTiles[j];
-        if (tile.swapTexturesIfNeeded())
+        BaseTile* tile = m_baseTiles[j];
+        if (tile->swapTexturesIfNeeded())
             swaps++;
     }
 
@@ -373,16 +377,16 @@ void TiledPage::drawGL()
     const float tileHeight = TilesManager::tileHeight() * m_invScale;
 
     for (int j = 0; j < m_baseTileSize; j++) {
-        BaseTile& tile = m_baseTiles[j];
-        bool tileInView = m_tileBounds.contains(tile.x(), tile.y());
+        BaseTile* tile = m_baseTiles[j];
+        bool tileInView = m_tileBounds.contains(tile->x(), tile->y());
         if (tileInView) {
             SkRect rect;
-            rect.fLeft = tile.x() * tileWidth;
-            rect.fTop = tile.y() * tileHeight;
+            rect.fLeft = tile->x() * tileWidth;
+            rect.fTop = tile->y() * tileHeight;
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
 
-            tile.draw(m_transparency, rect, m_scale);
+            tile->draw(m_transparency, rect, m_scale);
         }
 
         TilesManager::instance()->getProfiler()->nextTile(tile, m_invScale, tileInView);

@@ -129,8 +129,6 @@ public:
     // The lock will be done when returning true.
     bool readyForUpdate();
 
-    void interruptTransferQueue(bool);
-
     void lockQueue() { m_transferQueueItemLocks.lock(); }
     void unlockQueue() { m_transferQueueItemLocks.unlock(); }
 
@@ -195,8 +193,6 @@ private:
     sp<android::SurfaceTexture> m_sharedSurfaceTexture;
 
     int m_emptyItemCount;
-
-    bool m_interruptedByRemovingOp;
 
     // We are using wait/signal to handle our own queue sync.
     // First of all, if we don't have our own lock, then while WebView is
