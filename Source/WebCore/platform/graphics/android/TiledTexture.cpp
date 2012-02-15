@@ -366,6 +366,11 @@ void DualTiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
     if (!m_zooming)
         m_preZoomPrepareArea = prepareArea;
 
+    if (m_scale == -1) {
+        m_scale = scale;
+        m_futureScale = scale;
+    }
+
     if (m_futureScale != scale) {
         m_futureScale = scale;
         m_zoomUpdateTime = WTF::currentTime() + DualTiledTexture::s_zoomUpdateDelay;
