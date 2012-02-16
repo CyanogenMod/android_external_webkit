@@ -4961,14 +4961,6 @@ static void CloseIdleConnections(JNIEnv* env, jobject obj, jint nativeClass)
 #endif
 }
 
-static void nativeCertTrustChanged(JNIEnv *env, jobject obj)
-{
-#if USE(CHROME_NETWORK_STACK)
-    WebCache::get(true)->certTrustChanged();
-    WebCache::get(false)->certTrustChanged();
-#endif
-}
-
 static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint nativeClass,
         jint layer, jobject jRect)
 {
@@ -5155,8 +5147,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SelectWordAt },
     { "nativeSelectAll", "(I)V",
         (void*) SelectAll },
-    { "nativeCertTrustChanged","()V",
-        (void*) nativeCertTrustChanged },
 };
 
 int registerWebViewCore(JNIEnv* env)

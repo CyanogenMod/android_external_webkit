@@ -30,7 +30,7 @@
 #include "WebCoreJni.h"
 #include "WebRequestContext.h"
 #include "WebUrlLoaderClient.h"
-#include "net/http/http_network_session.h"
+
 #include <wtf/text/CString.h>
 
 using namespace WTF;
@@ -129,21 +129,6 @@ void WebCache::clear()
     base::Thread* thread = WebUrlLoaderClient::ioThread();
     if (thread)
         thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::clearImpl));
-}
-
-void WebCache::certTrustChanged()
-{
-    base::Thread* thread = WebUrlLoaderClient::ioThread();
-    if (thread)
-        thread->message_loop()->PostTask(FROM_HERE, NewRunnableMethod(this, &WebCache::certTrustChangedImpl));
-}
-
-void WebCache::certTrustChangedImpl()
-{
-    net::HttpNetworkSession* session = m_cache->GetSession();
-    if (session)
-        session->cert_verifier()->ClearCache();
-    m_cache->CloseAllConnections();
 }
 
 void WebCache::closeIdleConnections()
