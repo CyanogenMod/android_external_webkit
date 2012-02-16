@@ -830,8 +830,6 @@ PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
 }
 #endif
 
-#if USE(V8)
-// This is really JS engine independent
 NPObject* PluginView::getNPObject() {
 #if ENABLE(NETSCAPE_PLUGIN_API)
     if (!m_plugin || !m_plugin->pluginFuncs()->getvalue)
@@ -859,7 +857,6 @@ NPObject* PluginView::getNPObject() {
     return 0;
 #endif  // NETSCAPE_PLUGIN_API
 }
-#endif  // V8
 
 void PluginView::disconnectStream(PluginStream* stream)
 {

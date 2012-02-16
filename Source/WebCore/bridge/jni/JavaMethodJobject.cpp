@@ -131,9 +131,9 @@ const char* JavaMethodJobject::signature() const
             else {
                 signatureBuilder.append(signatureFromJavaType(type));
                 if (type == JavaTypeObject
-#if USE(V8)
+// ANDROID
                     || type == JavaTypeString
-#endif
+// ANDROID
                     ) {
                     appendClassName(signatureBuilder, javaClassName.data());
                     signatureBuilder.append(';');
@@ -148,9 +148,9 @@ const char* JavaMethodJobject::signature() const
         else {
             signatureBuilder.append(signatureFromJavaType(m_returnType));
             if (m_returnType == JavaTypeObject
-#if USE(V8)
+// ANDROID
                 || m_returnType == JavaTypeString
-#endif
+// ANDROID
                 ) {
                 appendClassName(signatureBuilder, returnType);
                 signatureBuilder.append(';');

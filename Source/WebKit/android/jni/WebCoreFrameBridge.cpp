@@ -60,6 +60,8 @@
 #include "IconDatabase.h"
 #include "Image.h"
 #include "InspectorClientAndroid.h"
+#include "JavaNPObjectV8.h"
+#include "JavaInstanceJobjectV8.h"
 #include "KURL.h"
 #include "Page.h"
 #include "PageCache.h"
@@ -105,18 +107,6 @@
 #include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/StringBuilder.h>
-
-#if USE(JSC)
-#include "GCController.h"
-#include "JSDOMWindow.h"
-#include "JavaInstanceJSC.h"
-#include <runtime_object.h>
-#include <runtime_root.h>
-#include <runtime/JSLock.h>
-#elif USE(V8)
-#include "JavaNPObjectV8.h"
-#include "JavaInstanceJobjectV8.h"
-#endif  // USE(JSC)
 
 #if ENABLE(WEB_AUTOFILL)
 #include "autofill/WebAutofill.h"
@@ -1612,32 +1602,16 @@ static jobject StringByEvaluatingJavaScriptFromString(JNIEnv *env, jobject obj, 
 // Wrap the JavaInstance used when binding custom javascript interfaces. Use a
 // weak reference so that the gc can collect the WebView. Override virtualBegin
 // and virtualEnd and swap the weak reference for the real object.
-#if USE(JSC)
-class WeakJavaInstance : public JavaInstance {
-#elif USE(V8)
 class WeakJavaInstance : public JavaInstanceJobject {
-#endif
 public:
-#if USE(JSC)
-    static PassRefPtr<WeakJavaInstance> create(jobject obj, PassRefPtr<RootObject> root)
-    {
-        return adoptRef(new WeakJavaInstance(obj, root));
-    }
-#elif USE(V8)
     static PassRefPtr<WeakJavaInstance> create(jobject obj)
     {
         return adoptRef(new WeakJavaInstance(obj));
     }
-#endif
 
 private:
-#if USE(JSC)
-    WeakJavaInstance(jobject instance, PassRefPtr<RootObject> rootObject)
-        : JavaInstance(instance, rootObject)
-#elif USE(V8)
     WeakJavaInstance(jobject instance)
         : JavaInstanceJobject(instance)
-#endif
         , m_beginEndDepth(0)
     {
         JNIEnv* env = getJNIEnv();
@@ -1687,11 +1661,7 @@ private:
     }
 
 private:
-#if USE(JSC)
-    typedef JavaInstance INHERITED;
-#elif USE(V8)
     typedef JavaInstanceJobject INHERITED;
-#endif
     jweak m_weakRef;
     // The current depth of nested calls to virtualBegin and virtualEnd.
     int m_beginEndDepth;
@@ -1711,28 +1681,6 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
     env->GetJavaVM(&vm);
     ALOGV("::WebCore:: addJSInterface: %p", pFrame);
 
-#if USE(JSC)
-    // Copied from qwebframe.cpp
-    JSC::JSLock lock(JSC::SilenceAssertionsOnly);
-    WebCore::JSDOMWindow *window = WebCore::toJSDOMWindow(pFrame, mainThreadNormalWorld());
-    if (window) {
-        RootObject *root = pFrame->script()->bindingRootObject();
-        setJavaVM(vm);
-        // Add the binding to JS environment
-        JSC::ExecState* exec = window->globalExec();
-        JSC::JSObject* addedObject = WeakJavaInstance::create(javascriptObj,
-                root)->createRuntimeObject(exec);
-        const jchar* s = env->GetStringChars(interfaceName, NULL);
-        if (s) {
-            // Add the binding name to the window's table of child objects.
-            JSC::PutPropertySlot slot;
-            window->put(exec, JSC::Identifier(exec, (const UChar *)s,
-                    env->GetStringLength(interfaceName)), addedObject, slot);
-            env->ReleaseStringChars(interfaceName, s);
-            checkException(env);
-        }
-    }
-#elif USE(V8)
     if (pFrame) {
         RefPtr<JavaInstance> addedObject = WeakJavaInstance::create(javascriptObj);
         const char* name = getCharactersFromJStringInEnv(env, interfaceName);
@@ -1753,8 +1701,6 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
         NPN_ReleaseObject(npObject);
         releaseCharactersForJString(interfaceName, name);
     }
-#endif
-
 }
 
 static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)
@@ -1798,13 +1744,8 @@ static void ClearCache(JNIEnv *env, jobject obj)
 {
     ClearWebCoreCache();
     ClearWebViewCache();
-#if USE(JSC)
-    // force JavaScript to GC when clear cache
-    WebCore::gcController().garbageCollectSoon();
-#elif USE(V8)
     WebCore::Frame* pFrame = GET_NATIVE_FRAME(env, obj);
     pFrame->script()->lowMemoryNotification();
-#endif  // USE(JSC)
 }
 
 static jboolean DocumentHasImages(JNIEnv *env, jobject obj)

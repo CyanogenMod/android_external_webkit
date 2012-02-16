@@ -200,14 +200,12 @@ namespace android {
         virtual void documentElementAvailable();
         virtual void didPerformFirstNavigation() const;
 
-#if USE(V8)
-        // TODO(benm): Implement
+        // TODO: Implement
         virtual void didCreateScriptContextForFrame() { }
         virtual void didDestroyScriptContextForFrame() { }
         virtual void didCreateIsolatedScriptContext() { }
 
-         virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) { return false; }
-#endif
+        virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) { return false; }
         
         virtual void registerForIconNotification(bool listen = true);
 

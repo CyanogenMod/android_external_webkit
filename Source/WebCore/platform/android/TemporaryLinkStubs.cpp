@@ -80,13 +80,6 @@
 #include <wtf/MainThread.h>
 #include <wtf/text/CString.h>
 
-#if USE(JSC)
-#include "API/JSClassRef.h"
-#include "JNIUtilityPrivate.h"
-#include "JavaScriptCallFrame.h"
-#include "ScriptDebugServer.h"
-#endif
-
 using namespace WebCore;
 
 /********************************************************/
@@ -393,18 +386,6 @@ PassRefPtr<SharedBuffer> SharedBuffer::createWithContentsOfFile(const String&)
     return 0;
 }
 
-
-#if USE(JSC)
-namespace JSC { namespace Bindings {
-bool dispatchJNICall(ExecState*, const void* targetAppletView, jobject obj, bool isStatic, JavaType returnType,
-        jmethodID methodID, jvalue* args, jvalue& result, const char* callingURL, JSValue& exceptionDescription)
-{
-    notImplemented();
-    return false;
-}
-
-} }  // namespace Bindings
-#endif
 
 char* dirname(const char*)
 {

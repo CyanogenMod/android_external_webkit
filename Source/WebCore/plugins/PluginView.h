@@ -202,9 +202,7 @@ namespace WebCore {
                              void (*timerFunc)(NPP, uint32_t timerID));
         void unscheduleTimer(NPP, uint32_t timerID);
 #endif
-#if USE(V8)
         NPObject* getNPObject();
-#endif
 
         virtual void invalidateRect(const IntRect&);
 

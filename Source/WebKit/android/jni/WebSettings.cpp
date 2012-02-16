@@ -49,9 +49,7 @@
 #include "Settings.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
-#if USE(V8)
 #include "WorkerContextExecutionProxy.h"
-#endif
 #include "WebRequestContext.h"
 #include "WebViewCore.h"
 

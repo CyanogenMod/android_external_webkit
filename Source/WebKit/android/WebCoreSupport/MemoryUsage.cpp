@@ -29,9 +29,7 @@
 #include <malloc.h>
 #include <wtf/CurrentTime.h>
 
-#if USE(V8)
 #include <v8.h>
-#endif // USE(V8)
 
 using namespace WTF;
 
@@ -59,12 +57,10 @@ int MemoryUsageCache::getCachedMemoryUsage(bool forceFresh)
     struct mallinfo minfo = mallinfo();
     m_cachedMemoryUsage = (minfo.hblkhd + minfo.arena) >> 20;
 
-#if USE(V8)
     v8::HeapStatistics stat;
     v8::V8::GetHeapStatistics(&stat);
     unsigned v8Usage = stat.total_heap_size() >> 20;
     m_cachedMemoryUsage += v8Usage;
-#endif // USE(V8)
 
     m_cacheTime = currentTimeMS();
     return m_cachedMemoryUsage;

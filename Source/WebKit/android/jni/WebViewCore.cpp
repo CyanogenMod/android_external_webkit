@@ -104,6 +104,7 @@
 #include "ResourceRequest.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SchemeRegistry.h"
+#include "ScriptController.h"
 #include "SelectionController.h"
 #include "SelectText.h"
 #include "Settings.h"
@@ -130,14 +131,11 @@
 #include <JNIHelp.h>
 #include <JNIUtility.h>
 #include <ui/KeycodeLabels.h>
+#include <v8.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/AtomicString.h>
-#include <wtf/text/StringImpl.h>
-
-#if USE(V8)
-#include "ScriptController.h"
 #include <wtf/text/CString.h>
-#endif
+#include <wtf/text/StringImpl.h>
 
 #if DEBUG_NAV_UI
 #include "SkTime.h"
@@ -159,10 +157,6 @@ FILE* gRenderTreeFile = 0;
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayerAndroid.h"
 #include "RenderLayerCompositor.h"
-#endif
-
-#if USE(V8)
-#include <v8.h>
 #endif
 
 // In some cases, too many invalidations passed to the UI will slow us down.
@@ -465,12 +459,10 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     AndroidNetworkLibraryImpl::InitWithApplicationContext(env, 0);
 #endif
 
-#if USE(V8)
     // Static initialisation of certain important V8 static data gets performed at system startup when
     // libwebcore gets loaded. We now need to associate the WebCore thread with V8 to complete
     // initialisation.
     v8::V8::Initialize();
-#endif
 
     // Configure any RuntimeEnabled features that we need to change from their default now.
     // See WebCore/bindings/generic/RuntimeEnabledFeatures.h
@@ -4800,11 +4792,9 @@ static void DumpNavTree(JNIEnv* env, jobject obj, jint nativeClass)
 
 static void SetJsFlags(JNIEnv* env, jobject obj, jint nativeClass, jstring flags)
 {
-#if USE(V8)
     WTF::String flagsString = jstringToWtfString(env, flags);
     WTF::CString utf8String = flagsString.utf8();
     WebCore::ScriptController::setFlags(utf8String.data(), utf8String.length());
-#endif
 }
 
 

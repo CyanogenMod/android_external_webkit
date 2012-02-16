@@ -118,15 +118,11 @@ bool PlatformBridge::cookiesEnabled(const Document* document)
 
 NPObject* PlatformBridge::pluginScriptableObject(Widget* widget)
 {
-#if USE(V8)
     if (!widget->isPluginView())
         return 0;
 
     PluginView* pluginView = static_cast<PluginView*>(widget);
     return pluginView->getNPObject();
-#else
-    return 0;
-#endif
 }
 
 bool PlatformBridge::isWebViewPaused(const WebCore::FrameView* frameView)
