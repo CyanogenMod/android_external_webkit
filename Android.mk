@@ -67,11 +67,13 @@ ifneq ($(JAVASCRIPT_ENGINE),jsc)
   endif
 endif
 
-# V8 also requires an ARMv7 CPU, and since we must use jsc, we cannot
+# On ARM, V8 also requires an ARMv7 CPU, and since we must use jsc, we cannot
 # use the Chrome http stack either.
-ifneq ($(strip $(ARCH_ARM_HAVE_ARMV7A)),true)
-  JAVASCRIPT_ENGINE := jsc
-  USE_ALT_HTTP := true
+ifeq ($(TARGET_ARCH),arm)
+  ifneq ($(strip $(ARCH_ARM_HAVE_ARMV7A)),true)
+    JAVASCRIPT_ENGINE := jsc
+    USE_ALT_HTTP := true
+  endif
 endif
 
 # See if the user has specified a stack they want to use
