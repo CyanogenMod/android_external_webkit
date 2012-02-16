@@ -48,7 +48,7 @@ public:
     net::HttpCache* cache() { return m_cache.get(); }
     net::ProxyConfigServiceAndroid* proxy() { return m_proxyConfigService; }
     void closeIdleConnections();
-
+    void certTrustChanged();
 
 private:
     WebCache(bool isPrivateBrowsing);
@@ -60,6 +60,7 @@ private:
 
     // For closeIdleConnections
     void closeIdleImpl();
+    void certTrustChangedImpl();
 
     // For getEntry()
     void getEntryImpl();
