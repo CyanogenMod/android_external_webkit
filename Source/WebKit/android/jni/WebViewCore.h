@@ -142,7 +142,7 @@ namespace android {
          * @param Node The Node that blurred.
          */
         void formDidBlur(const WebCore::Node*);
-        void focusNodeChanged(const WebCore::Node*);
+        void focusNodeChanged(WebCore::Node*);
 
         /**
          * Scroll to an absolute position.
@@ -572,8 +572,6 @@ namespace android {
         void listBoxRequest(WebCoreReply* reply, const uint16_t** labels,
                 size_t count, const int enabled[], size_t enabledCount,
                 bool multiple, const int selected[], size_t selectedCountOrSelection);
-        bool shouldPaintCaret() { return m_shouldPaintCaret; }
-        void setShouldPaintCaret(bool should) { m_shouldPaintCaret = should; }
         bool isPaused() const { return m_isPaused; }
         void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
         bool drawIsPaused() const;
@@ -757,7 +755,6 @@ namespace android {
         PageGroup* m_groupForVisitedLinks;
         bool m_isPaused;
         int m_cacheMode;
-        bool m_shouldPaintCaret;
         bool m_fullscreenVideoMode;
 
         SkTDArray<PluginWidgetAndroid*> m_plugins;

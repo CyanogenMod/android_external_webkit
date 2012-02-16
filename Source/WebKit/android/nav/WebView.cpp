@@ -1666,6 +1666,7 @@ static const CachedInput* getInputCandidate(JNIEnv *env, jobject obj)
 
 static jboolean nativePageShouldHandleShiftAndArrows(JNIEnv *env, jobject obj)
 {
+#if ENABLE(ANDROID_NAVCACHE)
     const CachedNode* focus = getFocusNode(env, obj);
     if (!focus) return false;
     // Plugins handle shift and arrows whether or not they have focus.
@@ -1675,6 +1676,9 @@ static jboolean nativePageShouldHandleShiftAndArrows(JNIEnv *env, jobject obj)
     // both the cursor and the focus.
     return cursor && cursor->nodePointer() == focus->nodePointer()
             && cursor->isContentEditable();
+#else
+    return true;
+#endif
 }
 
 static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)

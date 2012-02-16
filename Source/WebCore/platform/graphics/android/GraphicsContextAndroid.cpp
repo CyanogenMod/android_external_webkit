@@ -36,6 +36,7 @@
 #include "SkBlurMaskFilter.h"
 #include "SkCanvas.h"
 #include "SkColorPriv.h"
+#include "SkCornerPathEffect.h"
 #include "SkDashPathEffect.h"
 #include "SkDevice.h"
 #include "SkGradientShader.h"
@@ -949,9 +950,33 @@ void GraphicsContext::clearPlatformShadow()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void GraphicsContext::drawFocusRing(const Vector<IntRect>&, int, int, const Color&)
+void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int /* width */, int /* offset */, const Color& color)
 {
-    // Do nothing, since we draw the focus ring independently.
+    if (paintingDisabled())
+        return;
+
+    unsigned rectCount = rects.size();
+    if (!rectCount)
+        return;
+
+    SkRegion focusRingRegion;
+    const SkScalar focusRingOutset = WebCoreFloatToSkScalar(0.8);
+    for (unsigned i = 0; i < rectCount; i++) {
+        SkIRect r = rects[i];
+        r.inset(-focusRingOutset, -focusRingOutset);
+        focusRingRegion.op(r, SkRegion::kUnion_Op);
+    }
+
+    SkPath path;
+    SkPaint paint;
+    paint.setAntiAlias(true);
+    paint.setStyle(SkPaint::kStroke_Style);
+
+    paint.setColor(color.rgb());
+    paint.setStrokeWidth(focusRingOutset * 2);
+    paint.setPathEffect(new SkCornerPathEffect(focusRingOutset * 2))->unref();
+    focusRingRegion.getBoundaryPath(&path);
+    platformContext()->mCanvas->drawPath(path, paint);
 }
 
 void GraphicsContext::drawFocusRing(const Path&, int, int, const Color&)
