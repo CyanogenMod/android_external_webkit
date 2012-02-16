@@ -468,23 +468,24 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& clip, float scale,
                             bool* treesSwappedPtr, bool* newTreeHasAnimPtr)
 {
+    TilesManager* tilesManager = TilesManager::instance();
     m_scale = scale;
-    TilesManager::instance()->getProfiler()->nextFrame(viewport.fLeft,
+    tilesManager->getProfiler()->nextFrame(viewport.fLeft,
                                                        viewport.fTop,
                                                        viewport.fRight,
                                                        viewport.fBottom,
                                                        scale);
-    TilesManager::instance()->incDrawGLCount();
+    tilesManager->incDrawGLCount();
 
 #ifdef DEBUG
-    TilesManager::instance()->getTilesTracker()->clear();
+    tilesManager->getTilesTracker()->clear();
 #endif
 
     float viewWidth = (viewport.fRight - viewport.fLeft) * TILE_PREFETCH_RATIO;
     float viewHeight = (viewport.fBottom - viewport.fTop) * TILE_PREFETCH_RATIO;
-    bool useMinimalMemory = TilesManager::instance()->useMinimalMemory();
-    bool useHorzPrefetch = useMinimalMemory ? 0 : viewWidth < baseContentWidth();
-    bool useVertPrefetch = useMinimalMemory ? 0 : viewHeight < baseContentHeight();
+    bool noPrefetch = tilesManager->useMinimalMemory() || !tilesManager->highEndGfx();
+    bool useHorzPrefetch = noPrefetch ? 0 : viewWidth < baseContentWidth();
+    bool useVertPrefetch = noPrefetch ? 0 : viewHeight < baseContentHeight();
     m_expandedTileBoundsX = (useHorzPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
     m_expandedTileBoundsY = (useVertPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
 
@@ -503,7 +504,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // Here before we draw, update the BaseTile which has updated content.
     // Inside this function, just do GPU blits from the transfer queue into
     // the BaseTiles' texture.
-    TilesManager::instance()->transferQueue()->updateDirtyBaseTiles();
+    tilesManager->transferQueue()->updateDirtyBaseTiles();
 
     // Upload any pending ImageTexture
     // Return true if we still have some images to upload.
@@ -516,7 +517,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     }
 
     // gather the textures we can use
-    TilesManager::instance()->gatherLayerTextures();
+    tilesManager->gatherLayerTextures();
 
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
 
@@ -543,8 +544,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Clean up GL textures for video layer.
-    TilesManager::instance()->videoLayerManager()->deleteUnusedTextures();
-    ret |= TilesManager::instance()->invertedScreenSwitch();
+    tilesManager->videoLayerManager()->deleteUnusedTextures();
+    ret |= tilesManager->invertedScreenSwitch();
 
     if (ret) {
         // ret==true && empty inval region means we've inval'd everything,
@@ -552,13 +553,13 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         // until tile generation catches up and we swap pages.
         bool fullScreenInval = m_frameworkInval.isEmpty();
 
-        if (TilesManager::instance()->invertedScreenSwitch()) {
+        if (tilesManager->invertedScreenSwitch()) {
             fullScreenInval = true;
-            TilesManager::instance()->setInvertedScreenSwitch(false);
+            tilesManager->setInvertedScreenSwitch(false);
         }
 
         if (!fullScreenInval) {
-            FloatRect frameworkInval = TilesManager::instance()->shader()->rectInInvScreenCoord(
+            FloatRect frameworkInval = tilesManager->shader()->rectInInvScreenCoord(
                     m_frameworkInval);
             // Inflate the invalidate rect to avoid precision lost.
             frameworkInval.inflate(1);
@@ -594,7 +595,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     showFrameInfo(rect, *treesSwappedPtr);
 
 #ifdef DEBUG
-    TilesManager::instance()->getTilesTracker()->showTrackTextures();
+    tilesManager->getTilesTracker()->showTrackTextures();
 #endif
 
     return ret;
