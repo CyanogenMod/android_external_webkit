@@ -71,49 +71,25 @@ String PlatformBridge::getSignedPublicKeyAndChallengeString(unsigned index, cons
 
 void PlatformBridge::setCookies(const Document* document, const KURL& url, const String& value)
 {
-#if USE(CHROME_NETWORK_STACK)
     std::string cookieValue(value.utf8().data());
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
     WebCookieJar::get(isPrivateBrowsing)->cookieStore()->SetCookie(cookieGurl, cookieValue);
-#else
-    CookieClient* client = JavaSharedClient::GetCookieClient();
-    if (!client)
-        return;
-
-    client->setCookies(url, value);
-#endif
 }
 
 String PlatformBridge::cookies(const Document* document, const KURL& url)
 {
-#if USE(CHROME_NETWORK_STACK)
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
     std::string cookies = WebCookieJar::get(isPrivateBrowsing)->cookieStore()->GetCookies(cookieGurl);
     String cookieString(cookies.c_str());
     return cookieString;
-#else
-    CookieClient* client = JavaSharedClient::GetCookieClient();
-    if (!client)
-        return String();
-
-    return client->cookies(url);
-#endif
 }
 
 bool PlatformBridge::cookiesEnabled(const Document* document)
 {
-#if USE(CHROME_NETWORK_STACK)
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
     return WebCookieJar::get(isPrivateBrowsing)->allowCookies();
-#else
-    CookieClient* client = JavaSharedClient::GetCookieClient();
-    if (!client)
-        return false;
-
-    return client->cookiesEnabled();
-#endif
 }
 
 NPObject* PlatformBridge::pluginScriptableObject(Widget* widget)
@@ -171,15 +147,11 @@ int PlatformBridge::screenHeightInDocCoord(const WebCore::FrameView* frameView)
 
 String PlatformBridge::computeDefaultLanguage()
 {
-#if USE(CHROME_NETWORK_STACK)
     String acceptLanguages = WebRequestContext::acceptLanguage();
     size_t length = acceptLanguages.find(',');
     if (length == std::string::npos)
         length = acceptLanguages.length();
     return acceptLanguages.substring(0, length);
-#else
-    return "en";
-#endif
 }
 
 void PlatformBridge::updateViewport(FrameView* frameView)

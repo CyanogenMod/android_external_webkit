@@ -82,7 +82,6 @@ WTF::String jstringToWtfString(JNIEnv*, jstring);
 // an empty WTF String returns 0.
 jstring wtfStringToJstring(JNIEnv*, const WTF::String&, bool validOnZeroLength = false);
 
-#if USE(CHROME_NETWORK_STACK)
 string16 jstringToString16(JNIEnv*, jstring);
 
 std::string jstringToStdString(JNIEnv*, jstring);
@@ -90,7 +89,6 @@ std::string jstringToStdString(JNIEnv*, jstring);
 // passing in an empty std::string will result in an empty jstring. Otherwise
 // an empty std::string returns 0.
 jstring stdStringToJstring(JNIEnv*, const std::string&, bool validOnZeroLength = false);
-#endif
 
 jobjectArray intRectVectorToRectArray(JNIEnv*, Vector<WebCore::IntRect>&);
 

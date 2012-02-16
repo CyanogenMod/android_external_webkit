@@ -64,10 +64,6 @@ class WebFrame : public WebCoreRefObject {
     // helper function
     static WebFrame* getWebFrame(const WebCore::Frame* frame);
 
-    virtual PassRefPtr<WebCore::ResourceLoaderAndroid> startLoadingResource(WebCore::ResourceHandle*,
-            const WebCore::ResourceRequest& request, bool mainResource,
-            bool synchronous);
-
     UrlInterceptResponse* shouldInterceptRequest(const WTF::String& url);
 
     void reportError(int errorCode, const WTF::String& description,
@@ -117,7 +113,6 @@ class WebFrame : public WebCoreRefObject {
 
     float density() const;
 
-#if USE(CHROME_NETWORK_STACK)
     void didReceiveAuthenticationChallenge(WebUrlLoaderClient*, const std::string& host, const std::string& realm, bool useCachedCredentials, bool suppressDialog);
     void reportSslCertError(WebUrlLoaderClient* client, int cert_error, const std::string& cert, const std::string& url);
     void requestClientCert(WebUrlLoaderClient* client, const std::string& hostAndPort);
@@ -125,7 +120,6 @@ class WebFrame : public WebCoreRefObject {
     void didReceiveData(const char* data, int size);
     void didFinishLoading();
     void setCertificate(const std::string& cert);
-#endif
 
     void maybeSavePassword(WebCore::Frame* frame, const WebCore::ResourceRequest& request);
 

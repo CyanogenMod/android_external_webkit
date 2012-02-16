@@ -782,10 +782,6 @@
 // track changes to the style that may change what is drawn
 #define ANDROID_STYLE_VERSION
 
-#if !defined(WTF_USE_CHROME_NETWORK_STACK)
-#define WTF_USE_CHROME_NETWORK_STACK 0
-#endif /* !defined(WTF_USE_CHROME_NETWORK_STACK) */
-
 // This is present in JavaScriptCore/config.h, which Android does not use.
 #define WTF_CHANGES 1
 #endif /* PLATFORM(ANDROID) */

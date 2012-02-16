@@ -385,9 +385,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #if ENABLE(TOUCH_EVENTS)
     , m_forwardingTouchEvents(false)
 #endif
-#if USE(CHROME_NETWORK_STACK)
     , m_webRequestContext(0)
-#endif
 {
     ALOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -459,9 +457,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
     WebViewCore::addInstance(this);
 
-#if USE(CHROME_NETWORK_STACK)
     AndroidNetworkLibraryImpl::InitWithApplicationContext(env, 0);
-#endif
 
     // Static initialisation of certain important V8 static data gets performed at system startup when
     // libwebcore gets loaded. We now need to associate the WebCore thread with V8 to complete
@@ -4153,7 +4149,6 @@ bool WebViewCore::drawIsPaused() const
     return false;
 }
 
-#if USE(CHROME_NETWORK_STACK)
 void WebViewCore::setWebRequestContextUserAgent()
 {
     // We cannot create a WebRequestContext, because we might not know it this is a private tab or not yet
@@ -4181,7 +4176,6 @@ WebRequestContext* WebViewCore::webRequestContext()
     }
     return m_webRequestContext.get();
 }
-#endif
 
 void WebViewCore::scrollRenderLayer(int layer, const SkRect& rect)
 {
@@ -5010,10 +5004,8 @@ static void AutoFillForm(JNIEnv* env, jobject obj, jint nativeClass,
 
 static void CloseIdleConnections(JNIEnv* env, jobject obj, jint nativeClass)
 {
-#if USE(CHROME_NETWORK_STACK)
     WebCache::get(true)->closeIdleConnections();
     WebCache::get(false)->closeIdleConnections();
-#endif
 }
 
 static void nativeCertTrustChanged(JNIEnv *env, jobject obj)

@@ -70,7 +70,6 @@
 #include "SkRect.h"
 #include "TextEncoding.h"
 #include "WebCoreFrameBridge.h"
-#include "WebCoreResourceLoader.h"
 #include "WebHistory.h"
 #include "WebIconDatabase.h"
 #include "WebFrameView.h"

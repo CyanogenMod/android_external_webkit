@@ -73,7 +73,6 @@ namespace android {
 
 extern int registerWebFrame(JNIEnv*);
 extern int registerJavaBridge(JNIEnv*);
-extern int registerJniUtil(JNIEnv*);
 extern int registerResourceLoader(JNIEnv*);
 extern int registerWebViewCore(JNIEnv*);
 extern int registerWebHistory(JNIEnv*);
@@ -92,9 +91,7 @@ extern int registerMediaPlayerVideo(JNIEnv*);
 #endif
 extern int registerDeviceMotionAndOrientationManager(JNIEnv*);
 extern int registerCookieManager(JNIEnv*);
-#if USE(CHROME_NETWORK_STACK)
 extern int registerCacheManager(JNIEnv*);
-#endif
 
 }
 
@@ -105,9 +102,7 @@ struct RegistrationMethod {
 
 static RegistrationMethod gWebCoreRegMethods[] = {
     { "JavaBridge", android::registerJavaBridge },
-    { "JniUtil", android::registerJniUtil },
     { "WebFrame", android::registerWebFrame },
-    { "WebCoreResourceLoader", android::registerResourceLoader },
     { "WebViewCore", android::registerWebViewCore },
     { "WebHistory", android::registerWebHistory },
     { "WebIconDatabase", android::registerWebIconDatabase },
@@ -125,9 +120,7 @@ static RegistrationMethod gWebCoreRegMethods[] = {
 #endif
     { "DeviceMotionAndOrientationManager", android::registerDeviceMotionAndOrientationManager },
     { "CookieManager", android::registerCookieManager },
-#if USE(CHROME_NETWORK_STACK)
     { "CacheManager", android::registerCacheManager },
-#endif
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

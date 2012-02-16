@@ -25,8 +25,6 @@
 
 #include "config.h"
 
-#if USE(CHROME_NETWORK_STACK)
-
 #include "ChromiumIncludes.h"
 #include "WebCache.h"
 #include "WebCoreJni.h"
@@ -140,5 +138,3 @@ int registerCacheManager(JNIEnv* env)
 }
 
 } // namespace android
-
-#endif //  USE(CHROME_NETWORK_STACK)

@@ -472,12 +472,10 @@ void JavaBridge::RemovePackageName(JNIEnv* env, jobject obj, jstring packageName
 
 void JavaBridge::UpdateProxy(JNIEnv* env, jobject obj, jstring newProxy, jstring newExList)
 {
-#if USE(CHROME_NETWORK_STACK)
     std::string proxy = jstringToStdString(env, newProxy);
     std::string exList = jstringToStdString(env, newExList);
     WebCache::get(false)->proxy()->UpdateProxySettings(proxy, exList);
     WebCache::get(true)->proxy()->UpdateProxySettings(proxy, exList);
-#endif
 }
 
 
