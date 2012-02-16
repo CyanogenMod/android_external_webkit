@@ -80,6 +80,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "InlineTextBox.h"
+#include "KeyboardEvent.h"
 #include "MemoryUsage.h"
 #include "NamedNodeMap.h"
 #include "Navigator.h"
@@ -443,7 +444,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
-    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;II)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZLjava/lang/String;II)V");
     m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
     env->DeleteLocalRef(clazz);
 
@@ -3504,6 +3505,46 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     return handled;
 }
 
+WebViewCore::InputType WebViewCore::getInputType(Node* node)
+{
+    WebCore::RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return WebViewCore::NONE;
+    if (renderer->isTextArea())
+        return WebViewCore::TEXT_AREA;
+
+    if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
+        HTMLInputElement* htmlInput = static_cast<HTMLInputElement*>(node);
+        if (htmlInput->isPasswordField())
+            return WebViewCore::PASSWORD;
+        if (htmlInput->isSearchField())
+            return WebViewCore::SEARCH;
+        if (htmlInput->isEmailField())
+            return WebViewCore::EMAIL;
+        if (htmlInput->isNumberField())
+            return WebViewCore::NUMBER;
+        if (htmlInput->isTelephoneField())
+            return WebViewCore::TELEPHONE;
+        if (htmlInput->isTextField())
+            return WebViewCore::NORMAL_TEXT_FIELD;
+    }
+
+    if (node->isContentEditable())
+        return WebViewCore::TEXT_AREA;
+
+    return WebViewCore::NONE;
+}
+
+bool WebViewCore::isSpellCheckEnabled(Node* node)
+{
+    bool isEnabled = true;
+    if (node->isElementNode()) {
+        WebCore::Element* element = static_cast<WebCore::Element*>(node);
+        isEnabled = element->isSpellCheckingEnabled();
+    }
+    return isEnabled;
+}
+
 void WebViewCore::initEditField(Node* node)
 {
     String text = getInputText(node);
@@ -3515,9 +3556,20 @@ void WebViewCore::initEditField(Node* node)
     if (!javaObject.get())
         return;
     m_textGeneration = 0;
+    InputType inputType = getInputType(node);
+    Document* document = node->document();
+    PlatformKeyboardEvent tab(AKEYCODE_TAB, 0, 0, false, false, false, false);
+    PassRefPtr<KeyboardEvent> tabEvent =
+            KeyboardEvent::create(tab, document->defaultView());
+    Node* nextFocus = document->nextFocusableNode(node, tabEvent.get());
+    bool isNextText = isTextInput(nextFocus);
+    bool spellCheckEnabled = isSpellCheckEnabled(node);
+    String label = requestLabel(document->frame(), node);
     jstring fieldText = wtfStringToJstring(env, text, true);
+    jstring labelText = wtfStringToJstring(env, text, false);
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
-            reinterpret_cast<int>(node), fieldText, start, end);
+            reinterpret_cast<int>(node), fieldText, inputType,
+            spellCheckEnabled, isNextText, labelText, start, end);
     checkException(env);
 }
 

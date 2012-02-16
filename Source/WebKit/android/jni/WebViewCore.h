@@ -641,6 +641,18 @@ namespace android {
 
         // internal functions
     private:
+        enum InputType {
+            NONE = -1,
+            NORMAL_TEXT_FIELD = 0,
+            TEXT_AREA = 1,
+            PASSWORD = 2,
+            SEARCH = 3,
+            EMAIL = 4,
+            NUMBER = 5,
+            TELEPHONE = 6,
+            URL = 7,
+        };
+
 #ifndef DISABLE_NAVCACHE
         CacheBuilder& cacheBuilder();
 #endif
@@ -686,6 +698,19 @@ namespace android {
          * current contents and selection.
          */
         void initEditField(Node* node);
+
+        /**
+         * Gets the input type a Node. NONE is returned if it isn't an
+         * input field.
+         */
+        InputType getInputType(Node* node);
+
+        /**
+         * If node is an input field, the spellcheck value for the
+         * field is returned. Otherwise true is returned.
+         */
+        static bool isSpellCheckEnabled(Node* node);
+
         /**
          * Returns the offsets of the selection area for both normal text
          * fields and content editable fields. start and end are modified
