@@ -38,8 +38,17 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
+#ifdef DEBUG
+
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ShaderProgram", __VA_ARGS__)
+
+#else
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ShaderProgram", __VA_ARGS__)
+
+#endif
 
 namespace WebCore {
 
@@ -160,7 +169,7 @@ GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
                 char* buf = (char*) malloc(infoLen);
                 if (buf) {
                 glGetShaderInfoLog(shader, infoLen, 0, buf);
-                XLOG("could not compile shader %d:\n%s\n", shaderType, buf);
+                XLOGC("could not compile shader %d:\n%s\n", shaderType, buf);
                 free(buf);
             }
             glDeleteShader(shader);
@@ -175,13 +184,13 @@ GLint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragm
 {
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, pVertexSource);
     if (!vertexShader) {
-        XLOG("couldn't load the vertex shader!");
+        XLOGC("couldn't load the vertex shader!");
         return -1;
     }
 
     GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, pFragmentSource);
     if (!pixelShader) {
-        XLOG("couldn't load the pixel shader!");
+        XLOGC("couldn't load the pixel shader!");
         return -1;
     }
 
@@ -201,7 +210,7 @@ GLint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragm
                 char* buf = (char*) malloc(bufLength);
                 if (buf) {
                     glGetProgramInfoLog(program, bufLength, 0, buf);
-                    XLOG("could not link program:\n%s\n", buf);
+                    XLOGC("could not link program:\n%s\n", buf);
                     free(buf);
                 }
             }
@@ -345,14 +354,54 @@ void ShaderProgram::setBlendingState(bool enableBlending)
 // Drawing
 /////////////////////////////////////////////////////////////////////////////////////////
 
-void ShaderProgram::setViewport(SkRect& viewport, float scale)
+void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
+                                 const IntRect& webViewRect, int titleBarHeight,
+                                 const IntRect& screenClip, float scale)
 {
+    m_webViewRect = webViewRect;
+    m_titleBarHeight = titleBarHeight;
+
+    //// viewport ////
     TransformationMatrix ortho;
-    GLUtils::setOrthographicMatrix(ortho, viewport.fLeft, viewport.fTop,
-                                   viewport.fRight, viewport.fBottom, -1000, 1000);
+    GLUtils::setOrthographicMatrix(ortho, visibleRect.fLeft, visibleRect.fTop,
+                                   visibleRect.fRight, visibleRect.fBottom, -1000, 1000);
     m_projectionMatrix = ortho;
-    m_viewport = viewport;
+    m_viewport = visibleRect;
     m_currentScale = scale;
+
+
+    //// viewRect ////
+    m_viewRect = viewRect;
+
+    // We do clipping using glScissor, which needs to take
+    // coordinates in screen space. The following matrix transform
+    // content coordinates in screen coordinates.
+    TransformationMatrix viewTranslate;
+    viewTranslate.translate(1.0, 1.0);
+
+    TransformationMatrix viewScale;
+    viewScale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
+
+    m_documentToScreenMatrix = viewScale * viewTranslate * m_projectionMatrix;
+
+    viewTranslate.scale3d(1, -1, 1);
+    m_documentToInvScreenMatrix = viewScale * viewTranslate * m_projectionMatrix;
+
+    IntRect rect(0, 0, m_webViewRect.width(), m_webViewRect.height());
+    m_documentViewport = m_documentToScreenMatrix.inverse().mapRect(rect);
+
+
+    //// clipping ////
+    IntRect mclip = screenClip;
+
+    // the clip from frameworks is in full screen coordinates
+    mclip.setY(screenClip.y() - m_webViewRect.y() - m_titleBarHeight);
+    FloatRect tclip = convertInvScreenCoordToScreenCoord(mclip);
+    m_screenClip.setLocation(IntPoint(tclip.x(), tclip.y()));
+    // use ceilf to handle view -> doc -> view coord rounding errors
+    m_screenClip.setSize(IntSize(ceilf(tclip.width()), ceilf(tclip.height())));
+
+    resetBlending();
 }
 
 // Calculate the matrix given the geometry.
@@ -441,28 +490,6 @@ void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
     GLUtils::checkGlError("drawQuad");
 }
 
-void ShaderProgram::setViewRect(const IntRect& viewRect)
-{
-    m_viewRect = viewRect;
-
-    // We do clipping using glScissor, which needs to take
-    // coordinates in screen space. The following matrix transform
-    // content coordinates in screen coordinates.
-    TransformationMatrix translate;
-    translate.translate(1.0, 1.0);
-
-    TransformationMatrix scale;
-    scale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
-
-    m_documentToScreenMatrix = scale * translate * m_projectionMatrix;
-
-    translate.scale3d(1, -1, 1);
-    m_documentToInvScreenMatrix = scale * translate * m_projectionMatrix;
-
-    IntRect rect(0, 0, m_webViewRect.width(), m_webViewRect.height());
-    m_documentViewport = m_documentToScreenMatrix.inverse().mapRect(rect);
-}
-
 // This function transform a clip rect extracted from the current layer
 // into a clip rect in screen coordinates -- used by the clipping rects
 FloatRect ShaderProgram::rectInScreenCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
@@ -505,18 +532,6 @@ FloatRect ShaderProgram::convertScreenCoordToInvScreenCoord(const FloatRect& rec
 {
     FloatRect documentRect = m_documentToScreenMatrix.inverse().mapRect(rect);
     return rectInInvScreenCoord(documentRect);
-}
-
-void ShaderProgram::setScreenClip(const IntRect& clip)
-{
-    m_screenClip = clip;
-    IntRect mclip = clip;
-
-    // the clip from frameworks is in full screen coordinates
-    mclip.setY(clip.y() - m_webViewRect.y() - m_titleBarHeight);
-    FloatRect tclip = convertInvScreenCoordToScreenCoord(mclip);
-    IntRect screenClip(tclip.x(), tclip.y(), tclip.width(), tclip.height());
-    m_screenClip = screenClip;
 }
 
 // clip is in screen coordinates

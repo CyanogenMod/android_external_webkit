@@ -191,8 +191,6 @@ public:
     int baseContentWidth();
     int baseContentHeight();
 
-    void setViewport(SkRect& viewport, float scale);
-
     // a rect containing the coordinates of all tiles in the current viewport
     const SkIRect& viewportTileBounds() const { return m_viewportTileBounds; }
     // a rect containing the viewportTileBounds before there was a scale change
@@ -205,9 +203,6 @@ public:
     bool isScrolling() { return m_isScrolling || m_isViewportScrolling; }
 
     void drawBackground(Color& backgroundColor);
-    double setupDrawing(IntRect& viewRect, SkRect& visibleRect,
-                        IntRect& webViewRect, int titleBarHeight,
-                        IntRect& screenClip, float scale);
 
     bool setLayersRenderingMode(TexturesResult&);
     void fullInval();
@@ -253,6 +248,10 @@ public:
 
 private:
     void inval(const IntRect& rect);
+    void setViewport(const SkRect& viewport, float scale);
+    double setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
+                        const IntRect& webViewRect, int titleBarHeight,
+                        const IntRect& screenClip, float scale);
     void showFrameInfo(const IntRect& rect, bool treesSwapped);
     void clearRectWithColor(const IntRect& rect, float r, float g,
                             float b, float a);
