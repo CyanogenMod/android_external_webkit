@@ -48,7 +48,7 @@ public:
     ~RenderThemeAndroid();
     
     virtual bool stateChanged(RenderObject*, ControlState) const;
-       
+
     virtual bool supportsFocusRing(const RenderStyle*) const;
     // A method asking if the theme's controls actually care about redrawing when hovered.
     virtual bool supportsHover(const RenderStyle* style) const { return style->affectedByHoverRules(); }

@@ -1630,7 +1630,7 @@ static IntRect getAbsoluteBoundingBox(Node* node) {
         rect = toRenderText(render)->linesBoundingBox();
     else
         ALOGE("getAbsoluteBoundingBox failed for node %p, name %s", node, render->renderName());
-    FloatPoint absPos = render->localToAbsolute();
+    FloatPoint absPos = render->localToAbsolute(FloatPoint(), false, true);
     rect.move(absPos.x(), absPos.y());
     return rect;
 }
@@ -2010,7 +2010,7 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
         IntRect rect = n->mBounds;
         rect.intersect(testRect);
         int a = rect.width() * rect.height();
-        if (a > area) {
+        if (a > area || !final.mUrlNode) {
             final = *n;
             area = a;
         }
@@ -2019,9 +2019,9 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
     if (final.mUrlNode) {
         if (final.mUrlNode->isElementNode()) {
             // We found a URL element. Update the hitTestResult
-            androidHitResult.hitTestResult().setURLElement(static_cast<Element*>(final.mUrlNode));
+            androidHitResult.setURLElement(static_cast<Element*>(final.mUrlNode));
         } else {
-            androidHitResult.hitTestResult().setURLElement(0);
+            androidHitResult.setURLElement(0);
         }
         // Update innerNode and innerNonSharedNode
         androidHitResult.hitTestResult().setInnerNode(final.mInnerNode);
@@ -2031,81 +2031,8 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
             frameAdjust = frame->view()->contentsToWindow(IntPoint());
             frameAdjust.move(m_scrollOffsetX, m_scrollOffsetY);
         }
-        Vector<IntRect>& rects = androidHitResult.highlightRects();
-        if (final.mUrlNode->isLink() && final.mUrlNode->renderer()) {
-            // most of the links are inline instead of box style. So the bounding box is not
-            // a good representation for the highlights. Get the list of rectangles instead.
-            RenderObject* render = final.mUrlNode->renderer();
-            IntPoint offset = roundedIntPoint(render->localToAbsolute());
-            render->absoluteRects(rects, offset.x() + frameAdjust.x(), offset.y() + frameAdjust.y());
-            if (final.mInnerNode && final.mInnerNode->renderer()) {
-                final.mInnerNode->renderer()->absoluteRects(rects,
-                        offset.x() + frameAdjust.x(), offset.y() + frameAdjust.y());
-            }
-            bool inside = false;
-            int distance = INT_MAX;
-            int newx = x, newy = y;
-            int i = rects.size();
-            while (i--) {
-                if (rects[i].isEmpty()) {
-                    rects.remove(i);
-                    continue;
-                }
-                // check whether the point (x, y) is inside one of the rectangles.
-                if (inside)
-                    continue;
-                if (rects[i].contains(x, y)) {
-                    inside = true;
-                    continue;
-                }
-                if (x >= rects[i].x() && x < rects[i].maxX()) {
-                    if (y < rects[i].y()) {
-                        if (rects[i].y() - y < distance) {
-                            newx = x;
-                            newy = rects[i].y();
-                            distance = rects[i].y() - y;
-                        }
-                    } else if (y >= rects[i].maxY()) {
-                        if (y - rects[i].maxY() + 1 < distance) {
-                            newx = x;
-                            newy = rects[i].maxY() - 1;
-                            distance = y - rects[i].maxY() + 1;
-                        }
-                    }
-                } else if (y >= rects[i].y() && y < rects[i].maxY()) {
-                    if (x < rects[i].x()) {
-                        if (rects[i].x() - x < distance) {
-                            newx = rects[i].x();
-                            newy = y;
-                            distance = rects[i].x() - x;
-                        }
-                    } else if (x >= rects[i].maxX()) {
-                        if (x - rects[i].maxX() + 1 < distance) {
-                            newx = rects[i].maxX() - 1;
-                            newy = y;
-                            distance = x - rects[i].maxX() + 1;
-                        }
-                    }
-                }
-            }
-            if (!rects.isEmpty()) {
-                if (!inside && doMoveMouse) {
-                    // if neither x nor y has overlap, just pick the top/left of the first rectangle
-                    if (newx == x && newy == y) {
-                        newx = rects[0].x();
-                        newy = rects[0].y();
-                    }
-                    moveMouse(m_mainFrame, newx, newy);
-                    DBG_NAV_LOGD("Move x/y from (%d, %d) to (%d, %d) scrollOffset is (%d, %d)",
-                            x, y, m_mousePos.x() + m_scrollOffsetX, m_mousePos.y() + m_scrollOffsetY,
-                            m_scrollOffsetX, m_scrollOffsetY);
-                }
-                return androidHitResult;
-            }
-        }
         IntRect rect = final.mBounds;
         rect.move(frameAdjust.x(), frameAdjust.y());
-        rects.append(rect);
         if (doMoveMouse) {
             // adjust m_mousePos if it is not inside the returned highlight rectangle
             testRect.move(frameAdjust.x(), frameAdjust.y());
@@ -3682,7 +3609,6 @@ void WebViewCore::focusNodeChanged(WebCore::Node* newFocus)
         }
     }
     AndroidHitTestResult androidHitTest(this, focusHitResult);
-    androidHitTest.highlightRects();
     jobject jHitTestObj = androidHitTest.createJavaObject(env);
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_focusNodeChanged, jHitTestObj);
     env->DeleteLocalRef(jHitTestObj);

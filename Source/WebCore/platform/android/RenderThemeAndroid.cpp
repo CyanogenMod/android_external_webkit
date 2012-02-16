@@ -623,30 +623,16 @@ bool RenderThemeAndroid::paintMenuListButton(RenderObject* obj, const PaintInfo&
 
 Color RenderThemeAndroid::platformFocusRingColor() const
 {
-    static Color focusRingColor(0x66, 0x33, 0xB5, 0xE5);
+    static Color focusRingColor(0x33, 0xB5, 0xE5, 0x66);
     return focusRingColor;
 }
 
 bool RenderThemeAndroid::supportsFocusRing(const RenderStyle* style) const
 {
-    // TODO: Draw this on the UI side
-    // For now, just return false to let WebKit draw the focus ring. We only
-    // draw this ring when navigating via the keyboard, this does not affect
-    // the touch ring
-    return false;
-    return style->opacity() > 0
-        && style->hasAppearance()
-        && style->appearance() != TextFieldPart
-        && style->appearance() != SearchFieldPart
-        && style->appearance() != TextAreaPart
-        && style->appearance() != CheckboxPart
-        && style->appearance() != RadioPart
-        && style->appearance() != PushButtonPart
-        && style->appearance() != SquareButtonPart
-        && style->appearance() != ButtonPart
-        && style->appearance() != ButtonBevelPart
-        && style->appearance() != MenulistPart
-        && style->appearance() != MenulistButtonPart;
+    // Draw the focus ring ourselves unless it is a text area (webkit does borders better)
+    if (!style || !style->hasAppearance())
+        return true;
+    return style->appearance() != TextFieldPart && style->appearance() != TextAreaPart;
 }
 
 } // namespace WebCore
