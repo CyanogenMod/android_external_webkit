@@ -58,7 +58,7 @@ public:
     float stop();
     void clear();
     void nextFrame(int left, int top, int right, int bottom, float scale);
-    void nextTile(BaseTile& tile, float scale, bool inView);
+    void nextTile(BaseTile* tile, float scale, bool inView);
     void nextInval(const IntRect& rect, float scale);
     int numFrames() {
         return m_records.size();

@@ -67,7 +67,6 @@ TransferQueue::TransferQueue(bool useMinimalMem)
     , m_fboID(0)
     , m_sharedSurfaceTextureId(0)
     , m_hasGLContext(true)
-    , m_interruptedByRemovingOp(false)
     , m_currentDisplay(EGL_NO_DISPLAY)
     , m_currentUploadType(DEFAULT_UPLOAD_TYPE)
 {
@@ -246,17 +245,8 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
 #endif
 }
 
-void TransferQueue::interruptTransferQueue(bool interrupt)
-{
-    m_transferQueueItemLocks.lock();
-    m_interruptedByRemovingOp = interrupt;
-    if (m_interruptedByRemovingOp)
-        m_transferQueueItemCond.signal();
-    m_transferQueueItemLocks.unlock();
-}
-
 // This function must be called inside the m_transferQueueItemLocks, for the
-// wait, m_interruptedByRemovingOp and getHasGLContext().
+// wait and getHasGLContext().
 // Only called by updateQueueWithBitmap() for now.
 bool TransferQueue::readyForUpdate()
 {
@@ -264,13 +254,8 @@ bool TransferQueue::readyForUpdate()
         return false;
     // Don't use a while loop since when the WebView tear down, the emptyCount
     // will still be 0, and we bailed out b/c of GL context lost.
-    if (!m_emptyItemCount) {
-        if (m_interruptedByRemovingOp)
-            return false;
+    if (!m_emptyItemCount)
         m_transferQueueItemCond.wait(m_transferQueueItemLocks);
-        if (m_interruptedByRemovingOp)
-            return false;
-    }
 
     if (!getHasGLContext())
         return false;
@@ -330,6 +315,8 @@ void TransferQueue::setPendingDiscard()
         if (m_transferQueue[i].status == pendingBlit)
             m_transferQueue[i].status = pendingDiscard;
 
+    for (unsigned int i = 0 ; i < m_pureColorTileQueue.size(); i++)
+        SkSafeUnref(m_pureColorTileQueue[i].savedBaseTilePtr);
     m_pureColorTileQueue.clear();
 
     bool GLContextExisted = getHasGLContext();
@@ -358,6 +345,7 @@ void TransferQueue::updatePureColorTiles()
             // The queue should be clear instead of setting to different status.
             XLOG("Warning: Don't expect an emptyItem here.");
         }
+        SkSafeUnref(data->savedBaseTilePtr);
     }
     m_pureColorTileQueue.clear();
 }
@@ -398,6 +386,11 @@ void TransferQueue::updateDirtyBaseTiles()
                 if (result != OK)
                     XLOGC("unexpected error: updateTexImage return %d", result);
             }
+
+            XLOG("removing tile %p from %p, update",
+                  m_transferQueue[index].savedBaseTilePtr,
+                  &m_transferQueue[index]);
+            SkSafeUnref(m_transferQueue[index].savedBaseTilePtr);
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
             if (obsoleteBaseTile) {
@@ -518,7 +511,7 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
         ANativeWindow_unlockAndPost(m_ANW.get());
     }
 
-    // b) After update the Surface Texture, now udpate the transfer queue info.
+    // b) After update the Surface Texture, now update the transfer queue info.
     addItemInTransferQueue(renderInfo, currentUploadType, &bitmap);
 
     XLOG("Bitmap updated x, y %d %d, baseTile %p",
@@ -543,8 +536,19 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
                                   TextureUploadType type,
                                   TileTransferData* data)
 {
+    BaseTile* old = data->savedBaseTilePtr;
+    SkSafeRef(renderInfo->baseTile);
+    SkSafeUnref(data->savedBaseTilePtr);
+
     data->savedBaseTileTexturePtr = renderInfo->baseTile->backTexture();
     data->savedBaseTilePtr = renderInfo->baseTile;
+    XLOG("adding tile %p, %d by %d, refs %d, removed %p, dataPtr %p",
+          data->savedBaseTilePtr,
+          data->savedBaseTilePtr->x(),
+          data->savedBaseTilePtr->y(),
+          data->savedBaseTilePtr->getRefCnt(),
+          old,
+          data);
     data->status = pendingBlit;
     data->uploadType = type;
 
@@ -638,6 +642,10 @@ void TransferQueue::cleanupPendingDiscard()
                 XLOG("transfer queue discarded tile %p, removed texture", tile);
             }
 
+            XLOG("removing tile %p from %p, cleanup",
+                  m_transferQueue[index].savedBaseTilePtr,
+                  &m_transferQueue[index]);
+            SkSafeUnref(m_transferQueue[index].savedBaseTilePtr);
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].savedBaseTileTexturePtr = 0;
             m_transferQueue[index].status = emptyItem;
