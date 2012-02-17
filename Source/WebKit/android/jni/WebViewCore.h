@@ -47,7 +47,7 @@
 #include "VisiblePosition.h"
 
 #include <jni.h>
-#include <ui/KeycodeLabels.h>
+#include <androidfw/KeycodeLabels.h>
 #include <ui/PixelFormat.h>
 
 namespace WebCore {
