@@ -243,7 +243,7 @@ int GLWebViewState::baseContentHeight()
     return m_treeManager.baseContentHeight();
 }
 
-void GLWebViewState::setViewport(SkRect& viewport, float scale)
+void GLWebViewState::setViewport(const SkRect& viewport, float scale)
 {
     // allocate max possible number of tiles visible with this viewport / expandedTileBounds
     const float invTileContentWidth = scale / TilesManager::tileWidth();
@@ -343,9 +343,9 @@ void GLWebViewState::drawBackground(Color& backgroundColor)
     glClear(GL_COLOR_BUFFER_BIT);
 }
 
-double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
-                                    IntRect& webViewRect, int titleBarHeight,
-                                    IntRect& screenClip, float scale)
+double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
+                                    const IntRect& webViewRect, int titleBarHeight,
+                                    const IntRect& screenClip, float scale)
 {
     int left = viewRect.x();
     int top = viewRect.y();
@@ -364,13 +364,8 @@ double GLWebViewState::setupDrawing(IntRect& viewRect, SkRect& visibleRect,
                                        TilesManager::tileHeight());
     }
 
-    shader->setViewport(visibleRect, scale);
-    shader->setViewRect(viewRect);
-    shader->setWebViewRect(webViewRect);
-    shader->setTitleBarHeight(titleBarHeight);
-    shader->setScreenClip(screenClip);
-    shader->resetBlending();
-
+    shader->setupDrawing(viewRect, visibleRect, webViewRect,
+                         titleBarHeight, screenClip, scale);
     shader->calculateAnimationDelta();
 
     glViewport(left + shader->getAnimationDeltaX(),

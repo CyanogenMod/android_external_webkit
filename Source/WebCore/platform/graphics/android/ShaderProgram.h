@@ -86,7 +86,9 @@ public:
     void init();
 
     // Drawing
-    void setViewport(SkRect& viewport, float scale);
+    void setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
+                      const IntRect& webViewRect, int titleBarHeight,
+                      const IntRect& screenClip, float scale);
     float zValue(const TransformationMatrix& drawMatrix, float w, float h);
 
     // For drawQuad and drawLayerQuad, they can handle 3 cases for now:
@@ -106,7 +108,6 @@ public:
                        Color pureColor = Color());
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                      float* textureMatrix, SkRect& geometry, int textureId);
-    void setViewRect(const IntRect& viewRect);
     FloatRect rectInScreenCoord(const TransformationMatrix& drawMatrix,
                                 const IntSize& size);
     FloatRect rectInInvScreenCoord(const TransformationMatrix& drawMatrix,
@@ -118,14 +119,10 @@ public:
     FloatRect convertInvScreenCoordToScreenCoord(const FloatRect& rect);
     FloatRect convertScreenCoordToInvScreenCoord(const FloatRect& rect);
 
-    void setTitleBarHeight(int height) { m_titleBarHeight = height; }
-    void setWebViewRect(const IntRect& rect) { m_webViewRect = rect; }
-    void setScreenClip(const IntRect& clip);
     void clip(const FloatRect& rect);
     IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
     FloatRect documentViewport() { return m_documentViewport; }
 
-    void resetBlending();
     float contrast() { return m_contrast; }
     void setContrast(float c) {
         float contrast = c;
@@ -159,6 +156,7 @@ private:
                          const Color& pureColor);
     Color shaderColor(Color pureColor, float opacity);
     ShaderType getTextureShaderType(GLenum textureTarget);
+    void resetBlending();
 
     bool m_blendingEnabled;
 
