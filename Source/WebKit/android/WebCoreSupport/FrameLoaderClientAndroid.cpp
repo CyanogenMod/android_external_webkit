@@ -79,7 +79,7 @@
 #include "autofill/WebAutofill.h"
 #include "android_graphics.h"
 
-#include <utils/AssetManager.h>
+#include <androidfw/AssetManager.h>
 #include <wtf/text/CString.h>
 
 #define verifiedOk() // Verified that we don't need to implement this.

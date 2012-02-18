@@ -16,18 +16,18 @@
 
 #include "config.h"
 
-#include "RenderSkinNinePatch.h"
 #include "NinePatchPeeker.h"
+#include "RenderSkinNinePatch.h"
 #include "SkCanvas.h"
 #include "SkImageDecoder.h"
 #include "SkNinePatch.h"
 #include "SkRect.h"
 #include "SkStream.h"
 #include "SkTemplates.h"
-#include <utils/Asset.h>
-#include <utils/AssetManager.h>
+#include <androidfw/Asset.h>
+#include <androidfw/AssetManager.h>
+#include <androidfw/ResourceTypes.h>
 #include <utils/Log.h>
-#include <utils/ResourceTypes.h>
 
 class SkPaint;
 class SkRegion;

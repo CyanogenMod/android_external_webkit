@@ -28,7 +28,7 @@
 
 // For external hyphenation library.
 #include "hyphen.h"
-#include <utils/AssetManager.h>
+#include <androidfw/AssetManager.h>
 #include <wtf/text/CString.h>
 #include <wtf/text/WTFString.h>
 

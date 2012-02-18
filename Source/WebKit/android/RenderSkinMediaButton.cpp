@@ -36,7 +36,7 @@
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
 #include "SkRect.h"
-#include <utils/AssetManager.h>
+#include <androidfw/AssetManager.h>
 #include <utils/Debug.h>
 #include <utils/Log.h>
 #include <wtf/text/CString.h>

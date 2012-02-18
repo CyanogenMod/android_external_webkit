@@ -18,7 +18,7 @@
 #define RenderSkinNinePatch_h
 
 #include "SkBitmap.h"
-#include "utils/Asset.h"
+#include "androidfw/Asset.h"
 
 namespace android {
     class AssetManager;

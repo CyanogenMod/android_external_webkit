@@ -44,7 +44,7 @@
 #include "SkTemplates.h"
 #include "SkiaUtils.h"
 
-#include <utils/AssetManager.h>
+#include <androidfw/AssetManager.h>
 
 //#define TRACE_SUBSAMPLED_BITMAPS
 //#define TRACE_SKIPPED_BITMAPS

@@ -30,8 +30,8 @@
 #include "RenderSkinMediaButton.h"
 #include "SkImageDecoder.h"
 
-#include <utils/AssetManager.h>
-#include <utils/Asset.h>
+#include <androidfw/AssetManager.h>
+#include <androidfw/Asset.h>
 
 namespace WebCore {
 

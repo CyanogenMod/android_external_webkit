@@ -39,7 +39,7 @@
 #include <cutils/log.h>
 #include <openssl/x509.h>
 #include <string>
-#include <utils/AssetManager.h>
+#include <androidfw/AssetManager.h>
 
 extern android::AssetManager* globalAssetManager();
 

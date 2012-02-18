@@ -101,7 +101,7 @@
 #include <android_runtime/android_util_AssetManager.h>
 #include <openssl/x509.h>
 #include <utils/misc.h>
-#include <utils/AssetManager.h>
+#include <androidfw/AssetManager.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/Platform.h>
 #include <wtf/text/AtomicString.h>
