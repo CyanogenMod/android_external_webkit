@@ -293,6 +293,7 @@ LOCAL_LDLIBS += -lpthread -ldl
 # Build the list of shared libraries
 LOCAL_SHARED_LIBRARIES := \
 	libandroid \
+	libandroidfw \
 	libandroid_runtime \
 	libnativehelper \
 	libsqlite \
