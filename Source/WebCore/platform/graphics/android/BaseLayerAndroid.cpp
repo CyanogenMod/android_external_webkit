@@ -320,6 +320,8 @@ void BaseLayerAndroid::drawBasePictureInGL()
 void BaseLayerAndroid::updateLayerPositions(SkRect& visibleRect)
 {
     LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
+    if (!compositedRoot)
+        return;
     TransformationMatrix ident;
     compositedRoot->updateFixedLayersPositions(visibleRect);
     FloatRect clip(0, 0, content()->width(), content()->height());
