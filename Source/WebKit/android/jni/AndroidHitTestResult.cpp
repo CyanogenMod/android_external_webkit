@@ -28,7 +28,9 @@
 #include "config.h"
 #include "AndroidHitTestResult.h"
 
+#include "Document.h"
 #include "Element.h"
+#include "Frame.h"
 #include "HitTestResult.h"
 #include "KURL.h"
 #include "LayerAndroid.h"
@@ -49,18 +51,19 @@ namespace android {
 using namespace WebCore;
 
 static bool gJniInitialized = false;
-static struct JavaGlue {
-    jmethodID m_hitTestInit;
-    jfieldID m_hitTestLinkUrl;
-    jfieldID m_hitTestAnchorText;
-    jfieldID m_hitTestImageUrl;
-    jfieldID m_hitTestAltDisplayString;
-    jfieldID m_hitTestTitle;
-    jfieldID m_hitTestEditable;
-    jfieldID m_hitTestTouchRects;
-    jfieldID m_hitTestTapHighlightColor;
-    jfieldID m_hitTestEnclosingParentRects;
-} gJavaGlue;
+static struct {
+    jmethodID m_Init;
+    jfieldID m_LinkUrl;
+    jfieldID m_AnchorText;
+    jfieldID m_ImageUrl;
+    jfieldID m_AltDisplayString;
+    jfieldID m_Title;
+    jfieldID m_Editable;
+    jfieldID m_TouchRects;
+    jfieldID m_TapHighlightColor;
+    jfieldID m_EnclosingParentRects;
+    jfieldID m_HasFocus;
+} gHitTestGlue;
 
 struct field {
     jclass m_class;
@@ -79,19 +82,20 @@ static void InitJni(JNIEnv* env)
     jclass hitTestClass = env->FindClass("android/webkit/WebViewCore$WebKitHitTest");
     ALOG_ASSERT(hitTestClass, "Could not find android/webkit/WebViewCore$WebKitHitTest");
 
-    gJavaGlue.m_hitTestInit = env->GetMethodID(hitTestClass, "<init>",  "()V");
-    ALOG_ASSERT(gJavaGlue.m_hitTestInit, "Could not find init method on android/webkit/WebViewCore$WebKitHitTest");
+    gHitTestGlue.m_Init = env->GetMethodID(hitTestClass, "<init>",  "()V");
+    ALOG_ASSERT(gHitTestGlue.m_Init, "Could not find init method on android/webkit/WebViewCore$WebKitHitTest");
 
     field fields[] = {
-        { hitTestClass, "mTouchRects", "[Landroid/graphics/Rect;", &gJavaGlue.m_hitTestTouchRects },
-        { hitTestClass, "mEditable", "Z", &gJavaGlue.m_hitTestEditable },
-        { hitTestClass, "mLinkUrl", "Ljava/lang/String;", &gJavaGlue.m_hitTestLinkUrl },
-        { hitTestClass, "mAnchorText", "Ljava/lang/String;", &gJavaGlue.m_hitTestAnchorText },
-        { hitTestClass, "mImageUrl", "Ljava/lang/String;", &gJavaGlue.m_hitTestImageUrl },
-        { hitTestClass, "mAltDisplayString", "Ljava/lang/String;", &gJavaGlue.m_hitTestAltDisplayString },
-        { hitTestClass, "mTitle", "Ljava/lang/String;", &gJavaGlue.m_hitTestTitle },
-        { hitTestClass, "mTapHighlightColor", "I", &gJavaGlue.m_hitTestTapHighlightColor },
-        { hitTestClass, "mEnclosingParentRects", "[Landroid/graphics/Rect;", &gJavaGlue.m_hitTestEnclosingParentRects },
+        { hitTestClass, "mTouchRects", "[Landroid/graphics/Rect;", &gHitTestGlue.m_TouchRects },
+        { hitTestClass, "mEditable", "Z", &gHitTestGlue.m_Editable },
+        { hitTestClass, "mLinkUrl", "Ljava/lang/String;", &gHitTestGlue.m_LinkUrl },
+        { hitTestClass, "mAnchorText", "Ljava/lang/String;", &gHitTestGlue.m_AnchorText },
+        { hitTestClass, "mImageUrl", "Ljava/lang/String;", &gHitTestGlue.m_ImageUrl },
+        { hitTestClass, "mAltDisplayString", "Ljava/lang/String;", &gHitTestGlue.m_AltDisplayString },
+        { hitTestClass, "mTitle", "Ljava/lang/String;", &gHitTestGlue.m_Title },
+        { hitTestClass, "mTapHighlightColor", "I", &gHitTestGlue.m_TapHighlightColor },
+        { hitTestClass, "mEnclosingParentRects", "[Landroid/graphics/Rect;", &gHitTestGlue.m_EnclosingParentRects },
+        { hitTestClass, "mHasFocus", "Z", &gHitTestGlue.m_HasFocus },
         {0, 0, 0, 0},
     };
 
@@ -109,6 +113,33 @@ AndroidHitTestResult::AndroidHitTestResult(WebViewCore* webViewCore, WebCore::Hi
     : m_webViewCore(webViewCore)
     , m_hitTestResult(hitTestResult)
 {
+    buildHighlightRects();
+}
+
+void AndroidHitTestResult::setURLElement(Element* element)
+{
+    m_hitTestResult.setURLElement(element);
+    buildHighlightRects();
+}
+
+void AndroidHitTestResult::buildHighlightRects()
+{
+    m_highlightRects.clear();
+    Node* node = m_hitTestResult.URLElement();
+    if (!node || !node->renderer())
+        node = m_hitTestResult.innerNode();
+    if (!node || !node->renderer())
+        return;
+    Frame* frame = node->document()->frame();
+    IntPoint frameOffset = m_webViewCore->convertGlobalContentToFrameContent(IntPoint(), frame);
+    RenderObject* renderer = node->renderer();
+    Vector<FloatQuad> quads;
+    renderer->absoluteFocusRingQuads(quads);
+    for (int i = 0; i < quads.size(); i++) {
+        IntRect boundingBox = quads[i].enclosingBoundingBox();
+        boundingBox.move(-frameOffset.x(), -frameOffset.y());
+        m_highlightRects.append(boundingBox);
+    }
 }
 
 void setStringField(JNIEnv* env, jobject obj, jfieldID field, const String& str)
@@ -126,9 +157,9 @@ void setRectArray(JNIEnv* env, jobject obj, jfieldID field, Vector<IntRect> &rec
 }
 
 // Some helper macros specific to setting hitTest fields
-#define _SET(jtype, jfield, value) env->Set ## jtype ## Field(hitTest, gJavaGlue.m_hitTest ## jfield, value)
+#define _SET(jtype, jfield, value) env->Set ## jtype ## Field(hitTest, gHitTestGlue.m_ ## jfield, value)
 #define SET_BOOL(jfield, value) _SET(Boolean, jfield, value)
-#define SET_STRING(jfield, value) setStringField(env, hitTest, gJavaGlue.m_hitTest ## jfield, value)
+#define SET_STRING(jfield, value) setStringField(env, hitTest, gHitTestGlue.m_ ## jfield, value)
 #define SET_INT(jfield, value) _SET(Int, jfield, value)
 
 jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
@@ -137,11 +168,11 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
     jclass hitTestClass = env->FindClass("android/webkit/WebViewCore$WebKitHitTest");
     ALOG_ASSERT(hitTestClass, "Could not find android/webkit/WebViewCore$WebKitHitTest");
 
-    jobject hitTest = env->NewObject(hitTestClass, gJavaGlue.m_hitTestInit);
-    setRectArray(env, hitTest, gJavaGlue.m_hitTestTouchRects, m_highlightRects);
+    jobject hitTest = env->NewObject(hitTestClass, gHitTestGlue.m_Init);
+    setRectArray(env, hitTest, gHitTestGlue.m_TouchRects, m_highlightRects);
 
     Vector<IntRect> rects = enclosingParentRects(m_hitTestResult.innerNode());
-    setRectArray(env, hitTest, gJavaGlue.m_hitTestEnclosingParentRects, rects);
+    setRectArray(env, hitTest, gHitTestGlue.m_EnclosingParentRects, rects);
 
     SET_BOOL(Editable, m_hitTestResult.isContentEditable());
     SET_STRING(LinkUrl, m_hitTestResult.absoluteLinkURL().string());
@@ -157,6 +188,11 @@ jobject AndroidHitTestResult::createJavaObject(JNIEnv* env)
                     urlElement->renderer()->style()->tapHighlightColor().rgb());
         }
     }
+    Node* focusedNode = m_webViewCore->focusedFrame()->document()->focusedNode();
+    SET_BOOL(HasFocus,
+             focusedNode == m_hitTestResult.URLElement()
+             || focusedNode == m_hitTestResult.innerNode()
+             || focusedNode == m_hitTestResult.innerNonSharedNode());
 
     env->DeleteLocalRef(hitTestClass);
 

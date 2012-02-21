@@ -26,6 +26,7 @@
 #ifndef AndroidHitTestResult_h
 #define AndroidHitTestResult_h
 
+#include "Element.h"
 #include "HitTestResult.h"
 #include "IntRect.h"
 #include "wtf/Vector.h"
@@ -44,6 +45,9 @@ public:
 
     WebCore::HitTestResult& hitTestResult() { return m_hitTestResult; }
     Vector<WebCore::IntRect>& highlightRects() { return m_highlightRects; }
+
+    void setURLElement(WebCore::Element* element);
+    void buildHighlightRects();
 
     jobject createJavaObject(JNIEnv*);
 

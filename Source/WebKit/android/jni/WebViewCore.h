@@ -152,7 +152,7 @@ namespace android {
          *
          * This method calls Java to trigger a gradual scroll event.
          */
-        void scrollTo(int x, int y, bool animate = false);
+        void scrollTo(int x, int y, bool animate = true);
 
         /**
          * Record the invalid rectangle
