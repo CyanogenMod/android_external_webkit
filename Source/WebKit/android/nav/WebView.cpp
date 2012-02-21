@@ -1415,7 +1415,7 @@ void setTextSelection(SelectText *selection) {
 
 int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
     SelectText* selectText = static_cast<SelectText*>(getDrawExtra(DrawExtrasSelection));
-    if (!selectText)
+    if (!selectText || !m_baseLayer)
         return -1;
     int layerId = selectText->caretLayerId(handleId);
     IntRect rect = selectText->caretRect(handleId);
