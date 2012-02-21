@@ -183,12 +183,14 @@ void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
 {
     const unsigned int max = textures.size();
     int dealloc = 0;
+    WTF::Vector<int> discardedIndex;
     for (unsigned int i = 0; i < max; i++) {
         TextureOwner* owner = textures[i]->owner();
         if (!owner || owner->drawCount() < sparedDrawCount) {
             if (deallocateGLTextures) {
                 // deallocate textures' gl memory
                 textures[i]->discardGLTexture();
+                discardedIndex.append(i);
             } else if (owner) {
                 // simply detach textures from owner
                 static_cast<BaseTile*>(owner)->discardTextures();
@@ -196,9 +198,27 @@ void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
             dealloc++;
         }
     }
+
+    bool base = textures == m_textures;
+    // Clean up the vector of BaseTileTextures and reset the max texture count.
+    if (discardedIndex.size()) {
+        android::Mutex::Autolock lock(m_texturesLock);
+        for (int i = discardedIndex.size() - 1; i >= 0; i--)
+            textures.remove(discardedIndex[i]);
+
+        int remainedTextureNumber = textures.size();
+        int* countPtr = base ? &m_maxTextureCount : &m_maxLayerTextureCount;
+        if (remainedTextureNumber < *countPtr) {
+            XLOG("reset maxTextureCount for %s tiles from %d to %d",
+                 base ? "base" : "layer", *countPtr, remainedTextureNumber);
+            *countPtr = remainedTextureNumber;
+        }
+
+    }
+
     XLOG("Discarded %d %s textures (out of %d %s tiles)",
          dealloc, (deallocateGLTextures ? "gl" : ""),
-         max, (textures == m_textures) ? "base" : "layer");
+         max, base ? "base" : "layer");
 }
 
 void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
