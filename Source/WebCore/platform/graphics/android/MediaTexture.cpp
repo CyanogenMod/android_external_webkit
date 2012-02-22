@@ -191,8 +191,7 @@ void MediaTexture::draw(const TransformationMatrix& contentMatrix,
     bool forceAlphaBlending = !(
         PIXEL_FORMAT_RGBX_8888 == f ||
         PIXEL_FORMAT_RGB_888 == f ||
-        PIXEL_FORMAT_RGB_565 == f ||
-        PIXEL_FORMAT_RGB_332 == f);
+        PIXEL_FORMAT_RGB_565 == f);
 
     TilesManager::instance()->shader()->drawLayerQuad(contentMatrix,
                                                       mediaBounds,
