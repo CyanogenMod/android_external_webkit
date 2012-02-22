@@ -4360,6 +4360,8 @@ void WebViewCore::findNextOnPage(bool forward)
             m_activeMatch = selection.firstRange();
             m_mainFrame->document()->markers()->setMarkersActive(
                 m_activeMatch.get(), true);
+            m_mainFrame->selection()->revealSelection(
+                ScrollAlignment::alignCenterIfNeeded, true);
         }
         updateMatchCount();
     }
