@@ -52,9 +52,6 @@ LOCAL_SRC_FILES += \
 	android/RenderSkinMediaButton.cpp \
 	android/RenderSkinNinePatch.cpp \
 	\
-	android/benchmark/Intercept.cpp \
-	android/benchmark/MyJavaVM.cpp \
-	\
 	android/icu/unicode/ucnv.cpp \
 	\
 	android/jni/AndroidHitTestResult.cpp \

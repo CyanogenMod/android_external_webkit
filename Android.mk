@@ -391,8 +391,5 @@ include $(BUILD_SHARED_LIBRARY)
 # Build the wds client
 include $(WEBKIT_PATH)/android/wds/client/Android.mk
 
-# Build the performance command line tool.
-include $(WEBKIT_PATH)/android/benchmark/Android.mk
-
 # Build the webkit merge tool.
 include $(BASE_PATH)/Tools/android/webkitmerge/Android.mk

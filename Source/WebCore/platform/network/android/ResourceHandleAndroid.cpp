@@ -96,9 +96,7 @@ void ResourceHandle::platformSetDefersLoading(bool)
 }
 
 // This static method is called to check to see if a POST response is in
-// the cache. The JNI call through to the HTTP cache stored on the Java
-// side may be slow, but is only used during a navigation to
-// a POST response.
+// the cache.
 bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
 {
     // set the cache policy correctly, copied from

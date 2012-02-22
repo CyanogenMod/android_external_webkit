@@ -46,7 +46,6 @@ public:
     virtual void pauseLoad(bool) = 0;
     // END ANDROID TODO
 
-    // Call to java to find out if this URL is in the cache
     static bool willLoadFromCache(const WebCore::KURL&, int64_t identifier);
 protected:
     ResourceLoaderAndroid() { }
