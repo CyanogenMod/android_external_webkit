@@ -1390,11 +1390,27 @@ void RenderLayer::scrollTo(int x, int y)
         view->updateWidgetPositions();
     }
 
+#if PLATFORM(ANDROID)
+    GraphicsLayerAndroid* backingLayer = 0;
+    bool scrollableContent = false;
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
     if (compositor()->inCompositingMode()) {
         // Our stacking context is guaranteed to contain all of our descendants that may need
         // repositioning, so update compositing layers from there.
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+        if (view && backing() && backing()->graphicsLayer()) {
+            backingLayer = static_cast<GraphicsLayerAndroid*>(backing()->graphicsLayer());
+            scrollableContent = backingLayer->contentLayer()
+                && backingLayer->contentLayer()->contentIsScrollable();
+        }
+        // If we have a scrollable content, no need to do this
+        RenderLayer* compositingAncestor = enclosingCompositingLayer();
+        if (!scrollableContent && compositingAncestor) {
+#else
         if (RenderLayer* compositingAncestor = stackingContext()->enclosingCompositingLayer()) {
+#endif
             if (compositor()->compositingConsultsOverlap())
                 compositor()->updateCompositingLayers(CompositingUpdateOnScroll, compositingAncestor);
             else {
@@ -1423,10 +1439,10 @@ void RenderLayer::scrollTo(int x, int y)
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // On android, scrollable areas are put on composited layers, so we
     // do not need to repaint simply because we are scrolling
-    if (view && !hasOverflowScroll())
+    if (view && !(hasOverflowScroll() || scrollableContent))
         renderer()->repaintUsingContainer(repaintContainer, rectForRepaint);
-    if (view && hasOverflowScroll() && backing() && backing()->graphicsLayer())
-        static_cast<GraphicsLayerAndroid*>(backing()->graphicsLayer())->updateScrollOffset();
+    if (backingLayer && (hasOverflowScroll() || scrollableContent))
+        backingLayer->updateScrollOffset();
 #else
     if (view)
         renderer()->repaintUsingContainer(repaintContainer, rectForRepaint);

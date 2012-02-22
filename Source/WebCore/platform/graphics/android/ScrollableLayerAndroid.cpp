@@ -29,7 +29,6 @@ void ScrollableLayerAndroid::getScrollBounds(IntRect* out) const
     out->setY(m_scrollLimits.fTop - pos.fY);
     out->setWidth(getSize().width() - m_scrollLimits.width());
     out->setHeight(getSize().height() - m_scrollLimits.height());
-
 }
 
 void ScrollableLayerAndroid::getScrollRect(SkIRect* out) const

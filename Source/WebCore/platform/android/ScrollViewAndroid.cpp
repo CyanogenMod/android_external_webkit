@@ -98,8 +98,6 @@ int ScrollView::platformActualScrollY() const
 
 void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
 {
-    if (parent()) // don't attempt to scroll subframes; they're fully visible
-        return;
     PlatformBridge::setScrollPosition(this, m_scrollOrigin.x() + pt.x(),
             m_scrollOrigin.y() + pt.y());
 }

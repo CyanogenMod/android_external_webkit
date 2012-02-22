@@ -557,10 +557,13 @@ void GraphicsLayerAndroid::updateScrollingLayers()
 
 void GraphicsLayerAndroid::updateScrollOffset() {
     RenderLayer* layer = renderLayerFromClient(m_client);
-    if (!layer || !m_foregroundLayer)
+    if (!layer || !(m_foregroundLayer || m_contentLayer->contentIsScrollable()))
         return;
     IntSize scroll = layer->scrolledContentOffset();
-    m_foregroundLayer->setScrollOffset(IntPoint(scroll.width(), scroll.height()));
+    if (m_foregroundLayer)
+        m_foregroundLayer->setScrollOffset(IntPoint(scroll.width(), scroll.height()));
+    else if (m_contentLayer->contentIsScrollable())
+        static_cast<ScrollableLayerAndroid*>(m_contentLayer)->scrollTo(scroll.width(), scroll.height());
     askForSync();
 }
 
@@ -637,10 +640,17 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundLayer->markAsDirty(region);
             m_foregroundLayer->needsRepaint();
         } else {
+            // Paint at 0,0.
+            IntSize scroll = layer->scrolledContentOffset();
+            layer->scrollToOffset(0, 0);
             // If there is no contents clip, we can draw everything into one
             // picture.
-            if (!paintContext(m_contentLayer->recordContext(), layerBounds))
+            bool painting = paintContext(m_contentLayer->recordContext(), layerBounds);
+            // Move back to the scroll offset
+            layer->scrollToOffset(scroll.width(), scroll.height());
+            if (!painting)
                 return false;
+            // We painted new content
             m_contentLayer->checkForPictureOptimizations();
             // Check for a scrollable iframe and report the scrolling
             // limits based on the view size.
@@ -648,6 +658,9 @@ bool GraphicsLayerAndroid::repaint()
                 FrameView* view = layer->renderer()->frame()->view();
                 static_cast<ScrollableLayerAndroid*>(m_contentLayer)->setScrollLimits(
                     m_position.x(), m_position.y(), view->layoutWidth(), view->layoutHeight());
+                LOG("setScrollLimits(%.2f, %.2f, w: %d h: %d) layer %d, frame scroll position is %d, %d (%d, %d)",
+                      m_position.x(), m_position.y(), view->layoutWidth(), view->layoutHeight(),
+                      m_contentLayer->uniqueId(), view->scrollX(), view->scrollY(), view->actualScrollX(), view->actualScrollY());
             }
         }
 

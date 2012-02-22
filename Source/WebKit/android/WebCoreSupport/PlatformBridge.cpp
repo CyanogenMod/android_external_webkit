@@ -35,6 +35,8 @@
 #include "KeyGeneratorClient.h"
 #include "MemoryUsage.h"
 #include "PluginView.h"
+#include "RenderLayer.h"
+#include "RenderView.h"
 #include "Settings.h"
 #include "WebCookieJar.h"
 #include "WebRequestContext.h"
@@ -199,6 +201,16 @@ void PlatformBridge::setScrollPosition(ScrollView* scrollView, int x, int y) {
     android::WebViewCore *webViewCore = android::WebViewCore::getWebViewCore(scrollView);
     if (webViewCore->mainFrame()->view() == scrollView)
         webViewCore->scrollTo(x, y);
+    else {
+        FrameView* frameView = scrollView->frameView();
+        if (frameView) {
+            RenderView* renderer = frameView->frame()->contentRenderer();
+            if (renderer) {
+                RenderLayer* layer = renderer->layer();
+                layer->scrollToOffset(x, y);
+            }
+        }
+    }
 }
 
 int PlatformBridge::lowMemoryUsageMB()
