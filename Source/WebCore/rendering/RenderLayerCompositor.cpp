@@ -1410,6 +1410,10 @@ bool RenderLayerCompositor::requiresCompositingForAndroidLayers(const RenderLaye
     if (layer->isFixed())
         return true;
 #endif
+
+    if (layer->renderer()->isCanvas())
+        return true;
+
     return false;
 }
 #endif

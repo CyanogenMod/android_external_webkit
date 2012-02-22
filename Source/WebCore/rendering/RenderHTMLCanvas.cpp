@@ -47,6 +47,13 @@ RenderHTMLCanvas::RenderHTMLCanvas(HTMLCanvasElement* element)
 
 bool RenderHTMLCanvas::requiresLayer() const
 {
+#if PLATFORM(ANDROID)
+    // All Canvas are drawn on their own composited layer
+    // This improves performances a lot (as this simplify
+    // the repaint/inval chain dealing with the PictureSet)
+    return true;
+#endif
+
     if (RenderReplaced::requiresLayer())
         return true;
     
