@@ -895,6 +895,10 @@ void RenderBlock::layoutInlineChildren(bool relayoutChildren, int& repaintLogica
                     m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, maxWidth);
                     m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, maxWidth);
 
+                    // if overflow isn't visible, block elements may get clipped
+                    // due to the limited content width. disable overflow clipping.
+                    setHasOverflowClip(false);
+
                     IntRect overflow = layoutOverflowRect();
                     if (overflow.width() > maxWidth) {
                         overflow.setWidth(maxWidth);
