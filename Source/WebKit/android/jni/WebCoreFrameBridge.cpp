@@ -1703,16 +1703,6 @@ static void AddJavascriptInterface(JNIEnv *env, jobject obj, jint nativeFramePoi
     }
 }
 
-static void SetCacheDisabled(JNIEnv *env, jobject obj, jboolean disabled)
-{
-    WebCore::memoryCache()->setDisabled(disabled);
-}
-
-static jboolean CacheDisabled(JNIEnv *env, jobject obj)
-{
-    return WebCore::memoryCache()->disabled();
-}
-
 static void ClearWebCoreCache()
 {
     if (!WebCore::memoryCache()->disabled()) {
@@ -2084,10 +2074,6 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
     { "stringByEvaluatingJavaScriptFromString",
             "(Ljava/lang/String;)Ljava/lang/String;",
         (void*) StringByEvaluatingJavaScriptFromString },
-    { "setCacheDisabled", "(Z)V",
-        (void*) SetCacheDisabled },
-    { "cacheDisabled", "()Z",
-        (void*) CacheDisabled },
     { "clearCache", "()V",
         (void*) ClearCache },
     { "documentHasImages", "()Z",
