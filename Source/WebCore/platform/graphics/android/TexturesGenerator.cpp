@@ -65,12 +65,17 @@ void TexturesGenerator::removeOperationsForPage(TiledPage* page)
     removeOperationsForFilter(new PageFilter(page));
 }
 
-void TexturesGenerator::removePaintOperationsForPage(TiledPage* page)
+void TexturesGenerator::removePaintOperationsForPage(TiledPage* page, bool waitForRunning)
 {
-    removeOperationsForFilter(new PagePaintFilter(page));
+    removeOperationsForFilter(new PagePaintFilter(page), waitForRunning);
 }
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
+{
+    removeOperationsForFilter(filter, true);
+}
+
+void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter, bool waitForRunning)
 {
     if (!filter)
         return;
@@ -85,7 +90,34 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
             i++;
         }
     }
-    delete filter;
+
+    if (waitForRunning && m_currentOperation) {
+        QueuedOperation* operation = m_currentOperation;
+
+        if (operation && filter->check(operation)) {
+            m_waitForCompletion = true;
+            // The reason we are signaling the transferQueue is :
+            // TransferQueue may be waiting a slot to work on, but now UI
+            // thread is waiting for Tex Gen thread to finish first before the
+            // UI thread can free a slot for the transferQueue.
+            // Therefore, it could be a deadlock.
+            // The solution is use this as a flag to tell Tex Gen thread that
+            // UI thread is waiting now, Tex Gen thread should not wait for the
+            // queue any more.
+            TilesManager::instance()->transferQueue()->interruptTransferQueue(true);
+        }
+
+        delete filter;
+
+        // At this point, it means that we are currently executing an operation that
+        // we want to be removed -- we should wait until it is done, so that
+        // when we return our caller can be sure that there is no more operations
+        // in the queue matching the given filter.
+        while (m_waitForCompletion)
+            mRequestedOperationsCond.wait(mRequestedOperationsLock);
+    } else {
+        delete filter;
+    }
 }
 
 status_t TexturesGenerator::readyToRun()
@@ -160,6 +192,7 @@ bool TexturesGenerator::threadLoop()
             stop = true;
         if (m_waitForCompletion) {
             m_waitForCompletion = false;
+            TilesManager::instance()->transferQueue()->interruptTransferQueue(false);
             mRequestedOperationsCond.signal();
         }
         mRequestedOperationsLock.unlock();
