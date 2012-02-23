@@ -584,11 +584,9 @@ namespace android {
         // The actual content (without title bar) size in doc coordinate
         int  screenWidth() const { return m_screenWidth; }
         int  screenHeight() const { return m_screenHeight; }
-#if USE(CHROME_NETWORK_STACK)
         void setWebRequestContextUserAgent();
         void setWebRequestContextCacheMode(int mode);
         WebRequestContext* webRequestContext();
-#endif
         // Attempts to scroll the layer to the x,y coordinates of rect. The
         // layer is the id of the LayerAndroid.
         void scrollRenderLayer(int layer, const SkRect& rect);
@@ -808,10 +806,7 @@ namespace android {
         bool m_forwardingTouchEvents;
 #endif
 
-#if USE(CHROME_NETWORK_STACK)
         scoped_refptr<WebRequestContext> m_webRequestContext;
-#endif
-
     };
 
 }   // namespace android

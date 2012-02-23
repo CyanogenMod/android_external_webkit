@@ -83,7 +83,6 @@
 #include "WebArchiveAndroid.h"
 #include "WebCache.h"
 #include "WebCoreJni.h"
-#include "WebCoreResourceLoader.h"
 #include "WebHistory.h"
 #include "WebIconDatabase.h"
 #include "WebFrameView.h"
@@ -229,8 +228,6 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame = new JavaBrowserFrame;
     mJavaFrame->mObj = env->NewWeakGlobalRef(obj);
     mJavaFrame->mHistoryList = env->NewWeakGlobalRef(historyList);
-    mJavaFrame->mStartLoadingResource = env->GetMethodID(clazz, "startLoadingResource",
-            "(ILjava/lang/String;Ljava/lang/String;Ljava/util/HashMap;[BJIZZZLjava/lang/String;Ljava/lang/String;)Landroid/webkit/LoadListener;");
     mJavaFrame->mMaybeSavePassword = env->GetMethodID(clazz, "maybeSavePassword",
             "([BLjava/lang/String;Ljava/lang/String;)V");
     mJavaFrame->mShouldInterceptRequest =
@@ -286,7 +283,6 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
             "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)V");
     env->DeleteLocalRef(clazz);
 
-    ALOG_ASSERT(mJavaFrame->mStartLoadingResource, "Could not find method startLoadingResource");
     ALOG_ASSERT(mJavaFrame->mMaybeSavePassword, "Could not find method maybeSavePassword");
     ALOG_ASSERT(mJavaFrame->mShouldInterceptRequest, "Could not find method shouldInterceptRequest");
     ALOG_ASSERT(mJavaFrame->mLoadStarted, "Could not find method loadStarted");
@@ -401,94 +397,6 @@ private:
     int m_size;
 };
 
-PassRefPtr<WebCore::ResourceLoaderAndroid>
-WebFrame::startLoadingResource(WebCore::ResourceHandle* loader,
-                                  const WebCore::ResourceRequest& request,
-                                  bool mainResource,
-                                  bool synchronous)
-{
-    ALOGV("::WebCore:: startLoadingResource(%p, %s)",
-            loader, request.url().string().latin1().data());
-
-    JNIEnv* env = getJNIEnv();
-    AutoJObject javaFrame = mJavaFrame->frame(env);
-    if (!javaFrame.get())
-        return 0;
-
-    WTF::String method = request.httpMethod();
-    WebCore::HTTPHeaderMap headers = request.httpHeaderFields();
-
-    WTF::String urlStr = request.url().string();
-    int colon = urlStr.find(':');
-    bool allLower = true;
-    for (int index = 0; index < colon; index++) {
-        UChar ch = urlStr[index];
-        if (!WTF::isASCIIAlpha(ch))
-            break;
-        allLower &= WTF::isASCIILower(ch);
-        if (index == colon - 1 && !allLower) {
-            urlStr = urlStr.substring(0, colon).lower()
-                    + urlStr.substring(colon);
-        }
-    }
-    ALOGV("%s lower=%s", __FUNCTION__, urlStr.latin1().data());
-    jstring jUrlStr = wtfStringToJstring(env, urlStr);
-    jstring jMethodStr = NULL;
-    if (!method.isEmpty())
-        jMethodStr = wtfStringToJstring(env, method);
-    WebCore::FormData* formdata = request.httpBody();
-    jbyteArray jPostDataStr = getPostData(request);
-    jobject jHeaderMap = createJavaMapFromHTTPHeaders(env, headers);
-
-    // Convert the WebCore Cache Policy to a WebView Cache Policy.
-    int cacheMode = 0;  // WebSettings.LOAD_NORMAL
-    switch (request.cachePolicy()) {
-        case WebCore::ReloadIgnoringCacheData:
-            cacheMode = 2; // WebSettings.LOAD_NO_CACHE
-            break;
-        case WebCore::ReturnCacheDataDontLoad:
-            cacheMode = 3; // WebSettings.LOAD_CACHE_ONLY
-            break;
-        case WebCore::ReturnCacheDataElseLoad:
-            cacheMode = 1;   // WebSettings.LOAD_CACHE_ELSE_NETWORK
-            break;
-        case WebCore::UseProtocolCachePolicy:
-        default:
-            break;
-    }
-
-    ALOGV("::WebCore:: startLoadingResource %s with cacheMode %d", urlStr.ascii().data(), cacheMode);
-
-    ResourceHandleInternal* loaderInternal = loader->getInternal();
-    jstring jUsernameString = loaderInternal->m_user.isEmpty() ?
-            NULL : wtfStringToJstring(env, loaderInternal->m_user);
-    jstring jPasswordString = loaderInternal->m_pass.isEmpty() ?
-            NULL : wtfStringToJstring(env, loaderInternal->m_pass);
-
-    bool isUserGesture = UserGestureIndicator::processingUserGesture();
-    jobject jLoadListener =
-        env->CallObjectMethod(javaFrame.get(), mJavaFrame->mStartLoadingResource,
-                (int)loader, jUrlStr, jMethodStr, jHeaderMap,
-                jPostDataStr, formdata ? formdata->identifier(): 0,
-                cacheMode, mainResource, isUserGesture,
-                synchronous, jUsernameString, jPasswordString);
-
-    env->DeleteLocalRef(jUrlStr);
-    env->DeleteLocalRef(jMethodStr);
-    env->DeleteLocalRef(jPostDataStr);
-    env->DeleteLocalRef(jHeaderMap);
-    env->DeleteLocalRef(jUsernameString);
-    env->DeleteLocalRef(jPasswordString);
-    if (checkException(env))
-        return 0;
-
-    RefPtr<WebCore::ResourceLoaderAndroid> h;
-    if (jLoadListener)
-        h = WebCoreResourceLoader::create(env, jLoadListener);
-    env->DeleteLocalRef(jLoadListener);
-    return h;
-}
-
 UrlInterceptResponse*
 WebFrame::shouldInterceptRequest(const WTF::String& url)
 {
@@ -529,7 +437,6 @@ WebFrame::reportError(int errorCode, const WTF::String& description,
 WTF::String
 WebFrame::convertIDNToUnicode(const WebCore::KURL& url) {
     WTF::String converted = url.string();
-#if USE(CHROME_NETWORK_STACK)
     const WTF::String host = url.host();
     if (host.find("xn--") == notFound)  // no punycode IDN found.
         return converted;
@@ -542,7 +449,6 @@ WebFrame::convertIDNToUnicode(const WebCore::KURL& url) {
         newUrl.setHost(convertedHost);
         converted = newUrl.string();
     }
-#endif
     return converted;
 }
 
@@ -886,7 +792,6 @@ WebFrame::density() const
     return dpi;
 }
 
-#if USE(CHROME_NETWORK_STACK)
 void
 WebFrame::didReceiveAuthenticationChallenge(WebUrlLoaderClient* client, const std::string& host, const std::string& realm, bool useCachedCredentials, bool suppressDialog)
 {
@@ -998,7 +903,6 @@ void WebFrame::setCertificate(const std::string& cert)
 
     checkException(env);
 }
-#endif // USE(CHROME_NETWORK_STACK)
 
 void WebFrame::autoLogin(const std::string& loginHeader)
 {
@@ -1188,10 +1092,8 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
 {
     ScriptController::initializeThreading();
 
-#if USE(CHROME_NETWORK_STACK)
     // needs to be called before any other chromium code
     initChromium();
-#endif
 
     // Create a new page
     ChromeClientAndroid* chromeC = new ChromeClientAndroid;
@@ -1722,12 +1624,7 @@ static void ClearWebCoreCache()
 
 static void ClearWebViewCache()
 {
-#if USE(CHROME_NETWORK_STACK)
     WebCache::get(false /*privateBrowsing*/)->clear();
-#else
-    // The Android network stack provides a WebView cache in CacheManager.java.
-    // Clearing this is handled entirely Java-side.
-#endif
 }
 
 static void ClearCache(JNIEnv *env, jobject obj)
@@ -1902,8 +1799,6 @@ static jboolean GetShouldStartScrolledRight(JNIEnv *env, jobject obj,
     return startScrolledRight;
 }
 
-#if USE(CHROME_NETWORK_STACK)
-
 static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
 {
     WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
@@ -2007,34 +1902,6 @@ static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray pkey,
     }
     client->sslClientCert(privateKey.release(), certificate);
 }
-
-#else
-
-static void AuthenticationProceed(JNIEnv *env, jobject obj, int handle, jstring jUsername, jstring jPassword)
-{
-    ALOGW("Chromium authentication API called, but libchromium is not available");
-}
-
-static void AuthenticationCancel(JNIEnv *env, jobject obj, int handle)
-{
-    ALOGW("Chromium authentication API called, but libchromium is not available");
-}
-
-static void SslCertErrorProceed(JNIEnv *env, jobject obj, int handle)
-{
-    ALOGW("Chromium SSL API called, but libchromium is not available");
-}
-
-static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_error)
-{
-    ALOGW("Chromium SSL API called, but libchromium is not available");
-}
-
-static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray privateKey, jobjectArray chain)
-{
-    ALOGW("Chromium SSL API called, but libchromium is not available");
-}
-#endif // USE(CHROME_NETWORK_STACK)
 
 // ----------------------------------------------------------------------------
 

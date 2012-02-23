@@ -35,31 +35,11 @@ ifneq ($(SUPPORT_COMPLEX_SCRIPTS),false)
     SUPPORT_COMPLEX_SCRIPTS = true
 endif
 
-# See if the desired HTTP stack has been specified.
-HTTP_STACK = $(HTTP)
-# We default to the Chrome HTTP stack.
-DEFAULT_HTTP = chrome
-ALT_HTTP = android
-
-ifneq ($(HTTP_STACK),chrome)
-  ifneq ($(HTTP_STACK),android)
-    # No HTTP stack is specified, pickup the one we want as default.
-    ifeq ($(USE_ALT_HTTP),true)
-      HTTP_STACK = $(ALT_HTTP)
-    else
-      HTTP_STACK = $(DEFAULT_HTTP)
-    endif
-  endif
-endif
-
 # Read the environment variable to determine if Autofill is compiled.
-# The default is on. Chrome HTTP stack must be used when Autofill
+# The default is on.
 # is turned on.
 ifneq ($(ENABLE_AUTOFILL),false)
   ENABLE_AUTOFILL = true
-endif
-ifneq ($(HTTP_STACK),chrome)
-  ENABLE_AUTOFILL = false
 endif
 
 BASE_PATH := $(call my-dir)
@@ -252,10 +232,7 @@ LOCAL_CFLAGS += -fvisibility=hidden
 LOCAL_CFLAGS += -DALWAYS_INLINE=inline
 # Make sure assert.h is included before assert is defined
 LOCAL_CFLAGS += -include "assert.h"
-ifeq ($(HTTP_STACK),chrome)
 LOCAL_CFLAGS += -DGOOGLEURL
-LOCAL_CFLAGS += -DWTF_USE_CHROME_NETWORK_STACK
-endif # HTTP_STACK == chrome
 LOCAL_CPPFLAGS := -Wno-sign-promo
 LOCAL_CPPFLAGS := -Wno-c++0x-compat
 
@@ -291,25 +268,30 @@ endif
 LOCAL_LDLIBS += -lpthread -ldl
 
 # Build the list of shared libraries
+# We have to use the android version of libdl
 LOCAL_SHARED_LIBRARIES := \
+	libEGL \
+	libGLESv2 \
 	libandroid \
 	libandroidfw \
 	libandroid_runtime \
-	libnativehelper \
-	libsqlite \
-	libskia \
-	libutils \
-	libui \
+	libchromium_net \
+	libcrypto \
 	libcutils \
+	libdl \
+	libgui \
 	libicuuc \
 	libicui18n \
 	libmedia \
-	libEGL \
-	libGLESv2 \
-	libgui
+	libnativehelper \
+	libskia \
+	libsqlite \
+	libssl \
+	libstlport \
+	libutils \
+	libui \
+	libz
 
-# We have to use the android version of libdl
-LOCAL_SHARED_LIBRARIES += libdl libstlport
 # We have to fake out some headers when using stlport.
 LOCAL_C_INCLUDES += \
 	external/chromium/android
@@ -326,10 +308,6 @@ endif
 
 # Build the list of static libraries
 LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu libv8
-
-ifeq ($(HTTP_STACK),chrome)
-LOCAL_SHARED_LIBRARIES += libcrypto libssl libz libchromium_net
-endif # HTTP_STACK == chrome
 
 ifeq ($(ENABLE_AUTOFILL),true)
 LOCAL_SHARED_LIBRARIES += libexpat

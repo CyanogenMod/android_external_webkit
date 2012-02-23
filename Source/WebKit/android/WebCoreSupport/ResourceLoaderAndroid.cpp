@@ -29,7 +29,6 @@
 #include "Frame.h"
 #include "FrameLoaderClientAndroid.h"
 #include "WebCoreFrameBridge.h"
-#include "WebCoreResourceLoader.h"
 #include "WebUrlLoader.h"
 #include "WebViewCore.h"
 
@@ -42,18 +41,13 @@ PassRefPtr<ResourceLoaderAndroid> ResourceLoaderAndroid::start(
 {
     // Called on main thread
     FrameLoaderClientAndroid* clientAndroid = static_cast<FrameLoaderClientAndroid*>(client);
-#if USE(CHROME_NETWORK_STACK)
     WebViewCore* webViewCore = WebViewCore::getWebViewCore(clientAndroid->getFrame()->view());
     bool isMainFrame = !(clientAndroid->getFrame()->tree() && clientAndroid->getFrame()->tree()->parent());
     return WebUrlLoader::start(client, handle, request, isMainResource, isMainFrame, isSync, webViewCore->webRequestContext());
-#else
-    return clientAndroid->webFrame()->startLoadingResource(handle, request, isMainResource, isSync);
-#endif
 }
 
 bool ResourceLoaderAndroid::willLoadFromCache(const WebCore::KURL& url, int64_t identifier)
 {
-#if USE(CHROME_NETWORK_STACK)
     // This method is used to determine if a POST request can be repeated from
     // cache, but you cannot really know until you actually try to read from the
     // cache.  Even if we checked now, something else could come along and wipe
@@ -63,9 +57,6 @@ bool ResourceLoaderAndroid::willLoadFromCache(const WebCore::KURL& url, int64_t 
     // reload.  Then in FrameLoaderClientImpl::dispatchWillSendRequest, we
     // fix-up the cache policy of the request to force a load from the cache.
     return true;
-#else
-    return WebCoreResourceLoader::willLoadFromCache(url, identifier);
-#endif
 }
 
 }

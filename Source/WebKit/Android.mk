@@ -16,8 +16,10 @@
 ##
 
 LOCAL_SRC_FILES := \
+	android/WebCoreSupport/CacheResult.cpp \
 	android/WebCoreSupport/CachedFramePlatformDataAndroid.cpp \
 	android/WebCoreSupport/ChromeClientAndroid.cpp \
+	android/WebCoreSupport/ChromiumInit.cpp \
 	android/WebCoreSupport/ContextMenuClientAndroid.cpp \
 	android/WebCoreSupport/DeviceMotionClientAndroid.cpp \
 	android/WebCoreSupport/DeviceOrientationClientAndroid.cpp \
@@ -31,11 +33,6 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/PlatformBridge.cpp \
 	android/WebCoreSupport/ResourceLoaderAndroid.cpp \
 	android/WebCoreSupport/UrlInterceptResponse.cpp \
-
-ifeq ($(HTTP_STACK),chrome)
-LOCAL_SRC_FILES += \
-	android/WebCoreSupport/ChromiumInit.cpp \
-	android/WebCoreSupport/CacheResult.cpp \
 	android/WebCoreSupport/WebCache.cpp \
 	android/WebCoreSupport/WebCookieJar.cpp \
 	android/WebCoreSupport/WebUrlLoader.cpp \
@@ -45,7 +42,6 @@ LOCAL_SRC_FILES += \
 	android/WebCoreSupport/WebResourceRequest.cpp \
 	android/WebCoreSupport/WebResponse.cpp \
 	android/WebCoreSupport/WebViewClientError.cpp
-endif # HTTP_STACK == chrome
 
 LOCAL_SRC_FILES += \
 	android/RenderSkinAndroid.cpp \
@@ -63,13 +59,11 @@ LOCAL_SRC_FILES += \
 	android/jni/GeolocationPermissionsBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
-	android/jni/JniUtil.cpp \
 	android/jni/MIMETypeRegistry.cpp \
 	android/jni/MockGeolocation.cpp \
 	android/jni/PictureSet.cpp \
 	android/jni/WebCoreFrameBridge.cpp \
 	android/jni/WebCoreJni.cpp \
-	android/jni/WebCoreResourceLoader.cpp \
 	android/jni/WebFrameView.cpp \
 	android/jni/WebHistory.cpp \
 	android/jni/WebIconDatabase.cpp \

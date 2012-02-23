@@ -79,8 +79,6 @@ jstring wtfStringToJstring(JNIEnv* env, const WTF::String& str, bool validOnZero
     return length || validOnZeroLength ? env->NewString(str.characters(), length) : 0;
 }
 
-
-#if USE(CHROME_NETWORK_STACK)
 string16 jstringToString16(JNIEnv* env, jstring jstr)
 {
     if (!jstr || !env)
@@ -113,8 +111,6 @@ jstring stdStringToJstring(JNIEnv* env, const std::string& str, bool validOnZero
 {
     return !str.empty() || validOnZeroLength ? env->NewStringUTF(str.c_str()) : 0;
 }
-
-#endif
 
 jobjectArray intRectVectorToRectArray(JNIEnv* env, Vector<WebCore::IntRect>& rects)
 {
