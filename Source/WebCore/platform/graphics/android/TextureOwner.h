@@ -26,8 +26,6 @@
 #ifndef TextureOwner_h
 #define TextureOwner_h
 
-#include "SkRefCnt.h"
-
 class SkCanvas;
 class Layer;
 
@@ -37,7 +35,7 @@ class TiledPage;
 class BaseTileTexture;
 class GLWebViewState;
 
-class TextureOwner : public SkRefCnt {
+class TextureOwner {
 public:
     virtual ~TextureOwner() { }
     virtual bool removeTexture(BaseTileTexture* texture) = 0;

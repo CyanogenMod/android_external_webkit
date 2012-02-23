@@ -42,18 +42,16 @@ class LayerAndroid;
 
 class TexturesGenerator : public Thread {
 public:
-    TexturesGenerator()
-        : Thread(false)
+    TexturesGenerator() : Thread(false)
         , m_waitForCompletion(false)
-        , m_currentOperation(0)
-    {}
-
+        , m_currentOperation(0) { }
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
     void removeOperationsForPage(TiledPage* page);
-    void removePaintOperationsForPage(TiledPage* page);
+    void removePaintOperationsForPage(TiledPage* page, bool waitForRunning);
     void removeOperationsForFilter(OperationFilter* filter);
+    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning);
 
     void scheduleOperation(QueuedOperation* operation);
 
