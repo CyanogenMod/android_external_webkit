@@ -26,6 +26,7 @@
 #include "GraphicsContext.h"
 
 #include "AffineTransform.h"
+#include "Font.h"
 #include "Gradient.h"
 #include "NotImplemented.h"
 #include "Path.h"
@@ -1263,6 +1264,25 @@ void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint*, boo
         return;
 
     // FIXME: IMPLEMENT!
+}
+
+void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run, const FloatPoint& point, int h, const Color& backgroundColor, ColorSpace colorSpace, int from, int to, bool isActive)
+{
+    if (paintingDisabled())
+        return;
+
+    IntRect rect = (IntRect)font.selectionRectForText(run, point, h, from, to);
+    if (isActive)
+        fillRect(rect, backgroundColor, colorSpace);
+    else {
+        int x = rect.x(), y = rect.y(), w = rect.width(), h = rect.height();
+        const int t = 3, t2 = t * 2;
+
+        fillRect(IntRect(x, y, w, t), backgroundColor, colorSpace);
+        fillRect(IntRect(x, y+h-t, w, t), backgroundColor, colorSpace);
+        fillRect(IntRect(x, y+t, t, h-t2), backgroundColor, colorSpace);
+        fillRect(IntRect(x+w-t, y+t, t, h-t2), backgroundColor, colorSpace);
+    }
 }
 
 } // namespace WebCore

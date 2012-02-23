@@ -432,6 +432,7 @@ void GraphicsContext::drawBidiText(const Font& font, const TextRun& run, const F
     bidiRuns.deleteRuns();
 }
 
+#if !PLATFORM(ANDROID)
 void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run, const FloatPoint& point, int h, const Color& backgroundColor, ColorSpace colorSpace, int from, int to)
 {
     if (paintingDisabled())
@@ -439,6 +440,7 @@ void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run,
 
     fillRect(font.selectionRectForText(run, point, h, from, to), backgroundColor, colorSpace);
 }
+#endif
 
 void GraphicsContext::drawImage(Image* image, ColorSpace styleColorSpace, const FloatRect& dest, const FloatRect& src, CompositeOperator op, bool useLowQualityScale)
 {
