@@ -38,6 +38,9 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ShaderProgram", __VA_ARGS__)
+
 #ifdef DEBUG
 
 #undef XLOG
@@ -45,10 +48,10 @@
 
 #else
 
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ShaderProgram", __VA_ARGS__)
+#undef XLOG
+#define XLOG(...)
 
-#endif
+#endif // DEBUG
 
 namespace WebCore {
 

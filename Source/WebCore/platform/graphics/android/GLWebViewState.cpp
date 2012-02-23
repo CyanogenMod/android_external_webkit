@@ -141,7 +141,7 @@ bool GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndica
         m_layersRenderingMode = kAllTextures;
     }
     if (layer) {
-        XLOG("new base layer %p, (inval region empty %d) with child %p", layer, inval.isEmpty(), layer->getChild(0));
+        XLOG("new base layer %p, with child %p", layer, layer->getChild(0));
         layer->setState(this);
     }
     bool queueFull = m_treeManager.updateWithTree(layer, isPictureAfterFirstLayout);
