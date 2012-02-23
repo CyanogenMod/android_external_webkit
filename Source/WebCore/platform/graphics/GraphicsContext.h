@@ -382,7 +382,11 @@ namespace WebCore {
         void drawText(const Font&, const TextRun&, const FloatPoint&, int from = 0, int to = -1);
         void drawEmphasisMarks(const Font&, const TextRun& , const AtomicString& mark, const FloatPoint&, int from = 0, int to = -1);
         void drawBidiText(const Font&, const TextRun&, const FloatPoint&);
+#if PLATFORM(ANDROID)
+        void drawHighlightForText(const Font&, const TextRun&, const FloatPoint&, int h, const Color& backgroundColor, ColorSpace, int from = 0, int to = -1, bool isActive = true);
+#else
         void drawHighlightForText(const Font&, const TextRun&, const FloatPoint&, int h, const Color& backgroundColor, ColorSpace, int from = 0, int to = -1);
+#endif
 
         enum RoundingMode {
             RoundAllSides,

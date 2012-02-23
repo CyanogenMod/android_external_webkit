@@ -1070,8 +1070,12 @@ void InlineTextBox::paintTextMatchMarker(GraphicsContext* pt, const FloatPoint& 
             renderer()->theme()->platformInactiveTextSearchHighlightColor();
         pt->save();
         updateGraphicsContext(pt, color, color, 0, style->colorSpace());  // Don't draw text at all!
+#if PLATFORM(ANDROID)
+        pt->drawHighlightForText(font, run, FloatPoint(boxOrigin.x(), boxOrigin.y() - deltaY), selHeight, color, style->colorSpace(), sPos, ePos, marker.activeMatch);
+#else
         pt->clip(FloatRect(boxOrigin.x(), boxOrigin.y() - deltaY, m_logicalWidth, selHeight));
         pt->drawHighlightForText(font, run, FloatPoint(boxOrigin.x(), boxOrigin.y() - deltaY), selHeight, color, style->colorSpace(), sPos, ePos);
+#endif
         pt->restore();
     }
 }
