@@ -37,10 +37,10 @@
 namespace WebCore { class Range; }
 namespace WTF { template <typename T> class PassRefPtr; }
 #endif
+namespace WebCore { class Node; }
 
 namespace WebKit {
 
-class WebNode;
 class WebRangePrivate;
 class WebString;
 
@@ -64,8 +64,8 @@ public:
 
     WEBKIT_API int startOffset() const;
     WEBKIT_API int endOffset() const;
-    WEBKIT_API WebNode startContainer(int& exceptionCode) const;
-    WEBKIT_API WebNode endContainer(int& exceptionCode) const;
+    WEBKIT_API WebCore::Node* startContainer(int& exceptionCode) const;
+    WEBKIT_API WebCore::Node* endContainer(int& exceptionCode) const;
 
     WEBKIT_API WebString toHTMLText() const;
     WEBKIT_API WebString toPlainText() const;

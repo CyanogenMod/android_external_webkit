@@ -124,6 +124,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	dom/DOMImplementation.cpp \
 	dom/DOMStringList.cpp \
 	dom/DOMStringMap.cpp \
+	dom/DOMTextContentWalker.cpp \
 	dom/DatasetDOMStringMap.cpp \
 	dom/DecodedDataDocumentParser.cpp \
 	dom/DeviceMotionController.cpp \

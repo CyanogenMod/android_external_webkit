@@ -193,6 +193,8 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	external/chromium/chrome \
 	external/skia
 
+LOCAL_CFLAGS += -DWEBKIT_IMPLEMENTATION=1
+
 # Include WTF source file.
 d := Source/JavaScriptCore
 LOCAL_PATH := $(BASE_PATH)/$d
@@ -345,18 +347,20 @@ LOCAL_CPPFLAGS := $(WEBKIT_CPPFLAGS)
 LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES)
 LOCAL_PATH := $(BASE_PATH)
 LOCAL_SRC_FILES := \
-	Source/WebKit/android/jni/WebCoreJniOnLoad.cpp
+	Source/WebKit/android/jni/WebCoreJniOnLoad.cpp \
+	Source/WebKit/chromium/src/android/WebDOMTextContentWalker.cpp \
+	Source/WebKit/chromium/src/android/WebHitTestInfo.cpp \
+	Source/WebKit/chromium/src/WebRange.cpp \
+	Source/WebKit/chromium/src/WebString.cpp
 
 ifeq ($(ENABLE_AUTOFILL),true)
 # AutoFill requires some cpp files from Chromium to link with
 # libchromium_net. We cannot compile them into libchromium_net
 # because they have cpp file extensions, not .cc.
-LOCAL_CFLAGS += -DWEBKIT_IMPLEMENTATION=1
 LOCAL_SRC_FILES += \
 	Source/WebKit/android/WebCoreSupport/autofill/MainThreadProxy.cpp \
 	Source/WebKit/chromium/src/WebCString.cpp \
-	Source/WebKit/chromium/src/WebRegularExpression.cpp \
-	Source/WebKit/chromium/src/WebString.cpp
+	Source/WebKit/chromium/src/WebRegularExpression.cpp
 endif
 
 # Do this dependency by hand. The reason we have to do this is because the
