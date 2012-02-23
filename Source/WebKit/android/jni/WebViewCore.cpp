@@ -3939,14 +3939,14 @@ void WebViewCore::updateTextSelection()
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
         return;
-    WebCore::Node* focusNode = currentFocus();
+    VisibleSelection selection = focusedFrame()->selection()->selection();
     int start = 0;
     int end = 0;
-    if (focusNode)
-        getSelectionOffsets(focusNode, start, end);
-    SelectText* selectText = createSelectText(focusedFrame()->selection()->selection());
+    if (selection.isCaretOrRange())
+        getSelectionOffsets(selection.start().anchorNode(), start, end);
+    SelectText* selectText = createSelectText(selection);
     env->CallVoidMethod(javaObject.get(),
-            m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(focusNode),
+            m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(currentFocus()),
             start, end, m_textGeneration, reinterpret_cast<int>(selectText));
     checkException(env);
 }
