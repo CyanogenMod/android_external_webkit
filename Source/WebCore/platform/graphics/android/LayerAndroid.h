@@ -48,6 +48,7 @@ class SkPicture;
 
 namespace WebCore {
 class LayerAndroid;
+class LayerGroup;
 class ImageTexture;
 }
 
@@ -139,30 +140,23 @@ public:
     IntRect visibleArea();
 
     virtual bool needsTexture();
-    void removeTexture(PaintedSurface*);
 
     // Debug helper methods
     int nbLayers();
     int nbTexturedLayers();
     void showLayer(int indent = 0);
 
-    void computeTexturesAmount(TexturesResult*);
-
     float getScale() { return m_scale; }
 
-    // draw layer and its children via Z, pre-order traversal
-    virtual bool drawGL();
-    bool drawChildrenGL();
+    virtual bool drawGL(bool layerTilesDisabled);
     virtual bool drawCanvas(SkCanvas*);
     bool drawChildrenCanvas(SkCanvas*);
-
-    // prepare layer and its children via reverse-Z, post-order traversal
-    void prepare();
 
     void updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                    const FloatRect& clip, float opacity, float scale);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
     float drawOpacity() { return m_drawOpacity; }
+    bool visible();
     void setVisible(bool value) { m_visible = value; }
 
     bool preserves3D() { return m_preserves3D; }
@@ -292,7 +286,6 @@ public:
     friend LayerAndroid* android::deserializeLayer(SkStream* stream);
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
-    PaintedSurface* texture() { return m_texture; }
     void obtainTextureForPainting(LayerAndroid* drawingLayer);
 
     // Update layers using another tree. Only works for basic properties
@@ -309,11 +302,11 @@ public:
     void copyAnimationStartTimesRecursive(LayerAndroid* oldTree);
 
 // rendering asset management
-    void swapTiles();
-    void setIsDrawing(bool isDrawing);
     void setIsPainting(Layer* drawingTree);
-    void mergeInvalsInto(Layer* replacementTree);
-    bool isReady();
+    void mergeInvalsInto(LayerAndroid* replacementTree);
+
+    void assignGroups(Vector<LayerGroup*>* allGroups);
+    LayerGroup* group() { return m_layerGroup; }
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra);
@@ -389,7 +382,6 @@ private:
 
     int m_uniqueId;
 
-    PaintedSurface* m_texture;
     unsigned m_imageCRC;
 
     unsigned int m_pictureUsed;
@@ -413,6 +405,8 @@ private:
     int m_type;
 
     bool m_hasText;
+
+    LayerGroup* m_layerGroup;
 
     typedef Layer INHERITED;
 };

@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 #include "ClassTracker.h"
 #include "GLUtils.h"
+#include "LayerGroup.h"
 #include "ShaderProgram.h"
 #include "SkCanvas.h"
 #include "TilesManager.h"
@@ -112,7 +113,7 @@ bool BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 
 #if USE(ACCELERATED_COMPOSITING)
 
-void BaseLayerAndroid::prefetchBasePicture(SkRect& viewport, float currentScale,
+void BaseLayerAndroid::prefetchBasePicture(const SkRect& viewport, float currentScale,
                                            TiledPage* prefetchTiledPage, bool draw)
 {
     SkIRect bounds;
@@ -167,20 +168,11 @@ bool BaseLayerAndroid::isReady()
         return false;
     }
 
-    LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
-    if (compositedRoot) {
-        XLOG("base layer is ready, how about children?");
-        return compositedRoot->isReady();
-    }
-
     return true;
 }
 
 void BaseLayerAndroid::swapTiles()
 {
-    if (countChildren())
-        getChild(0)->swapTiles(); // TODO: move to parent impl
-
     m_state->frontPage()->swapBuffersIfReady(m_state->preZoomBounds(),
                                              m_state->zoomManager()->currentScale());
 
@@ -188,37 +180,22 @@ void BaseLayerAndroid::swapTiles()
                                             m_state->zoomManager()->currentScale());
 }
 
-void BaseLayerAndroid::setIsDrawing(bool isDrawing)
+void BaseLayerAndroid::setIsPainting()
 {
-    if (countChildren())
-        getChild(0)->setIsDrawing(isDrawing); // TODO: move to parent impl
-}
-
-void BaseLayerAndroid::setIsPainting(Layer* drawingTree)
-{
-    XLOG("BLA %p painting, dirty %d", this, isDirty());
-    if (drawingTree)
-        drawingTree = drawingTree->getChild(0);
-
-    if (countChildren())
-        getChild(0)->setIsPainting(drawingTree); // TODO: move to parent impl
-
+    XLOG("BLA %p setIsPainting, dirty %d", this, isDirty());
     m_state->invalRegion(m_dirtyRegion);
     m_dirtyRegion.setEmpty();
 }
 
-void BaseLayerAndroid::mergeInvalsInto(Layer* replacementTree)
+void BaseLayerAndroid::mergeInvalsInto(BaseLayerAndroid* replacementLayer)
 {
-    XLOG("merging invals (empty=%d) from BLA %p to %p", m_dirtyRegion.isEmpty(), this, replacementTree);
-    if (countChildren() && replacementTree->countChildren())
-        getChild(0)->mergeInvalsInto(replacementTree->getChild(0));
-
-    replacementTree->markAsDirty(m_dirtyRegion);
+    replacementLayer->markAsDirty(m_dirtyRegion);
 }
 
-bool BaseLayerAndroid::prepareBasePictureInGL(SkRect& viewport, float scale,
-                                              double currentTime)
+void BaseLayerAndroid::prepareGL(const SkRect& viewport, float scale, double currentTime)
 {
+    XLOG("prepareGL BLA %p, m_state %p", this, m_state);
+
     ZoomManager* zoomManager = m_state->zoomManager();
 
     bool goingDown = m_state->goingDown();
@@ -279,10 +256,7 @@ bool BaseLayerAndroid::prepareBasePictureInGL(SkRect& viewport, float scale,
         m_state->swapPages();
     }
 
-    bool needsRedraw = zooming;
-
-    // if applied invals mark tiles dirty, need to redraw
-    needsRedraw |= tiledPage->updateTileDirtiness(preZoomBounds);
+    tiledPage->updateTileDirtiness(preZoomBounds);
 
     // paint what's needed unless we're zooming, since the new tiles won't
     // be relevant soon anyway
@@ -290,8 +264,7 @@ bool BaseLayerAndroid::prepareBasePictureInGL(SkRect& viewport, float scale,
         tiledPage->prepare(goingDown, goingLeft, preZoomBounds,
                            TiledPage::ExpandedBounds);
 
-    XLOG("scrollState %d, zooming %d, needsRedraw %d",
-         m_scrollState, zooming, needsRedraw);
+    XLOG("scrollState %d, zooming %d", m_scrollState, zooming);
 
     // prefetch in the nextTiledPage if unused by zooming (even if not scrolling
     // since we want the tiles to be ready before they're needed)
@@ -305,8 +278,6 @@ bool BaseLayerAndroid::prepareBasePictureInGL(SkRect& viewport, float scale,
     }
 
     tiledPage->prepareForDrawGL(transparency, preZoomBounds);
-
-    return needsRedraw;
 }
 
 void BaseLayerAndroid::drawBasePictureInGL()
@@ -315,9 +286,7 @@ void BaseLayerAndroid::drawBasePictureInGL()
     m_state->frontPage()->drawGL();
 }
 
-#endif // USE(ACCELERATED_COMPOSITING)
-
-void BaseLayerAndroid::updateLayerPositions(SkRect& visibleRect)
+void BaseLayerAndroid::updateLayerPositions(const SkRect& visibleRect)
 {
     LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
     if (!compositedRoot)
@@ -336,58 +305,16 @@ void BaseLayerAndroid::updateLayerPositions(SkRect& visibleRect)
 #endif
 }
 
-bool BaseLayerAndroid::prepare(double currentTime, IntRect& viewRect,
-                               SkRect& visibleRect, float scale)
+#endif // USE(ACCELERATED_COMPOSITING)
+
+void BaseLayerAndroid::drawGL(float scale)
 {
-    XLOG("preparing BLA %p", this);
-
-    // base layer is simply drawn in prepare, since there is always a base layer it doesn't matter
-    bool needsRedraw = prepareBasePictureInGL(visibleRect, scale, currentTime);
-
-    LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
-    if (compositedRoot) {
-        updateLayerPositions(visibleRect);
-
-        XLOG("preparing BLA %p, root %p", this, compositedRoot);
-        compositedRoot->prepare();
-    }
-
-    return needsRedraw;
-}
-
-bool BaseLayerAndroid::drawGL(IntRect& viewRect, SkRect& visibleRect,
-                              float scale)
-{
-    XLOG("drawing BLA %p", this);
+    XLOG("drawGL BLA %p", this);
 
     // TODO: consider moving drawBackground outside of prepare (into tree manager)
     m_state->drawBackground(m_color);
     drawBasePictureInGL();
     m_state->glExtras()->drawGL(0);
-
-    bool needsRedraw = false;
-
-#if USE(ACCELERATED_COMPOSITING)
-
-    LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(getChild(0));
-    if (compositedRoot) {
-        updateLayerPositions(visibleRect);
-        // For now, we render layers only if the rendering mode
-        // is kAllTextures or kClippedTextures
-        if (compositedRoot->drawGL()) {
-            if (TilesManager::instance()->layerTexturesRemain()) {
-                // only try redrawing for layers if layer textures remain,
-                // otherwise we'll repaint without getting anything done
-                needsRedraw = true;
-            }
-        }
-    }
-
-#endif // USE(ACCELERATED_COMPOSITING)
-#ifdef DEBUG
-    ClassTracker::instance()->show();
-#endif
-    return needsRedraw;
 }
 
 } // namespace WebCore

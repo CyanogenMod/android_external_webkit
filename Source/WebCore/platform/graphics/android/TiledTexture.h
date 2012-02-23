@@ -31,6 +31,7 @@
 #include "ClassTracker.h"
 #include "IntRect.h"
 #include "LayerAndroid.h"
+#include "SkRefCnt.h"
 #include "SkRegion.h"
 #include "TextureOwner.h"
 #include "TilePainter.h"
@@ -39,12 +40,10 @@ class SkCanvas;
 
 namespace WebCore {
 
-class TiledTexture : public TilePainter {
+class TiledTexture {
 public:
-    TiledTexture(SurfacePainter* surface)
-        : m_paintingPicture(0)
-        , m_surface(surface)
-        , m_prevTileX(0)
+    TiledTexture()
+        : m_prevTileX(0)
         , m_prevTileY(0)
         , m_scale(1)
         , m_swapWhateverIsReady(false)
@@ -57,15 +56,15 @@ public:
 
     virtual ~TiledTexture();
 
-    IntRect computeTilesArea(IntRect& contentArea, float scale);
+    IntRect computeTilesArea(const IntRect& contentArea, float scale);
 
-    void prepare(GLWebViewState* state, float scale, bool repaint,
-                 bool startFastSwap, IntRect& prepareArea);
+    void prepareGL(GLWebViewState* state, float scale,
+                   const IntRect& prepareArea, TilePainter* painter);
     void swapTiles();
-    bool draw(IntRect& visibleArea);
+    bool drawGL(IntRect& visibleArea, float opacity);
 
-    void prepareTile(bool repaint, int x, int y);
-    void update(const SkRegion& dirtyArea, SkPicture* picture);
+    void prepareTile(int x, int y, TilePainter* painter);
+    void markAsDirty(const SkRegion& dirtyArea);
 
     BaseTile* getTile(int x, int y);
 
@@ -73,28 +72,17 @@ public:
     void discardTextures();
     bool owns(BaseTileTexture* texture);
 
-    // TilePainter methods
-    bool paint(BaseTile* tile, SkCanvas*, unsigned int*);
-    virtual const TransformationMatrix* transform();
-
     float scale() { return m_scale; }
-    bool ready();
+    bool isReady();
 
     int nbTextures(IntRect& area, float scale);
 
 private:
     bool tileIsVisible(BaseTile* tile);
 
-    // protect m_paintingPicture
-    //    update() on UI thread modifies
-    //    paint() on texture gen thread reads
-    android::Mutex m_paintingPictureSync;
-    SkPicture* m_paintingPicture;
-
-    SurfacePainter* m_surface;
     Vector<BaseTile*> m_tiles;
 
-    // tile coordinates in viewport, set in prepare()
+    // tile coordinates in viewport, set in prepareGL()
     IntRect m_area;
 
     SkRegion m_dirtyRegion;
@@ -106,20 +94,27 @@ private:
     bool m_swapWhateverIsReady;
 };
 
-class DualTiledTexture {
+class DualTiledTexture : public SkRefCnt {
+// TODO: investigate webkit threadsafe ref counting
 public:
-    DualTiledTexture(SurfacePainter* surface);
+    DualTiledTexture();
     ~DualTiledTexture();
-    void prepare(GLWebViewState* state, float scale, bool repaint,
-                 bool startFastSwap, IntRect& area);
+    void prepareGL(GLWebViewState* state, bool allowZoom,
+                 const IntRect& prepareArea, TilePainter* painter);
     void swapTiles();
     void swap();
-    bool draw(IntRect& visibleArea);
-    void update(const SkRegion& dirtyArea, SkPicture* picture);
+    bool drawGL(IntRect& visibleArea, float opacity);
+    void markAsDirty(const SkRegion& dirtyArea);
     bool owns(BaseTileTexture* texture);
+    void computeTexturesAmount(TexturesResult* result, LayerAndroid* layer);
+    void discardTextures()
+    {
+        m_textureA->discardTextures();
+        m_textureB->discardTextures();
+    }
     bool isReady()
     {
-        return !m_zooming && m_frontTexture->ready();
+        return !m_zooming && m_frontTexture->isReady();
     }
 
     int nbTextures(IntRect& area, float scale)

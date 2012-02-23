@@ -28,18 +28,19 @@
 #include "ImageTexture.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
-#include "PaintedSurface.h"
+#include "TiledPage.h"
+#include "TilesManager.h"
 
 namespace WebCore {
 
-PaintTileOperation::PaintTileOperation(BaseTile* tile, SurfacePainter* surface)
+PaintTileOperation::PaintTileOperation(BaseTile* tile, TilePainter* painter)
     : QueuedOperation(QueuedOperation::PaintTile, tile->page())
     , m_tile(tile)
-    , m_surface(surface)
+    , m_painter(painter)
 {
     if (m_tile)
         m_tile->setRepaintPending(true);
-    SkSafeRef(m_surface);
+    SkSafeRef(m_painter);
 }
 
 PaintTileOperation::~PaintTileOperation()
@@ -49,11 +50,11 @@ PaintTileOperation::~PaintTileOperation()
         m_tile = 0;
     }
 
-    if (m_surface && m_surface->type() == SurfacePainter::ImageSurface) {
-        ImageTexture* image = static_cast<ImageTexture*>(m_surface);
+    if (m_painter && m_painter->type() == TilePainter::Image) {
+        ImageTexture* image = static_cast<ImageTexture*>(m_painter);
         ImagesManager::instance()->releaseImage(image->imageCRC());
     } else {
-        SkSafeUnref(m_surface);
+        SkSafeUnref(m_painter);
     }
 }
 

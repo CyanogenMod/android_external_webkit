@@ -37,7 +37,8 @@
 #include "SkPath.h"
 #include "TilesManager.h"
 #include "TilesTracker.h"
-#include "TreeManager.h"
+#include "SurfaceCollection.h"
+#include "SurfaceCollectionManager.h"
 #include <wtf/CurrentTime.h>
 
 #include <pthread.h>
@@ -74,7 +75,7 @@
 #define FPS_INDICATOR_HEIGHT 10
 #define MAX_FPS_VALUE 60
 
-#define TREE_SWAPPED_COUNTER_MODULE 10
+#define COLLECTION_SWAPPED_COUNTER_MODULE 10
 
 namespace WebCore {
 
@@ -94,7 +95,7 @@ GLWebViewState::GLWebViewState()
     , m_expandedTileBoundsY(0)
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
-    , m_treeManager(this)
+    , m_surfaceCollectionManager(this)
 {
     m_viewport.setEmpty();
     m_futureViewportTileBounds.setEmpty();
@@ -134,7 +135,7 @@ bool GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndica
                                   bool isPictureAfterFirstLayout)
 {
     if (!layer || isPictureAfterFirstLayout) {
-        // TODO: move this into TreeManager
+        // TODO: move this into SurfaceCollectionManager
         m_zoomManager.swapPages(); // reset zoom state
         m_tiledPageA->discardTextures();
         m_tiledPageB->discardTextures();
@@ -144,7 +145,8 @@ bool GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndica
         XLOG("new base layer %p, with child %p", layer, layer->getChild(0));
         layer->setState(this);
     }
-    bool queueFull = m_treeManager.updateWithTree(layer, isPictureAfterFirstLayout);
+    bool queueFull = m_surfaceCollectionManager.updateWithSurfaceCollection(
+        new SurfaceCollection(layer), isPictureAfterFirstLayout);
     m_glExtras.setDrawExtra(0);
 
 #ifdef MEASURES_PERF
@@ -159,7 +161,7 @@ bool GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndica
 
 void GLWebViewState::scrollLayer(int layerId, int x, int y)
 {
-    m_treeManager.updateScrollableLayer(layerId, x, y);
+    m_surfaceCollectionManager.updateScrollableLayer(layerId, x, y);
 
     // TODO: only inval the area of the scrolled layer instead of
     // doing a fullInval()
@@ -170,7 +172,7 @@ void GLWebViewState::scrollLayer(int layerId, int x, int y)
 void GLWebViewState::invalRegion(const SkRegion& region)
 {
     if (m_layersRenderingMode == kSingleSurfaceRendering) {
-        // TODO: do the union of both layers tree to compute
+        // TODO: do the union of both layer trees to compute
         //the minimum inval instead of doing a fullInval()
         fullInval();
         return;
@@ -204,7 +206,7 @@ void GLWebViewState::inval(const IntRect& rect)
 
 unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
-    m_treeManager.drawCanvas(canvas, m_layersRenderingMode == kSingleSurfaceRendering);
+    m_surfaceCollectionManager.drawCanvas(canvas, m_layersRenderingMode == kSingleSurfaceRendering);
     return m_currentPictureCounter;
 }
 
@@ -236,11 +238,11 @@ void GLWebViewState::swapPages()
 
 int GLWebViewState::baseContentWidth()
 {
-    return m_treeManager.baseContentWidth();
+    return m_surfaceCollectionManager.baseContentWidth();
 }
 int GLWebViewState::baseContentHeight()
 {
-    return m_treeManager.baseContentHeight();
+    return m_surfaceCollectionManager.baseContentHeight();
 }
 
 void GLWebViewState::setViewport(const SkRect& viewport, float scale)
@@ -469,7 +471,7 @@ void GLWebViewState::fullInval()
 bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                             IntRect& webViewRect, int titleBarHeight,
                             IntRect& clip, float scale,
-                            bool* treesSwappedPtr, bool* newTreeHasAnimPtr)
+                            bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr)
 {
     TilesManager* tilesManager = TilesManager::instance();
     m_scale = scale;
@@ -498,9 +500,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     resetLayersDirtyArea();
 
-    // when adding or removing layers, use the the paintingBaseLayer's tree so
-    // that content that moves to the base layer from a layer is synchronized
-
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         XLOGC("WARNING, scale seems corrupted before update: %e", scale);
 
@@ -528,10 +527,10 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     TexturesResult nbTexturesNeeded;
     bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
     m_glExtras.setViewport(viewport);
-    ret |= m_treeManager.drawGL(currentTime, rect, viewport,
-                                scale, fastSwap,
-                                treesSwappedPtr, newTreeHasAnimPtr,
-                                &nbTexturesNeeded);
+    ret |= m_surfaceCollectionManager.drawGL(currentTime, rect, viewport,
+                                             scale, fastSwap,
+                                             collectionsSwappedPtr, newCollectionHasAnimPtr,
+                                             &nbTexturesNeeded);
     if (!ret)
         resetFrameworkInval();
 
@@ -577,7 +576,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
             invalRect->setHeight(inval.height());
 
             XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
-                    inval.y(), inval.width(), inval.height());
+                 inval.y(), inval.width(), inval.height());
 
             if (!invalRect->intersects(rect)) {
                 // invalidate is occurring offscreen, do full inval to guarantee redraw
@@ -595,7 +594,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         resetFrameworkInval();
     }
 
-    showFrameInfo(rect, *treesSwappedPtr);
+    showFrameInfo(rect, *collectionsSwappedPtr);
 
 #ifdef DEBUG
     tilesManager->getTilesTracker()->showTrackTextures();
@@ -604,7 +603,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     return ret;
 }
 
-void GLWebViewState::showFrameInfo(const IntRect& rect, bool treesSwapped)
+void GLWebViewState::showFrameInfo(const IntRect& rect, bool collectionsSwapped)
 {
     bool showVisualIndicator = TilesManager::instance()->getShowVisualIndicator();
 
@@ -635,18 +634,18 @@ void GLWebViewState::showFrameInfo(const IntRect& rect, bool treesSwapped)
     frameInfoRect.setWidth(frameInfoRect.width() * ratio);
     clearRectWithColor(frameInfoRect, 1, 0, 0, 1);
 
-    // Draw the tree swap counter as a circling progress bar.
-    // This will basically show how fast we are updating the tree.
+    // Draw the collection swap counter as a circling progress bar.
+    // This will basically show how fast we are updating the collection.
     static int swappedCounter = 0;
-    if (treesSwapped)
-        swappedCounter = (swappedCounter + 1) % TREE_SWAPPED_COUNTER_MODULE;
+    if (collectionsSwapped)
+        swappedCounter = (swappedCounter + 1) % COLLECTION_SWAPPED_COUNTER_MODULE;
 
     frameInfoRect = rect;
     frameInfoRect.setHeight(FPS_INDICATOR_HEIGHT);
     frameInfoRect.move(0, FPS_INDICATOR_HEIGHT);
 
     clearRectWithColor(frameInfoRect, 1, 1, 1, 1);
-    ratio = (swappedCounter + 1.0) / TREE_SWAPPED_COUNTER_MODULE;
+    ratio = (swappedCounter + 1.0) / COLLECTION_SWAPPED_COUNTER_MODULE;
 
     frameInfoRect.setWidth(frameInfoRect.width() * ratio);
     clearRectWithColor(frameInfoRect, 0, 1, 0, 1);

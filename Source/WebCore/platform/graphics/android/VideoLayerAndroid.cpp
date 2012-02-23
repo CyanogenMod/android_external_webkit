@@ -196,7 +196,7 @@ SkRect VideoLayerAndroid::calVideoRect(const SkRect& rect)
     return videoRect;
 }
 
-bool VideoLayerAndroid::drawGL()
+bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
 {
     // Lazily allocated the textures.
     if (!m_createdTexture) {
@@ -284,8 +284,7 @@ bool VideoLayerAndroid::drawGL()
         }
 
     }
-    // Don't short circuit here since we still want to draw the children.
-    return drawChildrenGL() || needRedraw;
+    return needRedraw;
 }
 
 }

@@ -23,14 +23,12 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TreeManager_h
-#define TreeManager_h
+#ifndef SurfaceCollectionManager_h
+#define SurfaceCollectionManager_h
 
 #include "TestExport.h"
 #include <utils/threads.h>
-#include "PerformanceMonitor.h"
 
-class Layer;
 class SkRect;
 class SkCanvas;
 
@@ -39,48 +37,43 @@ namespace WebCore {
 class GLWebViewState;
 class IntRect;
 class TexturesResult;
+class SurfaceCollection;
 
-class TEST_EXPORT TreeManager {
+class TEST_EXPORT SurfaceCollectionManager {
 public:
-    TreeManager(GLWebViewState* state);
+    SurfaceCollectionManager(GLWebViewState* state);
 
-    ~TreeManager();
+    ~SurfaceCollectionManager();
 
-    bool updateWithTree(Layer* tree, bool brandNew);
+    bool updateWithSurfaceCollection(SurfaceCollection* collection, bool brandNew);
 
     void updateScrollableLayer(int layerId, int x, int y);
 
     bool drawGL(double currentTime, IntRect& viewRect,
                 SkRect& visibleRect, float scale,
-                bool enterFastSwapMode, bool* treesSwappedPtr, bool* newTreeHasAnimPtr,
+                bool enterFastSwapMode, bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                 TexturesResult* texturesResultPtr);
 
     void drawCanvas(SkCanvas* canvas, bool drawLayers);
-
-    // used in debugging (to avoid exporting TilesManager symbols)
-    static int getTotalPaintedSurfaceCount();
 
     int baseContentWidth();
     int baseContentHeight();
 
 private:
-    static void updateScrollableLayerInTree(Layer* tree, int layerId, int x, int y);
-
     void swap();
-    void clearTrees();
+    void clearCollections();
 
     android::Mutex m_paintSwapLock;
 
     GLWebViewState* m_state;
 
-    Layer* m_drawingTree;
-    Layer* m_paintingTree;
-    Layer* m_queuedTree;
+    SurfaceCollection* m_drawingCollection;
+    SurfaceCollection* m_paintingCollection;
+    SurfaceCollection* m_queuedCollection;
 
     bool m_fastSwapMode;
-    PerformanceMonitor m_perf;
 };
 
 } // namespace WebCore
 
-#endif //#define TreeManager_h
+#endif //#define SurfaceCollectionManager_h

@@ -105,7 +105,8 @@ BaseTile::~BaseTile()
 
 void BaseTile::setContents(TilePainter* painter, int x, int y, float scale)
 {
-    if ((m_painter != painter)
+    // TODO: investigate whether below check/discard is necessary
+    if (!painter
         || (m_x != x)
         || (m_y != y)
         || (m_scale != scale)) {

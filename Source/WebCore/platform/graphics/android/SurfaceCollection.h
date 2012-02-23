@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, The Android Open Source Project
+ * Copyright 2012, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,29 +23,55 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TilePainter_h
-#define TilePainter_h
+#ifndef SurfaceCollection_h
+#define SurfaceCollection_h
 
-#include "TransformationMatrix.h"
 #include "SkRefCnt.h"
+#include "SkRect.h"
+#include "Vector.h"
 
 class SkCanvas;
+class SkRegion;
 
 namespace WebCore {
 
-class BaseTile;
+class BaseLayerAndroid;
+class LayerAndroid;
+class LayerGroup;
+class TexturesResult;
 
-class TilePainter : public SkRefCnt {
+class SurfaceCollection : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
-    virtual ~TilePainter() { }
-    virtual bool paint(BaseTile* tile, SkCanvas*, unsigned int*) = 0;
-    virtual const TransformationMatrix* transform() { return 0; }
-    virtual float opacity() { return 1.0; }
-    enum SurfaceType { Painted, Image };
-    virtual SurfaceType type() { return Painted; }
+    SurfaceCollection(BaseLayerAndroid* baseLayer);
+    virtual ~SurfaceCollection();
+
+    // Tiled painting methods (executed on groups)
+    void prepareGL(const SkRect& visibleRect, float scale, double currentTime);
+    bool drawGL(const SkRect& visibleRect, float scale);
+    void swapTiles();
+    bool isReady();
+    void computeTexturesAmount(TexturesResult* result);
+    void drawCanvas(SkCanvas* canvas, bool drawLayers);
+
+    // Recursive tree methods (animations, invals, etc)
+    void setIsPainting(SurfaceCollection* drawingSurfaceCollection);
+    void setIsDrawing();
+    void mergeInvalsInto(SurfaceCollection* replacementSurfaceCollection);
+    void evaluateAnimations(double currentTime);
+
+    bool hasCompositedLayers();
+    bool hasCompositedAnimations();
+    int baseContentWidth();
+    int baseContentHeight();
+    void updateScrollableLayer(int layerId, int x, int y);
+
+private:
+    BaseLayerAndroid* m_baseLayer;
+    LayerAndroid* m_compositedRoot;
+    Vector<LayerGroup*> m_layerGroups;
 };
 
-}
+} // namespace WebCore
 
-#endif // TilePainter_h
+#endif //#define SurfaceCollection_h

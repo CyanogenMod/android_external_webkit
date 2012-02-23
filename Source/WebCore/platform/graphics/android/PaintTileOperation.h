@@ -33,12 +33,12 @@
 namespace WebCore {
 
 class LayerAndroid;
-class SurfacePainter;
+class TilePainter;
 class ImageTexture;
 
 class PaintTileOperation : public QueuedOperation {
 public:
-    PaintTileOperation(BaseTile* tile, SurfacePainter* surface = 0);
+    PaintTileOperation(BaseTile* tile, TilePainter* painter = 0);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
@@ -49,12 +49,12 @@ public:
 
 private:
     BaseTile* m_tile;
-    SurfacePainter* m_surface;
+    TilePainter* m_painter;
 };
 
 class ScaleFilter : public OperationFilter {
 public:
-    ScaleFilter(TilePainter* painter, float scale)
+    ScaleFilter(const TilePainter* painter, float scale)
         : m_painter(painter)
         , m_scale(scale) {}
     virtual bool check(QueuedOperation* operation)
@@ -67,7 +67,7 @@ public:
         return false;
     }
 private:
-    TilePainter* m_painter;
+    const TilePainter* m_painter;
     float m_scale;
 };
 

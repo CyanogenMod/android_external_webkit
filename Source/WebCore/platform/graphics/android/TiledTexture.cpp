@@ -29,7 +29,6 @@
 #include "TilesManager.h"
 #include "TilesTracker.h"
 
-#include "PaintedSurface.h"
 #include "PaintTileOperation.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
@@ -57,14 +56,13 @@ namespace WebCore {
 
 TiledTexture::~TiledTexture()
 {
-    SkSafeUnref(m_paintingPicture);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("TiledTexture");
 #endif
     removeTiles();
 }
 
-bool TiledTexture::ready()
+bool TiledTexture::isReady()
 {
     bool tilesAllReady = true;
     bool tilesVisible = false;
@@ -99,7 +97,7 @@ void TiledTexture::swapTiles()
     XLOG("TT %p swapping, swaps = %d", this, swaps);
 }
 
-IntRect TiledTexture::computeTilesArea(IntRect& contentArea, float scale)
+IntRect TiledTexture::computeTilesArea(const IntRect& contentArea, float scale)
 {
     IntRect computedArea;
     IntRect area(contentArea.x() * scale,
@@ -127,18 +125,15 @@ IntRect TiledTexture::computeTilesArea(IntRect& contentArea, float scale)
     return computedArea;
 }
 
-void TiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
-                           bool startFastSwap, IntRect& prepareArea)
+void TiledTexture::prepareGL(GLWebViewState* state, float scale,
+                             const IntRect& prepareArea, TilePainter* painter)
 {
-    if (!m_surface)
-        return;
-
     // first, how many tiles do we need
     m_area = computeTilesArea(prepareArea, scale);
     if (m_area.isEmpty())
         return;
 
-    XLOG("for TiledTexture %p, we prepare with scale %.2f, have a prepare area of "
+    XLOG("prepare TiledTexture %p with scale %.2f, prepareArea "
          " %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
          this, scale,
          prepareArea.x(), prepareArea.y(),
@@ -150,45 +145,36 @@ void TiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
     m_prevTileY = m_area.y();
 
     if (scale != m_scale)
-        TilesManager::instance()->removeOperationsForFilter(new ScaleFilter(this, scale));
+        TilesManager::instance()->removeOperationsForFilter(new ScaleFilter(painter, scale));
 
     m_scale = scale;
 
     // apply dirty region to affected tiles
     if (!m_dirtyRegion.isEmpty()) {
-        for (unsigned int i = 0; i < m_tiles.size(); i++) {
-            // TODO: don't mark all tiles dirty
+        for (unsigned int i = 0; i < m_tiles.size(); i++)
             m_tiles[i]->markAsDirty(1, m_dirtyRegion);
-        }
+        m_dirtyRegion.setEmpty();
     }
-    m_dirtyRegion.setEmpty();
 
     for (int i = 0; i < m_area.width(); i++) {
         if (goingDown) {
-            for (int j = 0; j < m_area.height(); j++) {
-                prepareTile(repaint, m_area.x() + i, m_area.y() + j);
-            }
+            for (int j = 0; j < m_area.height(); j++)
+                prepareTile(m_area.x() + i, m_area.y() + j, painter);
         } else {
-            for (int j = m_area.height() - 1; j >= 0; j--) {
-                prepareTile(repaint, m_area.x() + i, m_area.y() + j);
-            }
+            for (int j = m_area.height() - 1; j >= 0; j--)
+                prepareTile(m_area.x() + i, m_area.y() + j, painter);
         }
     }
 }
 
-void TiledTexture::update(const SkRegion& invalRegion, SkPicture* picture)
+void TiledTexture::markAsDirty(const SkRegion& invalRegion)
 {
-    XLOG("TT %p update, current region empty %d, new empty %d, painting picture %p",
-          this, m_dirtyRegion.isEmpty(), invalRegion.isEmpty(), picture);
+    XLOG("TT %p markAsDirty, current region empty %d, new empty %d",
+         this, m_dirtyRegion.isEmpty(), invalRegion.isEmpty());
     m_dirtyRegion.op(invalRegion, SkRegion::kUnion_Op);
-
-    android::Mutex::Autolock lock(m_paintingPictureSync);
-    SkSafeRef(picture);
-    SkSafeUnref(m_paintingPicture);
-    m_paintingPicture = picture;
 }
 
-void TiledTexture::prepareTile(bool repaint, int x, int y)
+void TiledTexture::prepareTile(int x, int y, TilePainter* painter)
 {
     BaseTile* tile = getTile(x, y);
     if (!tile) {
@@ -196,18 +182,18 @@ void TiledTexture::prepareTile(bool repaint, int x, int y)
         m_tiles.append(tile);
     }
 
-    XLOG("preparing tile %p at %d, %d, painter is this %p", tile, x, y, this);
-    tile->setContents(this, x, y, m_scale);
+    XLOG("preparing tile %p at %d, %d, painter is %p", tile, x, y, painter);
+    tile->setContents(painter, x, y, m_scale);
 
     // TODO: move below (which is largely the same for layers / tiled page) into
-    // prepare() function
+    // prepareGL() function
 
     if (tile->isDirty() || !tile->frontTexture())
         tile->reserveTexture();
 
-    bool hasPicture = m_paintingPicture != 0; // safely read on UI thread, since only UI thread writes
-    if (tile->backTexture() && tile->isDirty() && !tile->isRepaintPending() && hasPicture) {
-        PaintTileOperation *operation = new PaintTileOperation(tile, m_surface);
+    if (tile->backTexture() && tile->isDirty() && !tile->isRepaintPending()) {
+        XLOG("painting TT %p's tile %d %d for LG %p", this, x, y, painter);
+        PaintTileOperation *operation = new PaintTileOperation(tile, painter);
         TilesManager::instance()->scheduleOperation(operation);
     }
 }
@@ -239,13 +225,8 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
     return numberTextures;
 }
 
-bool TiledTexture::draw(IntRect& visibleArea)
+bool TiledTexture::drawGL(IntRect& visibleArea, float opacity)
 {
-    if (!m_surface)
-        return true;
-
-    XLOG("TT %p draw", this);
-
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->trackLayer();
 #endif
@@ -262,6 +243,7 @@ bool TiledTexture::draw(IntRect& visibleArea)
     const float tileWidth = TilesManager::layerTileWidth() * m_invScale;
     const float tileHeight = TilesManager::layerTileHeight() * m_invScale;
 
+    int drawn = 0;
     bool askRedraw = false;
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
@@ -273,46 +255,23 @@ bool TiledTexture::draw(IntRect& visibleArea)
             rect.fTop = tile->y() * tileHeight;
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
-            XLOG("- [%d], { painter %x vs %x }, tile %x (layer tile: %d) %d,%d at scale %.2f vs %.2f [ready: %d] dirty: %d",
-                 i, this, tile->painter(), tile, tile->isLayerTile(), tile->x(), tile->y(),
+            XLOG("tile %p (layer tile: %d) %d,%d at scale %.2f vs %.2f [ready: %d] dirty: %d",
+                 tile, tile->isLayerTile(), tile->x(), tile->y(),
                  tile->scale(), m_scale, tile->isTileReady(), tile->isDirty());
-            tile->draw(m_surface->opacity(), rect, m_scale);
+            tile->draw(opacity, rect, m_scale);
+            if (tile->frontTexture())
+                drawn++;
 #ifdef DEBUG
-            TilesManager::instance()->getTilesTracker()->track(tile->isTileReady(), tile->backTexture());
+            TilesManager::instance()->getTilesTracker()->track(
+                tile->isTileReady(), tile->backTexture());
 #endif
         }
     }
+    XLOG("TT %p drew %d tiles, redraw due to notready %d, scale %f",
+         this, drawn, askRedraw, m_scale);
 
     // need to redraw if some visible tile wasn't ready
     return askRedraw;
-}
-
-bool TiledTexture::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
-{
-    m_paintingPictureSync.lock();
-    SkPicture* picture = m_paintingPicture;
-    SkSafeRef(picture);
-    m_paintingPictureSync.unlock();
-
-    if (!picture) {
-        XLOG("TT %p COULDNT PAINT, NO PICTURE", this);
-        return false;
-    }
-
-    XLOG("TT %p painting tile %d, %d with picture %p", this, tile->x(), tile->y(), picture);
-
-    canvas->drawPicture(*picture);
-
-    SkSafeUnref(picture);
-
-    return true;
-}
-
-const TransformationMatrix* TiledTexture::transform()
-{
-    if (!m_surface)
-        return 0;
-    return m_surface->transform();
 }
 
 void TiledTexture::removeTiles()
@@ -325,6 +284,7 @@ void TiledTexture::removeTiles()
 
 void TiledTexture::discardTextures()
 {
+    XLOG("TT %p discarding textures", this);
     for (unsigned int i = 0; i < m_tiles.size(); i++)
         m_tiles[i]->discardTextures();
 }
@@ -341,10 +301,10 @@ bool TiledTexture::owns(BaseTileTexture* texture)
     return false;
 }
 
-DualTiledTexture::DualTiledTexture(SurfacePainter* surface)
+DualTiledTexture::DualTiledTexture()
 {
-    m_textureA = new TiledTexture(surface);
-    m_textureB = new TiledTexture(surface);
+    m_textureA = new TiledTexture();
+    m_textureB = new TiledTexture();
     m_frontTexture = m_textureA;
     m_backTexture = m_textureB;
     m_scale = -1;
@@ -358,13 +318,17 @@ DualTiledTexture::~DualTiledTexture()
     delete m_textureB;
 }
 
-void DualTiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
-                               bool startFastSwap, IntRect& prepareArea)
+void DualTiledTexture::prepareGL(GLWebViewState* state, bool allowZoom,
+                                 const IntRect& prepareArea, TilePainter* painter)
 {
     // If we are zooming, we will use the previously used area, to prevent the
     // frontTexture to try to allocate more tiles than what it has already
     if (!m_zooming)
         m_preZoomPrepareArea = prepareArea;
+
+    float scale = state->scale();
+    if (scale > 1 && !allowZoom)
+        scale = 1;
 
     if (m_scale == -1) {
         m_scale = scale;
@@ -377,16 +341,17 @@ void DualTiledTexture::prepare(GLWebViewState* state, float scale, bool repaint,
         m_zooming = true;
     }
 
-    XLOG("Preparing DTT %p with scale %.2f, m_scale %.2f, futureScale: %.2f, zooming: %d",
-          this, scale, m_scale, m_futureScale, m_zooming);
+    XLOG("Prepare DTT %p with scale %.2f, m_scale %.2f, futureScale: %.2f, zooming: %d, f %p, b %p",
+         this, scale, m_scale, m_futureScale, m_zooming,
+         m_frontTexture, m_backTexture);
 
     if (m_scale > 0)
-        m_frontTexture->prepare(state, m_scale, repaint, startFastSwap, m_preZoomPrepareArea);
+        m_frontTexture->prepareGL(state, m_scale, m_preZoomPrepareArea, painter);
 
     // If we had a scheduled update
     if (m_zooming && m_zoomUpdateTime < WTF::currentTime()) {
-        m_backTexture->prepare(state, m_futureScale, repaint, startFastSwap, prepareArea);
-        if (m_backTexture->ready()) {
+        m_backTexture->prepareGL(state, m_futureScale, prepareArea, painter);
+        if (m_backTexture->isReady()) {
             m_backTexture->swapTiles();
             swap();
             m_zooming = false;
@@ -402,18 +367,18 @@ void DualTiledTexture::swap()
     m_backTexture->discardTextures();
 }
 
-bool DualTiledTexture::draw(IntRect& visibleArea)
+bool DualTiledTexture::drawGL(IntRect& visibleArea, float opacity)
 {
-    bool needsRepaint = m_frontTexture->draw(visibleArea);
+    bool needsRepaint = m_frontTexture->drawGL(visibleArea, opacity);
     needsRepaint |= m_zooming;
     needsRepaint |= (m_scale <= 0);
     return needsRepaint;
 }
 
-void DualTiledTexture::update(const SkRegion& dirtyArea, SkPicture* picture)
+void DualTiledTexture::markAsDirty(const SkRegion& dirtyArea)
 {
-    m_backTexture->update(dirtyArea, picture);
-    m_frontTexture->update(dirtyArea, picture);
+    m_backTexture->markAsDirty(dirtyArea);
+    m_frontTexture->markAsDirty(dirtyArea);
 }
 
 void DualTiledTexture::swapTiles()
@@ -427,6 +392,41 @@ bool DualTiledTexture::owns(BaseTileTexture* texture)
     bool owns = m_textureA->owns(texture);
     owns |= m_textureB->owns(texture);
     return owns;
+}
+
+void DualTiledTexture::computeTexturesAmount(TexturesResult* result, LayerAndroid* layer)
+{
+    // TODO: shouldn't use layer, as this DTT may paint multiple layers
+    if (!layer)
+        return;
+
+    IntRect unclippedArea = layer->unclippedArea();
+    IntRect clippedVisibleArea = layer->visibleArea();
+
+    // get two numbers here:
+    // - textures needed for a clipped area
+    // - textures needed for an un-clipped area
+    TiledTexture* tiledTexture = m_zooming ? m_backTexture : m_frontTexture;
+    int nbTexturesUnclipped = tiledTexture->nbTextures(unclippedArea, m_scale);
+    int nbTexturesClipped = tiledTexture->nbTextures(clippedVisibleArea, m_scale);
+
+    // Set kFixedLayers level
+    if (layer->isFixed())
+        result->fixed += nbTexturesClipped;
+
+    // Set kScrollableAndFixedLayers level
+    if (layer->contentIsScrollable()
+        || layer->isFixed())
+        result->scrollable += nbTexturesClipped;
+
+    // Set kClippedTextures level
+    result->clipped += nbTexturesClipped;
+
+    // Set kAllTextures level
+    if (layer->contentIsScrollable())
+        result->full += nbTexturesClipped;
+    else
+        result->full += nbTexturesUnclipped;
 }
 
 } // namespace WebCore

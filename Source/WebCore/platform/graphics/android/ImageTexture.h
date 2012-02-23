@@ -67,13 +67,13 @@ class TiledTexture;
 // so that we can share the same textures and limits as the rest of the layers.
 //
 /////////////////////////////////////////////////////////////////////////////////
-class ImageTexture : public SurfacePainter {
+class ImageTexture : public TilePainter {
 public:
     ImageTexture(SkBitmap* bmp, unsigned crc);
     virtual ~ImageTexture();
 
     bool prepareGL(GLWebViewState*);
-    void drawGL(LayerAndroid* painter);
+    void drawGL(LayerAndroid* layer, float opacity);
     void drawCanvas(SkCanvas*, SkRect&);
     bool hasContentToShow();
     SkBitmap* bitmap() { return m_image; }
@@ -85,12 +85,13 @@ public:
     bool equalsCRC(unsigned crc);
 
     // methods used by TiledTexture
+    virtual bool paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed);
     virtual const TransformationMatrix* transform();
     virtual float opacity();
 
     int nbTextures();
 
-    virtual SurfaceType type() { return SurfacePainter::ImageSurface; }
+    virtual SurfaceType type() { return TilePainter::Image; }
 
 private:
 
