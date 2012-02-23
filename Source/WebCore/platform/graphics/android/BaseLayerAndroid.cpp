@@ -247,7 +247,7 @@ bool BaseLayerAndroid::prepareBasePictureInGL(SkRect& viewport, float scale,
         nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds,
                                TiledPage::VisibleBounds);
         // Cancel pending paints for the foreground page
-        TilesManager::instance()->removePaintOperationsForPage(tiledPage);
+        TilesManager::instance()->removePaintOperationsForPage(tiledPage, false);
     }
 
     // If we fired a request, let's check if it's ready to use
