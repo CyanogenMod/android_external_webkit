@@ -50,8 +50,9 @@ LOCAL_SRC_FILES += \
 	\
 	android/icu/unicode/ucnv.cpp \
 	\
-	android/content/content_detector.cpp \
 	android/content/address_detector.cpp \
+	android/content/content_detector.cpp \
+	android/content/PhoneEmailDetector.cpp \
 	\
 	android/jni/AndroidHitTestResult.cpp \
 	android/jni/CacheManager.cpp \
