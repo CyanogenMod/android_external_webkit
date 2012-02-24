@@ -685,13 +685,16 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
 
     // now apply it to our children
 
+    TransformationMatrix childMatrix;
+    childMatrix = localMatrix;
+    childMatrix.translate3d(m_offset.x(), m_offset.y(), 0);
     if (!m_childrenTransform.isIdentity()) {
-        localMatrix.translate(getSize().width() * 0.5f, getSize().height() * 0.5f);
-        localMatrix.multiply(m_childrenTransform);
-        localMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
+        childMatrix.translate(getSize().width() * 0.5f, getSize().height() * 0.5f);
+        childMatrix.multiply(m_childrenTransform);
+        childMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
     }
     for (int i = 0; i < count; i++)
-        this->getChild(i)->updateGLPositionsAndScale(localMatrix, drawClip(), opacity, scale);
+        this->getChild(i)->updateGLPositionsAndScale(childMatrix, drawClip(), opacity, scale);
 }
 
 void LayerAndroid::setContentsImage(SkBitmapRef* img)
