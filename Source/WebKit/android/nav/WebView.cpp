@@ -1311,7 +1311,8 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
         m_baseLayer->updateLayerPositions(m_visibleRect);
         LayerAndroid* root = compositeRoot();
         LayerAndroid* layer = root ? root->findById(layerId) : 0;
-        rect = layer->drawTransform()->mapRect(rect);
+        if (layer && layer->drawTransform())
+            rect = layer->drawTransform()->mapRect(rect);
     }
     cursorRect.set(rect.x(), rect.y(), rect.maxX(), rect.maxY());
     return layerId;
