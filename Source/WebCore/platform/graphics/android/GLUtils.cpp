@@ -36,9 +36,6 @@
 #include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
 #undef XLOGC
 #define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "GLUtils", __VA_ARGS__)
 
@@ -53,6 +50,11 @@
 #define XLOG(...)
 
 #endif // DEBUG
+
+// We will limit GL error logging for LOG_VOLUME_PER_CYCLE times every
+// LOG_VOLUME_PER_CYCLE seconds.
+#define LOG_CYCLE 30.0
+#define LOG_VOLUME_PER_CYCLE 20
 
 struct ANativeWindowBuffer;
 
@@ -118,10 +120,35 @@ void GLUtils::setOrthographicMatrix(TransformationMatrix& ortho, float left, flo
 // GL & EGL error checks
 /////////////////////////////////////////////////////////////////////////////////////////
 
-static void crashIfOOM(GLint errorCode) {
+double GLUtils::m_previousLogTime = 0;
+int GLUtils::m_currentLogCounter = 0;
+
+bool GLUtils::allowGLLog()
+{
+    if (m_currentLogCounter < LOG_VOLUME_PER_CYCLE) {
+        m_currentLogCounter++;
+        return true;
+    }
+
+    // when we are in Log cycle and over the log limit, just return false
+    double currentTime = WTF::currentTime();
+    double delta = currentTime - m_previousLogTime;
+    bool inLogCycle = (delta <= LOG_CYCLE) && (delta > 0);
+    if (inLogCycle)
+        return false;
+
+    // When we are out of Log Cycle and over the log limit, we need to reset
+    // the counter and timer.
+    m_previousLogTime = currentTime;
+    m_currentLogCounter = 0;
+    return false;
+}
+
+static void crashIfOOM(GLint errorCode)
+{
     const GLint OOM_ERROR_CODE = 0x505;
     if (errorCode == OOM_ERROR_CODE) {
-        XLOG("Fatal OOM detected.");
+        XLOGC("ERROR: Fatal OOM detected.");
         CRASH();
     }
 }
@@ -129,11 +156,17 @@ static void crashIfOOM(GLint errorCode) {
 void GLUtils::checkEglError(const char* op, EGLBoolean returnVal)
 {
     if (returnVal != EGL_TRUE) {
-        XLOG("EGL ERROR - %s() returned %d\n", op, returnVal);
+#ifndef DEBUG
+        if (allowGLLog())
+#endif
+        XLOGC("EGL ERROR - %s() returned %d\n", op, returnVal);
     }
 
     for (EGLint error = eglGetError(); error != EGL_SUCCESS; error = eglGetError()) {
-        XLOG("after %s() eglError (0x%x)\n", op, error);
+#ifndef DEBUG
+        if (allowGLLog())
+#endif
+        XLOGC("after %s() eglError (0x%x)\n", op, error);
         crashIfOOM(error);
     }
 }
@@ -142,7 +175,10 @@ bool GLUtils::checkGlError(const char* op)
 {
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
-        XLOG("GL ERROR - after %s() glError (0x%x)\n", op, error);
+#ifndef DEBUG
+        if (allowGLLog())
+#endif
+        XLOGC("GL ERROR - after %s() glError (0x%x)\n", op, error);
         crashIfOOM(error);
         ret = true;
     }
@@ -153,7 +189,10 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op)
 {
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
-        XLOG("GL ERROR on %x - after %s() glError (0x%x)\n", p, op, error);
+#ifndef DEBUG
+        if (allowGLLog())
+#endif
+        XLOGC("GL ERROR on %x - after %s() glError (0x%x)\n", p, op, error);
         crashIfOOM(error);
         ret = true;
     }
@@ -163,7 +202,10 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op)
 void GLUtils::checkSurfaceTextureError(const char* functionName, int status)
 {
     if (status !=  NO_ERROR) {
-        XLOG("ERROR at calling %s status is (%d)", functionName, status);
+#ifndef DEBUG
+        if (allowGLLog())
+#endif
+        XLOGC("ERROR at calling %s status is (%d)", functionName, status);
     }
 }
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -315,7 +357,8 @@ void GLUtils::deleteTexture(GLuint* texture)
     *texture = 0;
 }
 
-GLuint GLUtils::createSampleColorTexture(int r, int g, int b) {
+GLuint GLUtils::createSampleColorTexture(int r, int g, int b)
+{
     GLuint texture;
     glGenTextures(1, &texture);
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
@@ -501,7 +544,10 @@ void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GL
                  0, internalformat, type, bitmap.getPixels());
     bitmap.unlockPixels();
     if (GLUtils::checkGlError("glTexImage2D")) {
-        XLOG("GL ERROR: glTexImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+#ifndef DEBUG
+        if (allowGLLog())
+#endif
+        XLOGC("GL ERROR: glTexImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
              " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
              bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
     }
@@ -538,7 +584,10 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, const SkBitmap& bitmap,
     }
     bitmap.unlockPixels();
     if (GLUtils::checkGlError("glTexSubImage2D")) {
-        XLOG("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+#ifndef DEBUG
+        if (allowGLLog())
+#endif
+        XLOGC("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
              " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
              bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
     }
