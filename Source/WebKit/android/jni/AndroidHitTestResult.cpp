@@ -29,6 +29,7 @@
 #include "AndroidHitTestResult.h"
 
 #include "content/address_detector.h"
+#include "content/PhoneEmailDetector.h"
 #include "android/WebHitTestInfo.h"
 #include "Document.h"
 #include "Element.h"
@@ -149,8 +150,12 @@ void AndroidHitTestResult::buildHighlightRects()
 void AndroidHitTestResult::searchContentDetectors()
 {
     AddressDetector address;
+    PhoneEmailDetector phoneEmail;
     WebKit::WebHitTestInfo webHitTest(m_hitTestResult);
     m_searchResult = address.FindTappedContent(webHitTest);
+    if (!m_searchResult.valid) {
+        m_searchResult = phoneEmail.FindTappedContent(webHitTest);
+    }
     if (m_searchResult.valid) {
         m_highlightRects.clear();
         RefPtr<Range> range = (PassRefPtr<Range>) m_searchResult.range;
