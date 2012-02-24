@@ -26,9 +26,6 @@
 #ifndef WebViewCore_h
 #define WebViewCore_h
 
-#ifndef DISABLE_NAVCACHE
-#include "CacheBuilder.h"
-#endif
 #include "CachedHistory.h"
 #include "DeviceMotionAndOrientationManager.h"
 #include "DOMSelection.h"
@@ -430,14 +427,9 @@ namespace android {
         jobject getWebViewJavaObject();
 
         void setBackgroundColor(SkColor c);
-#ifndef DISABLE_NAVCACHE
-        void updateFrameCache();
-        void updateCacheOnNodeChange();
-        void updateFrameCacheIfLoading();
-#endif
+
         void dumpDomTree(bool);
         void dumpRenderTree(bool);
-        void dumpNavTree();
 
         /*  We maintain a list of active plugins. The list is edited by the
             pluginview itself. The list is used to service invals to the plugin
@@ -651,9 +643,6 @@ namespace android {
             URL = 7,
         };
 
-#ifndef DISABLE_NAVCACHE
-        CacheBuilder& cacheBuilder();
-#endif
         WebCore::Node* currentFocus();
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)

@@ -48,14 +48,14 @@ class AddressDetector : public ContentDetector {
   AddressDetector();
   virtual ~AddressDetector();
 
- private:
-  friend class AddressDetectorTest;
-
   // Implementation of ContentDetector.
   virtual bool FindContent(const string16::const_iterator& begin,
                            const string16::const_iterator& end,
                            size_t* start_pos,
                            size_t* end_pos) OVERRIDE;
+
+ private:
+  friend class AddressDetectorTest;
 
   virtual std::string GetContentText(const WebKit::WebRange& range) OVERRIDE;
   virtual GURL GetIntentURL(const std::string& content_text) OVERRIDE;

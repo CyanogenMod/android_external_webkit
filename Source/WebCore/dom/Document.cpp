@@ -189,11 +189,6 @@
 #include "Settings.h"
 #endif
 
-#ifdef ANDROID_RESET_SELECTION
-#include "CacheBuilder.h"
-#include "HTMLTextAreaElement.h"
-#endif
-
 #if ENABLE(TOUCH_EVENTS)
 #if USE(V8)
 #include "RuntimeEnabledFeatures.h"
