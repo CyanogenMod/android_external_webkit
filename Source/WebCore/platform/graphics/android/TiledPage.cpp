@@ -353,7 +353,7 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale)
             swaps++;
     }
 
-    XLOG("%p greedy swapped %d textures, returning true", this, swaps);
+    XLOG("%p greedy swapped %d textures, returning %d", this, swaps, fullSwap);
     return fullSwap;
 }
 
