@@ -184,7 +184,6 @@ public:
     bool wantsKeyEvents() const { return isTextInput() || isPlugin()
         || isContentEditable() || isFrame(); }
 private:
-    friend class CacheBuilder;
     WTF::String mExport;
     WebCore::IntRect mBounds;
     WebCore::IntRect mHitBounds;

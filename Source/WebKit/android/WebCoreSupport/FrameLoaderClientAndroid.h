@@ -26,7 +26,6 @@
 #ifndef FrameLoaderClientAndroid_h
 #define FrameLoaderClientAndroid_h
 
-#include "CacheBuilder.h"
 #include "FrameLoaderClient.h"
 #include "ResourceResponse.h"
 #include "WebIconDatabase.h"
@@ -216,9 +215,6 @@ namespace android {
         // WebIconDatabaseClient api
         virtual void didAddIconForPageUrl(const String& pageUrl);
         
-        // FIXME: this doesn't really go here, but it's better than Frame
-        CacheBuilder& getCacheBuilder() { return m_cacheBuilder; }
-
         void enableOnDemandPlugins() { m_onDemandPluginsEnabled = true; }
 
         void dispatchDidChangeIcons();
@@ -227,7 +223,6 @@ namespace android {
         virtual void didSaveToPageCache() { }
         virtual void didRestoreFromPageCache() { }
     private:
-        CacheBuilder m_cacheBuilder;
         Frame* m_frame;
         WebFrame* m_webFrame;
         PluginManualLoader* m_manualLoader;
@@ -263,7 +258,6 @@ namespace android {
             ErrorFileNotFound          = -14,
             ErrorTooManyRequests       = -15
         };
-        friend class CacheBuilder;
     };
 
 }

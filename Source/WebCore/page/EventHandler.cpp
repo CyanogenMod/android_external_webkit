@@ -2415,16 +2415,10 @@ static Node* eventTargetNodeForDocument(Document* doc)
     if (!doc)
         return 0;
     Node* node = doc->focusedNode();
-#if defined(ANDROID_PLUGINS)
-    if (!node && doc->frame() && doc->frame()->view())
-        node = android::WebViewCore::getWebViewCore(doc->frame()->view())
-                                     ->cursorNodeIsPlugin();
-#else
     if (!node && doc->isPluginDocument()) {
         PluginDocument* pluginDocument = static_cast<PluginDocument*>(doc);
         node =  pluginDocument->pluginNode();
     }
-#endif
     if (!node && doc->isHTMLDocument())
         node = doc->body();
     if (!node)

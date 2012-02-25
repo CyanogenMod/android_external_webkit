@@ -34,6 +34,7 @@
 #include "BaseLayerAndroid.h"
 #include "CachedNode.h"
 #include "CachedRoot.h"
+#include "content/address_detector.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
 #include "ChromiumIncludes.h"
@@ -96,6 +97,7 @@
 #include "ProgressTracker.h"
 #include "Range.h"
 #include "RenderBox.h"
+#include "RenderImage.h"
 #include "RenderInline.h"
 #include "RenderLayer.h"
 #include "RenderPart.h"
@@ -175,6 +177,69 @@ FILE* gRenderTreeFile = 0;
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace android {
+
+// Copied from CacheBuilder, not sure if this is needed/correct
+IntRect getAreaRect(const HTMLAreaElement* area)
+{
+    Node* node = area->document();
+    while ((node = node->traverseNextNode()) != NULL) {
+        RenderObject* renderer = node->renderer();
+        if (renderer && renderer->isRenderImage()) {
+            RenderImage* image = static_cast<RenderImage*>(renderer);
+            HTMLMapElement* map = image->imageMap();
+            if (map) {
+                Node* n;
+                for (n = map->firstChild(); n;
+                        n = n->traverseNextNode(map)) {
+                    if (n == area) {
+                        if (area->isDefault())
+                            return image->absoluteBoundingBoxRect();
+                        return area->computeRect(image);
+                    }
+                }
+            }
+        }
+    }
+    return IntRect();
+}
+
+// Copied from CacheBuilder, not sure if this is needed/correct
+// TODO: See if this is even needed (I suspect not), and if not remove it
+bool validNode(Frame* startFrame, void* matchFrame,
+        void* matchNode)
+{
+    if (matchFrame == startFrame) {
+        if (matchNode == NULL)
+            return true;
+        Node* node = startFrame->document();
+        while (node != NULL) {
+            if (node == matchNode) {
+                const IntRect& rect = node->hasTagName(HTMLNames::areaTag) ?
+                    getAreaRect(static_cast<HTMLAreaElement*>(node)) : node->getRect();
+                // Consider nodes with empty rects that are not at the origin
+                // to be valid, since news.google.com has valid nodes like this
+                if (rect.x() == 0 && rect.y() == 0 && rect.isEmpty())
+                    return false;
+                return true;
+            }
+            node = node->traverseNextNode();
+        }
+        DBG_NAV_LOGD("frame=%p valid node=%p invalid\n", matchFrame, matchNode);
+        return false;
+    }
+    Frame* child = startFrame->tree()->firstChild();
+    while (child) {
+        bool result = validNode(child, matchFrame, matchNode);
+        if (result)
+            return result;
+        child = child->tree()->nextSibling();
+    }
+#if DEBUG_NAV_UI
+    if (startFrame->tree()->parent() == NULL)
+        DBG_NAV_LOGD("frame=%p node=%p false\n", matchFrame, matchNode);
+#endif
+    return false;
+}
 
 static SkTDArray<WebViewCore*> gInstanceList;
 
@@ -526,13 +591,6 @@ static bool layoutIfNeededRecursive(WebCore::Frame* f)
     return success && !v->needsLayout();
 }
 
-#if ENABLE(ANDROID_NAVCACHE)
-CacheBuilder& WebViewCore::cacheBuilder()
-{
-    return FrameLoaderClientAndroid::get(m_mainFrame)->getCacheBuilder();
-}
-#endif
-
 WebCore::Node* WebViewCore::currentFocus()
 {
     return focusedFrame()->document()->focusedNode();
@@ -656,11 +714,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         height = view->contentsHeight();
     }
 
-#if ENABLE(ANDROID_NAVCACHE)
-    if (cacheBuilder().pictureSetDisabled())
-        content->clear();
-#endif
-
 #if USE(ACCELERATED_COMPOSITING)
     // The invals are not always correct when the content size has changed. For
     // now, let's just reset the inval so that it invalidates the entire content
@@ -699,56 +752,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
 
     // Rebuild the pictureset (webkit repaint)
     rebuildPictureSet(content);
-
-#if ENABLE(ANDROID_NAVCACHE)
-    WebCore::Node* oldFocusNode = currentFocus();
-    m_frameCacheOutOfDate = true;
-    WebCore::IntRect oldBounds;
-    int oldSelStart = 0;
-    int oldSelEnd = 0;
-    if (oldFocusNode) {
-        oldBounds = oldFocusNode->getRect();
-        getSelectionOffsets(oldFocusNode, oldSelStart, oldSelEnd);
-    } else
-        oldBounds = WebCore::IntRect(0,0,0,0);
-    unsigned latestVersion = 0;
-    if (m_check_domtree_version) {
-        // as domTreeVersion only increment, we can just check the sum to see
-        // whether we need to update the frame cache
-        for (Frame* frame = m_mainFrame; frame; frame = frame->tree()->traverseNext()) {
-            const Document* doc = frame->document();
-            latestVersion += doc->domTreeVersion() + doc->styleVersion();
-        }
-    }
-    DBG_NAV_LOGD("m_lastFocused=%p oldFocusNode=%p"
-        " m_lastFocusedBounds={%d,%d,%d,%d} oldBounds={%d,%d,%d,%d}"
-        " m_lastFocusedSelection={%d,%d} oldSelection={%d,%d}"
-        " m_check_domtree_version=%s latestVersion=%d m_domtree_version=%d",
-        m_lastFocused, oldFocusNode,
-        m_lastFocusedBounds.x(), m_lastFocusedBounds.y(),
-        m_lastFocusedBounds.width(), m_lastFocusedBounds.height(),
-        oldBounds.x(), oldBounds.y(), oldBounds.width(), oldBounds.height(),
-        m_lastFocusedSelStart, m_lastFocusedSelEnd, oldSelStart, oldSelEnd,
-        m_check_domtree_version ? "true" : "false",
-        latestVersion, m_domtree_version);
-    if (m_lastFocused == oldFocusNode && m_lastFocusedBounds == oldBounds
-            && m_lastFocusedSelStart == oldSelStart
-            && m_lastFocusedSelEnd == oldSelEnd
-            && !m_findIsUp
-            && (!m_check_domtree_version || latestVersion == m_domtree_version))
-    {
-        return;
-    }
-    m_focusBoundsChanged |= m_lastFocused == oldFocusNode
-        && m_lastFocusedBounds != oldBounds;
-    m_lastFocused = oldFocusNode;
-    m_lastFocusedBounds = oldBounds;
-    m_lastFocusedSelStart = oldSelStart;
-    m_lastFocusedSelEnd = oldSelEnd;
-    m_domtree_version = latestVersion;
-    DBG_NAV_LOG("call updateFrameCache");
-    updateFrameCache();
-#endif
 }
 
 // note: updateCursorBounds is called directly by the WebView thread
@@ -1084,11 +1087,6 @@ void WebViewCore::didFirstLayout()
             || loadType == WebCore::FrameLoadTypeSame);
     checkException(env);
 
-#if ENABLE(ANDROID_NAVCACHE)
-    DBG_NAV_LOG("call updateFrameCache");
-    m_check_domtree_version = false;
-    updateFrameCache();
-#endif
     m_history.setDidFirstLayout(true);
 }
 
@@ -1376,13 +1374,6 @@ void WebViewCore::dumpRenderTree(bool useFile)
 #endif
 }
 
-void WebViewCore::dumpNavTree()
-{
-#if DUMP_NAV_CACHE
-    cacheBuilder().mDebug.print();
-#endif
-}
-
 HTMLElement* WebViewCore::retrieveElement(int x, int y,
     const QualifiedName& tagName)
 {
@@ -1448,7 +1439,7 @@ WTF::String WebViewCore::retrieveImageSource(int x, int y)
 WTF::String WebViewCore::requestLabel(WebCore::Frame* frame,
         WebCore::Node* node)
 {
-    if (node && CacheBuilder::validNode(m_mainFrame, frame, node)) {
+    if (node && validNode(m_mainFrame, frame, node)) {
         RefPtr<WebCore::NodeList> list = node->document()->getElementsByTagName("label");
         unsigned length = list->length();
         for (unsigned i = 0; i < length; i++) {
@@ -1503,104 +1494,6 @@ void WebViewCore::revealSelection()
         return;
     focusedFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
-
-#if ENABLE(ANDROID_NAVCACHE)
-void WebViewCore::updateCacheOnNodeChange()
-{
-    gCursorBoundsMutex.lock();
-    bool hasCursorBounds = m_hasCursorBounds;
-    Frame* frame = (Frame*) m_cursorFrame;
-    Node* node = (Node*) m_cursorNode;
-    IntRect bounds = m_cursorHitBounds;
-    gCursorBoundsMutex.unlock();
-    if (!hasCursorBounds || !node)
-        return;
-    if (CacheBuilder::validNode(m_mainFrame, frame, node)) {
-        RenderObject* renderer = node->renderer();
-        if (renderer && renderer->style()->visibility() != HIDDEN) {
-            IntRect absBox = renderer->absoluteBoundingBoxRect();
-            int globalX, globalY;
-            CacheBuilder::GetGlobalOffset(frame, &globalX, &globalY);
-            absBox.move(globalX, globalY);
-            if (absBox == bounds)
-                return;
-            DBG_NAV_LOGD("absBox=(%d,%d,%d,%d) bounds=(%d,%d,%d,%d)",
-                absBox.x(), absBox.y(), absBox.width(), absBox.height(),
-                bounds.x(), bounds.y(), bounds.width(), bounds.height());
-        }
-    }
-    DBG_NAV_LOGD("updateFrameCache node=%p", node);
-    updateFrameCache();
-}
-
-void WebViewCore::updateFrameCache()
-{
-    if (!m_frameCacheOutOfDate) {
-        DBG_NAV_LOG("!m_frameCacheOutOfDate");
-        return;
-    }
-
-    // If there is a pending style recalculation, do not update the frame cache.
-    // Until the recalculation is complete, there may be internal objects that
-    // are in an inconsistent state (such as font pointers).
-    // In any event, there's not much point to updating the cache while a style
-    // recalculation is pending, since it will simply have to be updated again
-    // once the recalculation is complete.
-    // TODO: Do we need to reschedule an update for after the style is recalculated?
-    if (m_mainFrame && m_mainFrame->document() && m_mainFrame->document()->isPendingStyleRecalc()) {
-        ALOGW("updateFrameCache: pending style recalc, ignoring.");
-        return;
-    }
-    m_frameCacheOutOfDate = false;
-    CachedRoot* tempCacheRoot = new CachedRoot();
-    tempCacheRoot->init(m_mainFrame, &m_history);
-#if USE(ACCELERATED_COMPOSITING)
-    GraphicsLayerAndroid* graphicsLayer = graphicsRootLayer();
-    if (graphicsLayer)
-        tempCacheRoot->setRootLayer(graphicsLayer->contentLayer());
-#endif
-    CacheBuilder& builder = cacheBuilder();
-    WebCore::Settings* settings = m_mainFrame->page()->settings();
-    builder.allowAllTextDetection();
-#ifdef ANDROID_META_SUPPORT
-    if (settings) {
-        if (!settings->formatDetectionAddress())
-            builder.disallowAddressDetection();
-        if (!settings->formatDetectionEmail())
-            builder.disallowEmailDetection();
-        if (!settings->formatDetectionTelephone())
-            builder.disallowPhoneDetection();
-    }
-#endif
-    builder.buildCache(tempCacheRoot);
-    SkPicture* tempPict = new SkPicture();
-    recordPicture(tempPict);
-    tempCacheRoot->setPicture(tempPict);
-    SkSafeUnref(tempPict);
-    tempPict = 0;
-    tempCacheRoot->setTextGeneration(m_textGeneration);
-    WebCoreViewBridge* window = m_mainFrame->view()->platformWidget();
-    tempCacheRoot->setVisibleRect(WebCore::IntRect(m_scrollOffsetX,
-        m_scrollOffsetY, window->width(), window->height()));
-    gFrameCacheMutex.lock();
-    delete m_frameCacheKit;
-    m_frameCacheKit = tempCacheRoot;
-    m_updatedFrameCache = true;
-#if DEBUG_NAV_UI
-    const CachedNode* cachedFocusNode = m_frameCacheKit->currentFocus();
-    DBG_NAV_LOGD("cachedFocusNode=%d (nodePointer=%p)",
-        cachedFocusNode ? cachedFocusNode->index() : 0,
-        cachedFocusNode ? cachedFocusNode->nodePointer() : 0);
-#endif
-    gFrameCacheMutex.unlock();
-}
-
-void WebViewCore::updateFrameCacheIfLoading()
-{
-    if (!m_check_domtree_version)
-        updateFrameCache();
-}
-#endif
 
 struct TouchNodeData {
     Node* mUrlNode;
@@ -2242,7 +2135,7 @@ Node* WebViewCore::cursorNodeIsPlugin() {
     Frame* frame = (Frame*) m_cursorFrame;
     Node* node = (Node*) m_cursorNode;
     gCursorBoundsMutex.unlock();
-    if (hasCursorBounds && CacheBuilder::validNode(m_mainFrame, frame, node)
+    if (hasCursorBounds && validNode(m_mainFrame, frame, node)
             && nodeIsPlugin(node)) {
         return node;
     }
@@ -2268,7 +2161,7 @@ void WebViewCore::moveMouseIfLatest(int moveGeneration,
 void WebViewCore::moveFocus(WebCore::Frame* frame, WebCore::Node* node)
 {
     DBG_NAV_LOGD("frame=%p node=%p", frame, node);
-    if (!node || !CacheBuilder::validNode(m_mainFrame, frame, node)
+    if (!node || !validNode(m_mainFrame, frame, node)
             || !node->isElementNode())
         return;
     // Code borrowed from FocusController::advanceFocus
@@ -2289,7 +2182,7 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* 
 {
     DBG_NAV_LOGD("frame=%p x=%d y=%d scrollOffset=(%d,%d)", frame,
         x, y, m_scrollOffsetX, m_scrollOffsetY);
-    if (!frame || !CacheBuilder::validNode(m_mainFrame, frame, 0))
+    if (!frame || !validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
@@ -2299,9 +2192,6 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* 
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
         false, WTF::currentTime());
     frame->eventHandler()->handleMouseMoveEvent(mouseEvent, hoveredNode);
-#if ENABLE(ANDROID_NAVCACHE)
-    updateCacheOnNodeChange();
-#endif
 }
 
 Position WebViewCore::getPositionForOffset(Node* node, int offset)
@@ -2425,7 +2315,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
     // initialize the selection if necessary
     if (selection->rangeCount() == 0) {
         if (m_currentNodeDomNavigationAxis
-                && CacheBuilder::validNode(m_mainFrame,
+                && validNode(m_mainFrame,
                 m_mainFrame, m_currentNodeDomNavigationAxis)) {
             RefPtr<Range> rangeRef =
                 selection->frame()->document()->createRange();
@@ -2437,7 +2327,7 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
         } else if (currentFocus()) {
             selection->setPosition(currentFocus(), 0, ec);
         } else if (m_cursorNode
-                && CacheBuilder::validNode(m_mainFrame,
+                && validNode(m_mainFrame,
                 m_mainFrame, m_cursorNode)) {
             RefPtr<Range> rangeRef =
                 selection->frame()->document()->createRange();
@@ -2857,7 +2747,7 @@ String WebViewCore::modifySelectionDomNavigationAxis(DOMSelection* selection, in
     if (!m_currentNodeDomNavigationAxis)
         m_currentNodeDomNavigationAxis = currentFocus();
     if (!m_currentNodeDomNavigationAxis
-            || !CacheBuilder::validNode(m_mainFrame, m_mainFrame,
+            || !validNode(m_mainFrame, m_mainFrame,
                                         m_currentNodeDomNavigationAxis))
         m_currentNodeDomNavigationAxis = body;
     Node* currentNode = m_currentNodeDomNavigationAxis;
@@ -2958,7 +2848,7 @@ bool WebViewCore::isVisible(Node* node)
     while (currentNode && currentNode != body) {
         RenderStyle* style = currentNode->computedStyle();
         if (style &&
-                (style->display() == NONE || style->visibility() == HIDDEN)) {
+                (style->display() == WebCore::NONE || style->visibility() == WebCore::HIDDEN)) {
             return false;
         }
         currentNode = currentNode->parentNode();
@@ -3144,7 +3034,7 @@ void WebViewCore::setFocusControllerActive(bool active)
 
 void WebViewCore::saveDocumentState(WebCore::Frame* frame)
 {
-    if (!CacheBuilder::validNode(m_mainFrame, frame, 0))
+    if (!validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
     WebCore::HistoryItem *item = frame->loader()->history()->currentItem();
 
@@ -3426,7 +3316,7 @@ void WebViewCore::touchUp(int touchGeneration,
         moveMouse(frame, x, y);
         m_lastGeneration = touchGeneration;
     }
-    if (frame && CacheBuilder::validNode(m_mainFrame, frame, 0)) {
+    if (frame && validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
     DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
@@ -3455,7 +3345,7 @@ static bool shouldSuppressKeyboard(const WebCore::Node* node) {
 // in which case, 'fake' is set to true
 bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr, bool fake)
 {
-    bool valid = !framePtr || CacheBuilder::validNode(m_mainFrame, framePtr, nodePtr);
+    bool valid = !framePtr || validNode(m_mainFrame, framePtr, nodePtr);
     WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
     if (valid && nodePtr) {
     // Need to special case area tags because an image map could have an area element in the middle
@@ -3500,15 +3390,8 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
                     autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusNode));
                 }
 #endif
-                if (!fake) {
-#if ENABLE(ANDROID_NAVCACHE)
-                    // Force an update of the navcache as this will fire off a
-                    // message to WebView that *must* have an updated focus.
-                    m_frameCacheOutOfDate = true;
-                    updateFrameCache();
-#endif
+                if (!fake)
                     initEditField(focusNode);
-                }
             } else if (!fake) {
                 requestKeyboard(false);
             }
@@ -4127,14 +4010,14 @@ void WebViewCore::keepScreenOn(bool screenOn) {
 bool WebViewCore::validNodeAndBounds(Frame* frame, Node* node,
     const IntRect& originalAbsoluteBounds)
 {
-    bool valid = CacheBuilder::validNode(m_mainFrame, frame, node);
+    bool valid = validNode(m_mainFrame, frame, node);
     if (!valid)
         return false;
     RenderObject* renderer = node->renderer();
     if (!renderer)
         return false;
     IntRect absBounds = node->hasTagName(HTMLNames::areaTag)
-        ? CacheBuilder::getAreaRect(static_cast<HTMLAreaElement*>(node))
+        ? getAreaRect(static_cast<HTMLAreaElement*>(node))
         : renderer->absoluteBoundingBoxRect();
     return absBounds == originalAbsoluteBounds;
 }
@@ -4504,9 +4387,6 @@ static void ClearContent(JNIEnv* env, jobject obj, jint nativeClass)
 
 static void UpdateFrameCacheIfLoading(JNIEnv* env, jobject obj, jint nativeClass)
 {
-#if ENABLE(ANDROID_NAVCACHE)
-        reinterpret_cast<WebViewCore*>(nativeClass)->updateFrameCacheIfLoading();
-#endif
 }
 
 static void SetSize(JNIEnv* env, jobject obj, jint nativeClass, jint width,
@@ -4703,6 +4583,7 @@ static void SendListBoxChoices(JNIEnv* env, jobject obj, jint nativeClass,
     viewImpl->popupReply(array, count);
 }
 
+// TODO: Move this to WebView.cpp since it is only needed there
 static jstring FindAddress(JNIEnv* env, jobject obj, jstring addr,
         jboolean caseInsensitive)
 {
@@ -4712,9 +4593,9 @@ static jstring FindAddress(JNIEnv* env, jobject obj, jstring addr,
     if (!length)
         return 0;
     const jchar* addrChars = env->GetStringChars(addr, 0);
-    int start, end;
-    bool success = CacheBuilder::FindAddress(addrChars, length,
-        &start, &end, caseInsensitive) == CacheBuilder::FOUND_COMPLETE;
+    size_t start, end;
+    AddressDetector detector;
+    bool success = detector.FindContent(addrChars, addrChars + length, &start, &end);
     jstring ret = 0;
     if (success)
         ret = env->NewString(addrChars + start, end - start);
@@ -4811,11 +4692,6 @@ static void MoveMouseIfLatest(JNIEnv* env, jobject obj, jint nativeClass,
 
 static void UpdateFrameCache(JNIEnv* env, jobject obj, jint nativeClass)
 {
-#if ENABLE(ANDROID_NAVCACHE)
-        WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->updateFrameCache();
-#endif
 }
 
 static jint GetContentMinPrefWidth(JNIEnv* env, jobject obj, jint nativeClass)
@@ -4886,10 +4762,6 @@ static void DumpRenderTree(JNIEnv* env, jobject obj, jint nativeClass,
 
 static void DumpNavTree(JNIEnv* env, jobject obj, jint nativeClass)
 {
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-
-    viewImpl->dumpNavTree();
 }
 
 static void SetJsFlags(JNIEnv* env, jobject obj, jint nativeClass, jstring flags)

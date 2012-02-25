@@ -76,7 +76,6 @@ LOCAL_SRC_FILES += \
 	android/jni/WebViewCore.cpp \
 	android/jni/ViewStateSerializer.cpp \
 	\
-	android/nav/CacheBuilder.cpp \
 	android/nav/CachedFrame.cpp \
 	android/nav/CachedHistory.cpp \
 	android/nav/CachedInput.cpp \

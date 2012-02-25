@@ -42,6 +42,11 @@
 #include "net/base/escape.h"
 #include "WebString.h"
 
+#include <wtf/HashSet.h>
+#include <wtf/Noncopyable.h>
+#include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
+
 namespace {
 
 // Prefix used for geographical address intent URIs.
@@ -259,8 +264,12 @@ bool AddressDetector::FindContent(const string16::const_iterator& begin,
           size_t zip_word = state_last_word + 1;
           if (zip_word == words.size()) {
             do {
-              if (!tokenizer.GetNext())
-                return false;
+              if (!tokenizer.GetNext()) {
+                // Zip is optional
+                *start_pos = words[0].begin - begin;
+                *end_pos = words[state_last_word].end - begin;
+                return true;
+              }
             } while (tokenizer.token_is_delim());
             words.push_back(Word(tokenizer.token_begin(),
                 tokenizer.token_end()));
@@ -644,196 +653,286 @@ bool AddressDetector::IsZipValid(const Word& word, size_t state_index) {
   return IsZipValidForState(word, state_index);
 }
 
-bool AddressDetector::IsZipValidForState(const Word& word, size_t state_index) {
-  // List of valid zip code ranges.
-  static const struct {
-    char low;
-    char high;
-    char exception1;
-    char exception2;
-  } zip_range[] = {
-    { 99, 99, -1, -1 }, // AK Alaska.
-    { 35, 36, -1, -1 }, // AL Alabama.
-    { 71, 72, -1, -1 }, // AR Arkansas.
-    { 96, 96, -1, -1 }, // AS American Samoa.
-    { 85, 86, -1, -1 }, // AZ Arizona.
-    { 90, 96, -1, -1 }, // CA California.
-    { 80, 81, -1, -1 }, // CO Colorado.
-    {  6,  6, -1, -1 }, // CT Connecticut.
-    { 20, 20, -1, -1 }, // DC District of Columbia.
-    { 19, 19, -1, -1 }, // DE Delaware.
-    { 32, 34, -1, -1 }, // FL Florida.
-    { 96, 96, -1, -1 }, // FM Federated States of Micronesia.
-    { 30, 31, -1, -1 }, // GA Georgia.
-    { 96, 96, -1, -1 }, // GU Guam.
-    { 96, 96, -1, -1 }, // HI Hawaii.
-    { 50, 52, -1, -1 }, // IA Iowa.
-    { 83, 83, -1, -1 }, // ID Idaho.
-    { 60, 62, -1, -1 }, // IL Illinois.
-    { 46, 47, -1, -1 }, // IN Indiana.
-    { 66, 67, 73, -1 }, // KS Kansas.
-    { 40, 42, -1, -1 }, // KY Kentucky.
-    { 70, 71, -1, -1 }, // LA Louisiana.
-    {  1,  2, -1, -1 }, // MA Massachusetts.
-    { 20, 21, -1, -1 }, // MD Maryland.
-    {  3,  4, -1, -1 }, // ME Maine.
-    { 96, 96, -1, -1 }, // MH Marshall Islands.
-    { 48, 49, -1, -1 }, // MI Michigan.
-    { 55, 56, -1, -1 }, // MN Minnesota.
-    { 63, 65, -1, -1 }, // MO Missouri.
-    { 96, 96, -1, -1 }, // MP Northern Mariana Islands.
-    { 38, 39, -1, -1 }, // MS Mississippi.
-    { 55, 56, -1, -1 }, // MT Montana.
-    { 27, 28, -1, -1 }, // NC North Carolina.
-    { 58, 58, -1, -1 }, // ND North Dakota.
-    { 68, 69, -1, -1 }, // NE Nebraska.
-    {  3,  4, -1, -1 }, // NH New Hampshire.
-    {  7,  8, -1, -1 }, // NJ New Jersey.
-    { 87, 88, 86, -1 }, // NM New Mexico.
-    { 88, 89, 96, -1 }, // NV Nevada.
-    { 10, 14,  0,  6 }, // NY New York.
-    { 43, 45, -1, -1 }, // OH Ohio.
-    { 73, 74, -1, -1 }, // OK Oklahoma.
-    { 97, 97, -1, -1 }, // OR Oregon.
-    { 15, 19, -1, -1 }, // PA Pennsylvania.
-    {  6,  6,  0,  9 }, // PR Puerto Rico.
-    { 96, 96, -1, -1 }, // PW Palau.
-    {  2,  2, -1, -1 }, // RI Rhode Island.
-    { 29, 29, -1, -1 }, // SC South Carolina.
-    { 57, 57, -1, -1 }, // SD South Dakota.
-    { 37, 38, -1, -1 }, // TN Tennessee.
-    { 75, 79, 87, 88 }, // TX Texas.
-    { 84, 84, -1, -1 }, // UT Utah.
-    { 22, 24, 20, -1 }, // VA Virginia.
-    {  6,  9, -1, -1 }, // VI Virgin Islands.
-    {  5,  5, -1, -1 }, // VT Vermont.
-    { 98, 99, -1, -1 }, // WA Washington.
-    { 53, 54, -1, -1 }, // WI Wisconsin.
-    { 24, 26, -1, -1 }, // WV West Virginia.
-    { 82, 83, -1, -1 }  // WY Wyoming.
-  };
+bool AddressDetector::IsZipValidForState(const Word& word, size_t state_index)
+{
+    enum USState {
+        AP = -4, // AP (military base in the Pacific)
+        AA = -3, // AA (military base inside the US)
+        AE = -2, // AE (military base outside the US)
+        XX = -1, // (not in use)
+        AK =  0, // AK Alaska
+        AL =  1, // AL Alabama
+        AR =  2, // AR Arkansas
+        AS =  3, // AS American Samoa
+        AZ =  4, // AZ Arizona
+        CA =  5, // CA California
+        CO =  6, // CO Colorado
+        CT =  7, // CT Connecticut
+        DC =  8, // DC District of Columbia
+        DE =  9, // DE Delaware
+        FL = 10, // FL Florida
+        FM = 11, // FM Federated States of Micronesia
+        GA = 12, // GA Georgia
+        GU = 13, // GU Guam
+        HI = 14, // HI Hawaii
+        IA = 15, // IA Iowa
+        ID = 16, // ID Idaho
+        IL = 17, // IL Illinois
+        IN = 18, // IN Indiana
+        KS = 19, // KS Kansas
+        KY = 20, // KY Kentucky
+        LA = 21, // LA Louisiana
+        MA = 22, // MA Massachusetts
+        MD = 23, // MD Maryland
+        ME = 24, // ME Maine
+        MH = 25, // MH Marshall Islands
+        MI = 26, // MI Michigan
+        MN = 27, // MN Minnesota
+        MO = 28, // MO Missouri
+        MP = 29, // MP Northern Mariana Islands
+        MS = 30, // MS Mississippi
+        MT = 31, // MT Montana
+        NC = 32, // NC North Carolina
+        ND = 33, // ND North Dakota
+        NE = 34, // NE Nebraska
+        NH = 35, // NH New Hampshire
+        NJ = 36, // NJ New Jersey
+        NM = 37, // NM New Mexico
+        NV = 38, // NV Nevada
+        NY = 39, // NY New York
+        OH = 40, // OH Ohio
+        OK = 41, // OK Oklahoma
+        OR = 42, // OR Oregon
+        PA = 43, // PA Pennsylvania
+        PR = 44, // PR Puerto Rico
+        PW = 45, // PW Palau
+        RI = 46, // RI Rhode Island
+        SC = 47, // SC South Carolina
+        SD = 48, // SD South Dakota
+        TN = 49, // TN Tennessee
+        TX = 50, // TX Texas
+        UT = 51, // UT Utah
+        VA = 52, // VA Virginia
+        VI = 53, // VI Virgin Islands
+        VT = 54, // VT Vermont
+        WA = 55, // WA Washington
+        WI = 56, // WI Wisconsin
+        WV = 57, // WV West Virginia
+        WY = 58, // WY Wyoming
+    };
 
-  // Zip numeric value for the first two characters.
-  DCHECK(word.begin != word.end);
-  DCHECK(IsAsciiDigit(*word.begin));
-  DCHECK(IsAsciiDigit(*(word.begin + 1)));
-  int zip_prefix = (*word.begin - '0') * 10 + (*(word.begin + 1) - '0');
+    static const USState stateForZipPrefix[] = {
+    //   0   1   2   3   4   5   6   7   8   9
+        XX, XX, XX, XX, XX, NY, PR, PR, VI, PR, // 000-009
+        MA, MA, MA, MA, MA, MA, MA, MA, MA, MA, // 010-019
+        MA, MA, MA, MA, MA, MA, MA, MA, RI, RI, // 020-029
+        NH, NH, NH, NH, NH, NH, NH, NH, NH, ME, // 030-039
+        ME, ME, ME, ME, ME, ME, ME, ME, ME, ME, // 040-049
+        VT, VT, VT, VT, VT, MA, VT, VT, VT, VT, // 050-059
+        CT, CT, CT, CT, CT, CT, CT, CT, CT, CT, // 060-069
+        NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, // 070-079
+        NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, NJ, // 080-089
+        AE, AE, AE, AE, AE, AE, AE, AE, AE, XX, // 090-099
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 100-109
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 110-119
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 120-129
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 130-139
+        NY, NY, NY, NY, NY, NY, NY, NY, NY, NY, // 140-149
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 150-159
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 160-169
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 170-179
+        PA, PA, PA, PA, PA, PA, PA, PA, PA, PA, // 180-189
+        PA, PA, PA, PA, PA, PA, PA, DE, DE, DE, // 190-199
+        DC, VA, DC, DC, DC, DC, MD, MD, MD, MD, // 200-209
+        MD, MD, MD, XX, MD, MD, MD, MD, MD, MD, // 210-219
+        VA, VA, VA, VA, VA, VA, VA, VA, VA, VA, // 220-229
+        VA, VA, VA, VA, VA, VA, VA, VA, VA, VA, // 230-239
+        VA, VA, VA, VA, VA, VA, VA, WV, WV, WV, // 240-249
+        WV, WV, WV, WV, WV, WV, WV, WV, WV, WV, // 250-259
+        WV, WV, WV, WV, WV, WV, WV, WV, WV, XX, // 260-269
+        NC, NC, NC, NC, NC, NC, NC, NC, NC, NC, // 270-279
+        NC, NC, NC, NC, NC, NC, NC, NC, NC, NC, // 280-289
+        SC, SC, SC, SC, SC, SC, SC, SC, SC, SC, // 290-299
+        GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, // 300-309
+        GA, GA, GA, GA, GA, GA, GA, GA, GA, GA, // 310-319
+        FL, FL, FL, FL, FL, FL, FL, FL, FL, FL, // 320-329
+        FL, FL, FL, FL, FL, FL, FL, FL, FL, FL, // 330-339
+        AA, FL, FL, XX, FL, XX, FL, FL, XX, FL, // 340-349
+        AL, AL, AL, XX, AL, AL, AL, AL, AL, AL, // 350-359
+        AL, AL, AL, AL, AL, AL, AL, AL, AL, AL, // 360-369
+        TN, TN, TN, TN, TN, TN, TN, TN, TN, TN, // 370-379
+        TN, TN, TN, TN, TN, TN, MS, MS, MS, MS, // 380-389
+        MS, MS, MS, MS, MS, MS, MS, MS, GA, GA, // 390-399
+        KY, KY, KY, KY, KY, KY, KY, KY, KY, KY, // 400-409
+        KY, KY, KY, KY, KY, KY, KY, KY, KY, XX, // 410-419
+        KY, KY, KY, KY, KY, KY, KY, KY, XX, XX, // 420-429
+        OH, OH, OH, OH, OH, OH, OH, OH, OH, OH, // 430-439
+        OH, OH, OH, OH, OH, OH, OH, OH, OH, OH, // 440-449
+        OH, OH, OH, OH, OH, OH, OH, OH, OH, OH, // 450-459
+        IN, IN, IN, IN, IN, IN, IN, IN, IN, IN, // 460-469
+        IN, IN, IN, IN, IN, IN, IN, IN, IN, IN, // 470-479
+        MI, MI, MI, MI, MI, MI, MI, MI, MI, MI, // 480-489
+        MI, MI, MI, MI, MI, MI, MI, MI, MI, MI, // 490-499
+        IA, IA, IA, IA, IA, IA, IA, IA, IA, IA, // 500-509
+        IA, IA, IA, IA, IA, IA, IA, XX, XX, XX, // 510-519
+        IA, IA, IA, IA, IA, IA, IA, IA, IA, XX, // 520-529
+        WI, WI, WI, XX, WI, WI, XX, WI, WI, WI, // 530-539
+        WI, WI, WI, WI, WI, WI, WI, WI, WI, WI, // 540-549
+        MN, MN, XX, MN, MN, MN, MN, MN, MN, MN, // 550-559
+        MN, MN, MN, MN, MN, MN, MN, MN, XX, DC, // 560-569
+        SD, SD, SD, SD, SD, SD, SD, SD, XX, XX, // 570-579
+        ND, ND, ND, ND, ND, ND, ND, ND, ND, XX, // 580-589
+        MT, MT, MT, MT, MT, MT, MT, MT, MT, MT, // 590-599
+        IL, IL, IL, IL, IL, IL, IL, IL, IL, IL, // 600-609
+        IL, IL, IL, IL, IL, IL, IL, IL, IL, IL, // 610-619
+        IL, XX, IL, IL, IL, IL, IL, IL, IL, IL, // 620-629
+        MO, MO, XX, MO, MO, MO, MO, MO, MO, MO, // 630-639
+        MO, MO, XX, XX, MO, MO, MO, MO, MO, MO, // 640-649
+        MO, MO, MO, MO, MO, MO, MO, MO, MO, XX, // 650-659
+        KS, KS, KS, XX, KS, KS, KS, KS, KS, KS, // 660-669
+        KS, KS, KS, KS, KS, KS, KS, KS, KS, KS, // 670-679
+        NE, NE, XX, NE, NE, NE, NE, NE, NE, NE, // 680-689
+        NE, NE, NE, NE, XX, XX, XX, XX, XX, XX, // 690-699
+        LA, LA, XX, LA, LA, LA, LA, LA, LA, XX, // 700-709
+        LA, LA, LA, LA, LA, XX, AR, AR, AR, AR, // 710-719
+        AR, AR, AR, AR, AR, AR, AR, AR, AR, AR, // 720-729
+        OK, OK, XX, TX, OK, OK, OK, OK, OK, OK, // 730-739
+        OK, OK, XX, OK, OK, OK, OK, OK, OK, OK, // 740-749
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 750-759
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 760-769
+        TX, XX, TX, TX, TX, TX, TX, TX, TX, TX, // 770-779
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 780-789
+        TX, TX, TX, TX, TX, TX, TX, TX, TX, TX, // 790-799
+        CO, CO, CO, CO, CO, CO, CO, CO, CO, CO, // 800-809
+        CO, CO, CO, CO, CO, CO, CO, XX, XX, XX, // 810-819
+        WY, WY, WY, WY, WY, WY, WY, WY, WY, WY, // 820-829
+        WY, WY, ID, ID, ID, ID, ID, ID, ID, XX, // 830-839
+        UT, UT, UT, UT, UT, UT, UT, UT, XX, XX, // 840-849
+        AZ, AZ, AZ, AZ, XX, AZ, AZ, AZ, XX, AZ, // 850-859
+        AZ, XX, XX, AZ, AZ, AZ, XX, XX, XX, XX, // 860-869
+        NM, NM, NM, NM, NM, NM, XX, NM, NM, NM, // 870-879
+        NM, NM, NM, NM, NM, TX, XX, XX, XX, NV, // 880-889
+        NV, NV, XX, NV, NV, NV, XX, NV, NV, XX, // 890-899
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, XX, // 900-909
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 910-919
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, XX, // 920-929
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 930-939
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 940-949
+        CA, CA, CA, CA, CA, CA, CA, CA, CA, CA, // 950-959
+        CA, CA, AP, AP, AP, AP, AP, HI, HI, GU, // 960-969
+        OR, OR, OR, OR, OR, OR, OR, OR, OR, OR, // 970-979
+        WA, WA, WA, WA, WA, WA, WA, XX, WA, WA, // 980-989
+        WA, WA, WA, WA, WA, AK, AK, AK, AK, AK, // 990-999
+    };
 
-  if ((zip_prefix >= zip_range[state_index].low &&
-      zip_prefix <= zip_range[state_index].high) ||
-      zip_prefix == zip_range[state_index].exception1 ||
-      zip_prefix == zip_range[state_index].exception2) {
-    return true;
-  }
-  return false;
+    if (!word.begin || !word.end || (word.end - word.begin) < 3)
+        return false;
+    const char16* zipPtr = word.begin;
+    if (zipPtr[0] < '0' || zipPtr[0] > '9' ||
+        zipPtr[1] < '0' || zipPtr[1] > '9' ||
+        zipPtr[2] < '0' || zipPtr[2] > '9')
+        return false;
+
+    int zip = zipPtr[0] - '0';
+    zip *= 10;
+    zip += zipPtr[1] - '0';
+    zip *= 10;
+    zip += zipPtr[2] - '0';
+    return stateForZipPrefix[zip] == (int) state_index;
 }
 
+static const char* s_rawStreetSuffixes[] = {
+    "allee", "alley", "ally", "aly",
+    "anex", "annex", "anx", "arc", "arcade", "av", "ave", "aven", "avenu",
+    "avenue", "avn", "avnue", "bayoo", "bayou", "bch", "beach", "bend",
+    "bg", "bgs", "blf", "blfs", "bluf", "bluff", "bluffs", "blvd", "bnd",
+    "bot", "bottm", "bottom", "boul", "boulevard", "boulv", "br", "branch",
+    "brdge", "brg", "bridge", "brk", "brks", "brnch", "brook", "brooks",
+    "btm", "burg", "burgs", "byp", "bypa", "bypas", "bypass", "byps", "byu",
+    "camp", "canyn", "canyon", "cape", "causeway", "causway", "cen", "cent",
+    "center", "centers", "centr", "centre", "cir", "circ", "circl",
+    "circle", "circles", "cirs", "ck", "clb", "clf", "clfs", "cliff",
+    "cliffs", "club", "cmn", "cmp", "cnter", "cntr", "cnyn", "common",
+    "cor", "corner", "corners", "cors", "course", "court", "courts", "cove",
+    "coves", "cp", "cpe", "cr", "crcl", "crcle", "crecent", "creek", "cres",
+    "crescent", "cresent", "crest", "crk", "crossing", "crossroad",
+    "crscnt", "crse", "crsent", "crsnt", "crssing", "crssng", "crst", "crt",
+    "cswy", "ct", "ctr", "ctrs", "cts", "curv", "curve", "cv", "cvs", "cyn",
+    "dale", "dam", "div", "divide", "dl", "dm", "dr", "driv", "drive",
+    "drives", "drs", "drv", "dv", "dvd", "est", "estate", "estates", "ests",
+    "exp", "expr", "express", "expressway", "expw", "expy", "ext",
+    "extension", "extensions", "extn", "extnsn", "exts", "fall", "falls",
+    "ferry", "field", "fields", "flat", "flats", "fld", "flds", "fls",
+    "flt", "flts", "ford", "fords", "forest", "forests", "forg", "forge",
+    "forges", "fork", "forks", "fort", "frd", "frds", "freeway", "freewy",
+    "frg", "frgs", "frk", "frks", "frry", "frst", "frt", "frway", "frwy",
+    "fry", "ft", "fwy", "garden", "gardens", "gardn", "gateway", "gatewy",
+    "gatway", "gdn", "gdns", "glen", "glens", "gln", "glns", "grden",
+    "grdn", "grdns", "green", "greens", "grn", "grns", "grov", "grove",
+    "groves", "grv", "grvs", "gtway", "gtwy", "harb", "harbor", "harbors",
+    "harbr", "haven", "havn", "hbr", "hbrs", "height", "heights", "hgts",
+    "highway", "highwy", "hill", "hills", "hiway", "hiwy", "hl", "hllw",
+    "hls", "hollow", "hollows", "holw", "holws", "hrbor", "ht", "hts",
+    "hvn", "hway", "hwy", "inlet", "inlt", "is", "island", "islands",
+    "isle", "isles", "islnd", "islnds", "iss", "jct", "jction", "jctn",
+    "jctns", "jcts", "junction", "junctions", "junctn", "juncton", "key",
+    "keys", "knl", "knls", "knol", "knoll", "knolls", "ky", "kys", "la",
+    "lake", "lakes", "land", "landing", "lane", "lanes", "lck", "lcks",
+    "ldg", "ldge", "lf", "lgt", "lgts", "light", "lights", "lk", "lks",
+    "ln", "lndg", "lndng", "loaf", "lock", "locks", "lodg", "lodge", "loop",
+    "loops", "mall", "manor", "manors", "mdw", "mdws", "meadow", "meadows",
+    "medows", "mews", "mill", "mills", "mission", "missn", "ml", "mls",
+    "mnr", "mnrs", "mnt", "mntain", "mntn", "mntns", "motorway", "mount",
+    "mountain", "mountains", "mountin", "msn", "mssn", "mt", "mtin", "mtn",
+    "mtns", "mtwy", "nck", "neck", "opas", "orch", "orchard", "orchrd",
+    "oval", "overpass", "ovl", "park", "parks", "parkway", "parkways",
+    "parkwy", "pass", "passage", "path", "paths", "pike", "pikes", "pine",
+    "pines", "pk", "pkway", "pkwy", "pkwys", "pky", "pl", "place", "plain",
+    "plaines", "plains", "plaza", "pln", "plns", "plz", "plza", "pne",
+    "pnes", "point", "points", "port", "ports", "pr", "prairie", "prarie",
+    "prk", "prr", "prt", "prts", "psge", "pt", "pts", "rad", "radial",
+    "radiel", "radl", "ramp", "ranch", "ranches", "rapid", "rapids", "rd",
+    "rdg", "rdge", "rdgs", "rds", "rest", "ridge", "ridges", "riv", "river",
+    "rivr", "rnch", "rnchs", "road", "roads", "route", "row", "rpd", "rpds",
+    "rst", "rte", "rue", "run", "rvr", "shl", "shls", "shoal", "shoals",
+    "shoar", "shoars", "shore", "shores", "shr", "shrs", "skwy", "skyway",
+    "smt", "spg", "spgs", "spng", "spngs", "spring", "springs", "sprng",
+    "sprngs", "spur", "spurs", "sq", "sqr", "sqre", "sqrs", "sqs", "squ",
+    "square", "squares", "st", "sta", "station", "statn", "stn", "str",
+    "stra", "strav", "strave", "straven", "stravenue", "stravn", "stream",
+    "street", "streets", "streme", "strm", "strt", "strvn", "strvnue",
+    "sts", "sumit", "sumitt", "summit", "ter", "terr", "terrace",
+    "throughway", "tpk", "tpke", "tr", "trace", "traces", "track", "tracks",
+    "trafficway", "trail", "trails", "trak", "trce", "trfy", "trk", "trks",
+    "trl", "trls", "trnpk", "trpk", "trwy", "tunel", "tunl", "tunls",
+    "tunnel", "tunnels", "tunnl", "turnpike", "turnpk", "un", "underpass",
+    "union", "unions", "uns", "upas", "valley", "valleys", "vally", "vdct",
+    "via", "viadct", "viaduct", "view", "views", "vill", "villag",
+    "village", "villages", "ville", "villg", "villiage", "vis", "vist",
+    "vista", "vl", "vlg", "vlgs", "vlly", "vly", "vlys", "vst", "vsta",
+    "vw", "vws", "walk", "walks", "wall", "way", "ways", "well", "wells",
+    "wl", "wls", "wy", "xing", "xrd",
+    0,
+};
+
 bool AddressDetector::IsValidLocationName(const Word& word) {
-  // Supported location names sorted alphabetically and grouped by first letter.
-  static const struct LocationNameInfo {
-    const char* string;
-    char length;
-    bool allow_plural;
-  } location_names[157] = {
-    { "alley", 5, false }, { "annex", 5, false }, { "arcade", 6, false },
-    { "ave", 3, false }, { "ave.", 4, false }, { "avenue", 6, false },
-    { "alameda", 7, false },
-    { "bayou", 5, false }, { "beach", 5, false }, { "bend", 4, false },
-    { "bluff", 5, true }, { "bottom", 6, false }, { "boulevard", 9, false },
-    { "branch", 6, false }, { "bridge", 6, false }, { "brook", 5, true },
-    { "burg", 4, true }, { "bypass", 6, false }, { "broadway", 8, false },
-    { "camino", 6, false }, { "camp", 4, false }, { "canyon", 6, false },
-    { "cape", 4, false }, { "causeway", 8, false }, { "center", 6, true },
-    { "circle", 6, true }, { "cliff", 5, true }, { "club", 4, false },
-    { "common", 6, false }, { "corner", 6, true }, { "course", 6, false },
-    { "court", 5, true }, { "cove", 4, true }, { "creek", 5, false },
-    { "crescent", 8, false }, { "crest", 5, false }, { "crossing", 8, false },
-    { "crossroad", 9, false }, { "curve", 5, false }, { "circulo", 7, false },
-    { "dale", 4, false }, { "dam", 3, false }, { "divide", 6, false },
-    { "drive", 5, true },
-    { "estate", 6, true }, { "expressway", 10, false },
-    { "extension", 9, true },
-    { "fall", 4, true }, { "ferry", 5, false }, { "field", 5, true },
-    { "flat", 4, true }, { "ford", 4, true }, { "forest", 6, false },
-    { "forge", 5, true }, { "fork", 4, true }, { "fort", 4, false },
-    { "freeway", 7, false },
-    { "garden", 6, true }, { "gateway", 7, false }, { "glen", 4, true },
-    { "green", 5, true }, { "grove", 5, true },
-    { "harbor", 6, true }, { "haven", 5, false }, { "heights", 7, false },
-    { "highway", 7, false }, { "hill", 4, true }, { "hollow", 6, false },
-    { "inlet", 5, false }, { "island", 6, true }, { "isle", 4, false },
-    { "junction", 8, true },
-    { "key", 3, true }, { "knoll", 5, true },
-    { "lake", 4, true }, { "land", 4, false }, { "landing", 7, false },
-    { "lane", 4, false }, { "light", 5, true }, { "loaf", 4, false },
-    { "lock", 4, true }, { "lodge", 5, false }, { "loop", 4, false },
-    { "mall", 4, false }, { "manor", 5, true }, { "meadow", 6, true },
-    { "mews", 4, false }, { "mill", 4, true }, { "mission", 7, false },
-    { "motorway", 8, false }, { "mount", 5, false }, { "mountain", 8, true },
-    { "neck", 4, false },
-    { "orchard", 7, false }, { "oval", 4, false }, { "overpass", 8, false },
-    { "park", 4, true }, { "parkway", 7, true }, { "pass", 4, false },
-    { "passage", 7, false }, { "path", 4, false }, { "pike", 4, false },
-    { "pine", 4, true }, { "plain", 5, true }, { "plaza", 5, false },
-    { "point", 5, true }, { "port", 4, true }, { "prairie", 7, false },
-    { "privada", 7, false },
-    { "radial", 6, false }, { "ramp", 4, false }, { "ranch", 5, false },
-    { "rapid", 5, true }, { "rest", 4, false }, { "ridge", 5, true },
-    { "river", 5, false }, { "road", 4, true }, { "route", 5, false },
-    { "row", 3, false }, { "rue", 3, false }, { "run", 3, false },
-    { "shoal", 5, true }, { "shore", 5, true }, { "skyway", 6, false },
-    { "spring", 6, true }, { "spur", 4, true }, { "square", 6, true },
-    { "station", 7, false }, { "stravenue", 9, false }, { "stream", 6, false },
-    { "st", 2, false }, { "st.", 3, false }, { "street", 6, true },
-    { "summit", 6, false }, { "speedway", 8, false },
-    { "terrace", 7, false }, { "throughway", 10, false }, { "trace", 5, false },
-    { "track", 5, false }, { "trafficway", 10, false }, { "trail", 5, false },
-    { "tunnel", 6, false }, { "turnpike", 8, false },
-    { "underpass", 9, false }, { "union", 5, true },
-    { "valley", 6, true }, { "viaduct", 7, false }, { "view", 4, true },
-    { "village", 7, true }, { "ville", 5, false }, { "vista", 5, false },
-    { "walk", 4, true }, { "wall", 4, false }, { "way", 3, true },
-    { "well", 4, true },
-    { "xing", 4, false }, { "xrd", 3, false }
-  };
-
-  // Accumulative number of location names for each starting letter.
-  static const int location_names_accumulative[25] = {
-      0,   7,  19,  40,  44,
-     47,  57,  62,  68,  71,
-     72,  74,  83,  92,  93,
-     96, 109, 109, 121, 135,
-    143, 145, 151, 155, 157
-  };
-
-  DCHECK_EQ(
-      location_names_accumulative[arraysize(location_names_accumulative) - 1],
-      static_cast<int>(ARRAYSIZE_UNSAFE(location_names)));
-
-  if (!IsAsciiAlpha(*word.begin))
-    return false;
-
-  // No location names start with y, z.
-  char16 first_letter = base::ToLowerASCII(*word.begin);
-  if (first_letter > 'x')
-    return false;
-
-  DCHECK(first_letter >= 'a');
-  int index = first_letter - 'a';
-  int length = std::distance(word.begin, word.end);
-  for (int i = location_names_accumulative[index];
-      i < location_names_accumulative[index + 1]; ++i) {
-    if (location_names[i].length != length &&
-        (location_names[i].allow_plural &&
-        location_names[i].length + 1 != length)) {
-      continue;
+    using namespace WTF;
+    static HashSet<String> streetNames;
+    if (!streetNames.size()) {
+        const char** suffixes = s_rawStreetSuffixes;
+        while (const char* suffix = *suffixes) {
+            int index = suffix[0] - 'a';
+            streetNames.add(suffix);
+            suffixes++;
+        }
     }
-
-    if (LowerCaseEqualsASCIIWithPlural(word.begin, word.end,
-        location_names[i].string, location_names[i].allow_plural)) {
-      return true;
-    }
-  }
-
-  return false;
+    char16 first_letter = base::ToLowerASCII(*word.begin);
+    if (first_letter > 'z' || first_letter < 'a')
+        return false;
+    int index = first_letter - 'a';
+    int length = std::distance(word.begin, word.end);
+    if (*word.end == '.')
+        length--;
+    String value(word.begin, length);
+    return streetNames.contains(value.lower());
 }

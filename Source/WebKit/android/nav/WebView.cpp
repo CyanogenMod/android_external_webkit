@@ -1552,19 +1552,7 @@ static const CachedInput* getInputCandidate(JNIEnv *env, jobject obj)
 
 static jboolean nativePageShouldHandleShiftAndArrows(JNIEnv *env, jobject obj)
 {
-#if ENABLE(ANDROID_NAVCACHE)
-    const CachedNode* focus = getFocusNode(env, obj);
-    if (!focus) return false;
-    // Plugins handle shift and arrows whether or not they have focus.
-    if (focus->isPlugin()) return true;
-    const CachedNode* cursor = getCursorNode(env, obj);
-    // ContentEditable nodes should only receive shift and arrows if they have
-    // both the cursor and the focus.
-    return cursor && cursor->nodePointer() == focus->nodePointer()
-            && cursor->isContentEditable();
-#else
     return true;
-#endif
 }
 
 static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
@@ -2393,11 +2381,7 @@ static void nativeSetPauseDrawing(JNIEnv *env, jobject obj, jint nativeView,
 
 static bool nativeDisableNavcache(JNIEnv *env, jobject obj)
 {
-#if ENABLE(ANDROID_NAVCACHE)
-    return false;
-#else
     return true;
-#endif
 }
 
 static void nativeSetTextSelection(JNIEnv *env, jobject obj, jint nativeView,
