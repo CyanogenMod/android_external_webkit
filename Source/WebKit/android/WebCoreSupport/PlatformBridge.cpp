@@ -41,7 +41,7 @@
 #include "WebViewCore.h"
 #include "npruntime.h"
 
-#include <surfaceflinger/SurfaceComposerClient.h>
+#include <gui/SurfaceComposerClient.h>
 #include <ui/DisplayInfo.h>
 #include <ui/PixelFormat.h>
 #include <wtf/android/AndroidThreading.h>
