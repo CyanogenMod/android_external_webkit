@@ -32,8 +32,6 @@
 #include "AndroidHitTestResult.h"
 #include "Attribute.h"
 #include "BaseLayerAndroid.h"
-#include "CachedNode.h"
-#include "CachedRoot.h"
 #include "content/address_detector.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
@@ -224,7 +222,6 @@ bool validNode(Frame* startFrame, void* matchFrame,
             }
             node = node->traverseNextNode();
         }
-        DBG_NAV_LOGD("frame=%p valid node=%p invalid\n", matchFrame, matchNode);
         return false;
     }
     Frame* child = startFrame->tree()->firstChild();
@@ -234,10 +231,6 @@ bool validNode(Frame* startFrame, void* matchFrame,
             return result;
         child = child->tree()->nextSibling();
     }
-#if DEBUG_NAV_UI
-    if (startFrame->tree()->parent() == NULL)
-        DBG_NAV_LOGD("frame=%p node=%p false\n", matchFrame, matchNode);
-#endif
     return false;
 }
 
@@ -396,22 +389,11 @@ static jmethodID GetJMethod(JNIEnv* env, jclass clazz, const char name[], const 
     return m;
 }
 
-Mutex WebViewCore::gFrameCacheMutex;
-Mutex WebViewCore::gCursorBoundsMutex;
-
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
-    : m_frameCacheKit(0)
-    , m_moveGeneration(0)
+    : m_moveGeneration(0)
     , m_touchGeneration(0)
     , m_lastGeneration(0)
-    , m_updatedFrameCache(true)
     , m_findIsUp(false)
-    , m_hasCursorBounds(false)
-    , m_cursorBounds(WebCore::IntRect(0, 0, 0, 0))
-    , m_cursorHitBounds(WebCore::IntRect(0, 0, 0, 0))
-    , m_cursorFrame(0)
-    , m_cursorLocation(WebCore::IntPoint(0, 0))
-    , m_cursorNode(0)
     , m_javaGlue(new JavaGlue)
     , m_mainFrame(mainframe)
     , m_popupReply(0)
@@ -550,7 +532,6 @@ WebViewCore::~WebViewCore()
         m_javaGlue->m_obj = 0;
     }
     delete m_javaGlue;
-    delete m_frameCacheKit;
 }
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
@@ -599,19 +580,13 @@ WebCore::Node* WebViewCore::currentFocus()
 void WebViewCore::recordPicture(SkPicture* picture)
 {
     // if there is no document yet, just return
-    if (!m_mainFrame->document()) {
-        DBG_NAV_LOG("no document");
+    if (!m_mainFrame->document())
         return;
-    }
     // Call layout to ensure that the contentWidth and contentHeight are correct
-    if (!layoutIfNeededRecursive(m_mainFrame)) {
-        DBG_NAV_LOG("layout failed");
+    if (!layoutIfNeededRecursive(m_mainFrame))
         return;
-    }
     // draw into the picture's recording canvas
     WebCore::FrameView* view = m_mainFrame->view();
-    DBG_NAV_LOGD("view=(w=%d,h=%d)", view->contentsWidth(),
-        view->contentsHeight());
     SkAutoPictureRecord arp(picture, view->contentsWidth(),
                             view->contentsHeight(), PICT_RECORD_FLAGS);
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
@@ -752,35 +727,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
 
     // Rebuild the pictureset (webkit repaint)
     rebuildPictureSet(content);
-}
-
-// note: updateCursorBounds is called directly by the WebView thread
-// This needs to be called each time we call CachedRoot::setCursor() with
-// non-null CachedNode/CachedFrame, since otherwise the WebViewCore's data
-// about the cursor is incorrect.  When we call setCursor(0,0), we need
-// to set hasCursorBounds to false.
-void WebViewCore::updateCursorBounds(const CachedRoot* root,
-        const CachedFrame* cachedFrame, const CachedNode* cachedNode)
-{
-    ALOG_ASSERT(root, "updateCursorBounds: root cannot be null");
-    ALOG_ASSERT(cachedNode, "updateCursorBounds: cachedNode cannot be null");
-    ALOG_ASSERT(cachedFrame, "updateCursorBounds: cachedFrame cannot be null");
-    gCursorBoundsMutex.lock();
-    m_hasCursorBounds = !cachedNode->isHidden();
-    // If m_hasCursorBounds is false, we never look at the other
-    // values, so do not bother setting them.
-    if (m_hasCursorBounds) {
-        WebCore::IntRect bounds = cachedNode->bounds(cachedFrame);
-        if (m_cursorBounds != bounds)
-            DBG_NAV_LOGD("new cursor bounds=(%d,%d,w=%d,h=%d)",
-                bounds.x(), bounds.y(), bounds.width(), bounds.height());
-        m_cursorBounds = bounds;
-        m_cursorHitBounds = cachedNode->hitBounds(cachedFrame);
-        m_cursorFrame = cachedFrame->framePointer();
-        root->getSimulatedMousePosition(&m_cursorLocation);
-        m_cursorNode = cachedNode->nodePointer();
-    }
-    gCursorBoundsMutex.unlock();
 }
 
 void WebViewCore::clearContent()
@@ -1061,7 +1007,6 @@ static int pin_pos(int x, int width, int targetWidth)
 
 void WebViewCore::didFirstLayout()
 {
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1086,13 +1031,10 @@ void WebViewCore::didFirstLayout()
             // a newly-loaded page.
             || loadType == WebCore::FrameLoadTypeSame);
     checkException(env);
-
-    m_history.setDidFirstLayout(true);
 }
 
 void WebViewCore::updateViewport()
 {
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1105,7 +1047,6 @@ void WebViewCore::updateViewport()
 
 void WebViewCore::restoreScale(float scale, float textWrapScale)
 {
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1118,7 +1059,6 @@ void WebViewCore::restoreScale(float scale, float textWrapScale)
 
 void WebViewCore::needTouchEvents(bool need)
 {
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
 #if ENABLE(TOUCH_EVENTS)
@@ -1139,7 +1079,6 @@ void WebViewCore::needTouchEvents(bool need)
 
 void WebViewCore::requestKeyboard(bool showKeyboard)
 {
-    DEBUG_NAV_UI_LOGD("%s", __FUNCTION__);
     ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1158,8 +1097,6 @@ void WebViewCore::notifyProgressFinished()
 
 void WebViewCore::setScrollOffset(int moveGeneration, bool sendScrollEvent, int dx, int dy)
 {
-    DBG_NAV_LOGD("{%d,%d} m_scrollOffset=(%d,%d), sendScrollEvent=%d", dx, dy,
-        m_scrollOffsetX, m_scrollOffsetY, sendScrollEvent);
     if (m_scrollOffsetX != dx || m_scrollOffsetY != dy) {
         m_scrollOffsetX = dx;
         m_scrollOffsetY = dy;
@@ -1193,19 +1130,10 @@ void WebViewCore::setScrollOffset(int moveGeneration, bool sendScrollEvent, int 
         // update the currently visible screen
         sendPluginVisibleScreen();
     }
-    gCursorBoundsMutex.lock();
-    bool hasCursorBounds = m_hasCursorBounds;
-    Frame* frame = (Frame*) m_cursorFrame;
-    IntPoint location = m_cursorLocation;
-    gCursorBoundsMutex.unlock();
-    if (!hasCursorBounds)
-        return;
-    moveMouseIfLatest(moveGeneration, frame, location.x(), location.y());
 }
 
 void WebViewCore::setGlobalBounds(int x, int y, int h, int v)
 {
-    DBG_NAV_LOGD("{%d,%d}", x, y);
     m_mainFrame->view()->platformWidget()->setWindowBounds(x, y, h, v);
 }
 
@@ -1225,8 +1153,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int osh = m_screenHeight;
     int otw = m_textWrapWidth;
     float oldScale = m_scale;
-    DBG_NAV_LOGD("old:(w=%d,h=%d,sw=%d,scale=%g) new:(w=%d,h=%d,sw=%d,scale=%g)",
-        ow, oh, osw, m_scale, width, height, screenWidth, scale);
     m_screenWidth = screenWidth;
     m_screenHeight = screenHeight;
     m_textWrapWidth = textWrapWidth;
@@ -1245,11 +1171,8 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
 
     if (ow != width || (!ignoreHeight && oh != height) || reflow) {
         WebCore::RenderObject *r = m_mainFrame->contentRenderer();
-        DBG_NAV_LOGD("renderer=%p view=(w=%d,h=%d)", r,
-                screenWidth, screenHeight);
         if (r) {
             WebCore::IntPoint anchorPoint = WebCore::IntPoint(anchorX, anchorY);
-            DBG_NAV_LOGD("anchorX=%d anchorY=%d", anchorX, anchorY);
             RefPtr<WebCore::Node> node;
             WebCore::IntRect bounds;
             WebCore::IntPoint offset;
@@ -1264,8 +1187,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             }
             if (node) {
                 bounds = node->getRect();
-                DBG_NAV_LOGD("ob:(x=%d,y=%d,w=%d,h=%d)",
-                    bounds.x(), bounds.y(), bounds.width(), bounds.height());
                 // sites like nytimes.com insert a non-standard tag <nyt_text>
                 // in the html. If it is the HitTestResult, it may have zero
                 // width and height. In this case, use its parent node.
@@ -1273,8 +1194,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                     node = node->parentOrHostNode();
                     if (node) {
                         bounds = node->getRect();
-                        DBG_NAV_LOGD("found a zero width node and use its parent, whose ob:(x=%d,y=%d,w=%d,h=%d)",
-                                bounds.x(), bounds.y(), bounds.width(), bounds.height());
                     }
                 }
             }
@@ -1295,9 +1214,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
             // scroll to restore current screen center
             if (node) {
                 const WebCore::IntRect& newBounds = node->getRect();
-                DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
-                    "h=%d)", newBounds.x(), newBounds.y(),
-                    newBounds.width(), newBounds.height());
                 if ((osw && osh && bounds.width() && bounds.height())
                     && (bounds != newBounds)) {
                     WebCore::FrameView* view = m_mainFrame->view();
@@ -1396,9 +1312,6 @@ HTMLElement* WebViewCore::retrieveElement(int x, int y,
         || !element->hasTagName(tagName))) {
         element = element->parentNode();
     }
-    DBG_NAV_LOGD("node=%p element=%p x=%d y=%d nodeName=%s tagName=%s", node,
-        element, x, y, node->nodeName().utf8().data(),
-        element ? ((Element*) element)->tagName().utf8().data() : "<none>");
     return static_cast<WebCore::HTMLElement*>(element);
 }
 
@@ -1948,12 +1861,8 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
             // adjust m_mousePos if it is not inside the returned highlight rectangle
             testRect.move(frameAdjust.x(), frameAdjust.y());
             testRect.intersect(rect);
-            if (!testRect.contains(x, y)) {
+            if (!testRect.contains(x, y))
                 moveMouse(m_mainFrame, testRect.center().x(), testRect.center().y());
-                DBG_NAV_LOGD("Move x/y from (%d, %d) to (%d, %d) scrollOffset is (%d, %d)",
-                        x, y, m_mousePos.x() + m_scrollOffsetX, m_mousePos.y() + m_scrollOffsetY,
-                        m_scrollOffsetX, m_scrollOffsetY);
-            }
         }
     } else {
         androidHitResult.searchContentDetectors();
@@ -2129,29 +2038,11 @@ static PluginView* nodeIsPlugin(Node* node) {
     return 0;
 }
 
-Node* WebViewCore::cursorNodeIsPlugin() {
-    gCursorBoundsMutex.lock();
-    bool hasCursorBounds = m_hasCursorBounds;
-    Frame* frame = (Frame*) m_cursorFrame;
-    Node* node = (Node*) m_cursorNode;
-    gCursorBoundsMutex.unlock();
-    if (hasCursorBounds && validNode(m_mainFrame, frame, node)
-            && nodeIsPlugin(node)) {
-        return node;
-    }
-    return 0;
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 void WebViewCore::moveMouseIfLatest(int moveGeneration,
     WebCore::Frame* frame, int x, int y)
 {
-    DBG_NAV_LOGD("m_moveGeneration=%d moveGeneration=%d"
-        " frame=%p x=%d y=%d",
-        m_moveGeneration, moveGeneration, frame, x, y);
     if (m_moveGeneration > moveGeneration) {
-        DBG_NAV_LOGD("m_moveGeneration=%d > moveGeneration=%d",
-            m_moveGeneration, moveGeneration);
         return; // short-circuit if a newer move has already been generated
     }
     m_lastGeneration = moveGeneration;
@@ -2160,7 +2051,6 @@ void WebViewCore::moveMouseIfLatest(int moveGeneration,
 
 void WebViewCore::moveFocus(WebCore::Frame* frame, WebCore::Node* node)
 {
-    DBG_NAV_LOGD("frame=%p node=%p", frame, node);
     if (!node || !validNode(m_mainFrame, frame, node)
             || !node->isElementNode())
         return;
@@ -2180,8 +2070,6 @@ void WebViewCore::moveFocus(WebCore::Frame* frame, WebCore::Node* node)
 // Update mouse position
 void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* hoveredNode)
 {
-    DBG_NAV_LOGD("frame=%p x=%d y=%d scrollOffset=(%d,%d)", frame,
-        x, y, m_scrollOffsetX, m_scrollOffsetY);
     if (!frame || !validNode(m_mainFrame, frame, 0))
         frame = m_mainFrame;
     // mouse event expects the position in the window coordinate
@@ -2326,15 +2214,6 @@ String WebViewCore::modifySelectionTextNavigationAxis(DOMSelection* selection, i
             selection->addRange(rangeRef.get());
         } else if (currentFocus()) {
             selection->setPosition(currentFocus(), 0, ec);
-        } else if (m_cursorNode
-                && validNode(m_mainFrame,
-                m_mainFrame, m_cursorNode)) {
-            RefPtr<Range> rangeRef =
-                selection->frame()->document()->createRange();
-            rangeRef->selectNode(reinterpret_cast<Node*>(m_cursorNode), ec);
-            if (ec)
-                return String();
-            selection->addRange(rangeRef.get());
         } else {
             selection->setPosition(body, 0, ec);
         }
@@ -2978,7 +2857,6 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
 {
     WebCore::Node* focus = currentFocus();
     if (!focus) {
-        DBG_NAV_LOG("!focus");
         clearTextEntry();
         return;
     }
@@ -2997,8 +2875,6 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     if (test != current) {
         // If the text changed during the key event, update the UI text field.
         updateTextfield(focus, false, test);
-    } else {
-        DBG_NAV_LOG("test == current");
     }
     // Now that the selection has settled down, send it.
     updateTextSelection();
@@ -3008,21 +2884,17 @@ void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
 {
     WebCore::Node* focus = currentFocus();
     if (!focus) {
-        DBG_NAV_LOG("!focus");
         clearTextEntry();
         return;
     }
     WebCore::RenderTextControl* renderText = toRenderTextControl(focus);
     if (!renderText) {
-        DBG_NAV_LOGD("renderer==%p || not text", renderer);
         clearTextEntry();
         return;
     }
 
     int x = (int) (xPercent * (renderText->scrollWidth() -
         renderText->clientWidth()));
-    DBG_NAV_LOGD("x=%d y=%d xPercent=%g scrollW=%d clientW=%d", x, y,
-        xPercent, renderText->scrollWidth(), renderText->clientWidth());
     renderText->setScrollLeft(x);
     renderText->setScrollTop(y);
 }
@@ -3184,9 +3056,6 @@ void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node, bool fake) {
                 hitTestResultAtPoint(pt, false);
         node = hitTestResult.innerNode();
         frame = node->document()->frame();
-        DBG_NAV_LOGD("m_mousePos=(%d,%d) m_scrollOffset=(%d,%d) pt=(%d,%d)"
-            " node=%p", m_mousePos.x(), m_mousePos.y(),
-            m_scrollOffsetX, m_scrollOffsetY, pt.x(), pt.y(), node);
     }
     if (node) {
         EditorClientAndroid* client
@@ -3304,13 +3173,9 @@ void WebViewCore::touchUp(int touchGeneration,
             frame = node->document()->frame();
         else
             frame = 0;
-        DBG_NAV_LOGD("touch up on (%d, %d), scrollOffset is (%d, %d), node:%p, frame:%p", m_mousePos.x() + m_scrollOffsetX, m_mousePos.y() + m_scrollOffsetY, m_scrollOffsetX, m_scrollOffsetY, node, frame);
     } else {
-        if (m_touchGeneration > touchGeneration) {
-            DBG_NAV_LOGD("m_touchGeneration=%d > touchGeneration=%d"
-                " x=%d y=%d", m_touchGeneration, touchGeneration, x, y);
+        if (m_touchGeneration > touchGeneration)
             return; // short circuit if a newer touch has been generated
-        }
         // This moves m_mousePos to the correct place, and handleMouseClick uses
         // m_mousePos to determine where the click happens.
         moveMouse(frame, x, y);
@@ -3319,8 +3184,6 @@ void WebViewCore::touchUp(int touchGeneration,
     if (frame && validNode(m_mainFrame, frame, 0)) {
         frame->loader()->resetMultipleFormSubmissionProtection();
     }
-    DBG_NAV_LOGD("touchGeneration=%d handleMouseClick frame=%p node=%p"
-        " x=%d y=%d", touchGeneration, frame, node, x, y);
     handleMouseClick(frame, node, false);
 }
 
@@ -3354,7 +3217,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             webFrame->setUserInitiatedAction(true);
             nodePtr->dispatchSimulatedClick(0, true, true);
             webFrame->setUserInitiatedAction(false);
-            DBG_NAV_LOG("area");
             return true;
         }
     }
@@ -3375,8 +3237,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     // If the user clicked on a textfield, make the focusController active
     // so we show the blinking cursor.
     WebCore::Node* focusNode = currentFocus();
-    DBG_NAV_LOGD("m_mousePos={%d,%d} focusNode=%p handled=%s", m_mousePos.x(),
-        m_mousePos.y(), focusNode, handled ? "true" : "false");
     if (focusNode) {
         WebCore::RenderTextControl* rtc = toRenderTextControl(focusNode);
         if (rtc) {

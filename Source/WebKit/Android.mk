@@ -76,12 +76,6 @@ LOCAL_SRC_FILES += \
 	android/jni/WebViewCore.cpp \
 	android/jni/ViewStateSerializer.cpp \
 	\
-	android/nav/CachedFrame.cpp \
-	android/nav/CachedHistory.cpp \
-	android/nav/CachedInput.cpp \
-	android/nav/CachedLayer.cpp \
-	android/nav/CachedNode.cpp \
-	android/nav/CachedRoot.cpp \
 	android/nav/DrawExtra.cpp \
 	android/nav/SelectText.cpp \
 	android/nav/WebView.cpp \

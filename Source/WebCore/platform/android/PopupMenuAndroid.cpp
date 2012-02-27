@@ -25,9 +25,12 @@
 #include "config.h"
 #include "PopupMenuAndroid.h"
 
+#include "IntRect.h"
 #include "PopupMenuClient.h"
 #include "SkTDArray.h"
 #include "WebViewCore.h"
+
+using namespace WebCore;
 
 class PopupReply : public android::WebCoreReply {
 public:

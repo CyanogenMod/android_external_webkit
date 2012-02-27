@@ -26,10 +26,10 @@
 #define LOG_NDEBUG 0
 #define LOG_TAG "pictureset"
 
-//#include <config.h>
-#include "CachedPrefix.h"
-#include "android_graphics.h"
+#include "config.h"
 #include "PictureSet.h"
+
+#include "android_graphics.h"
 #include "SkBounder.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
