@@ -5063,7 +5063,7 @@ int registerWebViewCore(JNIEnv* env)
     ALOG_ASSERT(gWebViewCoreFields.m_viewportDensityDpi,
             "Unable to find android/webkit/WebViewCore.mViewportDensityDpi");
     gWebViewCoreFields.m_webView = env->GetFieldID(widget,
-            "mWebView", "Landroid/webkit/WebView;");
+            "mWebView", "Landroid/webkit/WebViewClassic;");
     ALOG_ASSERT(gWebViewCoreFields.m_webView,
             "Unable to find android/webkit/WebViewCore.mWebView");
     gWebViewCoreFields.m_drawIsPaused = env->GetFieldID(widget,

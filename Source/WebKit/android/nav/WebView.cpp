@@ -145,7 +145,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     : m_isHighEndGfx(isHighEndGfx)
 {
     memset(m_extras, 0, DRAW_EXTRAS_SIZE * sizeof(DrawExtra*));
-    jclass clazz = env->FindClass("android/webkit/WebView");
+    jclass clazz = env->FindClass("android/webkit/WebViewClassic");
  //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
@@ -1759,13 +1759,13 @@ static JNINativeMethod gJavaWebViewMethods[] = {
 
 int registerWebView(JNIEnv* env)
 {
-    jclass clazz = env->FindClass("android/webkit/WebView");
-    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebView");
+    jclass clazz = env->FindClass("android/webkit/WebViewClassic");
+    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebViewClassic");
     gWebViewField = env->GetFieldID(clazz, "mNativeClass", "I");
-    ALOG_ASSERT(gWebViewField, "Unable to find android/webkit/WebView.mNativeClass");
+    ALOG_ASSERT(gWebViewField, "Unable to find android/webkit/WebViewClassic.mNativeClass");
     env->DeleteLocalRef(clazz);
 
-    return jniRegisterNativeMethods(env, "android/webkit/WebView", gJavaWebViewMethods, NELEM(gJavaWebViewMethods));
+    return jniRegisterNativeMethods(env, "android/webkit/WebViewClassic", gJavaWebViewMethods, NELEM(gJavaWebViewMethods));
 }
 
 } // namespace android

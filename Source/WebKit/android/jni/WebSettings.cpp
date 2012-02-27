@@ -130,8 +130,8 @@ struct FieldIds {
         mPageCacheCapacity = env->GetFieldID(clazz, "mPageCacheCapacity", "I");
 #if ENABLE(WEB_AUTOFILL)
         mAutoFillEnabled = env->GetFieldID(clazz, "mAutoFillEnabled", "Z");
-        mAutoFillProfile = env->GetFieldID(clazz, "mAutoFillProfile", "Landroid/webkit/WebSettings$AutoFillProfile;");
-        jclass autoFillProfileClass = env->FindClass("android/webkit/WebSettings$AutoFillProfile");
+        mAutoFillProfile = env->GetFieldID(clazz, "mAutoFillProfile", "Landroid/webkit/WebSettingsClassic$AutoFillProfile;");
+        jclass autoFillProfileClass = env->FindClass("android/webkit/WebSettingsClassic$AutoFillProfile");
         mAutoFillProfileFullName = env->GetFieldID(autoFillProfileClass, "mFullName", "Ljava/lang/String;");
         mAutoFillProfileEmailAddress = env->GetFieldID(autoFillProfileClass, "mEmailAddress", "Ljava/lang/String;");
         mAutoFillProfileCompanyName = env->GetFieldID(autoFillProfileClass, "mCompanyName", "Ljava/lang/String;");
@@ -601,11 +601,11 @@ static JNINativeMethod gWebSettingsMethods[] = {
 
 int registerWebSettings(JNIEnv* env)
 {
-    jclass clazz = env->FindClass("android/webkit/WebSettings");
-    ALOG_ASSERT(clazz, "Unable to find class WebSettings!");
+    jclass clazz = env->FindClass("android/webkit/WebSettingsClassic");
+    ALOG_ASSERT(clazz, "Unable to find class WebSettingsClassic!");
     gFieldIds = new FieldIds(env, clazz);
     env->DeleteLocalRef(clazz);
-    return jniRegisterNativeMethods(env, "android/webkit/WebSettings",
+    return jniRegisterNativeMethods(env, "android/webkit/WebSettingsClassic",
             gWebSettingsMethods, NELEM(gWebSettingsMethods));
 }
 

@@ -106,7 +106,7 @@ static RegistrationMethod gWebCoreRegMethods[] = {
     { "WebViewCore", android::registerWebViewCore },
     { "WebHistory", android::registerWebHistory },
     { "WebIconDatabase", android::registerWebIconDatabase },
-    { "WebSettings", android::registerWebSettings },
+    { "WebSettingsClassic", android::registerWebSettings },
 #if ENABLE(DATABASE)
     { "WebStorage", android::registerWebStorage },
 #endif
