@@ -151,6 +151,11 @@ void AndroidHitTestResult::searchContentDetectors()
 {
     AddressDetector address;
     PhoneEmailDetector phoneEmail;
+    Node* node = m_hitTestResult.innerNode();
+    if (!node || !node->isTextNode())
+        return;
+    if (!m_hitTestResult.absoluteLinkURL().isEmpty())
+        return;
     WebKit::WebHitTestInfo webHitTest(m_hitTestResult);
     m_searchResult = address.FindTappedContent(webHitTest);
     if (!m_searchResult.valid) {

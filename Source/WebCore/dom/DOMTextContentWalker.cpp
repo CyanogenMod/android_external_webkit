@@ -44,15 +44,20 @@ DOMTextContentWalker::DOMTextContentWalker(const VisiblePosition& position, unsi
     : m_hitOffsetInContent(0)
 {
     const unsigned halfMaxLength = maxLength / 2;
-    CharacterIterator forwardChar(makeRange(position, endOfDocument(position)).get(), TextIteratorStopsOnFormControls);
+    RefPtr<Range> forwardRange = makeRange(position, endOfDocument(position));
+    if (!forwardRange)
+        return;
+    CharacterIterator forwardChar(forwardRange.get(), TextIteratorStopsOnFormControls);
     forwardChar.advance(maxLength - halfMaxLength);
 
     // No forward contents, started inside form control.
-    RefPtr<Range> range = getRange(position.deepEquivalent(), forwardChar.range()->startPosition());
-    if (!range.get() || range->text().length() == 0)
+    if (getRange(position.deepEquivalent(), forwardChar.range()->startPosition())->text().length() == 0)
         return;
 
-    BackwardsCharacterIterator backwardsChar(makeRange(startOfDocument(position), position).get(), TextIteratorStopsOnFormControls);
+    RefPtr<Range> backwardsRange = makeRange(startOfDocument(position), position);
+    if (!backwardsRange)
+        return;
+    BackwardsCharacterIterator backwardsChar(backwardsRange.get(), TextIteratorStopsOnFormControls);
     backwardsChar.advance(halfMaxLength);
 
     m_hitOffsetInContent = getRange(backwardsChar.range()->endPosition(), position.deepEquivalent())->text().length();
