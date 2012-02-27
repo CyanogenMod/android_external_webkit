@@ -53,6 +53,10 @@ namespace WebCore {
 class HostWindow;
 class Scrollbar;
 
+#if PLATFORM(ANDROID)
+class FrameView;
+#endif
+
 class ScrollView : public Widget, public ScrollableArea {
 public:
     ~ScrollView();
@@ -172,6 +176,7 @@ public:
     int actualHeight() const;
     int actualScrollX() const;
     int actualScrollY() const;
+    FrameView* frameView();
 #endif
 
     // Functions for querying the current scrolled position (both as a point, a size, or as individual X and Y values).

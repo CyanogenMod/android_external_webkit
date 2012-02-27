@@ -27,6 +27,9 @@
 #include "ScrollView.h"
 
 #include "AXObjectCache.h"
+#if PLATFORM(ANDROID)
+#include "FrameView.h"
+#endif
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
 #include "HostWindow.h"
@@ -327,6 +330,14 @@ int ScrollView::actualScrollY() const
     if (platformWidget())
         return platformActualScrollY();
     return scrollY();
+}
+
+FrameView* ScrollView::frameView() {
+    if (this->isFrameView()) {
+        FrameView* frameView = reinterpret_cast<FrameView*>(this);
+        return frameView;
+    }
+    return 0;
 }
 #endif
 
