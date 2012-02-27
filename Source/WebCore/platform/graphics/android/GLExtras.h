@@ -31,10 +31,6 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 
-namespace android {
-    class CursorRing;
-}
-
 namespace WebCore {
 
 class LayerAndroid;
@@ -46,7 +42,6 @@ public:
     virtual ~GLExtras();
 
     void drawGL(const LayerAndroid* layer);
-    void setCursorRingExtra(android::CursorRing* ring) { m_ring = ring; }
     void setDrawExtra(android::DrawExtra* extra) { m_drawExtra = extra; }
     void setViewport(const SkRect & viewport) { m_viewport = viewport; }
 
@@ -55,9 +50,7 @@ public:
 
 private:
     void drawRing(SkRect& srcRect, Color color, const TransformationMatrix* drawMat);
-    void drawCursorRings(const LayerAndroid* layer);
 
-    android::CursorRing* m_ring;
     android::DrawExtra* m_drawExtra;
     SkRect m_viewport;
 };

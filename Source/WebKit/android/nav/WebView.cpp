@@ -144,9 +144,8 @@ struct JavaGlue {
 } m_javaGlue;
 
 WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
-        bool isHighEndGfx) :
-    m_ring((WebViewCore*) viewImpl)
-    , m_isHighEndGfx(isHighEndGfx)
+        bool isHighEndGfx)
+    : m_isHighEndGfx(isHighEndGfx)
 {
     memset(m_extras, 0, DRAW_EXTRAS_SIZE * sizeof(DrawExtra*));
     jclass clazz = env->FindClass("android/webkit/WebView");
@@ -193,7 +192,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_heightCanMeasure = false;
     m_lastDx = 0;
     m_lastDxTime = 0;
-    m_ringAnimationEnd = 0;
     m_baseLayer = 0;
     m_glDrawFunctor = 0;
     m_isDrawingPaused = false;
@@ -228,33 +226,6 @@ DrawExtra* getDrawExtra(DrawExtras extras)
     if (extras == DrawExtrasNone)
         return 0;
     return m_extras[extras - 1];
-}
-
-DrawExtra* getDrawExtraLegacy(DrawExtras extras)
-{
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        if (extras == DrawExtrasCursorRing)
-            resetCursorRing();
-    }
-    DrawExtra* extra = getDrawExtra(extras);
-    if (!extra) {
-        switch (extras) {
-            case DrawExtrasCursorRing:
-                if (drawCursorPreamble(root) && m_ring.setup()) {
-                    if (m_ring.m_isPressed || m_ringAnimationEnd == UINT_MAX)
-                        extra = &m_ring;
-                    drawCursorPostamble();
-                }
-                break;
-            // Just to prevent compiler warnings
-            case DrawExtrasSelection:
-            case DrawExtrasNone:
-                break;
-        }
-    }
-    return extra;
 }
 
 void stopGL()
@@ -335,60 +306,6 @@ void scrollRectOnScreen(const IntRect& rect)
     viewInvalidate();
 }
 
-void resetCursorRing()
-{
-    m_ringAnimationEnd = 0;
-    m_viewImpl->m_hasCursorBounds = false;
-}
-
-bool drawCursorPreamble(CachedRoot* root)
-{
-    if (!root) return false;
-    const CachedFrame* frame;
-    const CachedNode* node = root->currentCursor(&frame);
-    if (!node) {
-        DBG_NAV_LOGV("%s", "!node");
-        resetCursorRing();
-        return false;
-    }
-    m_ring.setIsButton(node);
-    if (node->isHidden()) {
-        DBG_NAV_LOG("node->isHidden()");
-        m_viewImpl->m_hasCursorBounds = false;
-        return false;
-    }
-#if USE(ACCELERATED_COMPOSITING)
-    if (node->isInLayer() && root->rootLayer()) {
-        LayerAndroid* layer = root->rootLayer();
-        layer->updateFixedLayersPositions(m_visibleRect);
-        layer->updatePositions();
-    }
-#endif
-    setVisibleRect(root);
-    m_ring.m_root = root;
-    m_ring.m_frame = frame;
-    m_ring.m_node = node;
-    SkMSec time = SkTime::GetMSecs();
-    m_ring.m_isPressed = time < m_ringAnimationEnd
-        && m_ringAnimationEnd != UINT_MAX;
-    return true;
-}
-
-void drawCursorPostamble()
-{
-    if (m_ringAnimationEnd == UINT_MAX)
-        return;
-    SkMSec time = SkTime::GetMSecs();
-    if (time < m_ringAnimationEnd) {
-        // views assume that inval bounds coordinates are non-negative
-        WebCore::IntRect invalBounds(0, 0, INT_MAX, INT_MAX);
-        invalBounds.intersect(m_ring.m_absBounds);
-        postInvalidateDelayed(m_ringAnimationEnd - time, invalBounds);
-    } else {
-        hideCursor(const_cast<CachedRoot*>(m_ring.m_root));
-    }
-}
-
 bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
         WebCore::IntRect& webViewRect, int titleBarHeight,
         WebCore::IntRect& clip, float scale, int extras)
@@ -400,7 +317,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     if (!m_glWebViewState) {
         TilesManager::instance()->setHighEndGfx(m_isHighEndGfx);
         m_glWebViewState = new GLWebViewState();
-        m_glWebViewState->glExtras()->setCursorRingExtra(&m_ring);
         if (m_baseLayer->content()) {
             SkRegion region;
             SkIRect rect;
@@ -411,7 +327,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
         }
     }
 
-    DrawExtra* extra = getDrawExtraLegacy((DrawExtras) extras);
+    DrawExtra* extra = getDrawExtra((DrawExtras) extras);
 
     unsigned int pic = m_glWebViewState->currentPictureCounter();
     m_glWebViewState->glExtras()->setDrawExtra(extra);
@@ -459,7 +375,7 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
     if (content->draw(canvas))
         ret = split ? new PictureSet(*content) : 0;
 
-    DrawExtra* extra = getDrawExtraLegacy(extras);
+    DrawExtra* extra = getDrawExtra(extras);
     if (extra)
         extra->draw(canvas, 0);
 
@@ -778,7 +694,6 @@ bool moveCursor(int keyCode, int count, bool ignoreScroll)
     }
     bool result = false;
     if (cachedNode) {
-        showCursorUntimed();
         m_viewImpl->updateCursorBounds(root, cachedFrame, cachedNode);
         root->setCursor(const_cast<CachedFrame*>(cachedFrame),
                 const_cast<CachedNode*>(cachedNode));
@@ -860,7 +775,6 @@ void selectBestAt(const WebCore::IntRect& rect)
         WebCore::IntRect bounds = node->bounds(frame);
         root->rootHistory()->setMouseBounds(bounds);
         m_viewImpl->updateCursorBounds(root, frame, node);
-        showCursorTimed();
         root->setCursor(const_cast<CachedFrame*>(frame),
                 const_cast<CachedNode*>(node));
     }
@@ -921,11 +835,6 @@ bool motionUp(int x, int y, int slop)
             (WebCore::Frame*) frame->framePointer(),
             (WebCore::Node*) result->nodePointer(), rx, ry);
     }
-    if (result->isTextInput() || result->isSelect()
-            || result->isContentEditable()) {
-        showCursorUntimed();
-    } else
-        showCursorTimed();
     return pageScrolled;
 }
 
@@ -1010,21 +919,6 @@ void setFindIsUp(bool up)
 {
     DBG_NAV_LOGD("up=%d", up);
     m_viewImpl->m_findIsUp = up;
-}
-
-void showCursorTimed()
-{
-    DBG_NAV_LOG("");
-    m_ringAnimationEnd = SkTime::GetMSecs() + PRESSED_STATE_DURATION;
-    viewInvalidate();
-}
-
-void showCursorUntimed()
-{
-    DBG_NAV_LOG("");
-    m_ring.m_isPressed = false;
-    m_ringAnimationEnd = UINT_MAX;
-    viewInvalidate();
 }
 
 void setHeightCanMeasure(bool measure)
@@ -1324,12 +1218,10 @@ private: // local state for WebView
     CachedRoot* m_frameCacheUI; // navigation data ready for use
     WebViewCore* m_viewImpl;
     int m_generation; // associate unique ID with sent kit focus to match with ui
-    SkMSec m_ringAnimationEnd;
     // Corresponds to the same-named boolean on the java side.
     bool m_heightCanMeasure;
     int m_lastDx;
     SkMSec m_lastDxTime;
-    CursorRing m_ring;
     DrawExtra* m_extras[DRAW_EXTRAS_SIZE];
     BaseLayerAndroid* m_baseLayer;
     Functor* m_glDrawFunctor;
@@ -1943,12 +1835,6 @@ static void nativeSelectBestAt(JNIEnv *env, jobject obj, jobject jrect)
 
 static void nativeSelectAt(JNIEnv *env, jobject obj, jint x, jint y)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    WebCore::IntRect rect = IntRect(x, y , 1, 1);
-    view->selectBestAt(rect);
-    if (view->hasCursorNode())
-        view->showCursorUntimed();
 }
 
 static jobject nativeLayerBounds(JNIEnv* env, jobject obj, jint jlayer)
@@ -2039,7 +1925,6 @@ static void nativeSetFindIsUp(JNIEnv *env, jobject obj, jboolean isUp)
 
 static void nativeShowCursorTimed(JNIEnv *env, jobject obj)
 {
-    GET_NATIVE_VIEW(env, obj)->showCursorTimed();
 }
 
 static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
@@ -2122,7 +2007,6 @@ static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
     const WebCore::IntRect& bounds = next->bounds(frame);
     root->rootHistory()->setMouseBounds(bounds);
     view->getWebViewCore()->updateCursorBounds(root, frame, next);
-    view->showCursorUntimed();
     root->setCursor(const_cast<CachedFrame*>(frame),
             const_cast<CachedNode*>(next));
     view->sendMoveFocus(static_cast<WebCore::Frame*>(frame->framePointer()),
