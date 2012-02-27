@@ -351,18 +351,26 @@ double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visib
     int top = viewRect.y();
     int width = viewRect.width();
     int height = viewRect.height();
+    TilesManager* tilesManager = TilesManager::instance();
+
+    // Make sure the GL Context has not changed, otherwise, re-create all GL
+    // resources. Only check this after onTrimMemory happens.
+    bool contextChanged = tilesManager->contextChanged();
+    tilesManager->setContextChanged(false);
 
     // Make sure GL resources are created on the UI thread.
-    ShaderProgram* shader = TilesManager::instance()->shader();
-    if (shader->needsInit()) {
-        XLOG("Reinit shader");
+    ShaderProgram* shader = tilesManager->shader();
+    if (shader->needsInit() || contextChanged) {
+        XLOGC("Reinit shader");
         shader->init();
     }
-    TransferQueue* transferQueue = TilesManager::instance()->transferQueue();
-    if (transferQueue->needsInit()) {
+    TransferQueue* transferQueue = tilesManager->transferQueue();
+    if (transferQueue->needsInit() || contextChanged) {
+        XLOGC("Reinit transferQueue");
         transferQueue->initGLResources(TilesManager::tileWidth(),
                                        TilesManager::tileHeight());
     }
+    // TODO: Add the video GL resource re-initialization code here.
 
     shader->setupDrawing(viewRect, visibleRect, webViewRect,
                          titleBarHeight, screenClip, scale);
