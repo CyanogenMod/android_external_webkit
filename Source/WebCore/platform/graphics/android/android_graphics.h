@@ -26,55 +26,17 @@
 #ifndef android_graphics_DEFINED
 #define android_graphics_DEFINED
 
-#include "DrawExtra.h"
-#include "IntRect.h"
-#include "SkTypes.h"
-#include "wtf/Vector.h"
-
 namespace WebCore {
     class GraphicsContext;
-    class GLExtras;
 }
+class SkCanvas;
 
-SkCanvas* android_gc2canvas(GraphicsContext* gc);
-
-namespace android {
-
-class CachedFrame;
-class CachedNode;
-class CachedRoot;
-class WebViewCore;
-
-// Data and methods for cursor rings
+// TODO: Move this somewhere else. The implementation for this is actually in
+// GraphicsContextAndroid.cpp, but this is used by a handful of other files
+SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc);
 
 // used to inflate node cache entry
 #define CURSOR_RING_HIT_TEST_RADIUS 5
 
-class CursorRing : public DrawExtra {
-public:
-    CursorRing(WebViewCore* core);
-    virtual ~CursorRing() {}
-    virtual void drawLegacy(SkCanvas* , LayerAndroid* , IntRect* );
-    void setIsButton(const CachedNode* );
-    bool setup();
-    WTF::Vector<IntRect>& rings() { return m_rings; }
-    int layerId() const { return m_layerId; }
-private:
-    friend class WebView;
-    friend class WebCore::GLExtras;
-    WebViewCore* m_viewImpl; // copy for convenience
-    WTF::Vector<IntRect> m_rings;
-    IntRect m_bounds;
-    IntRect m_absBounds;
-    IntRect m_lastBounds;
-    const CachedRoot* m_root;
-    const CachedFrame* m_frame;
-    const CachedNode* m_node;
-    bool m_isButton;
-    bool m_isPressed;
-    int m_layerId;
-};
-
-}
 
 #endif

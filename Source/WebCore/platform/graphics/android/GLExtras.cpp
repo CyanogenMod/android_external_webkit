@@ -51,14 +51,9 @@
 
 // Touch ring border width. This is doubled if the ring is not pressed
 #define RING_BORDER_WIDTH 1
-// Put a cap on the number of matches to draw.  If the current page has more
-// matches than this, only draw the focused match. This both prevents clutter
-// on the page and keeps the performance happy
-#define MAX_NUMBER_OF_MATCHES_TO_DRAW 101
 
 GLExtras::GLExtras()
-    : m_ring(0)
-    , m_drawExtra(0)
+    : m_drawExtra(0)
     , m_viewport()
 {
 }
@@ -150,30 +145,8 @@ void GLExtras::drawRegion(const SkRegion& region, bool fill, bool drawBorder,
     }
 }
 
-void GLExtras::drawCursorRings(const LayerAndroid* layer)
-{
-    int layerId = layer ? layer->uniqueId() : -1;
-    if (layerId != m_ring->layerId())
-        return;
-
-    SkRegion region;
-    for (size_t i = 0; i < m_ring->rings().size(); i++) {
-        IntRect rect = m_ring->rings().at(i);
-        if (i == 0)
-            region.setRect(rect);
-        else
-            region.op(rect, SkRegion::kUnion_Op);
-    }
-    drawRegion(region, m_ring->m_isPressed, !m_ring->m_isButton,
-               layer ? layer->drawTransform() : 0);
-}
-
 void GLExtras::drawGL(const LayerAndroid* layer)
 {
-    if (m_drawExtra) {
-        if (m_drawExtra == m_ring)
-            drawCursorRings(layer);
-        else
-            m_drawExtra->drawGL(this, layer);
-    }
+    if (m_drawExtra)
+        m_drawExtra->drawGL(this, layer);
 }
