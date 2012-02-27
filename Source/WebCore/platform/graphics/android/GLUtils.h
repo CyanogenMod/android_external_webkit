@@ -85,6 +85,9 @@ public:
     static bool isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor);
     static bool skipTransferForPureColor(const TileRenderInfo* renderInfo,
                                          const SkBitmap& bitmap);
+    static bool allowGLLog();
+    static double m_previousLogTime;
+    static int m_currentLogCounter;
 };
 
 } // namespace WebCore
