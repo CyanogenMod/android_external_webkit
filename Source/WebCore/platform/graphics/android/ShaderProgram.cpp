@@ -221,6 +221,9 @@ GLint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragm
             program = -1;
         }
     }
+
+    ShaderResource newResource(program, vertexShader, pixelShader);
+    m_resources.append(newResource);
     return program;
 }
 
@@ -233,12 +236,30 @@ ShaderProgram::ShaderProgram()
 {
 }
 
-void ShaderProgram::init()
+void ShaderProgram::cleanupGLResources()
+{
+    for (unsigned int i = 0; i < m_resources.size(); i++) {
+        glDetachShader(m_resources[i].program, m_resources[i].vertexShader);
+        glDetachShader(m_resources[i].program, m_resources[i].fragmentShader);
+        glDeleteShader(m_resources[i].vertexShader);
+        glDeleteShader(m_resources[i].fragmentShader);
+        glDeleteProgram(m_resources[i].program);
+    }
+    glDeleteBuffers(1, m_textureBuffer);
+
+    m_resources.clear();
+    m_needsInit = true;
+    GLUtils::checkGlError("cleanupGLResources");
+
+    return;
+}
+
+void ShaderProgram::initGLResources()
 {
     // To detect whether or not resources for ShaderProgram allocated
     // successfully, we clean up pre-existing errors here and will check for
     // new errors at the end of this function.
-    GLUtils::checkGlError("before init");
+    GLUtils::checkGlError("before initGLResources");
 
     GLint tex2DProgram = createProgram(gVertexShader, gFragmentShader);
     GLint pureColorProgram = createProgram(gPureColorVertexShader, gPureColorFragmentShader);
@@ -324,11 +345,7 @@ void ShaderProgram::init()
     matrix.translate3d(-0.5, -0.5, 0);
     GLUtils::toGLMatrix(m_transferProjMtx, matrix);
 
-    if (GLUtils::checkGlError("init"))
-        m_needsInit = true;
-    else
-        m_needsInit = false;
-
+    m_needsInit = GLUtils::checkGlError("initGLResources");
     return;
 }
 

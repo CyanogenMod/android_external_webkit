@@ -353,19 +353,16 @@ double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visib
     int height = viewRect.height();
     TilesManager* tilesManager = TilesManager::instance();
 
-    // Make sure the GL Context has not changed, otherwise, re-create all GL
-    // resources. Only check this after onTrimMemory happens.
-    bool contextChanged = tilesManager->contextChanged();
-    tilesManager->setContextChanged(false);
-
     // Make sure GL resources are created on the UI thread.
+    // They are created either for the first time, or after EGL context
+    // recreation caused by onTrimMemory in the framework.
     ShaderProgram* shader = tilesManager->shader();
-    if (shader->needsInit() || contextChanged) {
+    if (shader->needsInit()) {
         XLOGC("Reinit shader");
-        shader->init();
+        shader->initGLResources();
     }
     TransferQueue* transferQueue = tilesManager->transferQueue();
-    if (transferQueue->needsInit() || contextChanged) {
+    if (transferQueue->needsInit()) {
         XLOGC("Reinit transferQueue");
         transferQueue->initGLResources(TilesManager::tileWidth(),
                                        TilesManager::tileHeight());

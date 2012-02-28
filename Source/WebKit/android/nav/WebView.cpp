@@ -1430,7 +1430,7 @@ static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
         if (level >= TRIM_MEMORY_MODERATE
             && !TilesManager::instance()->highEndGfx()) {
             TilesManager::instance()->transferQueue()->emptyQueue();
-            TilesManager::instance()->setContextChanged(true);
+            TilesManager::instance()->shader()->cleanupGLResources();
         }
 
         bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN), glTextures = true;
