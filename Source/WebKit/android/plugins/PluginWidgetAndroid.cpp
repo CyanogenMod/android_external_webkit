@@ -596,9 +596,9 @@ void PluginWidgetAndroid::scrollToVisiblePluginRect() {
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(scrollView);
 #if DEBUG_VISIBLE_RECTS
     PLUGIN_LOG("%s call scrollTo (%d,%d) to center (%d,%d)", __FUNCTION__,
-            scrollDocX, scrollDocX, rectCenterX, rectCenterY);
+            scrollDocX, scrollDocY, rectCenterX, rectCenterY);
 #endif
-    core->scrollTo(scrollDocX, scrollDocX, true);
+    core->scrollTo(scrollDocX, scrollDocY, true);
 }
 
 void PluginWidgetAndroid::requestFullScreen() {
