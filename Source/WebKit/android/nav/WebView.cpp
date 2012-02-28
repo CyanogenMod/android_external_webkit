@@ -2151,8 +2151,10 @@ static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
         // Texture to avoid ANR b/c framework may destroy the EGL context.
         // Refer to WindowManagerImpl.java for conditions we followed.
         if (level >= TRIM_MEMORY_MODERATE
-            && !TilesManager::instance()->highEndGfx())
+            && !TilesManager::instance()->highEndGfx()) {
             TilesManager::instance()->transferQueue()->emptyQueue();
+            TilesManager::instance()->setContextChanged(true);
+        }
 
         bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN), glTextures = true;
         TilesManager::instance()->discardTextures(freeAllTextures, glTextures);
