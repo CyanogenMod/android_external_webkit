@@ -30,9 +30,6 @@
 #include "AndroidAnimation.h"
 #include "AndroidLog.h"
 #include "BaseLayerAndroid.h"
-#include "CachedFrame.h"
-#include "CachedNode.h"
-#include "CachedRoot.h"
 #include "DrawExtra.h"
 #include "Frame.h"
 #include "GraphicsJNI.h"
@@ -187,7 +184,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
 
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
-    m_frameCacheUI = 0;
     m_generation = 0;
     m_heightCanMeasure = false;
     m_lastDx = 0;
@@ -214,7 +210,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     // deallocated base layer.
     stopGL();
 #endif
-    delete m_frameCacheUI;
     SkSafeUnref(m_baseLayer);
     delete m_glDrawFunctor;
     for (int i = 0; i < DRAW_EXTRAS_SIZE; i++)
@@ -239,45 +234,6 @@ void stopGL()
 WebViewCore* getWebViewCore() const {
     return m_viewImpl;
 }
-
-// removes the cursor altogether (e.g., when going to a new page)
-void clearCursor()
-{
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root)
-        return;
-    DBG_NAV_LOG("");
-    m_viewImpl->m_hasCursorBounds = false;
-    root->clearCursor();
-    viewInvalidate();
-}
-
-// leaves the cursor where it is, but suppresses drawing it
-void hideCursor()
-{
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root)
-        return;
-    DBG_NAV_LOG("");
-    hideCursor(root);
-    viewInvalidate();
-}
-
-void hideCursor(CachedRoot* root)
-{
-    DBG_NAV_LOG("inner");
-    m_viewImpl->m_hasCursorBounds = false;
-    root->hideCursor();
-}
-
-#if DUMP_NAV_CACHE
-void debugDump()
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (root)
-        root->mDebug.print();
-}
-#endif
 
 void scrollRectOnScreen(const IntRect& rect)
 {
@@ -401,157 +357,6 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
     return ret;
 }
 
-
-bool cursorIsTextInput(FrameCachePermission allowNewer)
-{
-    CachedRoot* root = getFrameCache(allowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        return false;
-    }
-    const CachedNode* cursor = root->currentCursor();
-    if (!cursor) {
-        DBG_NAV_LOG("!cursor");
-        return false;
-    }
-    DBG_NAV_LOGD("%s", cursor->isTextInput() ? "true" : "false");
-    return cursor->isTextInput();
-}
-
-void cursorRingBounds(WebCore::IntRect* bounds)
-{
-    DBG_NAV_LOGD("%s", "");
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (root) {
-        const CachedFrame* cachedFrame;
-        const CachedNode* cachedNode = root->currentCursor(&cachedFrame);
-        if (cachedNode) {
-            *bounds = cachedNode->cursorRingBounds(cachedFrame);
-            DBG_NAV_LOGD("bounds={%d,%d,%d,%d}", bounds->x(), bounds->y(),
-                bounds->width(), bounds->height());
-            return;
-        }
-    }
-    *bounds = WebCore::IntRect(0, 0, 0, 0);
-}
-
-void fixCursor()
-{
-    m_viewImpl->gCursorBoundsMutex.lock();
-    bool hasCursorBounds = m_viewImpl->m_hasCursorBounds;
-    IntRect bounds = m_viewImpl->m_cursorBounds;
-    m_viewImpl->gCursorBoundsMutex.unlock();
-    if (!hasCursorBounds)
-        return;
-    int x, y;
-    const CachedFrame* frame;
-    const CachedNode* node = m_frameCacheUI->findAt(bounds, &frame, &x, &y, true);
-    if (!node)
-        return;
-    // require that node have approximately the same bounds (+/- 4) and the same
-    // center (+/- 2)
-    IntPoint oldCenter = IntPoint(bounds.x() + (bounds.width() >> 1),
-        bounds.y() + (bounds.height() >> 1));
-    IntRect newBounds = node->bounds(frame);
-    IntPoint newCenter = IntPoint(newBounds.x() + (newBounds.width() >> 1),
-        newBounds.y() + (newBounds.height() >> 1));
-    DBG_NAV_LOGD("oldCenter=(%d,%d) newCenter=(%d,%d)"
-        " bounds=(%d,%d,w=%d,h=%d) newBounds=(%d,%d,w=%d,h=%d)",
-        oldCenter.x(), oldCenter.y(), newCenter.x(), newCenter.y(),
-        bounds.x(), bounds.y(), bounds.width(), bounds.height(),
-        newBounds.x(), newBounds.y(), newBounds.width(), newBounds.height());
-    if (abs(oldCenter.x() - newCenter.x()) > 2)
-        return;
-    if (abs(oldCenter.y() - newCenter.y()) > 2)
-        return;
-    if (abs(bounds.x() - newBounds.x()) > 4)
-        return;
-    if (abs(bounds.y() - newBounds.y()) > 4)
-        return;
-    if (abs(bounds.maxX() - newBounds.maxX()) > 4)
-        return;
-    if (abs(bounds.maxY() - newBounds.maxY()) > 4)
-        return;
-    DBG_NAV_LOGD("node=%p frame=%p x=%d y=%d bounds=(%d,%d,w=%d,h=%d)",
-        node, frame, x, y, bounds.x(), bounds.y(), bounds.width(),
-        bounds.height());
-    m_frameCacheUI->setCursor(const_cast<CachedFrame*>(frame),
-        const_cast<CachedNode*>(node));
-}
-
-CachedRoot* getFrameCache(FrameCachePermission allowNewer)
-{
-    if (!m_viewImpl->m_updatedFrameCache) {
-        DBG_NAV_LOGV("%s", "!m_viewImpl->m_updatedFrameCache");
-        return m_frameCacheUI;
-    }
-    if (allowNewer == DontAllowNewer && m_viewImpl->m_lastGeneration < m_generation) {
-        DBG_NAV_LOGD("allowNewer==DontAllowNewer m_viewImpl->m_lastGeneration=%d"
-            " < m_generation=%d", m_viewImpl->m_lastGeneration, m_generation);
-        return m_frameCacheUI;
-    }
-    DBG_NAV_LOGD("%s", "m_viewImpl->m_updatedFrameCache == true");
-    const CachedFrame* oldCursorFrame;
-    const CachedNode* oldCursorNode = m_frameCacheUI ?
-        m_frameCacheUI->currentCursor(&oldCursorFrame) : 0;
-#if USE(ACCELERATED_COMPOSITING)
-    int layerId = -1;
-    if (oldCursorNode && oldCursorNode->isInLayer()) {
-        const LayerAndroid* cursorLayer = oldCursorFrame->layer(oldCursorNode)
-            ->layer(m_frameCacheUI->rootLayer());
-        if (cursorLayer)
-            layerId = cursorLayer->uniqueId();
-    }
-#endif
-    // get id from old layer and use to find new layer
-    bool oldFocusIsTextInput = false;
-    void* oldFocusNodePointer = 0;
-    if (m_frameCacheUI) {
-        const CachedNode* oldFocus = m_frameCacheUI->currentFocus();
-        if (oldFocus) {
-            oldFocusIsTextInput = oldFocus->isTextInput();
-            oldFocusNodePointer = oldFocus->nodePointer();
-        }
-    }
-    m_viewImpl->gFrameCacheMutex.lock();
-    delete m_frameCacheUI;
-    m_viewImpl->m_updatedFrameCache = false;
-    m_frameCacheUI = m_viewImpl->m_frameCacheKit;
-    m_viewImpl->m_frameCacheKit = 0;
-    m_viewImpl->gFrameCacheMutex.unlock();
-    if (m_frameCacheUI)
-        m_frameCacheUI->setRootLayer(compositeRoot());
-#if USE(ACCELERATED_COMPOSITING)
-    if (layerId >= 0) {
-        LayerAndroid* layer = const_cast<LayerAndroid*>(
-                                                m_frameCacheUI->rootLayer());
-        if (layer) {
-            layer->updateFixedLayersPositions(m_visibleRect);
-            layer->updatePositions();
-        }
-    }
-#endif
-    fixCursor();
-    if (oldFocusIsTextInput) {
-        const CachedNode* newFocus = m_frameCacheUI->currentFocus();
-        if (newFocus && oldFocusNodePointer != newFocus->nodePointer()
-                && newFocus->isTextInput()
-                && newFocus != m_frameCacheUI->currentCursor()) {
-            // The focus has changed.  We may need to update things.
-            ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-            JNIEnv* env = JSC::Bindings::getJNIEnv();
-            AutoJObject javaObject = m_javaGlue.object(env);
-            if (javaObject.get()) {
-                env->CallVoidMethod(javaObject.get(), m_javaGlue.m_domChangedFocus);
-                checkException(env);
-            }
-        }
-    }
-    if (oldCursorNode && (!m_frameCacheUI || !m_frameCacheUI->currentCursor()))
-        viewInvalidate(); // redraw in case cursor ring is still visible
-    return m_frameCacheUI;
-}
-
 int getScaledMaxXScroll()
 {
     ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
@@ -599,243 +404,9 @@ IntRect getVisibleRect()
     return rect;
 }
 
-static CachedFrame::Direction KeyToDirection(int32_t keyCode)
-{
-    switch (keyCode) {
-        case AKEYCODE_DPAD_RIGHT:
-            DBG_NAV_LOGD("keyCode=%s", "right");
-            return CachedFrame::RIGHT;
-        case AKEYCODE_DPAD_LEFT:
-            DBG_NAV_LOGD("keyCode=%s", "left");
-            return CachedFrame::LEFT;
-        case AKEYCODE_DPAD_DOWN:
-            DBG_NAV_LOGD("keyCode=%s", "down");
-            return CachedFrame::DOWN;
-        case AKEYCODE_DPAD_UP:
-            DBG_NAV_LOGD("keyCode=%s", "up");
-            return CachedFrame::UP;
-        default:
-            DBG_NAV_LOGD("bad key %d sent", keyCode);
-            return CachedFrame::UNINITIALIZED;
-    }
-}
-
-WTF::String imageURI(int x, int y)
-{
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    return root ? root->imageURI(x, y) : WTF::String();
-}
-
-bool cursorWantsKeyEvents()
-{
-    const CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (root) {
-        const CachedNode* focus = root->currentCursor();
-        if (focus)
-            return focus->wantsKeyEvents();
-    }
-    return false;
-}
-
-
-/* returns true if the key had no effect (neither scrolled nor changed cursor) */
-bool moveCursor(int keyCode, int count, bool ignoreScroll)
-{
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        return true;
-    }
-
-    m_viewImpl->m_moveGeneration++;
-    CachedFrame::Direction direction = KeyToDirection(keyCode);
-    const CachedFrame* cachedFrame, * oldFrame = 0;
-    const CachedNode* cursor = root->currentCursor(&oldFrame);
-    WebCore::IntPoint cursorLocation = root->cursorLocation();
-    DBG_NAV_LOGD("old cursor %d (nativeNode=%p) cursorLocation={%d, %d}",
-        cursor ? cursor->index() : 0,
-        cursor ? cursor->nodePointer() : 0, cursorLocation.x(), cursorLocation.y());
-    WebCore::IntRect visibleRect = setVisibleRect(root);
-    int xMax = getScaledMaxXScroll();
-    int yMax = getScaledMaxYScroll();
-    root->setMaxScroll(xMax, yMax);
-    const CachedNode* cachedNode = 0;
-    int dx = 0;
-    int dy = 0;
-    int counter = count;
-    while (--counter >= 0) {
-        WebCore::IntPoint scroll = WebCore::IntPoint(0, 0);
-        cachedNode = root->moveCursor(direction, &cachedFrame, &scroll);
-        dx += scroll.x();
-        dy += scroll.y();
-    }
-    DBG_NAV_LOGD("new cursor %d (nativeNode=%p) cursorLocation={%d, %d}"
-        "bounds={%d,%d,w=%d,h=%d}", cachedNode ? cachedNode->index() : 0,
-        cachedNode ? cachedNode->nodePointer() : 0,
-            root->cursorLocation().x(), root->cursorLocation().y(),
-            cachedNode ? cachedNode->bounds(cachedFrame).x() : 0,
-            cachedNode ? cachedNode->bounds(cachedFrame).y() : 0,
-            cachedNode ? cachedNode->bounds(cachedFrame).width() : 0,
-            cachedNode ? cachedNode->bounds(cachedFrame).height() : 0);
-    // If !m_heightCanMeasure (such as in the browser), we want to scroll no
-    // matter what
-    if (!ignoreScroll && (!m_heightCanMeasure ||
-            !cachedNode ||
-            (cursor && cursor->nodePointer() == cachedNode->nodePointer())))
-    {
-        if (count == 1 && dx != 0 && dy == 0 && -m_lastDx == dx &&
-                SkTime::GetMSecs() - m_lastDxTime < 1000)
-            root->checkForJiggle(&dx);
-        DBG_NAV_LOGD("scrollBy %d,%d", dx, dy);
-        if ((dx | dy))
-            this->scrollBy(dx, dy);
-        m_lastDx = dx;
-        m_lastDxTime = SkTime::GetMSecs();
-    }
-    bool result = false;
-    if (cachedNode) {
-        m_viewImpl->updateCursorBounds(root, cachedFrame, cachedNode);
-        root->setCursor(const_cast<CachedFrame*>(cachedFrame),
-                const_cast<CachedNode*>(cachedNode));
-        const CachedNode* focus = root->currentFocus();
-        bool clearTextEntry = cachedNode != focus && focus
-                && cachedNode->nodePointer() != focus->nodePointer() && focus->isTextInput();
-        // Stop painting the caret if the old focus was a text input and so is the new cursor.
-        bool stopPaintingCaret = clearTextEntry && cachedNode->wantsKeyEvents();
-        sendMoveMouseIfLatest(clearTextEntry, stopPaintingCaret);
-    } else {
-        int docHeight = root->documentHeight();
-        int docWidth = root->documentWidth();
-        if (visibleRect.maxY() + dy > docHeight)
-            dy = docHeight - visibleRect.maxY();
-        else if (visibleRect.y() + dy < 0)
-            dy = -visibleRect.y();
-        if (visibleRect.maxX() + dx > docWidth)
-            dx = docWidth - visibleRect.maxX();
-        else if (visibleRect.x() < 0)
-            dx = -visibleRect.x();
-        result = direction == CachedFrame::LEFT ? dx >= 0 :
-            direction == CachedFrame::RIGHT ? dx <= 0 :
-            direction == CachedFrame::UP ? dy >= 0 : dy <= 0;
-    }
-    return result;
-}
-
 void notifyProgressFinished()
 {
-    DBG_NAV_LOGD("cursorIsTextInput=%d", cursorIsTextInput(DontAllowNewer));
     rebuildWebTextView();
-#if DEBUG_NAV_UI
-    if (m_frameCacheUI) {
-        const CachedNode* focus = m_frameCacheUI->currentFocus();
-        DBG_NAV_LOGD("focus %d (nativeNode=%p)",
-            focus ? focus->index() : 0,
-            focus ? focus->nodePointer() : 0);
-    }
-#endif
-}
-
-const CachedNode* findAt(CachedRoot* root, const WebCore::IntRect& rect,
-    const CachedFrame** framePtr, int* rxPtr, int* ryPtr)
-{
-    *rxPtr = 0;
-    *ryPtr = 0;
-    *framePtr = 0;
-    if (!root)
-        return 0;
-    setVisibleRect(root);
-    return root->findAt(rect, framePtr, rxPtr, ryPtr, true);
-}
-
-IntRect setVisibleRect(CachedRoot* root)
-{
-    IntRect visibleRect = getVisibleRect();
-    DBG_NAV_LOGD("getVisibleRect %d,%d,%d,%d",
-        visibleRect.x(), visibleRect.y(), visibleRect.width(), visibleRect.height());
-    root->setVisibleRect(visibleRect);
-    return visibleRect;
-}
-
-void selectBestAt(const WebCore::IntRect& rect)
-{
-    const CachedFrame* frame;
-    int rx, ry;
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root)
-        return;
-    const CachedNode* node = findAt(root, rect, &frame, &rx, &ry);
-    if (!node) {
-        DBG_NAV_LOGD("no nodes found root=%p", root);
-        root->rootHistory()->setMouseBounds(rect);
-        m_viewImpl->m_hasCursorBounds = false;
-        root->setCursor(0, 0);
-        viewInvalidate();
-    } else {
-        DBG_NAV_LOGD("CachedNode:%p (%d)", node, node->index());
-        WebCore::IntRect bounds = node->bounds(frame);
-        root->rootHistory()->setMouseBounds(bounds);
-        m_viewImpl->updateCursorBounds(root, frame, node);
-        root->setCursor(const_cast<CachedFrame*>(frame),
-                const_cast<CachedNode*>(node));
-    }
-    sendMoveMouseIfLatest(false, false);
-}
-
-const CachedNode* m_cacheHitNode;
-const CachedFrame* m_cacheHitFrame;
-
-bool pointInNavCache(int x, int y, int slop)
-{
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root)
-        return false;
-    IntRect rect = IntRect(x - slop, y - slop, slop * 2, slop * 2);
-    int rx, ry;
-    return (m_cacheHitNode = findAt(root, rect, &m_cacheHitFrame, &rx, &ry));
-}
-
-bool motionUp(int x, int y, int slop)
-{
-    bool pageScrolled = false;
-    IntRect rect = IntRect(x - slop, y - slop, slop * 2, slop * 2);
-    int rx, ry;
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (!root)
-        return 0;
-    const CachedFrame* frame = 0;
-    const CachedNode* result = findAt(root, rect, &frame, &rx, &ry);
-    CachedHistory* history = root->rootHistory();
-    if (!result) {
-        DBG_NAV_LOGD("no nodes found root=%p", root);
-        history->setNavBounds(rect);
-        m_viewImpl->m_hasCursorBounds = false;
-        root->hideCursor();
-        int dx = root->checkForCenter(x, y);
-        if (dx) {
-            scrollBy(dx, 0);
-            pageScrolled = true;
-        }
-        sendMotionUp(frame ? (WebCore::Frame*) frame->framePointer() : 0,
-            0, x, y);
-        viewInvalidate();
-        return pageScrolled;
-    }
-    DBG_NAV_LOGD("CachedNode:%p (%d) x=%d y=%d rx=%d ry=%d", result,
-        result->index(), x, y, rx, ry);
-    WebCore::IntRect navBounds = WebCore::IntRect(rx, ry, 1, 1);
-    history->setNavBounds(navBounds);
-    history->setMouseBounds(navBounds);
-    m_viewImpl->updateCursorBounds(root, frame, result);
-    root->setCursor(const_cast<CachedFrame*>(frame),
-        const_cast<CachedNode*>(result));
-    if (result->isSyntheticLink())
-        overrideUrlLoading(result->getExport());
-    else {
-        sendMotionUp(
-            (WebCore::Frame*) frame->framePointer(),
-            (WebCore::Node*) result->nodePointer(), rx, ry);
-    }
-    return pageScrolled;
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -896,14 +467,6 @@ void scrollLayer(int layerId, int x, int y)
         m_glWebViewState->scrollLayer(layerId, x, y);
 }
 
-int getBlockLeftEdge(int x, int y, float scale)
-{
-    CachedRoot* root = getFrameCache(AllowNewer);
-    if (root)
-        return root->getBlockLeftEdge(x, y, scale);
-    return -1;
-}
-
 void overrideUrlLoading(const WTF::String& url)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -917,7 +480,6 @@ void overrideUrlLoading(const WTF::String& url)
 
 void setFindIsUp(bool up)
 {
-    DBG_NAV_LOGD("up=%d", up);
     m_viewImpl->m_findIsUp = up;
 }
 
@@ -937,7 +499,6 @@ String getSelection()
 
 void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 {
-    DBG_NAV_LOGD("framePtr=%p nodePtr=%p", framePtr, nodePtr);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue.object(env);
     if (!javaObject.get())
@@ -948,7 +509,6 @@ void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
 
 void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
 {
-    DBG_NAV_LOGD("framePtr=%p nodePtr=%p x=%d y=%d", framePtr, nodePtr, x, y);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue.object(env);
     if (!javaObject.get())
@@ -970,7 +530,6 @@ void sendMoveMouseIfLatest(bool clearTextEntry, bool stopPaintingCaret)
 
 void sendMotionUp(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
 {
-    DBG_NAV_LOGD("m_generation=%d framePtr=%p nodePtr=%p x=%d y=%d", m_generation, framePtr, nodePtr, x, y);
     ALOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -1001,34 +560,6 @@ void setIsScrolling(bool isScrolling)
     if (m_glWebViewState)
         m_glWebViewState->setIsScrolling(isScrolling);
 #endif
-}
-
-bool hasCursorNode()
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        return false;
-    }
-    const CachedNode* cursorNode = root->currentCursor();
-    DBG_NAV_LOGD("cursorNode=%d (nodePointer=%p)",
-        cursorNode ? cursorNode->index() : -1,
-        cursorNode ? cursorNode->nodePointer() : 0);
-    return cursorNode;
-}
-
-bool hasFocusNode()
-{
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (!root) {
-        DBG_NAV_LOG("!root");
-        return false;
-    }
-    const CachedNode* focusNode = root->currentFocus();
-    DBG_NAV_LOGD("focusNode=%d (nodePointer=%p)",
-        focusNode ? focusNode->index() : -1,
-        focusNode ? focusNode->nodePointer() : 0);
-    return focusNode;
 }
 
 void rebuildWebTextView()
@@ -1128,11 +659,6 @@ bool setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndic
 #endif
     SkSafeUnref(m_baseLayer);
     m_baseLayer = layer;
-    CachedRoot* root = getFrameCache(DontAllowNewer);
-    if (root) {
-        root->resetLayers();
-        root->setRootLayer(compositeRoot());
-    }
 
     return queueFull;
 }
@@ -1215,7 +741,6 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
     bool m_isDrawingPaused;
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
-    CachedRoot* m_frameCacheUI; // navigation data ready for use
     WebViewCore* m_viewImpl;
     int m_generation; // associate unique ID with sent kit focus to match with ui
     // Corresponds to the same-named boolean on the java side.
@@ -1323,34 +848,26 @@ static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
  */
 static int nativeCacheHitFramePointer(JNIEnv *env, jobject obj)
 {
-    return reinterpret_cast<int>(GET_NATIVE_VIEW(env, obj)
-            ->m_cacheHitFrame->framePointer());
+    return 0;
 }
 
 static jobject nativeCacheHitNodeBounds(JNIEnv *env, jobject obj)
 {
-    WebCore::IntRect bounds = GET_NATIVE_VIEW(env, obj)
-        ->m_cacheHitNode->originalAbsoluteBounds();
-    return createJavaRect(env, bounds.x(), bounds.y(),
-                          bounds.maxX(), bounds.maxY());
+    return 0;
 }
 
 static int nativeCacheHitNodePointer(JNIEnv *env, jobject obj)
 {
-    return reinterpret_cast<int>(GET_NATIVE_VIEW(env, obj)
-        ->m_cacheHitNode->nodePointer());
+    return 0;
 }
 
 static bool nativeCacheHitIsPlugin(JNIEnv *env, jobject obj)
 {
-    return GET_NATIVE_VIEW(env, obj)->m_cacheHitNode->isPlugin();
+    return false;
 }
 
 static void nativeClearCursor(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->clearCursor();
 }
 
 static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl,
@@ -1364,82 +881,12 @@ static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl,
 
 static jint nativeCursorFramePointer(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return 0;
-    const CachedFrame* frame = 0;
-    (void) root->currentCursor(&frame);
-    return reinterpret_cast<int>(frame ? frame->framePointer() : 0);
-}
-
-static const CachedNode* getCursorNode(JNIEnv *env, jobject obj)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    return root ? root->currentCursor() : 0;
-}
-
-static const CachedNode* getCursorNode(JNIEnv *env, jobject obj,
-    const CachedFrame** frame)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    return root ? root->currentCursor(frame) : 0;
-}
-
-static const CachedNode* getFocusCandidate(JNIEnv *env, jobject obj,
-    const CachedFrame** frame)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return 0;
-    const CachedNode* cursor = root->currentCursor(frame);
-    if (cursor && cursor->wantsKeyEvents())
-        return cursor;
-    return root->currentFocus(frame);
+    return 0;
 }
 
 static bool focusCandidateHasNextTextfield(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return false;
-    const CachedNode* cursor = root->currentCursor();
-    if (!cursor || !cursor->isTextInput())
-        cursor = root->currentFocus();
-    if (!cursor || !cursor->isTextInput()) return false;
-    return root->nextTextField(cursor, 0);
-}
-
-static const CachedNode* getFocusNode(JNIEnv *env, jobject obj)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    return root ? root->currentFocus() : 0;
-}
-
-static const CachedNode* getFocusNode(JNIEnv *env, jobject obj,
-    const CachedFrame** frame)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    return root ? root->currentFocus(frame) : 0;
-}
-
-static const CachedInput* getInputCandidate(JNIEnv *env, jobject obj)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return 0;
-    const CachedFrame* frame;
-    const CachedNode* cursor = root->currentCursor(&frame);
-    if (!cursor || !cursor->wantsKeyEvents())
-        cursor = root->currentFocus(&frame);
-    return cursor ? frame->textInput(cursor) : 0;
+    return false;
 }
 
 static jboolean nativePageShouldHandleShiftAndArrows(JNIEnv *env, jobject obj)
@@ -1449,32 +896,17 @@ static jboolean nativePageShouldHandleShiftAndArrows(JNIEnv *env, jobject obj)
 
 static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
 {
-    const CachedFrame* frame;
-    const CachedNode* node = getCursorNode(env, obj, &frame);
-    WebCore::IntRect bounds = node ? node->bounds(frame)
-        : WebCore::IntRect(0, 0, 0, 0);
-    return createJavaRect(env, bounds.x(), bounds.y(),
-                          bounds.maxX(), bounds.maxY());
+    return 0;
 }
 
 static jint nativeCursorNodePointer(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getCursorNode(env, obj);
-    return reinterpret_cast<int>(node ? node->nodePointer() : 0);
+    return 0;
 }
 
 static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    const CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    WebCore::IntPoint pos = WebCore::IntPoint(0, 0);
-    if (root)
-        root->getSimulatedMousePosition(&pos);
-    jclass pointClass = env->FindClass("android/graphics/Point");
-    jmethodID init = env->GetMethodID(pointClass, "<init>", "(II)V");
-    jobject point = env->NewObject(pointClass, init, pos.x(), pos.y());
-    env->DeleteLocalRef(pointClass);
-    return point;
+    return 0;
 }
 
 static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
@@ -1497,40 +929,26 @@ static SkRect jrectf_to_rect(JNIEnv* env, jobject obj)
 
 static bool nativeCursorIntersects(JNIEnv *env, jobject obj, jobject visRect)
 {
-    const CachedFrame* frame;
-    const CachedNode* node = getCursorNode(env, obj, &frame);
-    return node ? node->bounds(frame).intersects(
-        jrect_to_webrect(env, visRect)) : false;
+    return false;
 }
 
 static bool nativeCursorIsAnchor(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getCursorNode(env, obj);
-    return node ? node->isAnchor() : false;
+    return false;
 }
 
 static bool nativeCursorIsTextInput(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getCursorNode(env, obj);
-    return node ? node->isTextInput() : false;
+    return false;
 }
 
 static jobject nativeCursorText(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getCursorNode(env, obj);
-    if (!node)
-        return 0;
-    WTF::String value = node->getExport();
-    return wtfStringToJstring(env, value);
+    return 0;
 }
 
 static void nativeDebugDump(JNIEnv *env, jobject obj)
 {
-#if DUMP_NAV_CACHE
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->debugDump();
-#endif
 }
 
 static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv,
@@ -1633,204 +1051,120 @@ static bool nativeHasContent(JNIEnv *env, jobject obj)
 
 static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    WTF::String uri = view->imageURI(x, y);
-    return wtfStringToJstring(env, uri);
+    return 0;
 }
 
 static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return 0;
-    const CachedFrame* frame = 0;
-    const CachedNode* cursor = root->currentCursor(&frame);
-    if (!cursor || !cursor->wantsKeyEvents())
-        (void) root->currentFocus(&frame);
-    return reinterpret_cast<int>(frame ? frame->framePointer() : 0);
+    return 0;
 }
 
 static bool nativeFocusCandidateIsEditableText(JNIEnv* env, jobject obj,
         jint nativeClass)
 {
-    WebView* view = reinterpret_cast<WebView*>(nativeClass);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    bool isEditable = false;
-    if (root) {
-        const CachedFrame* frame = NULL;
-        const CachedNode* cursor = root->currentCursor(&frame);
-        const CachedNode* focus = cursor;
-        if (!cursor || !cursor->wantsKeyEvents())
-            focus = root->currentFocus(&frame);
-        if (focus) {
-            isEditable = (focus->isTextInput() || focus->isContentEditable());
-        }
-    }
-    return isEditable;
+    return false;
 }
 
 static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input && input->getType() == CachedInput::PASSWORD;
+    return false;
 }
 
 static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->isRtlText() : false;
+    return false;
 }
 
 static bool nativeFocusCandidateIsTextInput(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj, 0);
-    return node ? node->isTextInput() : false;
+    return false;
 }
 
 static jint nativeFocusCandidateMaxLength(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->maxLength() : false;
+    return 0;
 }
 
 static jint nativeFocusCandidateIsAutoComplete(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->autoComplete() : false;
+    return 0;
 }
 
 static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    if (!input)
-        return 0;
-    const WTF::String& name = input->name();
-    return wtfStringToJstring(env, name);
+    return false;
 }
 
 static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
 {
-    const CachedFrame* frame;
-    const CachedNode* node = getFocusCandidate(env, obj, &frame);
-    WebCore::IntRect bounds = node ? node->originalAbsoluteBounds()
-        : WebCore::IntRect(0, 0, 0, 0);
-    // Inset the rect by 1 unit, so that the focus candidate's border can still
-    // be seen behind it.
-    return createJavaRect(env, bounds.x(), bounds.y(),
-                          bounds.maxX(), bounds.maxY());
+    return 0;
 }
 
 static jobject nativeFocusCandidatePaddingRect(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    if (!input)
-        return 0;
-    // Note that the Java Rect is being used to pass four integers, rather than
-    // being used as an actual rectangle.
-    return createJavaRect(env, input->paddingLeft(), input->paddingTop(),
-            input->paddingRight(), input->paddingBottom());
+    return 0;
 }
 
 static jint nativeFocusCandidatePointer(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj, 0);
-    return reinterpret_cast<int>(node ? node->nodePointer() : 0);
+    return 0;
 }
 
 static jint nativeFocusCandidateIsSpellcheck(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->spellcheck() : false;
+    return 0;
 }
 
 static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusCandidate(env, obj, 0);
-    if (!node)
-        return 0;
-    WTF::String value = node->getExport();
-    return wtfStringToJstring(env, value);
+    return 0;
 }
 
 static int nativeFocusCandidateLineHeight(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->lineHeight() : 0;
+    return 0;
 }
 
 static jfloat nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    return input ? input->textSize() : 0.f;
+    return 0.f;
 }
 
 static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
 {
-    const CachedInput* input = getInputCandidate(env, obj);
-    if (!input)
-        return CachedInput::NONE;
-
-    if (input->isTextArea())
-        return CachedInput::TEXT_AREA;
-
-    return input->getType();
+    return 0;
 }
 
 static int nativeFocusCandidateLayerId(JNIEnv *env, jobject obj)
 {
-    const CachedFrame* frame = 0;
-    const CachedNode* node = getFocusNode(env, obj, &frame);
-    if (!node || !frame)
-        return -1;
-    const CachedLayer* layer = frame->layer(node);
-    if (!layer)
-        return -1;
-    return layer->uniqueId();
+    return 0;
 }
 
 static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
-    return node ? node->isPlugin() : false;
+    return false;
 }
 
 static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
 {
-    const CachedFrame* frame;
-    const CachedNode* node = getFocusNode(env, obj, &frame);
-    WebCore::IntRect bounds = node ? node->bounds(frame)
-        : WebCore::IntRect(0, 0, 0, 0);
-    return createJavaRect(env, bounds.x(), bounds.y(),
-                          bounds.maxX(), bounds.maxY());
+    return 0;
 }
 
 static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
 {
-    const CachedNode* node = getFocusNode(env, obj);
-    return node ? reinterpret_cast<int>(node->nodePointer()) : 0;
+    return 0;
 }
 
 static bool nativeCursorWantsKeyEvents(JNIEnv* env, jobject jwebview) {
-    WebView* view = GET_NATIVE_VIEW(env, jwebview);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return view->cursorWantsKeyEvents();
+    return false;
 }
 
 static void nativeHideCursor(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->hideCursor();
 }
 
 static void nativeSelectBestAt(JNIEnv *env, jobject obj, jobject jrect)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    WebCore::IntRect rect = jrect_to_webrect(env, jrect);
-    view->selectBestAt(rect);
 }
 
 static void nativeSelectAt(JNIEnv *env, jobject obj, jint x, jint y)
@@ -1878,42 +1212,35 @@ static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
 
 static jint nativeTextGeneration(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    return root ? root->textGeneration() : 0;
+    return 0;
 }
 
 static bool nativePointInNavCache(JNIEnv *env, jobject obj,
     int x, int y, int slop)
 {
-    return GET_NATIVE_VIEW(env, obj)->pointInNavCache(x, y, slop);
+    return false;
 }
 
 static bool nativeMotionUp(JNIEnv *env, jobject obj,
     int x, int y, int slop)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return view->motionUp(x, y, slop);
+    return false;
 }
 
 static bool nativeHasCursorNode(JNIEnv *env, jobject obj)
 {
-    return GET_NATIVE_VIEW(env, obj)->hasCursorNode();
+    return false;
 }
 
 static bool nativeHasFocusNode(JNIEnv *env, jobject obj)
 {
-    return GET_NATIVE_VIEW(env, obj)->hasFocusNode();
+    return false;
 }
 
 static bool nativeMoveCursor(JNIEnv *env, jobject obj,
     int key, int count, bool ignoreScroll)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    DBG_NAV_LOGD("env=%p obj=%p view=%p", env, obj, view);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    return view->moveCursor(key, count, ignoreScroll);
+    return false;
 }
 
 static void nativeSetFindIsUp(JNIEnv *env, jobject obj, jboolean isUp)
@@ -1936,44 +1263,17 @@ static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
 
 static jobject nativeGetCursorRingBounds(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    ALOG_ASSERT(rectClass, "Could not find Rect class!");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    ALOG_ASSERT(init, "Could not find constructor for Rect");
-    WebCore::IntRect webRect;
-    view->cursorRingBounds(&webRect);
-    jobject rect = env->NewObject(rectClass, init, webRect.x(),
-        webRect.y(), webRect.maxX(), webRect.maxY());
-    env->DeleteLocalRef(rectClass);
-    return rect;
+    return 0;
 }
 
 static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring updatedText, jint generation)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in nativeUpdateCachedTextfield");
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return;
-    const CachedNode* cachedFocusNode = root->currentFocus();
-    if (!cachedFocusNode || !cachedFocusNode->isTextInput())
-        return;
-    WTF::String webcoreString = jstringToWtfString(env, updatedText);
-    (const_cast<CachedNode*>(cachedFocusNode))->setExport(webcoreString);
-    root->setTextGeneration(generation);
-    checkException(env);
 }
 
 static jint nativeGetBlockLeftEdge(JNIEnv *env, jobject obj, jint x, jint y,
         jfloat scale)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    if (!view)
-        return -1;
-    return view->getBlockLeftEdge(x, y, scale);
+    return -1;
 }
 
 static void nativeDestroy(JNIEnv *env, jobject obj)
@@ -1991,30 +1291,7 @@ static void nativeStopGL(JNIEnv *env, jobject obj)
 
 static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    CachedRoot* root = view->getFrameCache(WebView::DontAllowNewer);
-    if (!root)
-        return false;
-    const CachedNode* current = root->currentCursor();
-    if (!current || !current->isTextInput())
-        current = root->currentFocus();
-    if (!current || !current->isTextInput())
-        return false;
-    const CachedFrame* frame;
-    const CachedNode* next = root->nextTextField(current, &frame);
-    if (!next)
-        return false;
-    const WebCore::IntRect& bounds = next->bounds(frame);
-    root->rootHistory()->setMouseBounds(bounds);
-    view->getWebViewCore()->updateCursorBounds(root, frame, next);
-    root->setCursor(const_cast<CachedFrame*>(frame),
-            const_cast<CachedNode*>(next));
-    view->sendMoveFocus(static_cast<WebCore::Frame*>(frame->framePointer()),
-            static_cast<WebCore::Node*>(next->nodePointer()));
-    if (!next->isInLayer())
-        view->scrollRectOnScreen(bounds);
-    view->getWebViewCore()->m_moveGeneration++;
-    return true;
+    return false;
 }
 
 static int nativeMoveGeneration(JNIEnv *env, jobject obj)

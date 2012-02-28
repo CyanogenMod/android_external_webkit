@@ -26,16 +26,18 @@
 #ifndef WebViewCore_h
 #define WebViewCore_h
 
-#include "CachedHistory.h"
 #include "DeviceMotionAndOrientationManager.h"
 #include "DOMSelection.h"
 #include "FileChooser.h"
+#include "HitTestResult.h"
 #include "PictureSet.h"
 #include "PlatformGraphicsContext.h"
 #include "Position.h"
+#include "ScrollTypes.h"
 #include "SkColor.h"
 #include "SkTDArray.h"
 #include "SkRegion.h"
+#include "Text.h"
 #include "Timer.h"
 #include "WebCoreRefObject.h"
 #include "WebCoreJni.h"
@@ -68,6 +70,7 @@ namespace WebCore {
 #if USE(ACCELERATED_COMPOSITING)
 namespace WebCore {
     class GraphicsLayerAndroid;
+    class LayerAndroid;
 }
 #endif
 
@@ -80,6 +83,9 @@ class SkPicture;
 class SkIRect;
 
 namespace android {
+    // TODO: This file hasn't been good about namespace. Remove this temporary
+    // workaround to build
+    using namespace WebCore;
 
     enum Direction {
         DIRECTION_BACKWARD = 0,
@@ -96,9 +102,6 @@ namespace android {
         AXIS_DOCUMENT = 6
     };
 
-    class CachedFrame;
-    class CachedNode;
-    class CachedRoot;
     class ListBoxReply;
     class AndroidHitTestResult;
     class SelectText;
@@ -460,9 +463,6 @@ namespace android {
         // lookup the plugin widget struct given an NPP
         PluginWidgetAndroid* getPluginWidget(NPP npp);
 
-        // return the cursorNode if it is a plugin
-        Node* cursorNodeIsPlugin();
-
         // Notify the Java side whether it needs to pass down the touch events
         void needTouchEvents(bool);
 
@@ -540,8 +540,6 @@ namespace android {
         float textWrapScale() const { return m_screenWidth * m_scale / m_textWrapWidth; }
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
         WebCore::Frame* focusedFrame() const;
-        void updateCursorBounds(const CachedRoot* root,
-                const CachedFrame* cachedFrame, const CachedNode* cachedNode);
 
         // utility to split slow parts of the picture set
         void splitContent(PictureSet*);
@@ -613,20 +611,10 @@ namespace android {
         WebCore::VisiblePosition visiblePositionForWindowPoint(int x, int y);
 
         // these members are shared with webview.cpp
-        static Mutex gFrameCacheMutex;
-        CachedRoot* m_frameCacheKit; // nav data being built by webcore
         int m_moveGeneration; // copy of state in WebViewNative triggered by move
         int m_touchGeneration; // copy of state in WebViewNative triggered by touch
         int m_lastGeneration; // last action using up to date cache
-        bool m_updatedFrameCache;
         bool m_findIsUp;
-        bool m_hasCursorBounds;
-        WebCore::IntRect m_cursorBounds;
-        WebCore::IntRect m_cursorHitBounds;
-        void* m_cursorFrame;
-        IntPoint m_cursorLocation;
-        void* m_cursorNode;
-        static Mutex gCursorBoundsMutex;
         // end of shared members
 
         // internal functions
@@ -763,7 +751,6 @@ namespace android {
         WebCore::IntPoint m_mousePos;
         bool m_frameCacheOutOfDate;
         bool m_progressDone;
-        CachedHistory m_history;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
         int m_textWrapWidth;
