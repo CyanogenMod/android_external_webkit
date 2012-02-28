@@ -80,11 +80,31 @@ struct ShaderHandles {
     GLint videoMtxHandle;
 };
 
+struct ShaderResource {
+    ShaderResource()
+    : program(-1)
+    , vertexShader(-1)
+    , fragmentShader(-1)
+    {
+    };
+
+    ShaderResource(GLuint prog, GLuint vertex, GLuint fragment)
+    : program(prog)
+    , vertexShader(vertex)
+    , fragmentShader(fragment)
+    {
+    };
+
+    GLuint program;
+    GLuint vertexShader;
+    GLuint fragmentShader;
+};
+
 class ShaderProgram {
 public:
     ShaderProgram();
-    void init();
-
+    void initGLResources();
+    void cleanupGLResources();
     // Drawing
     void setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
                       const IntRect& webViewRect, int titleBarHeight,
@@ -124,7 +144,8 @@ public:
     FloatRect documentViewport() { return m_documentViewport; }
 
     float contrast() { return m_contrast; }
-    void setContrast(float c) {
+    void setContrast(float c)
+    {
         float contrast = c;
         if (contrast < 0)
             contrast = 0;
@@ -204,6 +225,8 @@ private:
     // For transfer queue blitting, we need a special matrix map from (0,1) to
     // (-1,1)
     GLfloat m_transferProjMtx[16];
+
+    Vector<ShaderResource> m_resources;
 };
 
 } // namespace WebCore

@@ -110,9 +110,6 @@ public:
     void setHighEndGfx(bool highEnd);
     bool highEndGfx();
 
-    bool contextChanged() { return m_EGLContextChanged; }
-    void setContextChanged(bool changed) { m_EGLContextChanged = changed; }
-
     int maxTextureCount();
     int maxLayerTextureCount();
     void setMaxTextureCount(int max);
@@ -266,8 +263,6 @@ private:
     unsigned long long m_drawGLCount;
     double m_lastTimeLayersUsed;
     bool m_hasLayerTextures;
-
-    bool m_EGLContextChanged;
 };
 
 } // namespace WebCore

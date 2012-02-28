@@ -110,7 +110,6 @@ TilesManager::TilesManager()
     , m_drawGLCount(1)
     , m_lastTimeLayersUsed(0)
     , m_hasLayerTextures(false)
-    , m_EGLContextChanged(true)
 {
     XLOG("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
