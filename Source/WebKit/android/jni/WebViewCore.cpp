@@ -507,7 +507,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
-    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZLjava/lang/String;III)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZLjava/lang/String;IIII)V");
     m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
     env->DeleteLocalRef(clazz);
 
@@ -3442,6 +3442,16 @@ WebViewCore::InputType WebViewCore::getInputType(Node* node)
     return WebViewCore::NONE;
 }
 
+int WebViewCore::getMaxLength(Node* node)
+{
+    int maxLength = -1;
+    if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
+        HTMLInputElement* htmlInput = static_cast<HTMLInputElement*>(node);
+        maxLength = htmlInput->maxLength();
+    }
+    return maxLength;
+}
+
 bool WebViewCore::isSpellCheckEnabled(Node* node)
 {
     bool isEnabled = true;
@@ -3471,6 +3481,7 @@ void WebViewCore::initEditField(Node* node)
     Node* nextFocus = document->nextFocusableNode(node, tabEvent.get());
     bool isNextText = isTextInput(nextFocus);
     bool spellCheckEnabled = isSpellCheckEnabled(node);
+    int maxLength = getMaxLength(node);
     String label = requestLabel(document->frame(), node);
     jstring fieldText = wtfStringToJstring(env, text, true);
     jstring labelText = wtfStringToJstring(env, text, false);
@@ -3478,7 +3489,7 @@ void WebViewCore::initEditField(Node* node)
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
             reinterpret_cast<int>(node), fieldText, inputType,
             spellCheckEnabled, isNextText, labelText, start, end,
-            reinterpret_cast<int>(selectText));
+            reinterpret_cast<int>(selectText), maxLength);
     checkException(env);
 }
 
