@@ -584,6 +584,8 @@ public:
         // has no style attached to it. http://trac.webkit.org/changeset/79799
         s->setDeveloperExtrasEnabled(true);
         s->setSpatialNavigationEnabled(true);
+
+        s->setPasswordEchoEnabled(true);
     }
 };
 

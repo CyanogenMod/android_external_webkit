@@ -458,6 +458,12 @@ namespace WebCore {
         void setShouldInjectUserScriptsInInitialEmptyDocument(bool flag) { m_shouldInjectUserScriptsInInitialEmptyDocument = flag; }
         bool shouldInjectUserScriptsInInitialEmptyDocument() { return m_shouldInjectUserScriptsInInitialEmptyDocument; }
 
+        void setPasswordEchoEnabled(bool flag) { m_passwordEchoEnabled = flag; }
+        bool passwordEchoEnabled() const { return m_passwordEchoEnabled; }
+
+        void setPasswordEchoDurationInSeconds(double durationInSeconds) { m_passwordEchoDurationInSeconds = durationInSeconds; }
+        double passwordEchoDurationInSeconds() const { return m_passwordEchoDurationInSeconds; }
+
 #if ENABLE(WEB_AUTOFILL)
         void setAutoFillEnabled(bool flag) { m_autoFillEnabled = flag; }
         bool autoFillEnabled() { return m_autoFillEnabled; }
@@ -511,6 +517,8 @@ namespace WebCore {
 #ifdef ANDROID_LAYOUT
         LayoutAlgorithm m_layoutAlgorithm;
 #endif
+        double m_passwordEchoDurationInSeconds;
+
         bool m_isSpatialNavigationEnabled : 1;
         bool m_isJavaEnabled : 1;
         bool m_loadsImagesAutomatically : 1;
@@ -617,6 +625,7 @@ namespace WebCore {
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
+        bool m_passwordEchoEnabled : 1;
 
 #if USE(SAFARI_THEME)
         static bool gShouldPaintNativeControls;
