@@ -246,11 +246,6 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     int nbTilesWidth = tileBounds.width();
     int nbTilesHeight = tileBounds.height();
 
-    // Expand number of tiles to allow tiles outside of viewport to be prepared for
-    // smoother scrolling.
-    int nTilesToPrepare = nbTilesWidth * nbTilesHeight;
-    int nMaxTilesPerPage = m_baseTileSize / 2;
-
     if (bounds == ExpandedBounds) {
         // prepare tiles outside of the visible bounds
         int expandX = m_glWebViewState->expandedTileBoundsX();

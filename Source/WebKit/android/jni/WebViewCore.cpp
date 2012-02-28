@@ -772,8 +772,6 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
 
 void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 {
-    WebCore::FrameView* view = m_mainFrame->view();
-
 #ifdef FAST_PICTURESET
     WTF::Vector<Bucket*>* buckets = pictureSet->bucketsToUpdate();
 
@@ -996,15 +994,6 @@ void WebViewCore::offInvalidate(const WebCore::IntRect &r)
     contentInvalidate(r);
 }
 
-static int pin_pos(int x, int width, int targetWidth)
-{
-    if (x + width > targetWidth)
-        x = targetWidth - width;
-    if (x < 0)
-        x = 0;
-    return x;
-}
-
 void WebViewCore::didFirstLayout()
 {
     ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
@@ -1152,7 +1141,6 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
     int osw = m_screenWidth;
     int osh = m_screenHeight;
     int otw = m_textWrapWidth;
-    float oldScale = m_scale;
     m_screenWidth = screenWidth;
     m_screenHeight = screenHeight;
     m_textWrapWidth = textWrapWidth;
@@ -2128,7 +2116,6 @@ void WebViewCore::setSelection(int start, int end)
         control->selectionChanged(true);
     }
     client->setUiGeneratedSelectionChange(false);
-    WebCore::Frame* focusedFrame = focus->document()->frame();
     bool isPasswordField = false;
     if (focus->isElementNode()) {
         WebCore::Element* element = static_cast<WebCore::Element*>(focus);
@@ -3024,7 +3011,6 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
     WebCore::Node* focusNode = currentFocus();
     if (focusNode) {
         WebCore::Frame* frame = focusNode->document()->frame();
-        WebFrame* webFrame = WebFrame::getWebFrame(frame);
         eventHandler = frame->eventHandler();
         VisibleSelection old = frame->selection()->selection();
         EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
@@ -4045,7 +4031,6 @@ Vector<VisibleSelection> WebViewCore::getTextRanges(
         }
         Position nextRangeStart = start;
         Position previousRangeEnd;
-        int i = 0;
         do {
             VisibleSelection selection(nextRangeStart, end);
             ranges.append(selection);
@@ -4084,7 +4069,6 @@ void WebViewCore::insertText(const WTF::String &text)
         return;
 
     Document* document = focus->document();
-    Frame* frame = document->frame();
 
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
             m_mainFrame->editor()->client());
@@ -4795,7 +4779,6 @@ static jobject HitTest(JNIEnv* env, jobject obj, jint nativeClass, jint x,
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     if (!viewImpl)
         return 0;
-    Node* node = 0;
     AndroidHitTestResult result = viewImpl->hitTestAtPoint(x, y, slop, doMoveMouse);
     return result.createJavaObject(env);
 }

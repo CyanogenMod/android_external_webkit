@@ -494,7 +494,7 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
             return false;
 
         uint8_t* img = (uint8_t*)buffer.bits;
-        int row, col;
+        int row;
         int bpp = 4; // Now we only deal with RGBA8888 format.
         int width = TilesManager::instance()->tileWidth();
         int height = TilesManager::instance()->tileHeight();

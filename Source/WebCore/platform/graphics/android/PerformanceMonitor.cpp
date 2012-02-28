@@ -69,7 +69,6 @@ void PerformanceMonitor::stop(const String &tag)
 
     float mtime = (seconds * 1000.0) + (useconds/1000.0);
 
-    float avg = 0;
     if (item->average_ms) {
         item->average_ms = (item->average_ms + mtime) / 2;
     } else

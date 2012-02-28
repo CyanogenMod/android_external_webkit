@@ -834,15 +834,6 @@ class GLDrawFunctor : Functor {
     jint extras;
 };
 
-static jobject createJavaRect(JNIEnv* env, int x, int y, int right, int bottom)
-{
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, x, y, right, bottom);
-    env->DeleteLocalRef(rectClass);
-    return rect;
-}
-
 /*
  * Native JNI methods
  */
@@ -874,7 +865,7 @@ static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl,
                          jstring drawableDir, jboolean isHighEndGfx)
 {
     WTF::String dir = jstringToWtfString(env, drawableDir);
-    WebView* webview = new WebView(env, obj, viewImpl, dir, isHighEndGfx);
+    new WebView(env, obj, viewImpl, dir, isHighEndGfx);
     // NEED THIS OR SOMETHING LIKE IT!
     //Release(obj);
 }
