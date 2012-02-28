@@ -98,6 +98,7 @@ Settings::Settings(Page* page)
 #ifdef ANDROID_LAYOUT
     , m_layoutAlgorithm(kLayoutFitColumnToScreen)
 #endif
+    , m_passwordEchoDurationInSeconds(1)
     , m_isSpatialNavigationEnabled(false)
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
@@ -191,6 +192,11 @@ Settings::Settings(Page* page)
 #endif
 #ifdef ANDROID_PLUGINS
     , m_pluginsOnDemand(false)
+#endif
+#if OS(SYMBIAN)
+    , m_passwordEchoEnabled(true)
+#else
+    , m_passwordEchoEnabled(false)
 #endif
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
