@@ -321,8 +321,6 @@ void LayerAndroid::setBackgroundColor(SkColor color)
     m_backgroundColor = color;
 }
 
-static int gDebugChildLevel;
-
 FloatPoint LayerAndroid::translation() const
 {
     TransformationMatrix::DecomposedType tDecomp;
@@ -612,8 +610,6 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
     FloatPoint position(getPosition().fX - m_offset.x(), getPosition().fY - m_offset.y());
-    float centerOffsetX = (0.5f - anchorPoint.x()) * layerSize.width();
-    float centerOffsetY = (0.5f - anchorPoint.y()) * layerSize.height();
     float originX = anchorPoint.x() * layerSize.width();
     float originY = anchorPoint.y() * layerSize.height();
     TransformationMatrix localMatrix;

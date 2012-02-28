@@ -113,7 +113,6 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
 
 void Gradient::fill(GraphicsContext* context, const FloatRect& rect)
 {
-    SkRect r;
     SkPaint paint;
     // we don't care about the mode, so try to use the existing one
     SkShader::TileMode mode = m_gradient ? m_gradient->m_tileMode :
