@@ -156,8 +156,7 @@ bool TransferQueue::checkObsolete(const TileTransferData* data)
 
     if (tileInfo->m_x != baseTilePtr->x()
         || tileInfo->m_y != baseTilePtr->y()
-        || tileInfo->m_scale != baseTilePtr->scale()
-        || tileInfo->m_painter != baseTilePtr->painter()) {
+        || tileInfo->m_scale != baseTilePtr->scale()) {
         XLOG("Mismatching x, y, scale or painter , such that the tile is obsolete");
         return true;
     }

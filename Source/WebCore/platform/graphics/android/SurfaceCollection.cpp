@@ -149,6 +149,15 @@ bool SurfaceCollection::isReady()
     if (!m_baseLayer->isReady())
         return false;
 
+    if (!m_compositedRoot)
+        return true;
+
+    // Override layer readiness check for single surface mode
+    if (m_compositedRoot->state()->layersRenderingMode() > GLWebViewState::kClippedTextures) {
+        // TODO: single surface mode should be properly double buffered
+        return true;
+    }
+
     for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
         if (!m_layerGroups[i]->isReady()) {
             XLOG("layer group %p isn't ready", m_layerGroups[i]);
