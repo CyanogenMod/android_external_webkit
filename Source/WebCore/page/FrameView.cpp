@@ -1738,11 +1738,6 @@ void FrameView::scheduleRelayout()
     if (!m_frame->document()->shouldScheduleLayout())
         return;
 
-#ifdef ANDROID_FLATTEN_FRAMESET
-    if (m_frame->ownerRenderer())
-        m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
-#endif
-
     // When frame flattening is enabled, the contents of the frame affects layout of the parent frames.
     // Also invalidate parent frame starting from the owner element of this frame.
     if (m_frame->settings() && m_frame->settings()->frameFlatteningEnabled() && m_frame->ownerRenderer()) {

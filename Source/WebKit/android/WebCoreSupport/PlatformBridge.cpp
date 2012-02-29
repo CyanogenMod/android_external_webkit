@@ -181,12 +181,6 @@ void PlatformBridge::setScrollPosition(ScrollView* scrollView, int x, int y) {
         y = std::max(0, std::min(frameView->contentsHeight(), y));
         if ((x != visibleContentRect.x()) || (y != visibleContentRect.y()))
             webViewCore->scrollTo(x, y);
-    } else {
-        RenderView* renderer = frameView->frame()->contentRenderer();
-        if (renderer) {
-            RenderLayer* layer = renderer->layer();
-            layer->scrollToOffset(x, y);
-        }
     }
 }
 

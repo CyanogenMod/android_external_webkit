@@ -1095,11 +1095,7 @@ int DOMWindow::innerHeight() const
     if (!view)
         return 0;
     
-#if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualHeight() / m_frame->pageZoomFactor());
-#else
     return static_cast<int>(view->height() / m_frame->pageZoomFactor());
-#endif
 }
 
 int DOMWindow::innerWidth() const
@@ -1111,11 +1107,7 @@ int DOMWindow::innerWidth() const
     if (!view)
         return 0;
 
-#if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualWidth() / m_frame->pageZoomFactor());
-#else
     return static_cast<int>(view->width() / m_frame->pageZoomFactor());
-#endif
 }
 
 int DOMWindow::screenX() const
@@ -1153,11 +1145,7 @@ int DOMWindow::scrollX() const
 
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
-#if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualScrollX() / m_frame->pageZoomFactor());
-#else
     return static_cast<int>(view->scrollX() / m_frame->pageZoomFactor());
-#endif
 }
 
 int DOMWindow::scrollY() const
@@ -1171,11 +1159,7 @@ int DOMWindow::scrollY() const
 
     m_frame->document()->updateLayoutIgnorePendingStylesheets();
 
-#if PLATFORM(ANDROID)
-    return static_cast<int>(view->actualScrollY() / m_frame->pageZoomFactor());
-#else
     return static_cast<int>(view->scrollY() / m_frame->pageZoomFactor());
-#endif
 }
 
 bool DOMWindow::closed() const

@@ -96,9 +96,4 @@ void WebFrameView::draw(WebCore::GraphicsContext* ctx, const WebCore::IntRect& r
     }
 }
 
-void WebFrameView::setView(WebCore::FrameView* frameView) {
-    mFrameView = frameView;
-    mFrameView->setPlatformWidget(this);
-}
-
 }   // namespace android

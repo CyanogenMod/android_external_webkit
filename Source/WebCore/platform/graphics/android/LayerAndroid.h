@@ -194,7 +194,9 @@ public:
     }
 
     const IntPoint& scrollOffset() const { return m_offset; }
+    const IntPoint& iframeScrollOffset() const { return m_iframeScrollOffset; }
     void setScrollOffset(IntPoint offset) { m_offset = offset; }
+    void setIFrameScrollOffset(IntPoint offset) { m_iframeScrollOffset = offset; }
     void setBackgroundColor(SkColor color);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool masksToBounds)
@@ -279,6 +281,7 @@ public:
     RenderLayer* owningLayer() const { return m_owningLayer; }
 
     void setIsIframe(bool isIframe) { m_isIframe = isIframe; }
+    bool isIFrame() const { return m_isIframe; }
     float zValue() const { return m_zValue; }
 
     // ViewStateSerializer friends
@@ -311,6 +314,7 @@ public:
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra);
     IntPoint m_offset;
+    IntPoint m_iframeScrollOffset;
     TransformationMatrix m_drawTransform;
 
 private:
