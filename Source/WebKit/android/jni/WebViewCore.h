@@ -717,6 +717,7 @@ namespace android {
         VisiblePosition visiblePositionForContentPoint(const IntPoint& point);
         void selectWordAroundPosition(Frame* frame, VisiblePosition pos);
         SelectText* createSelectText(const VisibleSelection&);
+        static int getMaxLength(Node* node);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);
