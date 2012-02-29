@@ -27,13 +27,12 @@
 #define BaseLayerAndroid_h
 
 #include "Color.h"
-#include "GLWebViewState.h"
-#include "IntRect.h"
 #include "Layer.h"
 #include "PictureSet.h"
-#include "SkPicture.h"
 
 namespace WebCore {
+
+class TiledPage;
 
 class BaseLayerAndroid : public Layer {
 
@@ -59,23 +58,21 @@ public:
     // we are running in different threads.
     virtual bool drawCanvas(SkCanvas* canvas);
 
-    void updateLayerPositions(SkRect& visibleRect);
-    bool prepare(double currentTime, IntRect& viewRect,
-                 SkRect& visibleRect, float scale);
-    bool drawGL(IntRect& viewRect, SkRect& visibleRect, float scale);
+    void updateLayerPositions(const SkRect& visibleRect);
+    void prepareGL(const SkRect& visibleRect, float scale, double currentTime);
+    void drawGL(float scale);
 
     // rendering asset management
     void swapTiles();
     void setIsDrawing(bool isDrawing);
-    void setIsPainting(Layer* drawingTree);
-    void mergeInvalsInto(Layer* replacementTree);
+    void setIsPainting();
+    void mergeInvalsInto(BaseLayerAndroid* replacementLayer);
     bool isReady();
 
 private:
 #if USE(ACCELERATED_COMPOSITING)
-    void prefetchBasePicture(SkRect& viewport, float currentScale,
+    void prefetchBasePicture(const SkRect& viewport, float currentScale,
                              TiledPage* prefetchTiledPage, bool draw);
-    bool prepareBasePictureInGL(SkRect& viewport, float scale, double currentTime);
     void drawBasePictureInGL();
 
     android::Mutex m_drawLock;

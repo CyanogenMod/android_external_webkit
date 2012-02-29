@@ -36,7 +36,7 @@
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TiledPage.h"
-#include "TreeManager.h"
+#include "SurfaceCollectionManager.h"
 #include "ZoomManager.h"
 #include <utils/threads.h>
 
@@ -210,7 +210,7 @@ public:
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 IntRect& webViewRect, int titleBarHeight,
                 IntRect& clip, float scale,
-                bool* treesSwappedPtr, bool* newTreeHasAnimPtr);
+                bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr);
 
 #ifdef MEASURES_PERF
     void dumpMeasures();
@@ -252,7 +252,7 @@ private:
     double setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
                         const IntRect& webViewRect, int titleBarHeight,
                         const IntRect& screenClip, float scale);
-    void showFrameInfo(const IntRect& rect, bool treesSwapped);
+    void showFrameInfo(const IntRect& rect, bool collectionsSwapped);
     void clearRectWithColor(const IntRect& rect, float r, float g,
                             float b, float a);
     double m_prevDrawTime;
@@ -291,7 +291,7 @@ private:
     float m_scale;
 
     LayersRenderingMode m_layersRenderingMode;
-    TreeManager m_treeManager;
+    SurfaceCollectionManager m_surfaceCollectionManager;
 };
 
 } // namespace WebCore

@@ -1,5 +1,5 @@
 /*
- * Copyright 2011, The Android Open Source Project
+ * Copyright 2012, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,72 +23,49 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PaintedSurface_h
-#define PaintedSurface_h
+#ifndef LayerGroup_h
+#define LayerGroup_h
 
-#include "BaseTileTexture.h"
-#include "ClassTracker.h"
-#include "IntRect.h"
-#include "LayerAndroid.h"
-#include "SkRefCnt.h"
-#include "TextureOwner.h"
-#include "TilesManager.h"
 #include "TilePainter.h"
-#include "TransformationMatrix.h"
+#include "Vector.h"
 
 class SkCanvas;
 class SkRegion;
 
 namespace WebCore {
 
+class BaseTile;
 class DualTiledTexture;
+class TexturesResult;
+class LayerAndroid;
 
-class PaintedSurface : public SurfacePainter {
+class LayerGroup : public TilePainter {
 public:
-    PaintedSurface();
-    virtual ~PaintedSurface();
+    LayerGroup();
+    virtual ~LayerGroup();
 
-    // PaintedSurface methods
+    void initializeGroup(LayerAndroid* newLayer, const SkRegion& newLayerInval,
+                         LayerAndroid* oldLayer);
 
-    void prepare(GLWebViewState*);
-    bool draw();
-    bool paint(SkCanvas*);
-
-    void setDrawingLayer(LayerAndroid* layer) { m_drawingLayer = layer; }
-    LayerAndroid* drawingLayer() { return m_drawingLayer; }
-
-    void setPaintingLayer(LayerAndroid* layer, const SkRegion& dirtyArea);
-    void clearPaintingLayer() { m_paintingLayer = 0; }
-    LayerAndroid* paintingLayer() { return m_paintingLayer; }
-
+    void addLayer(LayerAndroid* layer);
+    void prepareGL(bool layerTilesDisabled);
+    bool drawGL(bool layerTilesDisabled);
     void swapTiles();
     bool isReady();
 
-    bool owns(BaseTileTexture* texture);
+    IntRect computePrepareArea();
+    void computeTexturesAmount(TexturesResult* result);
 
-    void computeTexturesAmount(TexturesResult*);
-    IntRect computePrepareArea(LayerAndroid*);
-
-    // TilePainter methods for TiledTexture
+    // TilePainter methods
+    virtual bool paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed);
     virtual const TransformationMatrix* transform();
     virtual float opacity();
-
-    // used by TiledTexture
-    float scale() { return m_scale; }
-    unsigned int pictureUsed() { return m_pictureUsed; }
-
 private:
-    LayerAndroid* m_drawingLayer;
-    LayerAndroid* m_paintingLayer;
-    DualTiledTexture* m_tiledTexture;
-
-    float m_scale;
-
-    unsigned int m_pictureUsed;
-
-    android::Mutex m_layerLock;
+    bool m_hasText;
+    DualTiledTexture* m_dualTiledTexture;
+    Vector<LayerAndroid*> m_layers;
 };
 
 } // namespace WebCore
 
-#endif // PaintedSurface_h
+#endif //#define LayerGroup_h

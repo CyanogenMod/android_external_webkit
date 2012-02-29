@@ -29,7 +29,6 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "BaseTile.h"
-#include "PaintedSurface.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
 #include "SkPaint.h"
@@ -105,7 +104,7 @@ TilesManager::TilesManager()
     , m_invertedScreenSwitch(false)
     , m_useMinimalMemory(true)
     , m_useDoubleBuffering(true)
-    , m_treeUpdates(0)
+    , m_contentUpdates(0)
     , m_queue(0)
     , m_drawGLCount(1)
     , m_lastTimeLayersUsed(0)
@@ -261,11 +260,6 @@ void TilesManager::printTextures()
 #endif // DEBUG
 }
 
-void TilesManager::addPaintedSurface(PaintedSurface* surface)
-{
-    m_paintedSurfaces.append(surface);
-}
-
 void TilesManager::gatherTextures()
 {
     android::Mutex::Autolock lock(m_texturesLock);
@@ -306,9 +300,7 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     //         busy anyway
     //  2. If a tile isn't owned, break with that one
     //  3. Don't let tiles acquire their front textures
-    //  4. If we find a tile in the same page with a different scale,
-    //         it's old and not visible. Break with that one
-    //  5. Otherwise, use the least recently prepared tile, but ignoring tiles
+    //  4. Otherwise, use the least recently prepared tile, but ignoring tiles
     //         drawn in the last frame to avoid flickering
 
     BaseTileTexture* farthestTexture = 0;
@@ -327,14 +319,6 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
             // Don't let a tile acquire its own front texture, as the
             // acquisition logic doesn't handle that
             continue;
-        }
-
-        if (currentOwner->painter() == owner->painter() && texture->scale() != owner->scale()) {
-            // if we render the back page with one scale, then another while
-            // still zooming, we recycle the tiles with the old scale instead of
-            // taking ones from the front page
-            farthestTexture = texture;
-            break;
         }
 
         unsigned long long textureDrawCount = currentOwner->drawCount();
@@ -475,50 +459,6 @@ float TilesManager::layerTileWidth()
 float TilesManager::layerTileHeight()
 {
     return LAYER_TILE_HEIGHT;
-}
-
-void TilesManager::paintedSurfacesCleanup(GLWebViewState* state)
-{
-    // PaintedSurfaces are created by LayerAndroid with a refcount of 1,
-    // and just transferred to new (corresponding) layers when a new layer tree
-    // is received.
-    // PaintedSurface also keep a reference on the Layer it currently has, so
-    // when we unref the tree of layer, those layers with a PaintedSurface will
-    // still be around if we do nothing.
-    // Here, if the surface does not have any associated layer, it means that we
-    // received a new layer tree without a corresponding layer (i.e. a layer
-    // using a texture has been removed by webkit).
-    // In that case, we remove the PaintedSurface from our list, and unref it.
-    // If the surface does have a layer, but the GLWebViewState associated to
-    // that layer is different from the one passed in parameter, it means we can
-    // also remove the surface (and we also remove/unref any layer that surface
-    // has). We do this when we deallocate GLWebViewState (i.e. the webview has
-    // been destroyed) and also when we switch to a page without
-    // composited layers.
-
-    WTF::Vector<PaintedSurface*> collect;
-    for (unsigned int i = 0; i < m_paintedSurfaces.size(); i++) {
-        PaintedSurface* surface = m_paintedSurfaces[i];
-
-        Layer* drawing = surface->drawingLayer();
-        Layer* painting = surface->paintingLayer();
-
-        XLOG("considering PS %p, drawing %p, painting %p", surface, drawing, painting);
-
-        bool drawingMatchesState = state && drawing && (drawing->state() == state);
-        bool paintingMatchesState = state && painting && (painting->state() == state);
-
-        if ((!painting && !drawing) || drawingMatchesState || paintingMatchesState) {
-            XLOG("trying to remove PS %p, painting %p, drawing %p, DMS %d, PMS %d",
-                 surface, painting, drawing, drawingMatchesState, paintingMatchesState);
-            collect.append(surface);
-        }
-    }
-    for (unsigned int i = 0; i < collect.size(); i++) {
-        PaintedSurface* surface = collect[i];
-        m_paintedSurfaces.remove(m_paintedSurfaces.find(surface));
-        SkSafeUnref(surface);
-    }
 }
 
 TilesManager* TilesManager::instance()

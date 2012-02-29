@@ -45,8 +45,6 @@
 
 namespace WebCore {
 
-class PaintedSurface;
-
 class TilesManager {
 public:
     static TilesManager* instance();
@@ -77,9 +75,6 @@ public:
     {
         m_pixmapsGenerationThread->scheduleOperation(operation);
     }
-
-    void swapLayersTextures(LayerAndroid* newTree, LayerAndroid* oldTree);
-    void addPaintedSurface(PaintedSurface* surface);
 
     ShaderProgram* shader() { return &m_shader; }
     TransferQueue* transferQueue();
@@ -118,7 +113,6 @@ public:
     static float tileHeight();
     static float layerTileWidth();
     static float layerTileHeight();
-    void paintedSurfacesCleanup(GLWebViewState* state = 0);
 
     void allocateTiles();
 
@@ -188,9 +182,9 @@ public:
     }
     bool useDoubleBuffering() { return m_useDoubleBuffering; }
 
-    void incTreeUpdates() { m_treeUpdates++; }
-    unsigned int getTreeUpdates() { return m_treeUpdates; }
-    void clearTreeUpdates() { m_treeUpdates = 0; }
+    void incContentUpdates() { m_contentUpdates++; }
+    unsigned int getContentUpdates() { return m_contentUpdates; }
+    void clearContentUpdates() { m_contentUpdates = 0; }
 
     void incDrawGLCount()
     {
@@ -200,11 +194,6 @@ public:
     unsigned long long getDrawGLCount()
     {
         return m_drawGLCount;
-    }
-
-    int getPaintedSurfaceCount()
-    {
-        return m_paintedSurfaces.size();
     }
 
 private:
@@ -228,8 +217,6 @@ private:
     Vector<BaseTileTexture*> m_availableTilesTextures;
     bool m_layerTexturesRemain;
 
-    Vector<PaintedSurface*> m_paintedSurfaces;
-
     bool m_highEndGfx;
     int m_maxTextureCount;
     int m_maxLayerTextureCount;
@@ -243,7 +230,7 @@ private:
     bool m_useMinimalMemory;
 
     bool m_useDoubleBuffering;
-    unsigned int m_treeUpdates;
+    unsigned int m_contentUpdates; // nr of successful tiled paints
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 

@@ -188,18 +188,18 @@ bool ImageTexture::prepareGL(GLWebViewState* state)
         return false;
 
     if (!m_texture && m_picture) {
-        m_texture = new TiledTexture(this);
+        m_texture = new TiledTexture();
         SkRegion region;
         region.setRect(0, 0, m_image->width(), m_image->height());
-        m_texture->update(region, m_picture);
+        m_texture->markAsDirty(region);
     }
 
     if (!m_texture)
         return false;
 
     IntRect visibleArea(0, 0, m_image->width(), m_image->height());
-    m_texture->prepare(state, 1.0, true, true, visibleArea);
-    if (m_texture->ready()) {
+    m_texture->prepareGL(state, 1.0, visibleArea, this);
+    if (m_texture->isReady()) {
         m_texture->swapTiles();
         return false;
     }
@@ -230,7 +230,20 @@ float ImageTexture::opacity()
     return m_layer->drawOpacity();
 }
 
-void ImageTexture::drawGL(LayerAndroid* layer)
+bool ImageTexture::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
+{
+    if (!m_picture) {
+        XLOG("IT %p COULDNT PAINT, NO PICTURE", this);
+        return false;
+    }
+
+    XLOG("IT %p painting tile %d, %d with picture %p", this, tile->x(), tile->y(), m_picture);
+    canvas->drawPicture(*m_picture);
+
+    return true;
+}
+
+void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
 {
     if (!layer)
         return;
@@ -242,7 +255,7 @@ void ImageTexture::drawGL(LayerAndroid* layer)
     m_layer = layer;
     if (m_texture) {
         IntRect visibleArea = m_layer->visibleArea();
-        m_texture->draw(visibleArea);
+        m_texture->drawGL(visibleArea, opacity);
     }
     m_layer = 0;
 }

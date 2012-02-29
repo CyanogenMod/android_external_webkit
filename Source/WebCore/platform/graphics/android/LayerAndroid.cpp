@@ -9,8 +9,8 @@
 #include "GLUtils.h"
 #include "ImagesManager.h"
 #include "InspectorCanvas.h"
+#include "LayerGroup.h"
 #include "MediaLayer.h"
-#include "PaintedSurface.h"
 #include "ParseCanvas.h"
 #include "SkBitmapRef.h"
 #include "SkDrawFilter.h"
@@ -66,15 +66,16 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_preserves3D(false),
     m_anchorPointZ(0),
     m_recordingPicture(0),
+    m_zValue(0),
     m_uniqueId(++gUniqueId),
-    m_texture(0),
     m_imageCRC(0),
     m_pictureUsed(0),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(owner),
     m_type(LayerAndroid::WebCoreLayer),
-    m_hasText(true)
+    m_hasText(true),
+    m_layerGroup(0)
 {
     m_backgroundColor = 0;
 
@@ -90,11 +91,12 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_haveClip(layer.m_haveClip),
     m_isIframe(layer.m_isIframe),
+    m_zValue(layer.m_zValue),
     m_uniqueId(layer.m_uniqueId),
-    m_texture(0),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
-    m_hasText(true)
+    m_hasText(true),
+    m_layerGroup(0)
 {
     m_isFixed = layer.m_isFixed;
     m_imageCRC = layer.m_imageCRC;
@@ -174,14 +176,15 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_isFixed(false),
     m_isIframe(false),
     m_recordingPicture(picture),
+    m_zValue(0),
     m_uniqueId(++gUniqueId),
-    m_texture(0),
     m_imageCRC(0),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(0),
     m_type(LayerAndroid::NavCacheLayer),
-    m_hasText(true)
+    m_hasText(true),
+    m_layerGroup(0)
 {
     m_backgroundColor = 0;
     SkSafeRef(m_recordingPicture);
@@ -199,6 +202,7 @@ LayerAndroid::~LayerAndroid()
         ImagesManager::instance()->releaseImage(m_imageCRC);
 
     SkSafeUnref(m_recordingPicture);
+    // Don't unref m_layerGroup, owned by BaseLayerAndroid
     m_animations.clear();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->remove(this);
@@ -693,6 +697,17 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
         this->getChild(i)->updateGLPositionsAndScale(childMatrix, drawClip(), opacity, scale);
 }
 
+bool LayerAndroid::visible() {
+    // TODO: avoid climbing tree each access
+    LayerAndroid* current = this;
+    while (current->getParent()) {
+        if (!current->m_visible)
+            return false;
+        current = static_cast<LayerAndroid*>(current->getParent());
+    }
+    return true;
+}
+
 void LayerAndroid::setContentsImage(SkBitmapRef* img)
 {
     ImageTexture* image = ImagesManager::instance()->setImage(img);
@@ -702,14 +717,8 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
 
 bool LayerAndroid::needsTexture()
 {
-    return m_imageCRC || (m_recordingPicture
+    return (m_recordingPicture
         && m_recordingPicture->width() && m_recordingPicture->height());
-}
-
-void LayerAndroid::removeTexture(PaintedSurface* texture)
-{
-    if (texture == m_texture)
-        m_texture = 0;
 }
 
 IntRect LayerAndroid::clippedRect() const
@@ -739,18 +748,6 @@ int LayerAndroid::nbTexturedLayers()
     if (needsTexture())
         nb++;
     return nb;
-}
-
-void LayerAndroid::computeTexturesAmount(TexturesResult* result)
-{
-    if (!result)
-        return;
-
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->computeTexturesAmount(result);
-    if (m_texture && m_visible)
-        m_texture->computeTexturesAmount(result);
 }
 
 void LayerAndroid::showLayer(int indent)
@@ -792,28 +789,6 @@ void LayerAndroid::showLayer(int indent)
         this->getChild(i)->showLayer(indent + 1);
 }
 
-void LayerAndroid::swapTiles()
-{
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->swapTiles();
-
-    if (m_texture)
-        m_texture->swapTiles();
-}
-
-void LayerAndroid::setIsDrawing(bool isDrawing)
-{
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->setIsDrawing(isDrawing);
-
-    if (m_texture) {
-        m_texture->setDrawingLayer(isDrawing ? this : 0);
-        m_texture->clearPaintingLayer();
-    }
-}
-
 void LayerAndroid::setIsPainting(Layer* drawingTree)
 {
     XLOG("setting layer %p as painting, needs texture %d, drawing tree %p",
@@ -830,28 +805,15 @@ void LayerAndroid::setIsPainting(Layer* drawingTree)
     obtainTextureForPainting(drawingLayer);
 }
 
-void LayerAndroid::mergeInvalsInto(Layer* replacementTree)
+void LayerAndroid::mergeInvalsInto(LayerAndroid* replacementTree)
 {
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
         this->getChild(i)->mergeInvalsInto(replacementTree);
 
-    LayerAndroid* replacementLayer = static_cast<LayerAndroid*>(replacementTree)->findById(uniqueId());
+    LayerAndroid* replacementLayer = replacementTree->findById(uniqueId());
     if (replacementLayer)
         replacementLayer->markAsDirty(m_dirtyRegion);
-}
-
-bool LayerAndroid::isReady()
-{
-    int count = countChildren();
-    for (int i = 0; i < count; i++)
-        if (!getChild(i)->isReady())
-            return false;
-
-    if (m_texture)
-        return m_texture->isReady();
-    // TODO: image, check if uploaded?
-    return true;
 }
 
 bool LayerAndroid::updateWithTree(LayerAndroid* newTree)
@@ -903,24 +865,8 @@ void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingLayer)
     if (!needsTexture())
         return;
 
-    if (m_imageCRC) {
-        if (m_texture) {
-            m_texture->setDrawingLayer(0);
-            m_texture->clearPaintingLayer();
-            m_texture = 0;
-        }
-    } else {
-        if (drawingLayer) {
-            // if a previous tree had the same layer, paint with that painted surface
-            m_texture = drawingLayer->m_texture;
-        }
-
-        if (!m_texture)
-            m_texture = new PaintedSurface();
-
-        // pass the invalidated regions to the PaintedSurface
-        m_texture->setPaintingLayer(this, m_dirtyRegion);
-    }
+    // layer group init'd with previous drawing layer
+    m_layerGroup->initializeGroup(this, m_dirtyRegion, drawingLayer);
     m_dirtyRegion.setEmpty();
 }
 
@@ -928,6 +874,44 @@ void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingLayer)
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 {
     return a->zValue() > b->zValue();
+}
+
+void LayerAndroid::assignGroups(Vector<LayerGroup*>* allGroups)
+{
+    // recurse through layers in draw order
+    // if a layer needs isolation (e.g. has animation, is fixed, overflow:scroll)
+    //     create new layer group on the stack
+
+    bool needsIsolation = false;
+    LayerGroup* currentLayerGroup = 0;
+    if (!allGroups->isEmpty())
+        currentLayerGroup = allGroups->at(0);
+
+    // TODO: compare layer with group on top of stack - fixed? overscroll? transformed?
+    needsIsolation = m_isFixed || (m_animations.size() != 0);
+
+    if (!currentLayerGroup || needsIsolation || true) {
+        currentLayerGroup = new LayerGroup();
+        allGroups->append(currentLayerGroup);
+    }
+
+    currentLayerGroup->addLayer(this);
+    m_layerGroup = currentLayerGroup;
+
+    // pass the layergroup through children in drawing order, so that they may
+    // attach themselves (and paint on it) if possible, or ignore it and create
+    // a new one if not
+    int count = this->countChildren();
+    if (count > 0) {
+        Vector <LayerAndroid*> sublayers;
+        for (int i = 0; i < count; i++)
+            sublayers.append(getChild(i));
+
+        // sort for the transparency
+        std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
+        for (int i = 0; i < count; i++)
+            sublayers[i]->assignGroups(allGroups);
+    }
 }
 
 // We call this in WebViewCore, when copying the tree of layers.
@@ -941,28 +925,6 @@ void LayerAndroid::clearDirtyRegion()
         this->getChild(i)->clearDirtyRegion();
 
     m_dirtyRegion.setEmpty();
-}
-
-void LayerAndroid::prepare()
-{
-    XLOG("LA %p preparing, m_texture %p", this, m_texture);
-
-    int count = this->countChildren();
-    if (count > 0) {
-        Vector <LayerAndroid*> sublayers;
-        for (int i = 0; i < count; i++)
-            sublayers.append(this->getChild(i));
-
-        // now we sort for the transparency
-        std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
-
-        // iterate in reverse so top layers get textures first
-        for (int i = count-1; i >= 0; i--)
-            sublayers[i]->prepare();
-    }
-
-    if (m_texture)
-        m_texture->prepare(m_state);
 }
 
 IntRect LayerAndroid::unclippedArea()
@@ -1016,11 +978,6 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas)
         SkMatrix canvasMatrix = canvas->getTotalMatrix();
         matrix.postConcat(canvasMatrix);
         canvas->setMatrix(matrix);
-        SkRect layerRect;
-        layerRect.fLeft = 0;
-        layerRect.fTop = 0;
-        layerRect.fRight = getWidth();
-        layerRect.fBottom = getHeight();
         onDraw(canvas, m_drawOpacity, 0);
     }
 
@@ -1034,33 +991,23 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas)
     return askScreenUpdate;
 }
 
-bool LayerAndroid::drawGL()
+bool LayerAndroid::drawGL(bool layerTilesDisabled)
 {
-    FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(m_clippingRect);
-    TilesManager::instance()->shader()->clip(clippingRect);
-    if (!m_visible)
-        return false;
-
-    bool askScreenUpdate = false;
-
-    if (m_state->layersRenderingMode() < GLWebViewState::kScrollableAndFixedLayers) {
-        if (m_texture)
-            askScreenUpdate |= m_texture->draw();
-        if (m_imageCRC) {
-            ImageTexture* imageTexture = ImagesManager::instance()->retainImage(m_imageCRC);
-            if (imageTexture)
-                imageTexture->drawGL(this);
-            ImagesManager::instance()->releaseImage(m_imageCRC);
-        }
+    if (!layerTilesDisabled && m_imageCRC) {
+        ImageTexture* imageTexture = ImagesManager::instance()->retainImage(m_imageCRC);
+        if (imageTexture)
+            imageTexture->drawGL(this, getOpacity());
+        ImagesManager::instance()->releaseImage(m_imageCRC);
     }
 
     m_state->glExtras()->drawGL(this);
+    bool askScreenUpdate = false;
 
-    // When the layer is dirty, the UI thread should be notified to redraw.
-    askScreenUpdate |= drawChildrenGL();
     m_atomicSync.lock();
-    if (askScreenUpdate || m_hasRunningAnimations || m_drawTransform.hasPerspective())
+    if (m_hasRunningAnimations || m_drawTransform.hasPerspective()) {
+        askScreenUpdate = true;
         addDirtyArea();
+    }
 
     m_atomicSync.unlock();
     return askScreenUpdate;
@@ -1080,26 +1027,6 @@ bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas)
         for (int i = 0; i < count; i++) {
             LayerAndroid* layer = sublayers[i];
             askScreenUpdate |= layer->drawCanvas(canvas);
-        }
-    }
-
-    return askScreenUpdate;
-}
-
-bool LayerAndroid::drawChildrenGL()
-{
-    bool askScreenUpdate = false;
-    int count = this->countChildren();
-    if (count > 0) {
-        Vector <LayerAndroid*> sublayers;
-        for (int i = 0; i < count; i++)
-            sublayers.append(this->getChild(i));
-
-        // now we sort for the transparency
-        std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
-        for (int i = 0; i < count; i++) {
-            LayerAndroid* layer = sublayers[i];
-            askScreenUpdate |= layer->drawGL();
         }
     }
 

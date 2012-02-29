@@ -1394,7 +1394,7 @@ static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
         return true;
     }
     else if (key == "tree_updates") {
-        TilesManager::instance()->clearTreeUpdates();
+        TilesManager::instance()->clearContentUpdates();
         return true;
     }
     return false;
@@ -1404,7 +1404,7 @@ static jstring nativeGetProperty(JNIEnv *env, jobject obj, jstring jkey)
 {
     WTF::String key = jstringToWtfString(env, jkey);
     if (key == "tree_updates") {
-        int updates = TilesManager::instance()->getTreeUpdates();
+        int updates = TilesManager::instance()->getContentUpdates();
         WTF::String wtfUpdates = WTF::String::number(updates);
         return wtfStringToJstring(env, wtfUpdates);
     }

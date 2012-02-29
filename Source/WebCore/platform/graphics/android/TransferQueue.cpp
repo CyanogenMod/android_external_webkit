@@ -29,7 +29,8 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "BaseTile.h"
-#include "PaintedSurface.h"
+#include "GLUtils.h"
+#include "TilesManager.h"
 #include <android/native_window.h>
 #include <gui/SurfaceTexture.h>
 #include <gui/SurfaceTextureClient.h>
