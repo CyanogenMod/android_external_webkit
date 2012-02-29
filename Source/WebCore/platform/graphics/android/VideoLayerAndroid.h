@@ -59,15 +59,8 @@ public:
     // The following 3 functions are called in UI thread only.
     virtual bool drawGL();
     void setSurfaceTexture(sp<SurfaceTexture> texture, int textureName, PlayerState playerState);
-    GLuint createBackgroundTexture();
-    GLuint createSpinnerOuterTexture();
-    GLuint createSpinnerInnerTexture();
-    GLuint createPosterTexture();
-    GLuint createPlayTexture();
-    GLuint createPauseTexture();
 
 private:
-    GLuint createTextureFromImage(int buttonType);
     void init();
     void showPreparingAnimation(const SkRect& rect,
                                 const SkRect innerRect);
@@ -78,20 +71,9 @@ private:
 
     PlayerState m_playerState;
 
-    // Texture for showing the static image will be created at native side.
-    static bool m_createdTexture;
-    static GLuint m_backgroundTextureId;
-    static GLuint m_posterTextureId;
-    static GLuint m_spinnerOuterTextureId;
-    static GLuint m_spinnerInnerTextureId;
-    static GLuint m_playTextureId;
-    static GLuint m_pauseTextureId;
-
     static double m_rotateDegree;
 
     static const int ROTATESTEP = 12;
-    static const int IMAGESIZE = 64;
-    static const IntRect buttonRect;
 };
 
 } // namespace WebCore

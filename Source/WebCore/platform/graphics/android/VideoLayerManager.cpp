@@ -26,13 +26,18 @@
 #include "config.h"
 #include "VideoLayerManager.h"
 
+#include "RenderSkinMediaButton.h"
+#include "SkCanvas.h"
+#include <cutils/log.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "VideoLayerManager", __VA_ARGS__)
+
 #ifdef DEBUG
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "VideoLayerManager", __VA_ARGS__)
@@ -59,11 +64,106 @@
 // Assuming 16:9 by default, this will be corrected after video prepared.
 #define DEFAULT_VIDEO_ASPECT_RATIO 1.78
 
+#define VIDEO_TEXTURE_NUMBER 5
+#define VIDEO_BUTTON_SIZE 64
+
 namespace WebCore {
 
 VideoLayerManager::VideoLayerManager()
+    : m_currentTimeStamp(0)
+    , m_createdTexture(false)
+    , m_posterTextureId(0)
+    , m_spinnerOuterTextureId(0)
+    , m_spinnerInnerTextureId(0)
+    , m_playTextureId(0)
+    , m_pauseTextureId(0)
+    , m_buttonRect(0, 0, VIDEO_BUTTON_SIZE, VIDEO_BUTTON_SIZE)
 {
-    m_currentTimeStamp = 0;
+}
+
+int VideoLayerManager::getButtonSize()
+{
+    return VIDEO_BUTTON_SIZE;
+}
+
+GLuint VideoLayerManager::createTextureFromImage(int buttonType)
+{
+    SkRect rect = SkRect(m_buttonRect);
+    SkBitmap bitmap;
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, rect.width(), rect.height());
+    bitmap.allocPixels();
+    bitmap.eraseColor(0);
+
+    SkCanvas canvas(bitmap);
+    canvas.drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
+    RenderSkinMediaButton::Draw(&canvas, m_buttonRect, buttonType, true, 0,
+                                false);
+
+    GLuint texture;
+    glGenTextures(1, &texture);
+
+    GLUtils::createTextureWithBitmap(texture, bitmap);
+    bitmap.reset();
+    return texture;
+}
+
+// Should be called at the VideoLayerAndroid::drawGL to make sure we allocate
+// the GL resources lazily.
+void VideoLayerManager::initGLResourcesIfNeeded()
+{
+    if (!m_createdTexture) {
+        XLOGC("Reinit GLResource for VideoLayer");
+        initGLResources();
+    }
+}
+
+void VideoLayerManager::initGLResources()
+{
+    GLUtils::checkGlError("before initGLResources()");
+    if (!m_createdTexture) {
+        m_spinnerOuterTextureId =
+            createTextureFromImage(RenderSkinMediaButton::SPINNER_OUTER);
+        m_spinnerInnerTextureId =
+            createTextureFromImage(RenderSkinMediaButton::SPINNER_INNER);
+        m_posterTextureId =
+            createTextureFromImage(RenderSkinMediaButton::VIDEO);
+        m_playTextureId = createTextureFromImage(RenderSkinMediaButton::PLAY);
+        m_pauseTextureId = createTextureFromImage(RenderSkinMediaButton::PAUSE);
+    }
+    m_createdTexture = !GLUtils::checkGlError("initGLResources()");
+    return;
+}
+
+void VideoLayerManager::cleanupGLResources()
+{
+    if (m_createdTexture) {
+        GLuint videoTextures[VIDEO_TEXTURE_NUMBER] = { m_spinnerOuterTextureId,
+            m_spinnerInnerTextureId, m_posterTextureId, m_playTextureId,
+            m_pauseTextureId };
+
+        glDeleteTextures(VIDEO_TEXTURE_NUMBER, videoTextures);
+        m_createdTexture = false;
+    }
+    // Delete the texture in retired mode, but have not hit draw call to be
+    // removed.
+    deleteUnusedTextures();
+
+    // Go over the registered GL textures (screen shot textures) and delete them.
+    android::Mutex::Autolock lock(m_videoLayerInfoMapLock);
+    InfoIterator end = m_videoLayerInfoMap.end();
+    for (InfoIterator it = m_videoLayerInfoMap.begin(); it != end; ++it) {
+        // The map include every video has been played, so their textureId can
+        // be deleted already, like hitting onTrimMemory multiple times.
+        if (it->second->textureId) {
+            XLOG("delete texture from the map %d", it->second->textureId);
+            glDeleteTextures(1, &it->second->textureId);
+            // Set the textureID to 0 to show the video icon.
+            it->second->textureId = 0;
+        }
+    }
+
+    GLUtils::checkGlError("cleanupGLResources()");
+    return;
 }
 
 // Getting TextureId for GL draw call, in the UI thread.
@@ -233,6 +333,7 @@ void VideoLayerManager::deleteUnusedTextures()
         m_retiredTextures.clear();
     }
     m_retiredTexturesLock.unlock();
+    GLUtils::checkGlError("deleteUnusedTextures");
     return;
 }
 
