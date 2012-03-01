@@ -27,6 +27,7 @@
 #define VideoLayerManager_h
 
 #include "GLUtils.h"
+#include "IntRect.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 
@@ -86,6 +87,17 @@ public:
     void deleteUnusedTextures();
 
     double drawIcon(const int layerId, IconType type);
+
+    GLuint getSpinnerInnerTextureId() { return m_spinnerInnerTextureId; }
+    GLuint getSpinnerOuterTextureId() { return m_spinnerOuterTextureId; }
+    GLuint getPosterTextureId() { return m_posterTextureId; }
+    GLuint getPlayTextureId() { return m_playTextureId; }
+    GLuint getPauseTextureId() { return m_pauseTextureId; }
+
+    void initGLResourcesIfNeeded();
+    void cleanupGLResources();
+
+    static int getButtonSize();
 private:
     // Get the sum of all the video size stored in m_videoLayerInfoMap.
     int getTotalMemUsage();
@@ -93,7 +105,7 @@ private:
     bool recycleTextureMem();
     // The private function to remove layer.
     void removeLayerInternal(const int layerId);
-
+    void initGLResources();
     // Indexed by each layer's uniqueId, this map contains the important info
     // used for showing the video when playing or the screenshot when paused.
     HashMap<int, VideoLayerInfo*> m_videoLayerInfoMap;
@@ -107,6 +119,18 @@ private:
     // thread, and really get deleted in the UI thread.
     Vector<GLuint> m_retiredTextures;
     android::Mutex m_retiredTexturesLock;
+
+    GLuint createTextureFromImage(int buttonType);
+
+    // Texture for showing the static image will be created at native side.
+    bool m_createdTexture;
+    GLuint m_posterTextureId;
+    GLuint m_spinnerOuterTextureId;
+    GLuint m_spinnerInnerTextureId;
+    GLuint m_playTextureId;
+    GLuint m_pauseTextureId;
+
+    IntRect m_buttonRect;
 };
 
 } // namespace WebCore

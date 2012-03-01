@@ -1418,14 +1418,16 @@ static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
         // make sure the transfer queue is empty and then abandon the Surface
         // Texture to avoid ANR b/c framework may destroy the EGL context.
         // Refer to WindowManagerImpl.java for conditions we followed.
+        TilesManager* tilesManager = TilesManager::instance();
         if (level >= TRIM_MEMORY_MODERATE
-            && !TilesManager::instance()->highEndGfx()) {
-            TilesManager::instance()->transferQueue()->emptyQueue();
-            TilesManager::instance()->shader()->cleanupGLResources();
+            && !tilesManager->highEndGfx()) {
+            tilesManager->transferQueue()->emptyQueue();
+            tilesManager->shader()->cleanupGLResources();
+            tilesManager->videoLayerManager()->cleanupGLResources();
         }
 
         bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN), glTextures = true;
-        TilesManager::instance()->discardTextures(freeAllTextures, glTextures);
+        tilesManager->discardTextures(freeAllTextures, glTextures);
     }
 }
 
