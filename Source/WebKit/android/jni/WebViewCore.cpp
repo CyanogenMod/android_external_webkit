@@ -577,26 +577,6 @@ WebCore::Node* WebViewCore::currentFocus()
     return focusedFrame()->document()->focusedNode();
 }
 
-void WebViewCore::recordPicture(SkPicture* picture)
-{
-    // if there is no document yet, just return
-    if (!m_mainFrame->document())
-        return;
-    // Call layout to ensure that the contentWidth and contentHeight are correct
-    if (!layoutIfNeededRecursive(m_mainFrame))
-        return;
-    // draw into the picture's recording canvas
-    WebCore::FrameView* view = m_mainFrame->view();
-    SkAutoPictureRecord arp(picture, view->contentsWidth(),
-                            view->contentsHeight(), PICT_RECORD_FLAGS);
-    SkAutoMemoryUsageProbe mup(__FUNCTION__);
-
-    WebCore::PlatformGraphicsContext pgc(arp.getRecordingCanvas());
-    WebCore::GraphicsContext gc(&pgc);
-    view->platformWidget()->draw(&gc, WebCore::IntRect(0, 0,
-        view->contentsWidth(), view->contentsHeight()));
-}
-
 void WebViewCore::recordPictureSet(PictureSet* content)
 {
     // if there is no document yet, just return
@@ -709,7 +689,7 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     content->setDimensions(width, height, &m_addInval);
 
     // Add the current inval rects to the PictureSet, and rebuild it.
-    content->add(m_addInval, 0, 0, false);
+    content->add(m_addInval, 0, false);
 
     // If we have too many invalidations, just get the area bounds
     SkRegion::Iterator iterator(m_addInval);
@@ -724,7 +704,6 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         SkIRect r = m_addInval.getBounds();
         m_addInval.setRect(r);
     }
-
     // Rebuild the pictureset (webkit repaint)
     rebuildPictureSet(content);
 }
