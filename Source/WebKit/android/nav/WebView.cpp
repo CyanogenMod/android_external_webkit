@@ -617,7 +617,12 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
     if (!selectText || !m_baseLayer)
         return -1;
     int layerId = selectText->caretLayerId(handleId);
-    IntRect rect = selectText->caretRect(handleId);
+    cursorRect = selectText->caretRect(handleId);
+    mapLayerRect(layerId, cursorRect);
+    return layerId;
+}
+
+void mapLayerRect(int layerId, SkIRect& rect) {
     if (layerId != -1) {
         // We need to make sure the drawTransform is up to date as this is
         // called before a draw() or drawGL()
@@ -627,8 +632,6 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
         if (layer && layer->drawTransform())
             rect = layer->drawTransform()->mapRect(rect);
     }
-    cursorRect.set(rect.x(), rect.y(), rect.maxX(), rect.maxY());
-    return layerId;
 }
 
     bool m_isDrawingPaused;
@@ -1184,6 +1187,16 @@ static jboolean nativeIsBaseFirst(JNIEnv *env, jobject obj, jint nativeView)
     return select ? select->isBaseFirst() : false;
 }
 
+static void nativeMapLayerRect(JNIEnv *env, jobject obj, jint nativeView,
+        jint layerId, jobject rect)
+{
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    SkIRect nativeRect;
+    GraphicsJNI::jrect_to_irect(env, rect, &nativeRect);
+    webview->mapLayerRect(layerId, nativeRect);
+    GraphicsJNI::irect_to_jrect(nativeRect, env, rect);
+}
+
 /*
  * JNI registration
  */
@@ -1262,6 +1275,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetHandleLayerId },
     { "nativeIsBaseFirst", "(I)Z",
         (void*) nativeIsBaseFirst },
+    { "nativeMapLayerRect", "(IILandroid/graphics/Rect;)V",
+        (void*) nativeMapLayerRect },
 };
 
 int registerWebView(JNIEnv* env)

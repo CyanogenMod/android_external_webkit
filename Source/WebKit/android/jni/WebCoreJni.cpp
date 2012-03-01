@@ -112,6 +112,16 @@ jstring stdStringToJstring(JNIEnv* env, const std::string& str, bool validOnZero
     return !str.empty() || validOnZeroLength ? env->NewStringUTF(str.c_str()) : 0;
 }
 
+jobject intRectToRect(JNIEnv* env, const WebCore::IntRect& rect)
+{
+    jclass rectClass = env->FindClass("android/graphics/Rect");
+    ALOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
+    jmethodID rectInit = env->GetMethodID(rectClass, "<init>", "(IIII)V");
+    ALOG_ASSERT(rectInit, "Could not find init method on Rect");
+    return env->NewObject(rectClass, rectInit, rect.x(), rect.y(),
+            rect.maxX(), rect.maxY());
+}
+
 jobjectArray intRectVectorToRectArray(JNIEnv* env, Vector<WebCore::IntRect>& rects)
 {
     jclass rectClass = env->FindClass("android/graphics/Rect");

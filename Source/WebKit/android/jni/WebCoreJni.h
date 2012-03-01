@@ -92,6 +92,7 @@ jstring stdStringToJstring(JNIEnv*, const std::string&, bool validOnZeroLength =
 
 jobjectArray intRectVectorToRectArray(JNIEnv*, Vector<WebCore::IntRect>&);
 
+jobject intRectToRect(JNIEnv* env, const WebCore::IntRect& rect);
 }
 
 #endif
