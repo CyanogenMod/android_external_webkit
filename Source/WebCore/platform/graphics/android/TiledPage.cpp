@@ -352,16 +352,16 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale)
     return fullSwap;
 }
 
-void TiledPage::prepareForDrawGL(float transparency, const SkIRect& tileBounds)
+void TiledPage::prepareForDrawGL(float opacity, const SkIRect& tileBounds)
 {
     m_willDraw = true;
-    m_transparency = transparency;
+    m_opacity = opacity;
     m_tileBounds = tileBounds;
 }
 
 void TiledPage::drawGL()
 {
-    if (!m_glWebViewState || m_transparency == 0 || !m_willDraw)
+    if (!m_glWebViewState || m_opacity == 0 || !m_willDraw)
         return;
 
     const float tileWidth = TilesManager::tileWidth() * m_invScale;
@@ -377,7 +377,7 @@ void TiledPage::drawGL()
             rect.fRight = rect.fLeft + tileWidth;
             rect.fBottom = rect.fTop + tileHeight;
 
-            tile.draw(m_transparency, rect, m_scale);
+            tile.drawGL(m_opacity, rect, m_scale, 0);
         }
 
         TilesManager::instance()->getProfiler()->nextTile(tile, m_invScale, tileInView);

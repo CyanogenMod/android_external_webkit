@@ -118,7 +118,7 @@ public:
     // Surface texture in GL_TEXTURE_EXTERNAL_OES target.
     // 3) textureId == 0
     // No texture needed, just a pureColor quad.
-    void drawQuad(SkRect& geometry, int textureId, float opacity, Color pureColor = Color(),
+    void drawQuad(const SkRect& geometry, int textureId, float opacity, Color pureColor = Color(),
                   GLenum textureTarget = GL_TEXTURE_2D,
                   GLint texFilter = GL_LINEAR);
     void drawLayerQuad(const TransformationMatrix& drawMatrix,

@@ -54,7 +54,7 @@ class GLWebViewState;
  *    the BaseLayer's most recent PictureSet to a bitmap which is then uploaded
  *    to the GPU.
  * 3. After the bitmap is uploaded to the GPU the main GL thread then uses the
- *    tile's draw() function to display the tile to the screen.
+ *    tile's drawGL() function to display the tile to the screen.
  * 4. Steps 2-3 are repeated as necessary.
  * 5. The tile is destroyed when the user navigates to a new page.
  *
@@ -101,7 +101,8 @@ public:
 
     bool isTileReady();
 
-    void draw(float transparency, SkRect& rect, float scale);
+    void drawGL(float opacity, const SkRect& rect, float scale,
+                const TransformationMatrix* transform);
 
     // the only thread-safe function called by the background thread
     void paintBitmap();

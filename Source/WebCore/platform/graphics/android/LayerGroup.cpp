@@ -128,7 +128,8 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
     if (m_dualTiledTexture && !layerTilesDisabled) {
         XLOG("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
         IntRect visibleArea = TEMP_LAYER->visibleArea();
-        askRedraw |= m_dualTiledTexture->drawGL(visibleArea, opacity());
+        const TransformationMatrix* transform = TEMP_LAYER->drawTransform();
+        askRedraw |= m_dualTiledTexture->drawGL(visibleArea, opacity(), transform);
     }
     askRedraw |= TEMP_LAYER->drawGL(layerTilesDisabled);
 
@@ -188,11 +189,6 @@ bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUs
     canvas->drawPicture(*picture);
 
     return true;
-}
-
-const TransformationMatrix* LayerGroup::transform()
-{
-    return TEMP_LAYER->drawTransform();
 }
 
 float LayerGroup::opacity()

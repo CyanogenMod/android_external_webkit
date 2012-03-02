@@ -86,7 +86,6 @@ public:
 
     // methods used by TiledTexture
     virtual bool paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed);
-    virtual const TransformationMatrix* transform();
     virtual float opacity();
 
     int nbTextures();
@@ -94,6 +93,7 @@ public:
     virtual SurfaceType type() { return TilePainter::Image; }
 
 private:
+    const TransformationMatrix* transform();
 
     SkBitmapRef* m_imageRef;
     SkBitmap* m_image;

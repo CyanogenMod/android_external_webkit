@@ -171,23 +171,23 @@ bool BaseTileTexture::readyFor(BaseTile* baseTile)
     return false;
 }
 
-void BaseTileTexture::draw(bool isLayer, TilePainter* painter,
-                           SkRect& rect, float transparency)
+void BaseTileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
+                             const TransformationMatrix* transform)
 {
     ShaderProgram* shader = TilesManager::instance()->shader();
-    if (isLayer && painter && painter->transform()) {
+    if (isLayer && transform) {
         if (isPureColor()) {
-            shader->drawLayerQuad(*painter->transform(), rect, 0, transparency,
+            shader->drawLayerQuad(*transform, rect, 0, opacity,
                                   true, GL_TEXTURE_2D, pureColor());
         } else {
-            shader->drawLayerQuad(*painter->transform(), rect, m_ownTextureId,
-                                  transparency, true);
+            shader->drawLayerQuad(*transform, rect, m_ownTextureId,
+                                  opacity, true);
         }
     } else {
          if (isPureColor())
-             shader->drawQuad(rect, 0,transparency, pureColor());
+             shader->drawQuad(rect, 0, opacity, pureColor());
          else
-            shader->drawQuad(rect, m_ownTextureId, transparency);
+            shader->drawQuad(rect, m_ownTextureId, opacity);
     }
 }
 

@@ -103,8 +103,8 @@ public:
     void setPureColor(const Color& color) { m_pureColor = color; setPure(true); }
     Color pureColor() { return m_pureColor; }
 
-    void draw(bool isLayer, TilePainter* painter, SkRect& rect,
-              float transparency);
+    void drawGL(bool isLayer, const SkRect& rect, float opacity,
+                const TransformationMatrix* transform);
 private:
     TextureTileInfo m_ownTextureTileInfo;
     // TODO: Merge this info into the TextureTileInfo.

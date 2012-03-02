@@ -225,7 +225,8 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
     return numberTextures;
 }
 
-bool TiledTexture::drawGL(IntRect& visibleArea, float opacity)
+bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
+                          const TransformationMatrix* transform)
 {
 #ifdef DEBUG
     TilesManager::instance()->getTilesTracker()->trackLayer();
@@ -258,7 +259,7 @@ bool TiledTexture::drawGL(IntRect& visibleArea, float opacity)
             XLOG("tile %p (layer tile: %d) %d,%d at scale %.2f vs %.2f [ready: %d] dirty: %d",
                  tile, tile->isLayerTile(), tile->x(), tile->y(),
                  tile->scale(), m_scale, tile->isTileReady(), tile->isDirty());
-            tile->draw(opacity, rect, m_scale);
+            tile->drawGL(opacity, rect, m_scale, transform);
             if (tile->frontTexture())
                 drawn++;
 #ifdef DEBUG
@@ -367,9 +368,10 @@ void DualTiledTexture::swap()
     m_backTexture->discardTextures();
 }
 
-bool DualTiledTexture::drawGL(IntRect& visibleArea, float opacity)
+bool DualTiledTexture::drawGL(const IntRect& visibleArea, float opacity,
+                              const TransformationMatrix* transform)
 {
-    bool needsRepaint = m_frontTexture->drawGL(visibleArea, opacity);
+    bool needsRepaint = m_frontTexture->drawGL(visibleArea, opacity, transform);
     needsRepaint |= m_zooming;
     needsRepaint |= (m_scale <= 0);
     return needsRepaint;

@@ -483,7 +483,7 @@ ShaderType ShaderProgram::getTextureShaderType(GLenum textureTarget)
     return type;
 }
 
-void ShaderProgram::drawQuad(SkRect& geometry, int textureId, float opacity,
+void ShaderProgram::drawQuad(const SkRect& geometry, int textureId, float opacity,
                              Color pureColor, GLenum textureTarget, GLint texFilter)
 {
     ShaderType type = UndefinedShader;
