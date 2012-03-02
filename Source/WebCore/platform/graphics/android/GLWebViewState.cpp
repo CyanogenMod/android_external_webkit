@@ -39,11 +39,9 @@
 #include "TilesTracker.h"
 #include "SurfaceCollection.h"
 #include "SurfaceCollectionManager.h"
-#include <wtf/CurrentTime.h>
-
-#include <pthread.h>
-
 #include <cutils/log.h>
+#include <pthread.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
 
 #undef XLOGC
@@ -173,7 +171,7 @@ void GLWebViewState::invalRegion(const SkRegion& region)
 {
     if (m_layersRenderingMode == kSingleSurfaceRendering) {
         // TODO: do the union of both layer trees to compute
-        //the minimum inval instead of doing a fullInval()
+        // the minimum inval instead of doing a fullInval()
         fullInval();
         return;
     }
@@ -262,8 +260,8 @@ void GLWebViewState::setViewport(const SkRect& viewport, float scale)
     m_tiledPageA->updateBaseTileSize();
     m_tiledPageB->updateBaseTileSize();
 
-    if ((m_viewport == viewport) &&
-        (zoomManager()->futureScale() == scale)) {
+    if ((m_viewport == viewport)
+        && (zoomManager()->futureScale() == scale)) {
         // everything below will stay the same, early return.
         m_isViewportScrolling = false;
         return;
@@ -472,11 +470,9 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 {
     TilesManager* tilesManager = TilesManager::instance();
     m_scale = scale;
-    tilesManager->getProfiler()->nextFrame(viewport.fLeft,
-                                                       viewport.fTop,
-                                                       viewport.fRight,
-                                                       viewport.fBottom,
-                                                       scale);
+    tilesManager->getProfiler()->nextFrame(viewport.fLeft, viewport.fTop,
+                                           viewport.fRight, viewport.fBottom,
+                                           scale);
     tilesManager->incDrawGLCount();
 
 #ifdef DEBUG
@@ -494,6 +490,12 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     XLOG("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
          rect.x(), rect.y(), rect.width(), rect.height(),
          viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
+
+    XLOG("drawGL, invalRect(%d, %d, %d, %d), webViewRect(%d, %d, %d, %d)"
+         "clip (%d, %d, %d, %d), scale %f",
+         invalRect->x(), invalRect->y(), invalRect->width(), invalRect->height(),
+         webViewRect.x(), webViewRect.y(), webViewRect.width(), webViewRect.height(),
+         clip.x(), clip.y(), clip.width(), clip.height(), scale);
 
     resetLayersDirtyArea();
 
