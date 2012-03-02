@@ -538,6 +538,8 @@ WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
 {
     if (!view)
         return 0;
+    if (view->platformWidget())
+        return static_cast<WebFrameView*>(view->platformWidget())->webViewCore();
     Frame* frame = view->frame();
     while (Frame* parent = frame->tree()->parent())
         frame = parent;
@@ -553,9 +555,16 @@ WebViewCore* WebViewCore::getWebViewCore(const WebCore::ScrollView* view)
 {
     if (!view)
         return 0;
-    FrameView* frameView = static_cast<FrameView*>(view->root());
-    if (!frameView)
-        return 0;
+    if (view->platformWidget())
+        return static_cast<WebFrameView*>(view->platformWidget())->webViewCore();
+    const FrameView* frameView = 0;
+    if (view->isFrameView())
+        frameView = static_cast<const FrameView*>(view);
+    else {
+        frameView = static_cast<const FrameView*>(view->root());
+        if (!frameView)
+            return 0;
+    }
     return getWebViewCore(frameView);
 }
 
@@ -897,8 +906,6 @@ void WebViewCore::splitContent(PictureSet* content)
 void WebViewCore::scrollTo(int x, int y, bool animate)
 {
     ALOG_ASSERT(m_javaGlue->m_obj, "A Java widget was not associated with this view bridge!");
-
-//    ALOGD("WebViewCore::scrollTo(%d %d)\n", x, y);
 
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
