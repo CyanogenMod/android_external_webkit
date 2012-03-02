@@ -83,8 +83,7 @@ namespace android {
         void splitAdd(const SkIRect& rect);
 #endif
 
-        void add(const SkRegion& area, SkPicture* picture,
-            uint32_t elapsed, bool split);
+        void add(const SkRegion& area, uint32_t elapsed, bool split);
 
         // Update mWidth/mHeight, and adds any additional inval region
         void setDimensions(int width, int height, SkRegion* inval = 0);
@@ -97,11 +96,9 @@ namespace android {
 
 #ifdef FAST_PICTURESET
 #else
-        void add(const SkRegion& area, SkPicture* picture,
-            uint32_t elapsed, bool split, bool empty);
+        void add(const SkIRect& area, uint32_t elapsed, bool split, bool empty);
         const SkIRect& bounds(size_t i) const {
-            return mPictures[i].mArea.getBounds(); }
-        bool reuseSubdivided(const SkRegion& );
+            return mPictures[i].mArea; }
         void setPicture(size_t i, SkPicture* p);
         void setDrawTimes(const PictureSet& );
         size_t size() const { return mPictures.size(); }
@@ -123,7 +120,7 @@ namespace android {
         int mBucketCountY;
 #else
         struct Pictures {
-            SkRegion mArea;
+            SkIRect mArea;
             SkPicture* mPicture;
             SkIRect mUnsplit;
             uint32_t mElapsed;

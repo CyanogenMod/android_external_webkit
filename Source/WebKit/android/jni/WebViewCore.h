@@ -301,8 +301,6 @@ namespace android {
         // If the focus is a textfield (<input>), textarea, or contentEditable,
         // scroll the selection on screen (if necessary).
         void revealSelection();
-        // Create a single picture to represent the drawn DOM (used by navcache)
-        void recordPicture(SkPicture* picture);
 
         void moveFocus(WebCore::Frame* frame, WebCore::Node* node);
         void moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* hoveredNode = 0);

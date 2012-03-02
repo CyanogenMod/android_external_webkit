@@ -132,7 +132,7 @@ PictureSet::PictureSet(SkPicture* picture) :
     pictureAndBounds.mPicture = picture;
     SkSafeRef(pictureAndBounds.mPicture);
     pictureAndBounds.mEmpty = false;
-    pictureAndBounds.mArea.setRect(0, 0, mWidth, mHeight);
+    pictureAndBounds.mArea.set(0, 0, mWidth, mHeight);
     pictureAndBounds.mSplit = false;
     pictureAndBounds.mBase = true;
     pictureAndBounds.mElapsed = 0;
@@ -157,14 +157,13 @@ void PictureSet::add(const Pictures* temp)
 }
 #endif // FAST_PICTURESET
 
-void PictureSet::add(const SkRegion& area, SkPicture* picture,
-                     uint32_t elapsed, bool split)
+void PictureSet::add(const SkRegion& area, uint32_t elapsed, bool split)
 {
     if (area.isRect()) {
 #ifdef FAST_PICTURESET
         splitAdd(area.getBounds());
 #else
-        add(area, picture, elapsed, split, false);
+        add(area.getBounds(), elapsed, split, false);
 #endif // FAST_PICTURESET
     } else {
         SkRegion::Iterator cliperator(area);
@@ -173,9 +172,7 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 #ifdef FAST_PICTURESET
             splitAdd(ir);
 #else
-            SkRegion newArea;
-            newArea.setRect(ir);
-            add(newArea, picture, elapsed, split, false);
+            add(ir, elapsed, split, false);
 #endif // FAST_PICTURESET
             cliperator.next();
         }
@@ -448,8 +445,7 @@ void PictureSet::splitAdd(const SkIRect& rect)
 //   things (deleting additional pictures + full repaint of base pictures)
 #ifdef FAST_PICTURESET
 #else
-void PictureSet::add(const SkRegion& area, SkPicture* picture,
-    uint32_t elapsed, bool split, bool empty)
+void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool empty)
 {
     bool checkForNewBases = false;
 
@@ -458,12 +454,11 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 #ifdef DEBUG
     XLOG("--- before adding the new inval ---");
     for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
-        SkIRect currentArea = working->mArea.getBounds();
-        XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) base: %c",
+        SkIRect currentArea = working->mArea;
+        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c",
              working - first,
              currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
              currentArea.width(), currentArea.height(),
-             working->mArea.isRect() ? 'Y' : 'N',
              working->mBase ? 'Y' : 'N');
     }
     XLOG("----------------------------------");
@@ -471,14 +466,14 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 
     // let's gather all the Pictures intersecting with the new invalidated
     // area, collect their area and remove their picture
-    SkIRect totalArea = area.getBounds();
+    SkIRect totalArea = area;
     for (Pictures* working = first; working != last; working++) {
-        SkIRect inval = area.getBounds();
+        SkIRect inval = area;
         bool remove = false;
-        if (!working->mBase && working->mArea.intersects(inval))
+        if (!working->mBase && SkIRect::Intersects(working->mArea, inval))
             remove = true;
         if (working->mBase) {
-            SkIRect baseArea = working->mArea.getBounds();
+            SkIRect baseArea = working->mArea;
             if (area.contains(baseArea)) {
                 remove = true;
                 checkForNewBases = true;
@@ -486,21 +481,19 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
         }
 
         if (remove) {
-            SkIRect currentArea = working->mArea.getBounds();
+            SkIRect currentArea = working->mArea;
             if (working->mBase)
                 mBaseArea -= currentArea.width() * currentArea.height();
             else
                 mAdditionalArea -= currentArea.width() * currentArea.height();
 
             totalArea.join(currentArea);
-            XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) intersects with the new inval area (%d, %d, %d, %d - %d x %d) (isRect? %c, we remove it",
+            XLOG("picture %d (%d, %d, %d, %d - %d x %d) intersects with the new inval area (%d, %d, %d, %d - %d x %d)",
                  working - first,
                  currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
                  currentArea.width(), currentArea.height(),
-                 working->mArea.isRect() ? 'Y' : 'N',
                  inval.fLeft, inval.fTop, inval.fRight, inval.fBottom,
-                 inval.width(), inval.height(),
-                 area.isRect() ? 'Y' : 'N');
+                 inval.width(), inval.height());
             working->mArea.setEmpty();
             SkSafeUnref(working->mPicture);
             working->mPicture = 0;
@@ -509,9 +502,7 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 
     // Now we can add the new Picture to the list, with the correct area
     // that need to be repainted
-    SkRegion collect;
-    collect.setRect(totalArea);
-    Pictures pictureAndBounds = {collect, 0, collect.getBounds(),
+    Pictures pictureAndBounds = {totalArea, 0, totalArea,
         elapsed, split, false, false, empty};
 
 #ifdef FAST_PICTURESET
@@ -519,6 +510,13 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
         checkForNewBases = true;
 #endif
 
+    if (!size()) {
+        pictureAndBounds.mBase = true;
+        mBaseArea = totalArea.width() * totalArea.height();
+        mAdditionalArea = 0;
+        mPictures.append(pictureAndBounds);
+        return;
+    }
     mPictures.append(pictureAndBounds);
     mAdditionalArea += totalArea.width() * totalArea.height();
     last = mPictures.end();
@@ -552,12 +550,11 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 #ifdef DEBUG
     XLOG("--- after adding the new inval, but before collapsing ---");
     for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
-        SkIRect currentArea = working->mArea.getBounds();
-        XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) base: %c",
+        SkIRect currentArea = working->mArea;
+        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c",
              working - first,
              currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
              currentArea.width(), currentArea.height(),
-             working->mArea.isRect() ? 'Y' : 'N',
              working->mBase ? 'Y' : 'N');
     }
     XLOG("----------------------------------");
@@ -577,12 +574,11 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
 #ifdef DEBUG
     XLOG("--- after adding the new inval ---");
     for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
-        SkIRect currentArea = working->mArea.getBounds();
-        XLOG("picture %d (%d, %d, %d, %d - %d x %d) (isRect? %c) base: %c picture %x",
+        SkIRect currentArea = working->mArea;
+        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c picture %x",
              working - first,
              currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
              currentArea.width(), currentArea.height(),
-             working->mArea.isRect() ? 'Y' : 'N',
              working->mBase ? 'Y' : 'N', working->mPicture);
     }
     XLOG("----------------------------------");
@@ -595,7 +591,8 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
         Pictures* last = mPictures.end();
         XLOG("checkForNewBases...");
         for (Pictures* working = mPictures.begin(); working != last; working++) {
-            SkRegion& area = working->mArea;
+            SkRegion area;
+            area.setRect(working->mArea);
             const SkIRect& a = area.getBounds();
             if (drawn.contains(working->mArea) == false) {
                 working->mBase = true;
@@ -606,6 +603,19 @@ void PictureSet::add(const SkRegion& area, SkPicture* picture,
             drawn.op(working->mArea, SkRegion::kUnion_Op);
         }
     }
+
+#ifdef DEBUG
+    XLOG("--- after checking for bases ---");
+    for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
+        SkIRect currentArea = working->mArea;
+        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c picture %x",
+             working - first,
+             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+             currentArea.width(), currentArea.height(),
+             working->mBase ? 'Y' : 'N', working->mPicture);
+    }
+    XLOG("----------------------------------");
+#endif
 }
 #endif // FAST_PICTURESET
 
@@ -760,11 +770,13 @@ bool PictureSet::draw(SkCanvas* canvas)
         return false;
     SkIRect irect;
     bounds.roundOut(&irect);
+    if (!irect.intersect(0, 0, width(), height()))
+        return false;
     for (working = last; working != first; ) {
         --working;
         if (working->mArea.contains(irect)) {
 #if PICTURE_SET_DEBUG
-            const SkIRect& b = working->mArea.getBounds();
+            const SkIRect& b = working->mArea;
             DBG_SET_LOGD("contains working->mArea={%d,%d,%d,%d}"
                 " irect={%d,%d,%d,%d}", b.fLeft, b.fTop, b.fRight, b.fBottom,
                 irect.fLeft, irect.fTop, irect.fRight, irect.fBottom);
@@ -777,7 +789,8 @@ bool PictureSet::draw(SkCanvas* canvas)
         last - mPictures.begin());
     uint32_t maxElapsed = 0;
     for (working = first; working != last; working++) {
-        const SkRegion& area = working->mArea;
+        SkRegion area;
+        area.setRect(working->mArea);
         if (area.quickReject(irect)) {
 #if PICTURE_SET_DEBUG
             const SkIRect& b = area.getBounds();
@@ -1031,40 +1044,6 @@ void PictureSet::set(const PictureSet& src)
 #ifdef FAST_PICTURESET
 #else
 
-bool PictureSet::reuseSubdivided(const SkRegion& inval)
-{
-    validate(__FUNCTION__);
-
-    if (inval.isComplex())
-        return false;
-    Pictures* working, * last = mPictures.end();
-    const SkIRect& invalBounds = inval.getBounds();
-    bool steal = false;
-    for (working = mPictures.begin(); working != last; working++) {
-        if (working->mSplit && invalBounds == working->mUnsplit) {
-            steal = true;
-            continue;
-        }
-        if (steal == false)
-            continue;
-        SkRegion temp = SkRegion(inval);
-        temp.op(working->mArea, SkRegion::kIntersect_Op);
-        if (temp.isEmpty() || temp == working->mArea)
-            continue;
-        return false;
-    }
-    if (steal == false)
-        return false;
-    for (working = mPictures.begin(); working != last; working++) {
-        if ((working->mSplit == false || invalBounds != working->mUnsplit) &&
-                inval.contains(working->mArea) == false)
-            continue;
-        SkSafeUnref(working->mPicture);
-        working->mPicture = NULL;
-    }
-    return true;
-}
-
 void PictureSet::setDrawTimes(const PictureSet& src)
 {
     validate(__FUNCTION__);
@@ -1086,8 +1065,8 @@ void PictureSet::setDrawTimes(const PictureSet& src)
         }
         DBG_SET_LOGD("%p [%d] [%d] {%d,%d,r=%d,b=%d} working->mElapsed=%d <- %d",
             this, working - mPictures.begin(), srcWorking - src.mPictures.begin(),
-            working->mArea.getBounds().fLeft, working->mArea.getBounds().fTop,
-            working->mArea.getBounds().fRight, working->mArea.getBounds().fBottom,
+            working->mArea.fLeft, working->mArea.fTop,
+            working->mArea.fRight, working->mArea.fBottom,
             working->mElapsed, srcWorking->mElapsed);
         working->mElapsed = srcWorking->mElapsed;
     }
@@ -1130,14 +1109,14 @@ void PictureSet::split(PictureSet* out) const
                 split ? "true" : "false");
             if (multiUnsplitFastPictures <= 1 || split) {
                 total->op(working->mArea, SkRegion::kDifference_Op);
-                out->add(working->mArea, working->mPicture, elapsed, split,
+                out->add(working->mArea, elapsed, split,
                     working->mEmpty);
             } else if (balance < elapsed)
                 balance = elapsed;
             continue;
         }
         total->op(working->mArea, SkRegion::kDifference_Op);
-        const SkIRect& bounds = working->mArea.getBounds();
+        const SkIRect& bounds = working->mArea;
         int width = bounds.width();
         int height = bounds.height();
         int across = 1;
@@ -1163,8 +1142,7 @@ void PictureSet::split(PictureSet* out) const
                 int right = bounds.fLeft + width * ++indexX / across;
                 SkIRect cBounds;
                 cBounds.set(left, top, right, bottom);
-                out->add(SkRegion(cBounds), (across | down) != 1 ? NULL :
-                    working->mPicture, elapsed, true, 
+                out->add(cBounds, elapsed, true,
                     (across | down) != 1 ? false : working->mEmpty);
                 left = right;
             }
@@ -1175,7 +1153,7 @@ void PictureSet::split(PictureSet* out) const
         this, mWidth, mHeight, total->isEmpty() ? "true" : "false",
         multiUnsplitFastPictures);
     if (!total->isEmpty() && multiUnsplitFastPictures > 1)
-        out->add(*total, NULL, balance, false, false);
+        out->add(*total, balance, false);
     delete total;
     validate(__FUNCTION__);
     out->dump("split-out");
