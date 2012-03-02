@@ -112,17 +112,10 @@ enum DrawExtras { // keep this in sync with WebView.java
 
 struct JavaGlue {
     jweak       m_obj;
-    jmethodID   m_overrideLoading;
     jmethodID   m_scrollBy;
-    jmethodID   m_sendMoveFocus;
-    jmethodID   m_sendMoveMouse;
-    jmethodID   m_sendMoveMouseIfLatest;
-    jmethodID   m_sendMotionUp;
-    jmethodID   m_domChangedFocus;
     jmethodID   m_getScaledMaxXScroll;
     jmethodID   m_getScaledMaxYScroll;
     jmethodID   m_getVisibleRect;
-    jmethodID   m_rebuildWebTextView;
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
     jmethodID   m_postInvalidateDelayed;
@@ -131,10 +124,6 @@ struct JavaGlue {
     jfieldID    m_rectTop;
     jmethodID   m_rectWidth;
     jmethodID   m_rectHeight;
-    jfieldID    m_rectFLeft;
-    jfieldID    m_rectFTop;
-    jmethodID   m_rectFWidth;
-    jmethodID   m_rectFHeight;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -146,19 +135,11 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
 {
     memset(m_extras, 0, DRAW_EXTRAS_SIZE * sizeof(DrawExtra*));
     jclass clazz = env->FindClass("android/webkit/WebViewClassic");
- //   m_javaGlue = new JavaGlue;
     m_javaGlue.m_obj = env->NewWeakGlobalRef(javaWebView);
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
-    m_javaGlue.m_overrideLoading = GetJMethod(env, clazz, "overrideLoading", "(Ljava/lang/String;)V");
-    m_javaGlue.m_sendMoveFocus = GetJMethod(env, clazz, "sendMoveFocus", "(II)V");
-    m_javaGlue.m_sendMoveMouse = GetJMethod(env, clazz, "sendMoveMouse", "(IIII)V");
-    m_javaGlue.m_sendMoveMouseIfLatest = GetJMethod(env, clazz, "sendMoveMouseIfLatest", "(ZZ)V");
-    m_javaGlue.m_sendMotionUp = GetJMethod(env, clazz, "sendMotionUp", "(IIIII)V");
-    m_javaGlue.m_domChangedFocus = GetJMethod(env, clazz, "domChangedFocus", "()V");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
     m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
-    m_javaGlue.m_rebuildWebTextView = GetJMethod(env, clazz, "rebuildWebTextView", "()V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
@@ -173,14 +154,6 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_javaGlue.m_rectWidth = GetJMethod(env, rectClass, "width", "()I");
     m_javaGlue.m_rectHeight = GetJMethod(env, rectClass, "height", "()I");
     env->DeleteLocalRef(rectClass);
-
-    jclass rectClassF = env->FindClass("android/graphics/RectF");
-    ALOG_ASSERT(rectClassF, "Could not find RectF class");
-    m_javaGlue.m_rectFLeft = env->GetFieldID(rectClassF, "left", "F");
-    m_javaGlue.m_rectFTop = env->GetFieldID(rectClassF, "top", "F");
-    m_javaGlue.m_rectFWidth = GetJMethod(env, rectClassF, "width", "()F");
-    m_javaGlue.m_rectFHeight = GetJMethod(env, rectClassF, "height", "()F");
-    env->DeleteLocalRef(rectClassF);
 
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
@@ -404,11 +377,6 @@ IntRect getVisibleRect()
     return rect;
 }
 
-void notifyProgressFinished()
-{
-    rebuildWebTextView();
-}
-
 #if USE(ACCELERATED_COMPOSITING)
 static const ScrollableLayerAndroid* findScrollableLayer(
     const LayerAndroid* parent, int x, int y, SkIRect* foundBounds) {
@@ -467,22 +435,6 @@ void scrollLayer(int layerId, int x, int y)
         m_glWebViewState->scrollLayer(layerId, x, y);
 }
 
-void overrideUrlLoading(const WTF::String& url)
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return;
-    jstring jName = wtfStringToJstring(env, url);
-    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_overrideLoading, jName);
-    env->DeleteLocalRef(jName);
-}
-
-void setFindIsUp(bool up)
-{
-    m_viewImpl->m_findIsUp = up;
-}
-
 void setHeightCanMeasure(bool measure)
 {
     m_heightCanMeasure = measure;
@@ -495,50 +447,6 @@ String getSelection()
     if (select)
         return select->getText();
     return String();
-}
-
-void sendMoveFocus(WebCore::Frame* framePtr, WebCore::Node* nodePtr)
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return;
-    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMoveFocus, (jint) framePtr, (jint) nodePtr);
-    checkException(env);
-}
-
-void sendMoveMouse(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return;
-    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMoveMouse, reinterpret_cast<jint>(framePtr), reinterpret_cast<jint>(nodePtr), x, y);
-    checkException(env);
-}
-
-void sendMoveMouseIfLatest(bool clearTextEntry, bool stopPaintingCaret)
-{
-    ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return;
-    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMoveMouseIfLatest, clearTextEntry, stopPaintingCaret);
-    checkException(env);
-}
-
-void sendMotionUp(WebCore::Frame* framePtr, WebCore::Node* nodePtr, int x, int y)
-{
-    ALOG_ASSERT(m_javaGlue.m_obj, "A WebView was not associated with this WebViewNative!");
-
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return;
-    m_viewImpl->m_touchGeneration = ++m_generation;
-    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_sendMotionUp, m_generation, (jint) framePtr, (jint) nodePtr, x, y);
-    checkException(env);
 }
 
 bool scrollBy(int dx, int dy)
@@ -560,16 +468,6 @@ void setIsScrolling(bool isScrolling)
     if (m_glWebViewState)
         m_glWebViewState->setIsScrolling(isScrolling);
 #endif
-}
-
-void rebuildWebTextView()
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue.object(env);
-    if (!javaObject.get())
-        return;
-    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_rebuildWebTextView);
-    checkException(env);
 }
 
 void viewInvalidate()
@@ -601,11 +499,6 @@ void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
     env->CallVoidMethod(javaObject.get(), m_javaGlue.m_postInvalidateDelayed,
         delay, bounds.x(), bounds.y(), bounds.maxX(), bounds.maxY());
     checkException(env);
-}
-
-int moveGeneration()
-{
-    return m_viewImpl->m_moveGeneration;
 }
 
 LayerAndroid* compositeRoot() const
@@ -837,29 +730,6 @@ class GLDrawFunctor : Functor {
 /*
  * Native JNI methods
  */
-static int nativeCacheHitFramePointer(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jobject nativeCacheHitNodeBounds(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static int nativeCacheHitNodePointer(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static bool nativeCacheHitIsPlugin(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static void nativeClearCursor(JNIEnv *env, jobject obj)
-{
-}
 
 static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl,
                          jstring drawableDir, jboolean isHighEndGfx)
@@ -868,36 +738,6 @@ static void nativeCreate(JNIEnv *env, jobject obj, int viewImpl,
     new WebView(env, obj, viewImpl, dir, isHighEndGfx);
     // NEED THIS OR SOMETHING LIKE IT!
     //Release(obj);
-}
-
-static jint nativeCursorFramePointer(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static bool focusCandidateHasNextTextfield(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static jboolean nativePageShouldHandleShiftAndArrows(JNIEnv *env, jobject obj)
-{
-    return true;
-}
-
-static jobject nativeCursorNodeBounds(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jint nativeCursorNodePointer(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jobject nativeCursorPosition(JNIEnv *env, jobject obj)
-{
-    return 0;
 }
 
 static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
@@ -916,30 +756,6 @@ static SkRect jrectf_to_rect(JNIEnv* env, jobject obj)
     if (obj)
         GraphicsJNI::jrectf_to_rect(env, obj, &rect);
     return rect;
-}
-
-static bool nativeCursorIntersects(JNIEnv *env, jobject obj, jobject visRect)
-{
-    return false;
-}
-
-static bool nativeCursorIsAnchor(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static bool nativeCursorIsTextInput(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static jobject nativeCursorText(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static void nativeDebugDump(JNIEnv *env, jobject obj)
-{
 }
 
 static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv,
@@ -1040,128 +856,6 @@ static bool nativeHasContent(JNIEnv *env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->hasContent();
 }
 
-static jobject nativeImageURI(JNIEnv *env, jobject obj, jint x, jint y)
-{
-    return 0;
-}
-
-static jint nativeFocusCandidateFramePointer(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static bool nativeFocusCandidateIsEditableText(JNIEnv* env, jobject obj,
-        jint nativeClass)
-{
-    return false;
-}
-
-static bool nativeFocusCandidateIsPassword(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static bool nativeFocusCandidateIsRtlText(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static bool nativeFocusCandidateIsTextInput(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static jint nativeFocusCandidateMaxLength(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jint nativeFocusCandidateIsAutoComplete(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jobject nativeFocusCandidateName(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static jobject nativeFocusCandidateNodeBounds(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jobject nativeFocusCandidatePaddingRect(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jint nativeFocusCandidatePointer(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jint nativeFocusCandidateIsSpellcheck(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jobject nativeFocusCandidateText(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static int nativeFocusCandidateLineHeight(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jfloat nativeFocusCandidateTextSize(JNIEnv *env, jobject obj)
-{
-    return 0.f;
-}
-
-static int nativeFocusCandidateType(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static int nativeFocusCandidateLayerId(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static bool nativeFocusIsPlugin(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static jobject nativeFocusNodeBounds(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static jint nativeFocusNodePointer(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static bool nativeCursorWantsKeyEvents(JNIEnv* env, jobject jwebview) {
-    return false;
-}
-
-static void nativeHideCursor(JNIEnv *env, jobject obj)
-{
-}
-
-static void nativeSelectBestAt(JNIEnv *env, jobject obj, jobject jrect)
-{
-}
-
-static void nativeSelectAt(JNIEnv *env, jobject obj, jint x, jint y)
-{
-}
-
 static jobject nativeLayerBounds(JNIEnv* env, jobject obj, jint jlayer)
 {
     SkRect r;
@@ -1201,70 +895,11 @@ static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
     return rect;
 }
 
-static jint nativeTextGeneration(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static bool nativePointInNavCache(JNIEnv *env, jobject obj,
-    int x, int y, int slop)
-{
-    return false;
-}
-
-static bool nativeMotionUp(JNIEnv *env, jobject obj,
-    int x, int y, int slop)
-{
-    return false;
-}
-
-static bool nativeHasCursorNode(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static bool nativeHasFocusNode(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static bool nativeMoveCursor(JNIEnv *env, jobject obj,
-    int key, int count, bool ignoreScroll)
-{
-    return false;
-}
-
-static void nativeSetFindIsUp(JNIEnv *env, jobject obj, jboolean isUp)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->setFindIsUp(isUp);
-}
-
-static void nativeShowCursorTimed(JNIEnv *env, jobject obj)
-{
-}
-
 static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
     ALOG_ASSERT(view, "view not set in nativeSetHeightCanMeasure");
     view->setHeightCanMeasure(measure);
-}
-
-static jobject nativeGetCursorRingBounds(JNIEnv *env, jobject obj)
-{
-    return 0;
-}
-
-static void nativeUpdateCachedTextfield(JNIEnv *env, jobject obj, jstring updatedText, jint generation)
-{
-}
-
-static jint nativeGetBlockLeftEdge(JNIEnv *env, jobject obj, jint x, jint y,
-        jfloat scale)
-{
-    return -1;
 }
 
 static void nativeDestroy(JNIEnv *env, jobject obj)
@@ -1278,19 +913,6 @@ static void nativeDestroy(JNIEnv *env, jobject obj)
 static void nativeStopGL(JNIEnv *env, jobject obj)
 {
     GET_NATIVE_VIEW(env, obj)->stopGL();
-}
-
-static bool nativeMoveCursorToNextTextInput(JNIEnv *env, jobject obj)
-{
-    return false;
-}
-
-static int nativeMoveGeneration(JNIEnv *env, jobject obj)
-{
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    if (!view)
-        return 0;
-    return view->moveGeneration();
 }
 
 static jobject nativeGetSelection(JNIEnv *env, jobject obj)
@@ -1536,11 +1158,6 @@ static void nativeSetPauseDrawing(JNIEnv *env, jobject obj, jint nativeView,
     ((WebView*)nativeView)->m_isDrawingPaused = pause;
 }
 
-static bool nativeDisableNavcache(JNIEnv *env, jobject obj)
-{
-    return true;
-}
-
 static void nativeSetTextSelection(JNIEnv *env, jobject obj, jint nativeView,
                                    jint selectionPtr)
 {
@@ -1571,40 +1188,8 @@ static jboolean nativeIsBaseFirst(JNIEnv *env, jobject obj, jint nativeView)
  * JNI registration
  */
 static JNINativeMethod gJavaWebViewMethods[] = {
-    { "nativeCacheHitFramePointer", "()I",
-        (void*) nativeCacheHitFramePointer },
-    { "nativeCacheHitIsPlugin", "()Z",
-        (void*) nativeCacheHitIsPlugin },
-    { "nativeCacheHitNodeBounds", "()Landroid/graphics/Rect;",
-        (void*) nativeCacheHitNodeBounds },
-    { "nativeCacheHitNodePointer", "()I",
-        (void*) nativeCacheHitNodePointer },
-    { "nativeClearCursor", "()V",
-        (void*) nativeClearCursor },
     { "nativeCreate", "(ILjava/lang/String;Z)V",
         (void*) nativeCreate },
-    { "nativeCursorFramePointer", "()I",
-        (void*) nativeCursorFramePointer },
-    { "nativePageShouldHandleShiftAndArrows", "()Z",
-        (void*) nativePageShouldHandleShiftAndArrows },
-    { "nativeCursorNodeBounds", "()Landroid/graphics/Rect;",
-        (void*) nativeCursorNodeBounds },
-    { "nativeCursorNodePointer", "()I",
-        (void*) nativeCursorNodePointer },
-    { "nativeCursorIntersects", "(Landroid/graphics/Rect;)Z",
-        (void*) nativeCursorIntersects },
-    { "nativeCursorIsAnchor", "()Z",
-        (void*) nativeCursorIsAnchor },
-    { "nativeCursorIsTextInput", "()Z",
-        (void*) nativeCursorIsTextInput },
-    { "nativeCursorPosition", "()Landroid/graphics/Point;",
-        (void*) nativeCursorPosition },
-    { "nativeCursorText", "()Ljava/lang/String;",
-        (void*) nativeCursorText },
-    { "nativeCursorWantsKeyEvents", "()Z",
-        (void*)nativeCursorWantsKeyEvents },
-    { "nativeDebugDump", "()V",
-        (void*) nativeDebugDump },
     { "nativeDestroy", "()V",
         (void*) nativeDestroy },
     { "nativeDraw", "(Landroid/graphics/Canvas;Landroid/graphics/RectF;IIZ)I",
@@ -1617,76 +1202,10 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDumpDisplayTree },
     { "nativeEvaluateLayersAnimations", "(I)Z",
         (void*) nativeEvaluateLayersAnimations },
-    { "nativeFocusCandidateFramePointer", "()I",
-        (void*) nativeFocusCandidateFramePointer },
-    { "nativeFocusCandidateHasNextTextfield", "()Z",
-        (void*) focusCandidateHasNextTextfield },
-    { "nativeFocusCandidateIsPassword", "()Z",
-        (void*) nativeFocusCandidateIsPassword },
-    { "nativeFocusCandidateIsRtlText", "()Z",
-        (void*) nativeFocusCandidateIsRtlText },
-    { "nativeFocusCandidateIsTextInput", "()Z",
-        (void*) nativeFocusCandidateIsTextInput },
-    { "nativeFocusCandidateLineHeight", "()I",
-        (void*) nativeFocusCandidateLineHeight },
-    { "nativeFocusCandidateMaxLength", "()I",
-        (void*) nativeFocusCandidateMaxLength },
-    { "nativeFocusCandidateIsAutoComplete", "()Z",
-        (void*) nativeFocusCandidateIsAutoComplete },
-    { "nativeFocusCandidateIsSpellcheck", "()Z",
-        (void*) nativeFocusCandidateIsSpellcheck },
-    { "nativeFocusCandidateName", "()Ljava/lang/String;",
-        (void*) nativeFocusCandidateName },
-    { "nativeFocusCandidateNodeBounds", "()Landroid/graphics/Rect;",
-        (void*) nativeFocusCandidateNodeBounds },
-    { "nativeFocusCandidatePaddingRect", "()Landroid/graphics/Rect;",
-        (void*) nativeFocusCandidatePaddingRect },
-    { "nativeFocusCandidatePointer", "()I",
-        (void*) nativeFocusCandidatePointer },
-    { "nativeFocusCandidateText", "()Ljava/lang/String;",
-        (void*) nativeFocusCandidateText },
-    { "nativeFocusCandidateTextSize", "()F",
-        (void*) nativeFocusCandidateTextSize },
-    { "nativeFocusCandidateType", "()I",
-        (void*) nativeFocusCandidateType },
-    { "nativeFocusCandidateLayerId", "()I",
-        (void*) nativeFocusCandidateLayerId },
-    { "nativeFocusIsPlugin", "()Z",
-        (void*) nativeFocusIsPlugin },
-    { "nativeFocusNodeBounds", "()Landroid/graphics/Rect;",
-        (void*) nativeFocusNodeBounds },
-    { "nativeFocusNodePointer", "()I",
-        (void*) nativeFocusNodePointer },
-    { "nativeGetCursorRingBounds", "()Landroid/graphics/Rect;",
-        (void*) nativeGetCursorRingBounds },
     { "nativeGetSelection", "()Ljava/lang/String;",
         (void*) nativeGetSelection },
-    { "nativeHasCursorNode", "()Z",
-        (void*) nativeHasCursorNode },
-    { "nativeHasFocusNode", "()Z",
-        (void*) nativeHasFocusNode },
-    { "nativeHideCursor", "()V",
-        (void*) nativeHideCursor },
-    { "nativeImageURI", "(II)Ljava/lang/String;",
-        (void*) nativeImageURI },
     { "nativeLayerBounds", "(I)Landroid/graphics/Rect;",
         (void*) nativeLayerBounds },
-    { "nativeMotionUp", "(III)Z",
-        (void*) nativeMotionUp },
-    { "nativeMoveCursor", "(IIZ)Z",
-        (void*) nativeMoveCursor },
-    { "nativeMoveCursorToNextTextInput", "()Z",
-        (void*) nativeMoveCursorToNextTextInput },
-    { "nativeMoveGeneration", "()I",
-        (void*) nativeMoveGeneration },
-    { "nativePointInNavCache", "(III)Z",
-        (void*) nativePointInNavCache },
-    { "nativeSelectBestAt", "(Landroid/graphics/Rect;)V",
-        (void*) nativeSelectBestAt },
-    { "nativeSelectAt", "(II)V",
-        (void*) nativeSelectAt },
-    { "nativeSetFindIsUp", "(Z)V",
-        (void*) nativeSetFindIsUp },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(IILandroid/graphics/Region;ZZ)Z",
@@ -1699,8 +1218,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCopyBaseContentToPicture },
     { "nativeHasContent", "()Z",
         (void*) nativeHasContent },
-    { "nativeShowCursorTimed", "()V",
-        (void*) nativeShowCursorTimed },
     { "nativeDiscardAllTextures", "()V",
         (void*) nativeDiscardAllTextures },
     { "nativeTileProfilingStart", "()V",
@@ -1721,12 +1238,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeStopGL },
     { "nativeSubtractLayers", "(Landroid/graphics/Rect;)Landroid/graphics/Rect;",
         (void*) nativeSubtractLayers },
-    { "nativeTextGeneration", "()I",
-        (void*) nativeTextGeneration },
-    { "nativeUpdateCachedTextfield", "(Ljava/lang/String;I)V",
-        (void*) nativeUpdateCachedTextfield },
-    { "nativeGetBlockLeftEdge", "(IIF)I",
-        (void*) nativeGetBlockLeftEdge },
     { "nativeScrollableLayer", "(IILandroid/graphics/Rect;Landroid/graphics/Rect;)I",
         (void*) nativeScrollableLayer },
     { "nativeScrollLayer", "(III)Z",
@@ -1745,10 +1256,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeOnTrimMemory },
     { "nativeSetPauseDrawing", "(IZ)V",
         (void*) nativeSetPauseDrawing },
-    { "nativeDisableNavcache", "()Z",
-        (void*) nativeDisableNavcache },
-    { "nativeFocusCandidateIsEditableText", "(I)Z",
-        (void*) nativeFocusCandidateIsEditableText },
     { "nativeSetTextSelection", "(II)V",
         (void*) nativeSetTextSelection },
     { "nativeGetHandleLayerId", "(IILandroid/graphics/Rect;)I",
