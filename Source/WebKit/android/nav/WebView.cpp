@@ -1421,6 +1421,7 @@ static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
         TilesManager* tilesManager = TilesManager::instance();
         if (level >= TRIM_MEMORY_MODERATE
             && !tilesManager->highEndGfx()) {
+            ALOGD("OnTrimMemory with EGL Context %p", eglGetCurrentContext());
             tilesManager->transferQueue()->emptyQueue();
             tilesManager->shader()->cleanupGLResources();
             tilesManager->videoLayerManager()->cleanupGLResources();
