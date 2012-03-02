@@ -608,6 +608,12 @@ namespace android {
          */
         WebCore::VisiblePosition visiblePositionForWindowPoint(int x, int y);
 
+        // Retrieves the current locale from system properties
+        void getLocale(String& language, String& region);
+
+        // Handles changes in system locale
+        void updateLocale();
+
         // these members are shared with webview.cpp
         int m_touchGeneration; // copy of state in WebViewNative triggered by touch
         int m_lastGeneration; // last action using up to date cache

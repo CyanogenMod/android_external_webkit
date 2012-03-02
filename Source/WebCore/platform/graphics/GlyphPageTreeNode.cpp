@@ -47,12 +47,19 @@ GlyphPageTreeNode* GlyphPageTreeNode::pageZeroRoot = 0;
 
 GlyphPageTreeNode* GlyphPageTreeNode::getRoot(unsigned pageNumber)
 {
+#if !PLATFORM(ANDROID)
     static bool initialized;
     if (!initialized) {
         initialized = true;
         roots = new HashMap<int, GlyphPageTreeNode*>;
         pageZeroRoot = new GlyphPageTreeNode;
     }
+#else
+    if (!roots)
+        roots = new HashMap<int, GlyphPageTreeNode*>;
+    if (!pageZeroRoot)
+        pageZeroRoot = new GlyphPageTreeNode;
+#endif
 
     GlyphPageTreeNode* node = pageNumber ? roots->get(pageNumber) : pageZeroRoot;
     if (!node) {
@@ -67,6 +74,29 @@ GlyphPageTreeNode* GlyphPageTreeNode::getRoot(unsigned pageNumber)
     }
     return node;
 }
+
+#if PLATFORM(ANDROID)
+void GlyphPageTreeNode::resetRoots()
+{
+    if (roots) {
+        HashMap<int, GlyphPageTreeNode*>::iterator end = roots->end();
+        for (HashMap<int, GlyphPageTreeNode*>::iterator it = roots->begin(); it != end; ++it)
+            it->second->resetChildren();
+    }
+    if (pageZeroRoot) {
+        pageZeroRoot->resetChildren();
+    }
+}
+
+void GlyphPageTreeNode::resetChildren()
+{
+    HashMap<const FontData*, GlyphPageTreeNode*>::const_iterator end = m_children.end();
+    for (HashMap<const FontData*, GlyphPageTreeNode*>::const_iterator it = m_children.begin(); it != end; ++it) {
+        pruneTreeFontData(static_cast<const SimpleFontData*>(it->first));
+        pruneTreeCustomFontData(it->first);
+    }
+}
+#endif
 
 size_t GlyphPageTreeNode::treeGlyphPageCount()
 {
@@ -347,7 +377,11 @@ GlyphPageTreeNode* GlyphPageTreeNode::getChild(const FontData* fontData, unsigne
 
 void GlyphPageTreeNode::pruneCustomFontData(const FontData* fontData)
 {
+#if !PLATFORM(ANDROID)
     if (!fontData || !m_customFontCount)
+#else
+    if (!fontData || !m_customFontCount || fontData == (SimpleFontData*)-1)
+#endif
         return;
         
     // Prune any branch that contains this FontData.
@@ -371,7 +405,11 @@ void GlyphPageTreeNode::pruneCustomFontData(const FontData* fontData)
 void GlyphPageTreeNode::pruneFontData(const SimpleFontData* fontData, unsigned level)
 {
     ASSERT(fontData);
+#if !PLATFORM(ANDROID)
     if (!fontData)
+#else
+    if (!fontData || fontData == (SimpleFontData*)-1)
+#endif
         return;
 
     // Prune any branch that contains this FontData.

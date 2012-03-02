@@ -54,6 +54,7 @@
 #include "ExceptionCode.h"
 #include "FocusController.h"
 #include "Font.h"
+#include "FontCache.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
@@ -135,6 +136,7 @@
 #include <JNIHelp.h>
 #include <JNIUtility.h>
 #include <androidfw/KeycodeLabels.h>
+#include <cutils/properties.h>
 #include <v8.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/text/AtomicString.h>
@@ -729,6 +731,7 @@ void WebViewCore::clearContent()
     m_content.clear();
     m_addInval.setEmpty();
     m_rebuildInval.setEmpty();
+    updateLocale();
 }
 
 bool WebViewCore::focusBoundsChanged()
@@ -4253,6 +4256,41 @@ String WebViewCore::getText(int startX, int startY, int endX, int endY)
     }
 
     return text;
+}
+
+/**
+ * Read the persistent locale.
+ */
+void WebViewCore::getLocale(String& language, String& region)
+{
+    char propLang[PROPERTY_VALUE_MAX], propRegn[PROPERTY_VALUE_MAX];
+
+    property_get("persist.sys.language", propLang, "");
+    property_get("persist.sys.country", propRegn, "");
+    if (*propLang == 0 && *propRegn == 0) {
+        /* Set to ro properties, default is en_US */
+        property_get("ro.product.locale.language", propLang, "en");
+        property_get("ro.product.locale.region", propRegn, "US");
+    }
+    language = String(propLang, 2);
+    region = String(propRegn, 2);
+}
+
+void WebViewCore::updateLocale()
+{
+    static String prevLang;
+    static String prevRegn;
+    String language;
+    String region;
+
+    getLocale(language, region);
+
+    if ((language != prevLang) || (region != prevRegn)) {
+        prevLang = language;
+        prevRegn = region;
+        GlyphPageTreeNode::resetRoots();
+        fontCache()->invalidate();
+    }
 }
 
 //----------------------------------------------------------------------
