@@ -120,6 +120,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_fixedRect = layer.m_fixedRect;
     m_iframeOffset = layer.m_iframeOffset;
     m_offset = layer.m_offset;
+    m_iframeScrollOffset = layer.m_iframeScrollOffset;
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 

@@ -29,6 +29,10 @@
 #include "AXObjectCache.h"
 #if PLATFORM(ANDROID)
 #include "FrameView.h"
+#include "GraphicsLayerAndroid.h"
+#include "RenderLayer.h"
+#include "RenderLayerBacking.h"
+#include "RenderView.h"
 #endif
 #include "GraphicsContext.h"
 #include "GraphicsLayer.h"
@@ -304,34 +308,6 @@ void ScrollView::setContentsSize(const IntSize& newSize)
 }
 
 #if PLATFORM(ANDROID)
-int ScrollView::actualWidth() const
-{
-    if (platformWidget())
-        return platformActualWidth();
-    return width();
-}
-
-int ScrollView::actualHeight() const
-{
-    if (platformWidget())
-        return platformActualHeight();
-    return height();
-}
-
-int ScrollView::actualScrollX() const
-{
-    if (platformWidget())
-        return platformActualScrollX();
-    return scrollX();
-}
-
-int ScrollView::actualScrollY() const
-{
-    if (platformWidget())
-        return platformActualScrollY();
-    return scrollY();
-}
-
 FrameView* ScrollView::frameView() {
     if (this->isFrameView()) {
         FrameView* frameView = reinterpret_cast<FrameView*>(this);
@@ -396,6 +372,26 @@ void ScrollView::scrollTo(const IntSize& newOffset)
     if (scrollDelta == IntSize())
         return;
     m_scrollOffset = newOffset;
+
+#if PLATFORM(ANDROID)
+    if (parent()) {
+        FrameView* frameView = this->frameView();
+        // IFrames are composited on a layer, we do not need to repaint them
+        // when scrolling
+        if (frameView) {
+            RenderView* renderer = frameView->frame()->contentRenderer();
+            if (renderer) {
+                RenderLayer* layer = renderer->layer();
+                if (layer->backing()) {
+                    GraphicsLayerAndroid* backing = static_cast<GraphicsLayerAndroid*>(
+                        layer->backing()->graphicsLayer());
+                    backing->updateScrollOffset();
+                }
+            }
+            return;
+        }
+    }
+#endif
 
     if (scrollbarsSuppressed())
         return;

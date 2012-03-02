@@ -946,10 +946,10 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
 
     // Save the old WebFrameView's bounds and apply them to the new WebFrameView
     WebFrameView* oldWebFrameView = static_cast<WebFrameView*> (m_frame->view()->platformWidget());
-    IntRect bounds = oldWebFrameView->getBounds();
-    IntRect visBounds = oldWebFrameView->getVisibleBounds();
-    IntRect windowBounds = oldWebFrameView->getWindowBounds();
-    WebCore::FrameView* oldFrameView = oldWebFrameView->view();
+    IntRect bounds;
+    if (oldWebFrameView)
+        bounds = oldWebFrameView->getBounds();
+    WebCore::FrameView* oldFrameView = m_frame->view();
     const float oldZoomFactor = oldFrameView->frame()->textZoomFactor();
     m_frame->createView(bounds.size(), oldFrameView->baseBackgroundColor(), oldFrameView->isTransparent(),
             oldFrameView->fixedLayoutSize(), oldFrameView->useFixedLayout());
@@ -957,21 +957,19 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
         m_frame->setTextZoomFactor(oldZoomFactor);
     }
 
-    // Create a new WebFrameView for the new FrameView
-    WebFrameView* newFrameView = new WebFrameView(m_frame->view(), webViewCore);
-
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-#else
-    webViewCore->clearContent();
-#endif
-
-    newFrameView->setLocation(bounds.x(), bounds.y());
-    newFrameView->setSize(bounds.width(), bounds.height());
-    newFrameView->setVisibleSize(visBounds.width(), visBounds.height());
-    newFrameView->setWindowBounds(windowBounds.x(), windowBounds.y(), windowBounds.width(), windowBounds.height());
-    // newFrameView attaches itself to FrameView which Retains the reference, so
-    // call Release for newFrameView
-    Release(newFrameView);
+    if (oldWebFrameView) {
+        IntRect visBounds = oldWebFrameView->getVisibleBounds();
+        IntRect windowBounds = oldWebFrameView->getWindowBounds();
+        // Create a new WebFrameView for the new FrameView
+        WebFrameView* newFrameView = new WebFrameView(m_frame->view(), webViewCore);
+        newFrameView->setLocation(bounds.x(), bounds.y());
+        newFrameView->setSize(bounds.width(), bounds.height());
+        newFrameView->setVisibleSize(visBounds.width(), visBounds.height());
+        newFrameView->setWindowBounds(windowBounds.x(), windowBounds.y(), windowBounds.width(), windowBounds.height());
+        // newFrameView attaches itself to FrameView which Retains the reference, so
+        // call Release for newFrameView
+        Release(newFrameView);
+    }
     // WebFrameView Retains webViewCore, so call Release for webViewCore
     Release(webViewCore);
 
@@ -1007,10 +1005,6 @@ WTF::PassRefPtr<WebCore::Frame> FrameLoaderClientAndroid::createFrame(const KURL
     newFrame->tree()->setName(name);
     // Create a new FrameView and WebFrameView for the child frame to draw into.
     RefPtr<FrameView> frameView = FrameView::create(newFrame);
-    WebFrameView* webFrameView = new WebFrameView(frameView.get(),
-            WebViewCore::getWebViewCore(parent->view()));
-    // frameView Retains webFrameView, so call Release for webFrameView
-    Release(webFrameView);
     // Attach the frameView to the newFrame.
     newFrame->setView(frameView);
     newFrame->init();

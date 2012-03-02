@@ -536,18 +536,27 @@ WebViewCore::~WebViewCore()
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
 {
-    return getWebViewCore(static_cast<const WebCore::ScrollView*>(view));
+    if (!view)
+        return 0;
+    Frame* frame = view->frame();
+    while (Frame* parent = frame->tree()->parent())
+        frame = parent;
+    WebFrameView* webFrameView = 0;
+    if (frame && frame->view())
+        webFrameView = static_cast<WebFrameView*>(frame->view()->platformWidget());
+    if (!webFrameView)
+        return 0;
+    return webFrameView->webViewCore();
 }
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::ScrollView* view)
 {
     if (!view)
         return 0;
-
-    WebFrameView* webFrameView = static_cast<WebFrameView*>(view->platformWidget());
-    if (!webFrameView)
+    FrameView* frameView = static_cast<FrameView*>(view->root());
+    if (!frameView)
         return 0;
-    return webFrameView->webViewCore();
+    return getWebViewCore(frameView);
 }
 
 static bool layoutIfNeededRecursive(WebCore::Frame* f)
@@ -3997,7 +4006,12 @@ void WebViewCore::scrollRenderLayer(int layer, const SkRect& rect)
     if (!owner)
         return;
 
-    owner->scrollToOffset(rect.fLeft, rect.fTop);
+    if (owner->isRootLayer()) {
+        FrameView* view = owner->renderer()->frame()->view();
+        IntPoint pt(rect.fLeft, rect.fTop);
+        view->setScrollPosition(pt);
+    } else
+        owner->scrollToOffset(rect.fLeft, rect.fTop);
 #endif
 }
 

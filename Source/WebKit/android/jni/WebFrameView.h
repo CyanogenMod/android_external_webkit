@@ -47,8 +47,6 @@ namespace android {
             return mWebViewCore;
         }
 
-        void setView(WebCore::FrameView* frameView);
-
         WebCore::FrameView* view() const {
             return mFrameView;
         }
