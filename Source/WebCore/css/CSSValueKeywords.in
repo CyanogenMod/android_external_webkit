@@ -756,6 +756,10 @@ windowed
 manual
 # auto
 
+# -webkit-overflow-scrolling
+# auto
+touch
+
 # -webkit-writing-mode
 # SVG compatibility
 lr
