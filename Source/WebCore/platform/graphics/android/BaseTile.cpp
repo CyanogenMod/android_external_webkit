@@ -236,7 +236,8 @@ void BaseTile::setRepaintPending(bool pending)
     m_repaintPending = pending;
 }
 
-void BaseTile::draw(float transparency, SkRect& rect, float scale)
+void BaseTile::drawGL(float opacity, const SkRect& rect, float scale,
+                      const TransformationMatrix* transform)
 {
     if (m_x < 0 || m_y < 0 || m_scale != scale)
         return;
@@ -255,7 +256,7 @@ void BaseTile::draw(float transparency, SkRect& rect, float scale)
         return;
 
     if (m_frontTexture->readyFor(this))
-        m_frontTexture->draw(isLayerTile(), m_painter, rect, transparency);
+        m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform);
     else {
         XLOG("tile %p at %d, %d not readyfor (at draw),", this, m_x, m_y);
     }

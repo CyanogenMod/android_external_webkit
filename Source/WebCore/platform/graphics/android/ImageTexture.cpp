@@ -255,7 +255,7 @@ void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
     m_layer = layer;
     if (m_texture) {
         IntRect visibleArea = m_layer->visibleArea();
-        m_texture->drawGL(visibleArea, opacity);
+        m_texture->drawGL(visibleArea, opacity, transform());
     }
     m_layer = 0;
 }

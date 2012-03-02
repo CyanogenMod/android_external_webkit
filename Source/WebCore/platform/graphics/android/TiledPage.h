@@ -76,8 +76,8 @@ public:
 
     // swap 'buffers' by swapping each modified texture
     bool swapBuffersIfReady(const SkIRect& tileBounds, float scale);
-    // save the transparency and bounds to be drawn in drawGL()
-    void prepareForDrawGL(float transparency, const SkIRect& tileBounds);
+    // save the opacity and bounds to be drawn in drawGL()
+    void prepareForDrawGL(float opacity, const SkIRect& tileBounds);
     // draw the page on the screen
     void drawGL();
 
@@ -132,7 +132,7 @@ private:
     // info saved in prepare, used in drawGL()
     bool m_willDraw;
     SkIRect m_tileBounds;
-    float m_transparency;
+    float m_opacity;
 };
 
 } // namespace WebCore

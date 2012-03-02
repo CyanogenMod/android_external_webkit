@@ -58,7 +58,6 @@ public:
 
     // TilePainter methods
     virtual bool paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed);
-    virtual const TransformationMatrix* transform();
     virtual float opacity();
 private:
     bool m_hasText;

@@ -61,7 +61,7 @@ public:
     void prepareGL(GLWebViewState* state, float scale,
                    const IntRect& prepareArea, TilePainter* painter);
     void swapTiles();
-    bool drawGL(IntRect& visibleArea, float opacity);
+    bool drawGL(const IntRect& visibleArea, float opacity, const TransformationMatrix* transform);
 
     void prepareTile(int x, int y, TilePainter* painter);
     void markAsDirty(const SkRegion& dirtyArea);
@@ -103,7 +103,7 @@ public:
                  const IntRect& prepareArea, TilePainter* painter);
     void swapTiles();
     void swap();
-    bool drawGL(IntRect& visibleArea, float opacity);
+    bool drawGL(const IntRect& visibleArea, float opacity, const TransformationMatrix* transform);
     void markAsDirty(const SkRegion& dirtyArea);
     bool owns(BaseTileTexture* texture);
     void computeTexturesAmount(TexturesResult* result, LayerAndroid* layer);

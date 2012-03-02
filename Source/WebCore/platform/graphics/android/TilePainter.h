@@ -40,7 +40,6 @@ class TilePainter : public SkRefCnt {
 public:
     virtual ~TilePainter() { }
     virtual bool paint(BaseTile* tile, SkCanvas*, unsigned int*) = 0;
-    virtual const TransformationMatrix* transform() { return 0; }
     virtual float opacity() { return 1.0; }
     enum SurfaceType { Painted, Image };
     virtual SurfaceType type() { return Painted; }
