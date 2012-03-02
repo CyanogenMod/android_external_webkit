@@ -3655,11 +3655,11 @@ String WebViewCore::getInputText(Node* node)
         text = renderText->text();
     else {
         // It must be content editable field.
-        Position inNode(node, 0);
         Position start = firstPositionInNode(node);
         Position end = lastPositionInNode(node);
         VisibleSelection allEditableText(start, end);
-        text = allEditableText.firstRange()->text();
+        if (allEditableText.isRange())
+            text = allEditableText.firstRange()->text();
     }
     return text;
 }
@@ -4198,12 +4198,14 @@ String WebViewCore::getText(int startX, int startY, int endX, int endY)
 
     for (size_t i = 0; i < ranges.size(); i++) {
         const VisibleSelection& selection = ranges[i];
-        PassRefPtr<Range> range = selection.firstRange();
-        String textInRange = range->text();
-        if (textInRange.length() > 0) {
-            if (text.length() > 0)
-                text.append('\n');
-            text.append(textInRange);
+        if (selection.isRange()) {
+            PassRefPtr<Range> range = selection.firstRange();
+            String textInRange = range->text();
+            if (textInRange.length() > 0) {
+                if (text.length() > 0)
+                    text.append('\n');
+                text.append(textInRange);
+            }
         }
     }
 
