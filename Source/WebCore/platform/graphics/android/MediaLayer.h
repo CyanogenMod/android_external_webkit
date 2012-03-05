@@ -32,7 +32,7 @@ namespace WebCore {
 class MediaLayer : public LayerAndroid {
 
 public:
-    MediaLayer(jobject webViewRef);
+    MediaLayer(jobject webViewRef, jobject webViewCoreRef);
     MediaLayer(const MediaLayer& layer);
     virtual ~MediaLayer();
 

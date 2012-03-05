@@ -28,9 +28,9 @@
 
 namespace WebCore {
 
-MediaLayer::MediaLayer(jobject webViewRef) : LayerAndroid((RenderLayer*) NULL)
+MediaLayer::MediaLayer(jobject webViewRef, jobject webViewCoreRef) : LayerAndroid((RenderLayer*) NULL)
 {
-    m_mediaTexture = new MediaTexture(webViewRef);
+    m_mediaTexture = new MediaTexture(webViewRef, webViewCoreRef);
     m_mediaTexture->incStrong(this);
 
     m_isCopy = false;

@@ -41,14 +41,11 @@
 
 namespace WebCore {
 
-MediaTexture::MediaTexture(jobject webViewRef) : android::LightRefBase<MediaTexture>()
+MediaTexture::MediaTexture(jobject webViewRef, jobject webViewCoreRef) : android::LightRefBase<MediaTexture>()
 {
-    if (webViewRef) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        m_weakWebViewRef = env->NewWeakGlobalRef(webViewRef);
-    } else {
-        m_weakWebViewRef = 0;
-    }
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    m_weakWebViewRef = env->NewWeakGlobalRef(webViewRef);
+    m_weakWebViewCoreRef = env->NewWeakGlobalRef(webViewCoreRef);
 
     m_contentTexture = 0;
     m_isContentInverted = false;
@@ -63,10 +60,9 @@ MediaTexture::~MediaTexture()
         deleteTexture(m_videoTextures[i], true);
     }
 
-    if (m_weakWebViewRef) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        env->DeleteWeakGlobalRef(m_weakWebViewRef);
-    }
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->DeleteWeakGlobalRef(m_weakWebViewRef);
+    env->DeleteWeakGlobalRef(m_weakWebViewCoreRef);
 }
 
 bool MediaTexture::isContentInverted()
@@ -98,16 +94,16 @@ void MediaTexture::initNativeWindowIfNeeded()
             m_contentTexture = createTexture();
 
             // send a message to the WebKit thread to notify the plugin that it can draw
-            if (m_weakWebViewRef) {
+            if (m_weakWebViewCoreRef) {
                 JNIEnv* env = JSC::Bindings::getJNIEnv();
-                jobject localWebViewRef = env->NewLocalRef(m_weakWebViewRef);
-                if (localWebViewRef) {
-                    jclass wvClass = env->GetObjectClass(localWebViewRef);
+                jobject localWebViewCoreRef = env->NewLocalRef(m_weakWebViewCoreRef);
+                if (localWebViewCoreRef) {
+                    jclass wvClass = env->GetObjectClass(localWebViewCoreRef);
                     jmethodID sendPluginDrawMsg =
                             env->GetMethodID(wvClass, "sendPluginDrawMsg", "()V");
-                    env->CallVoidMethod(localWebViewRef, sendPluginDrawMsg);
+                    env->CallVoidMethod(localWebViewCoreRef, sendPluginDrawMsg);
                     env->DeleteLocalRef(wvClass);
-                    env->DeleteLocalRef(localWebViewRef);
+                    env->DeleteLocalRef(localWebViewCoreRef);
                 }
                 checkException(env);
             }

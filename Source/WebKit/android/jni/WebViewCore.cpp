@@ -309,7 +309,6 @@ struct WebViewCoreFields {
     jfieldID    m_viewportMaximumScale;
     jfieldID    m_viewportUserScalable;
     jfieldID    m_viewportDensityDpi;
-    jfieldID    m_webView;
     jfieldID    m_drawIsPaused;
     jfieldID    m_lowMemoryUsageMb;
     jfieldID    m_highMemoryUsageMb;
@@ -331,6 +330,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_jsPrompt;
     jmethodID   m_jsUnload;
     jmethodID   m_jsInterrupt;
+    jmethodID   m_getWebView;
     jmethodID   m_didFirstLayout;
     jmethodID   m_updateViewport;
     jmethodID   m_sendNotifyProgressFinished;
@@ -466,6 +466,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_jsPrompt = GetJMethod(env, clazz, "jsPrompt", "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_jsUnload = GetJMethod(env, clazz, "jsUnload", "(Ljava/lang/String;Ljava/lang/String;)Z");
     m_javaGlue->m_jsInterrupt = GetJMethod(env, clazz, "jsInterrupt", "()Z");
+    m_javaGlue->m_getWebView = GetJMethod(env, clazz, "getWebView", "()Landroid/webkit/WebView;");
     m_javaGlue->m_didFirstLayout = GetJMethod(env, clazz, "didFirstLayout", "(Z)V");
     m_javaGlue->m_updateViewport = GetJMethod(env, clazz, "updateViewport", "()V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
@@ -3733,7 +3734,7 @@ WebViewCore::getWebViewJavaObject()
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
         return 0;
-    return env->GetObjectField(javaObject.get(), gWebViewCoreFields.m_webView);
+    return env->CallObjectMethod(javaObject.get(), m_javaGlue->m_getWebView);
 }
 
 RenderTextControl* WebViewCore::toRenderTextControl(Node* node)
@@ -5172,10 +5173,6 @@ int registerWebViewCore(JNIEnv* env)
             "mViewportDensityDpi", "I");
     ALOG_ASSERT(gWebViewCoreFields.m_viewportDensityDpi,
             "Unable to find android/webkit/WebViewCore.mViewportDensityDpi");
-    gWebViewCoreFields.m_webView = env->GetFieldID(widget,
-            "mWebView", "Landroid/webkit/WebViewClassic;");
-    ALOG_ASSERT(gWebViewCoreFields.m_webView,
-            "Unable to find android/webkit/WebViewCore.mWebView");
     gWebViewCoreFields.m_drawIsPaused = env->GetFieldID(widget,
             "mDrawIsPaused", "Z");
     ALOG_ASSERT(gWebViewCoreFields.m_drawIsPaused,

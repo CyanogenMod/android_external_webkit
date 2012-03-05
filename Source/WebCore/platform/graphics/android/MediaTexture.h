@@ -40,7 +40,7 @@ class MediaListener;
 class MediaTexture : public android::LightRefBase<MediaTexture> {
 
 public:
-    MediaTexture(jobject webViewRef);
+    MediaTexture(jobject webViewRef, jobject webViewCoreRef);
     ~MediaTexture();
 
     bool isContentInverted();
@@ -83,6 +83,7 @@ private:
     sp<ANativeWindow> m_newWindow;
 
     jobject m_weakWebViewRef;
+    jobject m_weakWebViewCoreRef;
 
     android::Mutex m_mediaLock;
     android::Condition m_newMediaRequestCond;

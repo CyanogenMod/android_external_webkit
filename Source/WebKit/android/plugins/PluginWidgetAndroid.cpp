@@ -160,7 +160,8 @@ bool PluginWidgetAndroid::setDrawingModel(ANPDrawingModel model) {
 
     if (model == kOpenGL_ANPDrawingModel && m_layer == 0) {
         jobject webview = m_core->getWebViewJavaObject();
-        m_layer = new WebCore::MediaLayer(webview);
+        AutoJObject webViewCore = m_core->getJavaObject();
+        m_layer = new WebCore::MediaLayer(webview, webViewCore.get());
     }
     else if (model != kOpenGL_ANPDrawingModel && m_layer != 0) {
         m_layer->unref();
