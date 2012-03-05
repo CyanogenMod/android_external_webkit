@@ -72,11 +72,6 @@ public:
 #if DEPRECATED_SURFACE_TEXTURE_MODE
     sp<android::SurfaceTexture> m_surfaceTexture;
 #endif
-    // TODO: Delete this after the Ganesh code path get fixed.
-    sp<ANativeWindow> m_ANW;
-    // The EGLSurface wraps the m_ANW to enable direct OpenGL rendering (e.g. Ganesh)
-    EGLSurface m_eglSurface;
-
     int m_pictureCount;
 private:
     SharedTextureMode m_sharedTextureMode;
