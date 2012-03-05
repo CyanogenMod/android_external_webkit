@@ -94,7 +94,6 @@ namespace WebCore {
 class AndroidAnimation;
 class BaseTileTexture;
 class GLWebViewState;
-class LayerAndroidFindState;
 class RenderLayer;
 class TiledPage;
 class PaintedSurface;
@@ -318,13 +317,11 @@ protected:
     TransformationMatrix m_drawTransform;
 
 private:
-    class FindState;
 #if DUMP_NAV_CACHE
     friend class CachedLayer::Debug; // debugging access only
 #endif
 
     void copyAnimationStartTimes(LayerAndroid* oldLayer);
-    void findInner(FindState&) const;
     bool prepareContext(bool force = false);
     void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 
