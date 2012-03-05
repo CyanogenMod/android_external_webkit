@@ -55,39 +55,11 @@ class ImageTexture;
 namespace android {
 class DrawExtra;
 void serializeLayer(WebCore::LayerAndroid* layer, SkWStream* stream);
-WebCore::LayerAndroid* deserializeLayer(SkStream* stream);
+WebCore::LayerAndroid* deserializeLayer(int version, SkStream* stream);
 void cleanupImageRefs(WebCore::LayerAndroid* layer);
 }
 
 using namespace android;
-
-struct SkLength {
-    enum SkLengthType { Undefined, Auto, Relative, Percent, Fixed, Static, Intrinsic, MinIntrinsic };
-    SkLengthType type;
-    SkScalar value;
-    SkLength()
-    {
-        type = Undefined;
-        value = 0;
-    }
-    bool defined() const
-    {
-        if (type == Undefined)
-            return false;
-        return true;
-    }
-    float calcFloatValue(float max) const
-    {
-        switch (type) {
-        case Percent:
-            return (max * value) / 100.0f;
-        case Fixed:
-            return value;
-        default:
-            return value;
-        }
-    }
-};
 
 namespace WebCore {
 
@@ -115,10 +87,24 @@ public:
 
 class TEST_EXPORT LayerAndroid : public Layer {
 public:
-    enum LayerType { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer };
+    typedef enum { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer } LayerType;
+    typedef enum { StandardLayer, CopyLayer, FixedLayer } SubclassType;
 
-    LayerAndroid(RenderLayer* owner);
-    LayerAndroid(const LayerAndroid& layer);
+    String subclassName()
+    {
+        switch (m_subclassType) {
+            case LayerAndroid::StandardLayer:
+                return "StandardLayer";
+            case LayerAndroid::CopyLayer:
+                return "CopyLayer";
+            case LayerAndroid::FixedLayer:
+                return "FixedLayer";
+        }
+        return "Undefined";
+    }
+
+    LayerAndroid(RenderLayer* owner, SubclassType type = LayerAndroid::StandardLayer);
+    LayerAndroid(const LayerAndroid& layer, SubclassType type = LayerAndroid::CopyLayer);
     LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
 
@@ -168,31 +154,8 @@ public:
     void setDrawClip(const FloatRect& rect) { m_clippingRect = rect; }
     const FloatRect& drawClip() { return m_clippingRect; }
 
-    void setFixedPosition(SkLength left, // CSS left property
-                          SkLength top, // CSS top property
-                          SkLength right, // CSS right property
-                          SkLength bottom, // CSS bottom property
-                          SkLength marginLeft, // CSS margin-left property
-                          SkLength marginTop, // CSS margin-top property
-                          SkLength marginRight, // CSS margin-right property
-                          SkLength marginBottom, // CSS margin-bottom property
-                          const IntPoint& renderLayerPos, // For undefined fixed position
-                          SkRect viewRect) { // view rect, can be smaller than the layer's
-        m_fixedLeft = left;
-        m_fixedTop = top;
-        m_fixedRight = right;
-        m_fixedBottom = bottom;
-        m_fixedMarginLeft = marginLeft;
-        m_fixedMarginTop = marginTop;
-        m_fixedMarginRight = marginRight;
-        m_fixedMarginBottom = marginBottom;
-        m_fixedRect = viewRect;
-        m_isFixed = true;
-        m_renderLayerPos = renderLayerPos;
-        setShouldInheritFromRootTransform(true);
-    }
-
     const IntPoint& scrollOffset() const { return m_offset; }
+    const IntPoint& iframeOffset() const { return m_iframeOffset; }
     const IntPoint& iframeScrollOffset() const { return m_iframeScrollOffset; }
     void setScrollOffset(IntPoint offset) { m_offset = offset; }
     void setIFrameScrollOffset(IntPoint offset) { m_iframeScrollOffset = offset; }
@@ -222,6 +185,7 @@ public:
     // in global space.
     SkRect subtractLayers(const SkRect&) const;
 
+    virtual void dumpLayer(FILE*, int indentLevel) const;
     void dumpLayers(FILE*, int indentLevel) const;
     void dumpToLog() const;
 
@@ -231,7 +195,9 @@ public:
         This call is recursive, so it should be called on the root of the
         hierarchy.
     */
-    bool updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
+    void updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
+    virtual LayerAndroid* updateFixedLayerPosition(SkRect viewport,
+                                                   LayerAndroid* parentIframeLayer);
 
     /** Call this to update the position attribute, so that later calls
         like bounds() will report the corrected position.
@@ -253,7 +219,6 @@ public:
         return static_cast<LayerAndroid*>(this->INHERITED::getChild(index));
     }
     int uniqueId() const { return m_uniqueId; }
-    bool isFixed() { return m_isFixed; }
 
     /** This sets a content image -- calling it means we will use
         the image directly when drawing the layer instead of using
@@ -272,10 +237,11 @@ public:
 
     void clearDirtyRegion();
 
-    void contentDraw(SkCanvas*);
+    virtual void contentDraw(SkCanvas*);
 
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
+    virtual bool isFixed() const { return false; }
 
     RenderLayer* owningLayer() const { return m_owningLayer; }
 
@@ -285,7 +251,7 @@ public:
 
     // ViewStateSerializer friends
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
-    friend LayerAndroid* android::deserializeLayer(SkStream* stream);
+    friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
     void obtainTextureForPainting(LayerAndroid* drawingLayer);
@@ -296,7 +262,8 @@ public:
     bool updateWithTree(LayerAndroid*);
     virtual bool updateWithLayer(LayerAndroid*);
 
-    int type() { return m_type; }
+    LayerType type() { return m_type; }
+    SubclassType subclassType() { return m_subclassType; }
 
     bool hasText() { return m_hasText; }
     void checkForPictureOptimizations();
@@ -312,7 +279,9 @@ public:
 
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra);
+
     IntPoint m_offset;
+    IntPoint m_iframeOffset;
     IntPoint m_iframeScrollOffset;
     TransformationMatrix m_drawTransform;
 
@@ -330,23 +299,8 @@ private:
     // -------------------------------------------------------------------
 
     bool m_haveClip;
-    bool m_isFixed;
     bool m_backgroundColorSet;
     bool m_isIframe;
-
-    SkLength m_fixedLeft;
-    SkLength m_fixedTop;
-    SkLength m_fixedRight;
-    SkLength m_fixedBottom;
-    SkLength m_fixedMarginLeft;
-    SkLength m_fixedMarginTop;
-    SkLength m_fixedMarginRight;
-    SkLength m_fixedMarginBottom;
-    SkRect m_fixedRect;
-
-    // When fixed element is undefined or auto, the render layer's position
-    // is needed for offset computation
-    IntPoint m_renderLayerPos;
 
     bool m_backfaceVisibility;
     bool m_visible;
@@ -375,8 +329,6 @@ private:
     // Fields that are not serialized (generated, cached, or non-serializable)
     // -------------------------------------------------------------------
 
-    SkPoint m_iframeOffset;
-
     float m_zValue;
 
     FloatRect m_clippingRect;
@@ -403,7 +355,8 @@ private:
 
     RenderLayer* m_owningLayer;
 
-    int m_type;
+    LayerType m_type;
+    SubclassType m_subclassType;
 
     bool m_hasText;
 

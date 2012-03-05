@@ -22,6 +22,7 @@
 #include "AndroidAnimation.h"
 #include "Animation.h"
 #include "FloatRect.h"
+#include "FixedLayerAndroid.h"
 #include "GraphicsContext.h"
 #include "Image.h"
 #include "ImagesManager.h"
@@ -264,11 +265,23 @@ void GraphicsLayerAndroid::updateFixedPosition()
         SkRect viewRect;
         viewRect.set(paintingOffsetX, paintingOffsetY, paintingOffsetX + w, paintingOffsetY + h);
         IntPoint renderLayerPos(renderLayer->x(), renderLayer->y());
-        m_contentLayer->setFixedPosition(left, top, right, bottom,
+
+        if (!m_contentLayer->isFixed()) {
+            FixedLayerAndroid* layer = new FixedLayerAndroid(*m_contentLayer);
+            m_contentLayer->unref();
+            m_contentLayer = layer;
+        }
+
+        FixedLayerAndroid* layer = static_cast<FixedLayerAndroid*>(m_contentLayer);
+        layer->setFixedPosition(left, top, right, bottom,
                                          marginLeft, marginTop,
                                          marginRight, marginBottom,
                                          renderLayerPos,
                                          viewRect);
+    } else if (m_contentLayer->isFixed()) {
+        LayerAndroid* layer = new LayerAndroid(*m_contentLayer);
+        m_contentLayer->unref();
+        m_contentLayer = layer;
     }
 }
 
