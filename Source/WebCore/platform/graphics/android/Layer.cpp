@@ -158,10 +158,6 @@ void Layer::localToAncestor(const Layer* ancestor, SkMatrix* matrix) const {
 
 ///////////////////////////////////////////////////////////////////////////////
 
-void Layer::onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra) {
-//    SkDebugf("----- no onDraw for %p\n", this);
-}
-
 #include "SkString.h"
 
 void Layer::draw(SkCanvas* canvas, android::DrawExtra* extra, SkScalar opacity) {
@@ -193,7 +189,7 @@ void Layer::draw(SkCanvas* canvas, android::DrawExtra* extra, SkScalar opacity) 
         canvas->concat(tmp);
     }
 
-    onDraw(canvas, opacity, extra);
+    onDraw(canvas, opacity, extra, FlattenedLayers);
 
 #ifdef DEBUG_DRAW_LAYER_BOUNDS
     {

@@ -682,7 +682,12 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     layer->updateLayerPosition();
     layer->updateZOrderLists();
     layer->updateNormalFlowList();
-    
+#if PLATFORM(ANDROID)
+    RenderObject* renderer = layer->renderer();
+    bool intCom = requiresCompositingLayer(layer);
+    layer->setIntrinsicallyComposited(intCom);
+#endif
+
     // Clear the flag
     layer->setHasCompositingDescendant(false);
     

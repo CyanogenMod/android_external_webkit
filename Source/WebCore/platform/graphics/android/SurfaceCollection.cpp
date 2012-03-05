@@ -72,7 +72,9 @@ SurfaceCollection::SurfaceCollection(BaseLayerAndroid* baseLayer)
 
         // allocate groups for layers, merging where possible
         XLOG("new tree, allocating groups for tree %p", m_baseLayer);
-        m_compositedRoot->assignGroups(&m_layerGroups);
+
+        LayerMergeState layerMergeState(&m_layerGroups);
+        m_compositedRoot->assignGroups(&layerMergeState);
     }
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("SurfaceCollection");
@@ -183,7 +185,7 @@ void SurfaceCollection::drawCanvas(SkCanvas* canvas, bool drawLayers)
 
     // draw the layers onto the same canvas (for single surface mode)
     if (drawLayers && m_compositedRoot)
-        m_compositedRoot->drawCanvas(canvas);
+        m_compositedRoot->drawCanvas(canvas, true, Layer::FlattenedLayers);
 }
 
 
@@ -198,12 +200,20 @@ void SurfaceCollection::setIsPainting(SurfaceCollection* drawingSurface)
 
     m_baseLayer->setIsPainting();
 
-    LayerAndroid* oldCompositedSurface = 0;
-    if (drawingSurface)
-        oldCompositedSurface = drawingSurface->m_compositedRoot;
+    if (!drawingSurface)
+        return;
 
-    if (m_compositedRoot)
-        m_compositedRoot->setIsPainting(oldCompositedSurface);
+    for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
+        LayerGroup* newLayerGroup = m_layerGroups[i];
+        if (!newLayerGroup->needsTexture())
+            continue;
+
+        for (unsigned int j = 0; j < drawingSurface->m_layerGroups.size(); j++) {
+            LayerGroup* oldLayerGroup = drawingSurface->m_layerGroups[j];
+            if (newLayerGroup->tryUpdateLayerGroup(oldLayerGroup))
+                break;
+        }
+    }
 }
 
 void SurfaceCollection::setIsDrawing()

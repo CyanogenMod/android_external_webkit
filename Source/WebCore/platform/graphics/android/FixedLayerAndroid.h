@@ -95,7 +95,7 @@ public:
     virtual LayerAndroid* updateFixedLayerPosition(SkRect viewPort,
                                                    LayerAndroid* parentIframeLayer);
 
-    virtual void contentDraw(SkCanvas*);
+    virtual void contentDraw(SkCanvas* canvas, PaintStyle style);
 
     virtual void dumpLayer(FILE*, int indentLevel) const;
 

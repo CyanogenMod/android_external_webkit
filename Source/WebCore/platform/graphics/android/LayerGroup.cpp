@@ -53,13 +53,12 @@
 // LayerGroups with an area larger than 2048*2048 should never be unclipped
 #define MAX_UNCLIPPED_AREA 4194304
 
-#define TEMP_LAYER m_layers[0]
-
 namespace WebCore {
 
 LayerGroup::LayerGroup()
-    : m_hasText(false)
-    , m_dualTiledTexture(0)
+    : m_dualTiledTexture(0)
+    , m_needsTexture(false)
+    , m_hasText(false)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerGroup");
@@ -77,61 +76,140 @@ LayerGroup::~LayerGroup()
 #endif
 }
 
-void LayerGroup::initializeGroup(LayerAndroid* newLayer, const SkRegion& newLayerInval,
-                                 LayerAndroid* oldLayer)
+bool LayerGroup::tryUpdateLayerGroup(LayerGroup* oldLayerGroup)
 {
-    if (!newLayer->needsTexture())
-        return;
+    if (!needsTexture() || !oldLayerGroup->needsTexture())
+        return false;
 
-    XLOG("init on LG %p, layer %p, oldlayer %p", this, newLayer, oldLayer);
-    if (oldLayer && oldLayer->group() && oldLayer->group()->m_dualTiledTexture) {
-        // steal DTT from old group, and apply new inval
-        m_dualTiledTexture = oldLayer->group()->m_dualTiledTexture;
-        SkSafeRef(m_dualTiledTexture);
-        m_dualTiledTexture->markAsDirty(newLayerInval);
-    } else
-        m_dualTiledTexture = new DualTiledTexture();
- }
+    // merge layer group based on first layer ID
+    if (getFirstLayer()->uniqueId() != oldLayerGroup->getFirstLayer()->uniqueId())
+        return false;
 
-void LayerGroup::addLayer(LayerAndroid* layer)
+    m_dualTiledTexture = oldLayerGroup->m_dualTiledTexture;
+    SkSafeRef(m_dualTiledTexture);
+
+    XLOG("%p taking old DTT %p from group %p, nt %d",
+         this, m_dualTiledTexture, oldLayerGroup, oldLayerGroup->needsTexture());
+
+    if (!m_dualTiledTexture) {
+        // no DTT to inval, so don't worry about it.
+        return true;
+    }
+
+    if (singleLayer() && oldLayerGroup->singleLayer()) {
+        // both are single matching layers, simply apply inval
+        SkRegion* layerInval = getFirstLayer()->getInvalRegion();
+        m_dualTiledTexture->markAsDirty(*layerInval);
+    } else {
+        bool inval = false;
+        for (unsigned int i = 0; i < m_layers.size(); i++) {
+            if (m_layers[i]->uniqueId() != oldLayerGroup->m_layers[i]->uniqueId()
+                || !m_layers[i]->getInvalRegion()->isEmpty()) {
+                // layer list has changed, or one has been inval'd
+                inval = true;
+                break;
+            }
+        }
+
+        if (inval) {
+            // fully invalidate the layer
+            // TODO: partial multi-layer invalidations
+            SkRegion inval;
+            inval.setRect(-1e8, -1e8, 2e8, 2e8);
+            m_dualTiledTexture->markAsDirty(inval);
+        }
+    }
+    return true;
+}
+
+void LayerGroup::addLayer(LayerAndroid* layer, const TransformationMatrix& transform)
 {
     m_layers.append(layer);
     SkSafeRef(layer);
+
+    m_needsTexture |= layer->needsTexture();
+    m_hasText |= layer->hasText();
+
+    // calculate area size for comparison later
+    IntRect rect = layer->unclippedArea();
+    SkPoint pos = layer->getPosition();
+    rect.setLocation(IntPoint(pos.fX, pos.fY));
+
+    if (layer->needsTexture()) {
+        if (m_unclippedArea.isEmpty()) {
+            m_drawTransform = transform;
+            m_drawTransform.translate3d(-pos.fX, -pos.fY, 0);
+            m_unclippedArea = rect;
+        } else
+            m_unclippedArea.unite(rect);
+        XLOG("LG %p adding LA %p, size  %d, %d  %dx%d, now LG size %d,%d  %dx%d",
+             this, layer, rect.x(), rect.y(), rect.width(), rect.height(),
+             m_unclippedArea.x(), m_unclippedArea.y(),
+             m_unclippedArea.width(), m_unclippedArea.height());
+    }
+}
+
+IntRect LayerGroup::visibleArea()
+{
+    if (singleLayer())
+        return getFirstLayer()->visibleArea();
+
+    IntRect rect = m_unclippedArea;
+
+    // clip with the viewport in documents coordinate
+    IntRect documentViewport(TilesManager::instance()->shader()->documentViewport());
+    rect.intersect(documentViewport);
+
+    // TODO: handle recursive layer clip
+
+    return rect;
 }
 
 void LayerGroup::prepareGL(bool layerTilesDisabled)
 {
-    if (!m_dualTiledTexture)
-        return;
+    if (!m_dualTiledTexture) {
+        XLOG("prepareGL on LG %p, no DTT, needsTexture? %d",
+             this, m_dualTiledTexture, needsTexture());
+
+        if (needsTexture())
+            m_dualTiledTexture = new DualTiledTexture();
+        else
+            return;
+    }
 
     if (layerTilesDisabled) {
         m_dualTiledTexture->discardTextures();
     } else {
-        XLOG("prepareGL on LG %p with DTT %p", this, m_dualTiledTexture);
-        bool allowZoom = m_hasText; // only allow for scale > 1 if painting vectors
+        bool allowZoom = hasText(); // only allow for scale > 1 if painting vectors
         IntRect prepareArea = computePrepareArea();
-        m_dualTiledTexture->prepareGL(TEMP_LAYER->state(), TEMP_LAYER->hasText(),
+
+        XLOG("prepareGL on LG %p with DTT %p, %d layers",
+             this, m_dualTiledTexture, m_layers.size());
+        m_dualTiledTexture->prepareGL(getFirstLayer()->state(), allowZoom,
                                       prepareArea, this);
     }
 }
 
 bool LayerGroup::drawGL(bool layerTilesDisabled)
 {
-    if (!TEMP_LAYER->visible())
+    if (!getFirstLayer()->visible())
         return false;
 
-    FloatRect drawClip = TEMP_LAYER->drawClip();
+    FloatRect drawClip = getFirstLayer()->drawClip();
     FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip);
     TilesManager::instance()->shader()->clip(clippingRect);
 
     bool askRedraw = false;
     if (m_dualTiledTexture && !layerTilesDisabled) {
         XLOG("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
-        IntRect visibleArea = TEMP_LAYER->visibleArea();
-        const TransformationMatrix* transform = TEMP_LAYER->drawTransform();
-        askRedraw |= m_dualTiledTexture->drawGL(visibleArea, opacity(), transform);
+
+        IntRect drawArea = visibleArea();
+        askRedraw |= m_dualTiledTexture->drawGL(drawArea, opacity(), drawTransform());
     }
-    askRedraw |= TEMP_LAYER->drawGL(layerTilesDisabled);
+
+    // draw member layers (draws image textures, glextras)
+    for (unsigned int i = 0; i < m_layers.size(); i++)
+        askRedraw |= m_layers[i]->drawGL(layerTilesDisabled);
 
     return askRedraw;
 }
@@ -155,15 +233,16 @@ bool LayerGroup::isReady()
 IntRect LayerGroup::computePrepareArea() {
     IntRect area;
 
-    if (!TEMP_LAYER->contentIsScrollable()
-        && TEMP_LAYER->state()->layersRenderingMode() == GLWebViewState::kAllTextures) {
-        area = TEMP_LAYER->unclippedArea();
+    if (!getFirstLayer()->contentIsScrollable()
+        && getFirstLayer()->state()->layersRenderingMode() == GLWebViewState::kAllTextures) {
+
+        area = singleLayer() ? getFirstLayer()->unclippedArea() : m_unclippedArea;
 
         double total = ((double) area.width()) * ((double) area.height());
         if (total > MAX_UNCLIPPED_AREA)
-            area = TEMP_LAYER->visibleArea();
+            area = visibleArea();
     } else {
-        area = TEMP_LAYER->visibleArea();
+        area = visibleArea();
     }
 
     return area;
@@ -174,26 +253,48 @@ void LayerGroup::computeTexturesAmount(TexturesResult* result)
     if (!m_dualTiledTexture)
         return;
 
-    // TODO: don't calculate through layer recursion, use the group list
-    m_dualTiledTexture->computeTexturesAmount(result, TEMP_LAYER);
+    m_dualTiledTexture->computeTexturesAmount(result, getFirstLayer());
 }
 
 bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
 {
-    SkPicture *picture = TEMP_LAYER->picture();
-    if (!picture) {
-        XLOGC("LG %p couldn't paint, no picture in layer %p", this, TEMP_LAYER);
-        return false;
+    if (singleLayer()) {
+        getFirstLayer()->contentDraw(canvas, Layer::UnmergedLayers);
+    } else {
+        SkAutoCanvasRestore acr(canvas, true);
+        SkMatrix matrix;
+        GLUtils::toSkMatrix(matrix, m_drawTransform);
+
+        SkMatrix inverse;
+        inverse.reset();
+        matrix.invert(&inverse);
+
+        SkMatrix canvasMatrix = canvas->getTotalMatrix();
+        inverse.postConcat(canvasMatrix);
+        canvas->setMatrix(inverse);
+
+        for (unsigned int i=0; i<m_layers.size(); i++)
+            m_layers[i]->drawCanvas(canvas, false, Layer::MergedLayers);
     }
-
-    canvas->drawPicture(*picture);
-
     return true;
 }
 
 float LayerGroup::opacity()
 {
-    return TEMP_LAYER->getOpacity();
+    if (singleLayer())
+        return getFirstLayer()->getOpacity();
+    return 1.0;
+}
+
+const TransformationMatrix* LayerGroup::drawTransform()
+{
+    // single layer groups query the layer's draw transform, while multi-layer
+    // groups copy the draw transform once, during initialization
+    // TODO: support fixed multi-layer groups by querying the changing drawTransform
+    if (singleLayer())
+        return getFirstLayer()->drawTransform();
+
+    return &m_drawTransform;
 }
 
 } // namespace WebCore

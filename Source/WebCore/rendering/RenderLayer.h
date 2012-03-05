@@ -498,6 +498,12 @@ public:
     bool hasOverflowScroll() const { return m_hasOverflowScroll; }
     bool hasOverflowParent() const;
 #endif
+#if PLATFORM(ANDROID)
+    bool intrinsicallyComposited() const { return m_intrinsicallyComposited; }
+    void setIntrinsicallyComposited(bool intrinsicallyComposited) {
+        m_intrinsicallyComposited = intrinsicallyComposited;
+    }
+#endif
 
 private:
     // The normal operator new is disallowed on all render objects.
@@ -750,6 +756,9 @@ protected:
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     bool m_shouldComposite : 1;
 #endif
+#endif
+#if PLATFORM(ANDROID)
+    bool m_intrinsicallyComposited : 1;
 #endif
 
     bool m_containsDirtyOverlayScrollbars : 1;
