@@ -32,6 +32,8 @@
 #include "SkRefCnt.h"
 #include "Vector.h"
 
+#include <utils/threads.h>
+
 namespace WebCore {
 
 class ImageTexture;
