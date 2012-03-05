@@ -390,18 +390,12 @@ static jmethodID GetJMethod(JNIEnv* env, jclass clazz, const char name[], const 
 }
 
 WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* mainframe)
-    : m_moveGeneration(0)
-    , m_touchGeneration(0)
+    : m_touchGeneration(0)
     , m_lastGeneration(0)
-    , m_findIsUp(false)
     , m_javaGlue(new JavaGlue)
     , m_mainFrame(mainframe)
     , m_popupReply(0)
-    , m_lastFocused(0)
-    , m_lastFocusedBounds(WebCore::IntRect(0,0,0,0))
     , m_blurringNodePointer(0)
-    , m_lastFocusedSelStart(0)
-    , m_lastFocusedSelEnd(0)
     , m_blockTextfieldUpdates(false)
     , m_focusBoundsChanged(false)
     , m_skipContentDraw(false)
@@ -411,14 +405,11 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_scrollOffsetX(0)
     , m_scrollOffsetY(0)
     , m_mousePos(WebCore::IntPoint(0,0))
-    , m_frameCacheOutOfDate(true)
     , m_progressDone(false)
     , m_screenWidth(320)
     , m_screenHeight(240)
     , m_textWrapWidth(320)
     , m_scale(1.0f)
-    , m_domtree_version(0)
-    , m_check_domtree_version(true)
     , m_groupForVisitedLinks(0)
     , m_isPaused(false)
     , m_cacheMode(0)
@@ -1075,11 +1066,10 @@ void WebViewCore::requestKeyboard(bool showKeyboard)
 
 void WebViewCore::notifyProgressFinished()
 {
-    m_check_domtree_version = true;
     sendNotifyProgressFinished();
 }
 
-void WebViewCore::setScrollOffset(int moveGeneration, bool sendScrollEvent, int dx, int dy)
+void WebViewCore::setScrollOffset(bool sendScrollEvent, int dx, int dy)
 {
     if (m_scrollOffsetX != dx || m_scrollOffsetY != dy) {
         m_scrollOffsetX = dx;
@@ -1450,7 +1440,7 @@ VisiblePosition WebViewCore::visiblePositionForContentPoint(const IntPoint& poin
 void WebViewCore::selectWordAt(int x, int y)
 {
     HitTestResult hoverResult;
-    moveMouse(m_mainFrame, x, y, &hoverResult);
+    moveMouse(x, y, &hoverResult);
     if (hoverResult.innerNode()) {
         Node* node = hoverResult.innerNode();
         Frame* frame = node->document()->frame();
@@ -1682,7 +1672,7 @@ void WebViewCore::selectText(int startX, int startY, int endX, int endY)
 AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool doMoveMouse)
 {
     if (doMoveMouse)
-        moveMouse(m_mainFrame, x, y);
+        moveMouse(x, y);
     HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
             false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
     AndroidHitTestResult androidHitResult(this, hitTestResult);
@@ -1845,7 +1835,7 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
             testRect.move(frameAdjust.x(), frameAdjust.y());
             testRect.intersect(rect);
             if (!testRect.contains(x, y))
-                moveMouse(m_mainFrame, testRect.center().x(), testRect.center().y());
+                moveMouse(testRect.center().x(), testRect.center().y());
         }
     } else {
         androidHitResult.searchContentDetectors();
@@ -2022,39 +2012,10 @@ static PluginView* nodeIsPlugin(Node* node) {
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-void WebViewCore::moveMouseIfLatest(int moveGeneration,
-    WebCore::Frame* frame, int x, int y)
-{
-    if (m_moveGeneration > moveGeneration) {
-        return; // short-circuit if a newer move has already been generated
-    }
-    m_lastGeneration = moveGeneration;
-    moveMouse(frame, x, y);
-}
-
-void WebViewCore::moveFocus(WebCore::Frame* frame, WebCore::Node* node)
-{
-    if (!node || !validNode(m_mainFrame, frame, node)
-            || !node->isElementNode())
-        return;
-    // Code borrowed from FocusController::advanceFocus
-    WebCore::FocusController* focusController
-            = m_mainFrame->page()->focusController();
-    WebCore::Document* oldDoc
-            = focusController->focusedOrMainFrame()->document();
-    if (oldDoc->focusedNode() == node)
-        return;
-    if (node->document() != oldDoc)
-        oldDoc->setFocusedNode(0);
-    focusController->setFocusedFrame(frame);
-    static_cast<WebCore::Element*>(node)->focus(false);
-}
 
 // Update mouse position
-void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* hoveredNode)
+void WebViewCore::moveMouse(int x, int y, HitTestResult* hoveredNode)
 {
-    if (!frame || !validNode(m_mainFrame, frame, 0))
-        frame = m_mainFrame;
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
     // validNode will still return true if the node is null, as long as we have
@@ -2062,7 +2023,7 @@ void WebViewCore::moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* 
     WebCore::PlatformMouseEvent mouseEvent(m_mousePos, m_mousePos,
         WebCore::NoButton, WebCore::MouseEventMoved, 1, false, false, false,
         false, WTF::currentTime());
-    frame->eventHandler()->handleMouseMoveEvent(mouseEvent, hoveredNode);
+    m_mainFrame->eventHandler()->handleMouseMoveEvent(mouseEvent, hoveredNode);
 }
 
 Position WebViewCore::getPositionForOffset(Node* node, int offset)
@@ -3159,7 +3120,7 @@ void WebViewCore::touchUp(int touchGeneration,
             return; // short circuit if a newer touch has been generated
         // This moves m_mousePos to the correct place, and handleMouseClick uses
         // m_mousePos to determine where the click happens.
-        moveMouse(frame, x, y);
+        moveMouse(x, y);
         m_lastGeneration = touchGeneration;
     }
     if (frame && validNode(m_mainFrame, frame, 0)) {
@@ -3859,21 +3820,6 @@ void WebViewCore::keepScreenOn(bool screenOn) {
         m_screenOnCounter--;
 }
 
-bool WebViewCore::validNodeAndBounds(Frame* frame, Node* node,
-    const IntRect& originalAbsoluteBounds)
-{
-    bool valid = validNode(m_mainFrame, frame, node);
-    if (!valid)
-        return false;
-    RenderObject* renderer = node->renderer();
-    if (!renderer)
-        return false;
-    IntRect absBounds = node->hasTagName(HTMLNames::areaTag)
-        ? getAreaRect(static_cast<HTMLAreaElement*>(node))
-        : renderer->absoluteBoundingBoxRect();
-    return absBounds == originalAbsoluteBounds;
-}
-
 void WebViewCore::showRect(int left, int top, int width, int height,
         int contentWidth, int contentHeight, float xPercentInDoc,
         float xPercentInView, float yPercentInDoc, float yPercentInView)
@@ -4241,10 +4187,6 @@ static void ClearContent(JNIEnv* env, jobject obj, jint nativeClass)
     viewImpl->clearContent();
 }
 
-static void UpdateFrameCacheIfLoading(JNIEnv* env, jobject obj, jint nativeClass)
-{
-}
-
 static void SetSize(JNIEnv* env, jobject obj, jint nativeClass, jint width,
         jint height, jint textWrapWidth, jfloat scale, jint screenWidth,
         jint screenHeight, jint anchorX, jint anchorY, jboolean ignoreHeight)
@@ -4257,12 +4199,12 @@ static void SetSize(JNIEnv* env, jobject obj, jint nativeClass, jint width,
 }
 
 static void SetScrollOffset(JNIEnv* env, jobject obj, jint nativeClass,
-        jint gen, jboolean sendScrollEvent, jint x, jint y)
+        jboolean sendScrollEvent, jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     ALOG_ASSERT(viewImpl, "need viewImpl");
 
-    viewImpl->setScrollOffset(gen, sendScrollEvent, x, y);
+    viewImpl->setScrollOffset(sendScrollEvent, x, y);
 }
 
 static void SetGlobalBounds(JNIEnv* env, jobject obj, jint nativeClass,
@@ -4355,13 +4297,12 @@ static void SetFocusControllerActive(JNIEnv* env, jobject obj, jint nativeClass,
     viewImpl->setFocusControllerActive(active);
 }
 
-static void SaveDocumentState(JNIEnv* env, jobject obj, jint nativeClass,
-        jint frame)
+static void SaveDocumentState(JNIEnv* env, jobject obj, jint nativeClass)
 {
     ALOGV("webviewcore::nativeSaveDocumentState()\n");
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     ALOG_ASSERT(viewImpl, "viewImpl not set in nativeSaveDocumentState");
-    viewImpl->saveDocumentState((WebCore::Frame*) frame);
+    viewImpl->saveDocumentState(viewImpl->focusedFrame());
 }
 
 void WebViewCore::addVisitedLink(const UChar* string, int length)
@@ -4521,33 +4462,11 @@ static jstring RetrieveImageSource(JNIEnv* env, jobject obj, jint nativeClass,
     return !result.isEmpty() ? wtfStringToJstring(env, result) : 0;
 }
 
-static void MoveFocus(JNIEnv* env, jobject obj, jint nativeClass, jint framePtr,
-        jint nodePtr)
+static void MoveMouse(JNIEnv* env, jobject obj, jint nativeClass, jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->moveFocus((WebCore::Frame*) framePtr, (WebCore::Node*) nodePtr);
-}
-
-static void MoveMouse(JNIEnv* env, jobject obj, jint nativeClass, jint frame,
-        jint x, jint y)
-{
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->moveMouse((WebCore::Frame*) frame, x, y);
-}
-
-static void MoveMouseIfLatest(JNIEnv* env, jobject obj, jint nativeClass,
-        jint moveGeneration, jint frame, jint x, jint y)
-{
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->moveMouseIfLatest(moveGeneration,
-        (WebCore::Frame*) frame, x, y);
-}
-
-static void UpdateFrameCache(JNIEnv* env, jobject obj, jint nativeClass)
-{
+    viewImpl->moveMouse(x, y);
 }
 
 static jint GetContentMinPrefWidth(JNIEnv* env, jobject obj, jint nativeClass)
@@ -4614,10 +4533,6 @@ static void DumpRenderTree(JNIEnv* env, jobject obj, jint nativeClass,
     ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
 
     viewImpl->dumpRenderTree(useFile);
-}
-
-static void DumpNavTree(JNIEnv* env, jobject obj, jint nativeClass)
-{
 }
 
 static void SetJsFlags(JNIEnv* env, jobject obj, jint nativeClass, jstring flags)
@@ -4776,16 +4691,6 @@ static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
     return WebCore::IntRect(L, T, R - L, B - T);
 }
 
-static bool ValidNodeAndBounds(JNIEnv* env, jobject obj, jint nativeClass,
-        int frame, int node, jobject rect)
-{
-    IntRect nativeRect = jrect_to_webrect(env, rect);
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    return viewImpl->validNodeAndBounds(
-            reinterpret_cast<Frame*>(frame),
-            reinterpret_cast<Node*>(node), nativeRect);
-}
-
 static jobject HitTest(JNIEnv* env, jobject obj, jint nativeClass, jint x,
                        jint y, jint slop, jboolean doMoveMouse)
 {
@@ -4920,7 +4825,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SendListBoxChoice },
     { "nativeSetSize", "(IIIIFIIIIZ)V",
         (void*) SetSize },
-    { "nativeSetScrollOffset", "(IIZII)V",
+    { "nativeSetScrollOffset", "(IZII)V",
         (void*) SetScrollOffset },
     { "nativeSetGlobalBounds", "(IIIII)V",
         (void*) SetGlobalBounds },
@@ -4932,19 +4837,15 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DeleteSelection } ,
     { "nativeReplaceTextfieldText", "(IIILjava/lang/String;III)V",
         (void*) ReplaceTextfieldText } ,
-    { "nativeMoveFocus", "(III)V",
-        (void*) MoveFocus },
-    { "nativeMoveMouse", "(IIII)V",
+    { "nativeMoveMouse", "(III)V",
         (void*) MoveMouse },
-    { "nativeMoveMouseIfLatest", "(IIIII)V",
-        (void*) MoveMouseIfLatest },
     { "passToJs", "(IILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs },
     { "nativeScrollFocusedTextInput", "(IFI)V",
         (void*) ScrollFocusedTextInput },
     { "nativeSetFocusControllerActive", "(IZ)V",
         (void*) SetFocusControllerActive },
-    { "nativeSaveDocumentState", "(II)V",
+    { "nativeSaveDocumentState", "(I)V",
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
@@ -4958,8 +4859,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RetrieveAnchorText },
     { "nativeRetrieveImageSource", "(III)Ljava/lang/String;",
         (void*) RetrieveImageSource },
-    { "nativeUpdateFrameCache", "(I)V",
-        (void*) UpdateFrameCache },
     { "nativeGetContentMinPrefWidth", "(I)I",
         (void*) GetContentMinPrefWidth },
     { "nativeUpdateLayers", "(II)Z",
@@ -4980,8 +4879,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) DumpDomTree },
     { "nativeDumpRenderTree", "(IZ)V",
         (void*) DumpRenderTree },
-    { "nativeDumpNavTree", "(I)V",
-        (void*) DumpNavTree },
     { "nativeSetNewStorageLimit", "(IJ)V",
         (void*) SetNewStorageLimit },
     { "nativeGeolocationPermissionsProvide", "(ILjava/lang/String;ZZ)V",
@@ -4994,16 +4891,12 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeRequestLabel", "(III)Ljava/lang/String;",
         (void*) RequestLabel },
     { "nativeRevealSelection", "(I)V", (void*) RevealSelection },
-    { "nativeUpdateFrameCacheIfLoading", "(I)V",
-        (void*) UpdateFrameCacheIfLoading },
     { "nativeProvideVisitedHistory", "(I[Ljava/lang/String;)V",
         (void*) ProvideVisitedHistory },
     { "nativeFullScreenPluginHidden", "(II)V",
         (void*) FullScreenPluginHidden },
     { "nativePluginSurfaceReady", "(I)V",
         (void*) PluginSurfaceReady },
-    { "nativeValidNodeAndBounds", "(IIILandroid/graphics/Rect;)Z",
-        (void*) ValidNodeAndBounds },
     { "nativeHitTest", "(IIIIZ)Landroid/webkit/WebViewCore$WebKitHitTest;",
         (void*) HitTest },
     { "nativeAutoFillForm", "(II)V",

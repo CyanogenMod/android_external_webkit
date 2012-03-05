@@ -302,13 +302,10 @@ namespace android {
         // scroll the selection on screen (if necessary).
         void revealSelection();
 
-        void moveFocus(WebCore::Frame* frame, WebCore::Node* node);
-        void moveMouse(WebCore::Frame* frame, int x, int y, HitTestResult* hoveredNode = 0);
-        void moveMouseIfLatest(int moveGeneration,
-            WebCore::Frame* frame, int x, int y);
+        void moveMouse(int x, int y, HitTestResult* hoveredNode = 0);
 
         // set the scroll amount that webview.java is currently showing
-        void setScrollOffset(int moveGeneration, bool sendScrollEvent, int dx, int dy);
+        void setScrollOffset(bool sendScrollEvent, int dx, int dy);
 
         void setGlobalBounds(int x, int y, int h, int v);
 
@@ -495,8 +492,6 @@ namespace android {
         // Manages requests to keep the screen on while the WebView is visible
         void keepScreenOn(bool screenOn);
 
-        bool validNodeAndBounds(Frame* , Node* , const IntRect& );
-
         // Make the rect (left, top, width, height) visible. If it can be fully
         // fit, center it on the screen. Otherwise make sure the point specified
         // by (left + xPercentInDoc * width, top + yPercentInDoc * height)
@@ -609,10 +604,8 @@ namespace android {
         WebCore::VisiblePosition visiblePositionForWindowPoint(int x, int y);
 
         // these members are shared with webview.cpp
-        int m_moveGeneration; // copy of state in WebViewNative triggered by move
         int m_touchGeneration; // copy of state in WebViewNative triggered by touch
         int m_lastGeneration; // last action using up to date cache
-        bool m_findIsUp;
         // end of shared members
 
         // internal functions
@@ -727,11 +720,7 @@ namespace android {
         struct JavaGlue*       m_javaGlue;
         WebCore::Frame*        m_mainFrame;
         WebCoreReply*          m_popupReply;
-        WebCore::Node* m_lastFocused;
-        WebCore::IntRect m_lastFocusedBounds;
         int m_blurringNodePointer;
-        int m_lastFocusedSelStart;
-        int m_lastFocusedSelEnd;
         PictureSet m_content; // the set of pictures to draw
         SkRegion m_addInval; // the accumulated inval region (not yet drawn)
         SkRegion m_rebuildInval; // the accumulated region for rebuilt pictures
@@ -748,14 +737,11 @@ namespace android {
         int m_scrollOffsetX; // webview.java's current scroll in X
         int m_scrollOffsetY; // webview.java's current scroll in Y
         WebCore::IntPoint m_mousePos;
-        bool m_frameCacheOutOfDate;
         bool m_progressDone;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
         int m_textWrapWidth;
         float m_scale;
-        unsigned m_domtree_version;
-        bool m_check_domtree_version;
         PageGroup* m_groupForVisitedLinks;
         bool m_isPaused;
         int m_cacheMode;
