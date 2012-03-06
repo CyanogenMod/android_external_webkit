@@ -366,6 +366,8 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_selectAt;
     jmethodID   m_initEditField;
     jmethodID   m_updateMatchCount;
+    jmethodID   m_chromeCanTakeFocus;
+    jmethodID   m_chromeTakeFocus;
     AutoJObject object(JNIEnv* env) {
         // We hold a weak reference to the Java WebViewCore to avoid memeory
         // leaks due to circular references when WebView.destroy() is not
@@ -482,6 +484,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
     m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZLjava/lang/String;IIII)V");
     m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
+    m_javaGlue->m_chromeCanTakeFocus = GetJMethod(env, clazz, "chromeCanTakeFocus", "(I)Z");
+    m_javaGlue->m_chromeTakeFocus = GetJMethod(env, clazz, "chromeTakeFocus", "(I)V");
     env->DeleteLocalRef(clazz);
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
@@ -2988,6 +2992,24 @@ bool WebViewCore::key(const PlatformKeyboardEvent& event)
         eventHandler = focusedFrame()->eventHandler();
     }
     return eventHandler->keyEvent(event);
+}
+
+bool WebViewCore::chromeCanTakeFocus(FocusDirection direction)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return false;
+    return env->CallBooleanMethod(javaObject.get(), m_javaGlue->m_chromeCanTakeFocus, direction);
+}
+
+void WebViewCore::chromeTakeFocus(FocusDirection direction)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_chromeTakeFocus, direction);
 }
 
 // For when the user clicks the trackball, presses dpad center, or types into an
