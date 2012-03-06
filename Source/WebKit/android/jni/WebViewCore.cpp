@@ -1501,6 +1501,8 @@ int WebViewCore::platformLayerIdFromNode(Node* node, LayerAndroid** outLayer)
     if (!node || !node->renderer())
         return -1;
     RenderLayer* renderLayer = node->renderer()->enclosingLayer();
+    while (renderLayer && !renderLayer->isComposited())
+        renderLayer = renderLayer->parent();
     if (!renderLayer || !renderLayer->isComposited())
         return -1;
     GraphicsLayer* graphicsLayer = renderLayer->backing()->graphicsLayer();
