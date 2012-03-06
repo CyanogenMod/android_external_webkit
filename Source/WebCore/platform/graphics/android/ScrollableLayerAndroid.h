@@ -68,7 +68,7 @@ public:
     bool scrollRectIntoView(const SkIRect&);
 
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
-    friend LayerAndroid* android::deserializeLayer(SkStream* stream);
+    friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
 
 private:
 

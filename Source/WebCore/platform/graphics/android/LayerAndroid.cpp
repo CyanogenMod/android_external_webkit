@@ -6,6 +6,7 @@
 #include "AndroidAnimation.h"
 #include "ClassTracker.h"
 #include "DrawExtra.h"
+#include "DumpLayer.h"
 #include "GLUtils.h"
 #include "ImagesManager.h"
 #include "InspectorCanvas.h"
@@ -57,9 +58,8 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
+LayerAndroid::LayerAndroid(RenderLayer* owner, SubclassType subclassType) : Layer(),
     m_haveClip(false),
-    m_isFixed(false),
     m_isIframe(false),
     m_backfaceVisibility(true),
     m_visible(true),
@@ -74,13 +74,13 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_lastComputeTextureSize(0),
     m_owningLayer(owner),
     m_type(LayerAndroid::WebCoreLayer),
+    m_subclassType(subclassType),
     m_hasText(true),
     m_layerGroup(0)
 {
     m_backgroundColor = 0;
 
     m_preserves3D = false;
-    m_iframeOffset.set(0,0);
     m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
@@ -88,7 +88,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 #endif
 }
 
-LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
+LayerAndroid::LayerAndroid(const LayerAndroid& layer, SubclassType subclassType) : Layer(layer),
     m_haveClip(layer.m_haveClip),
     m_isIframe(layer.m_isIframe),
     m_zValue(layer.m_zValue),
@@ -98,26 +98,20 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_hasText(true),
     m_layerGroup(0)
 {
-    m_isFixed = layer.m_isFixed;
     m_imageCRC = layer.m_imageCRC;
     if (m_imageCRC)
         ImagesManager::instance()->retainImage(m_imageCRC);
 
-    m_renderLayerPos = layer.m_renderLayerPos;
     m_transform = layer.m_transform;
     m_backfaceVisibility = layer.m_backfaceVisibility;
     m_visible = layer.m_visible;
     m_backgroundColor = layer.m_backgroundColor;
 
-    m_fixedLeft = layer.m_fixedLeft;
-    m_fixedTop = layer.m_fixedTop;
-    m_fixedRight = layer.m_fixedRight;
-    m_fixedBottom = layer.m_fixedBottom;
-    m_fixedMarginLeft = layer.m_fixedMarginLeft;
-    m_fixedMarginTop = layer.m_fixedMarginTop;
-    m_fixedMarginRight = layer.m_fixedMarginRight;
-    m_fixedMarginBottom = layer.m_fixedMarginBottom;
-    m_fixedRect = layer.m_fixedRect;
+    if (subclassType == LayerAndroid::CopyLayer)
+        m_subclassType = layer.m_subclassType;
+    else
+        m_subclassType = subclassType;
+
     m_iframeOffset = layer.m_iframeOffset;
     m_offset = layer.m_offset;
     m_iframeScrollOffset = layer.m_iframeScrollOffset;
@@ -174,7 +168,6 @@ void LayerAndroid::checkForPictureOptimizations()
 
 LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_haveClip(false),
-    m_isFixed(false),
     m_isIframe(false),
     m_recordingPicture(picture),
     m_zValue(0),
@@ -184,12 +177,12 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_lastComputeTextureSize(0),
     m_owningLayer(0),
     m_type(LayerAndroid::NavCacheLayer),
+    m_subclassType(LayerAndroid::StandardLayer),
     m_hasText(true),
     m_layerGroup(0)
 {
     m_backgroundColor = 0;
     SkSafeRef(m_recordingPicture);
-    m_iframeOffset.set(0,0);
     m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid - from picture");
@@ -389,74 +382,46 @@ void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
         getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
 }
 
-bool LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* parentIframeLayer)
+LayerAndroid* LayerAndroid::updateFixedLayerPosition(SkRect viewport,
+                                                     LayerAndroid* parentIframeLayer)
 {
-    bool hasFixedElements = false;
-    XLOG("updating fixed positions, using viewport %fx%f - %fx%f",
-         viewport.fLeft, viewport.fTop,
-         viewport.width(), viewport.height());
+    LayerAndroid* iframe = parentIframeLayer;
+
     // If this is an iframe, accumulate the offset from the parent with
     // current position, and change the parent pointer.
     if (m_isIframe) {
         // If this is the top level, take the current position
         SkPoint parentOffset;
         parentOffset.set(0,0);
-        if (parentIframeLayer)
-            parentOffset = parentIframeLayer->getPosition();
+        if (iframe)
+            parentOffset = iframe->getPosition();
 
-        m_iframeOffset = parentOffset + getPosition();
+        SkPoint offset = parentOffset + getPosition();
+        m_iframeOffset = IntPoint(offset.fX, offset.fY);
 
-        parentIframeLayer = this;
+        iframe = this;
     }
 
-    if (m_isFixed) {
-        hasFixedElements = true;
-        // So if this is a fixed layer inside a iframe, use the iframe offset
-        // and the iframe's size as the viewport and pass to the children
-        if (parentIframeLayer) {
-            viewport = SkRect::MakeXYWH(parentIframeLayer->m_iframeOffset.fX,
-                                 parentIframeLayer->m_iframeOffset.fY,
-                                 parentIframeLayer->getSize().width(),
-                                 parentIframeLayer->getSize().height());
-        }
-        float w = viewport.width();
-        float h = viewport.height();
-        float dx = viewport.fLeft;
-        float dy = viewport.fTop;
-        float x = dx;
-        float y = dy;
+    return iframe;
+}
 
-        // It turns out that when it is 'auto', we should use the webkit value
-        // from the original render layer's X,Y, that will take care of alignment
-        // with the parent's layer and fix Margin etc.
-        if (!(m_fixedLeft.defined() || m_fixedRight.defined()))
-            x += m_renderLayerPos.x();
-        else if (m_fixedLeft.defined() || !m_fixedRight.defined())
-            x += m_fixedMarginLeft.calcFloatValue(w) + m_fixedLeft.calcFloatValue(w) - m_fixedRect.fLeft;
-        else
-            x += w - m_fixedMarginRight.calcFloatValue(w) - m_fixedRight.calcFloatValue(w) - m_fixedRect.fRight;
+void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* parentIframeLayer)
+{
+    XLOG("updating fixed positions, using viewport %fx%f - %fx%f",
+         viewport.fLeft, viewport.fTop,
+         viewport.width(), viewport.height());
 
-        if (!(m_fixedTop.defined() || m_fixedBottom.defined()))
-            y += m_renderLayerPos.y();
-        else if (m_fixedTop.defined() || !m_fixedBottom.defined())
-            y += m_fixedMarginTop.calcFloatValue(h) + m_fixedTop.calcFloatValue(h) - m_fixedRect.fTop;
-        else
-            y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - m_fixedRect.fBottom;
-
-        this->setPosition(x, y);
-    }
+    LayerAndroid* iframeLayer = updateFixedLayerPosition(viewport, parentIframeLayer);
 
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        hasFixedElements |= this->getChild(i)->updateFixedLayersPositions(viewport, parentIframeLayer);
-
-    return hasFixedElements;
+        this->getChild(i)->updateFixedLayersPositions(viewport, iframeLayer);
 }
 
 void LayerAndroid::updatePositions()
 {
     // apply the viewport to us
-    if (!m_isFixed) {
+    if (!isFixed()) {
         // turn our fields into a matrix.
         //
         // FIXME: this should happen in the caller, and we should remove these
@@ -482,7 +447,7 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     float originX = anchorPoint.x() * layerSize.width();
     float originY = anchorPoint.y() * layerSize.height();
     TransformationMatrix localMatrix;
-    if (!m_isFixed)
+    if (!isFixed())
         localMatrix = parentMatrix;
     localMatrix.translate3d(originX + position.x(),
                             originY + position.y(),
@@ -635,9 +600,9 @@ void LayerAndroid::showLayer(int indent)
     IntRect visible = visibleArea();
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
-    XLOGC("%s [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
+    XLOGC("%s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
           "clip (%d, %d, %d, %d) %s %s prepareContext(%x), pic w: %d h: %d",
-          spaces, uniqueId(), m_owningLayer,
+          spaces, subclassName().latin1().data(), m_subclassType, uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           m_imageCRC ? "has an image" : "no image",
           tr.x(), tr.y(), tr.width(), tr.height(),
@@ -753,7 +718,7 @@ void LayerAndroid::assignGroups(Vector<LayerGroup*>* allGroups)
         currentLayerGroup = allGroups->at(0);
 
     // TODO: compare layer with group on top of stack - fixed? overscroll? transformed?
-    needsIsolation = m_isFixed || (m_animations.size() != 0);
+    needsIsolation = isFixed() || (m_animations.size() != 0);
 
     if (!currentLayerGroup || needsIsolation || true) {
         currentLayerGroup = new LayerGroup();
@@ -915,12 +880,6 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
         canvas->drawLine(0, h, w, h, paint);
         canvas->drawLine(w, h, w, 0, paint);
         canvas->drawLine(w, 0, 0, 0, paint);
-
-        if (m_isFixed) {
-          SkPaint paint;
-          paint.setARGB(80, 255, 0, 0);
-          canvas->drawRect(m_fixedRect, paint);
-        }
     }
 }
 
@@ -1018,116 +977,14 @@ SkRect LayerAndroid::subtractLayers(const SkRect& visibleRect) const
     return result;
 }
 
-// Debug tools : dump the layers tree in a file.
-// The format is simple:
-// properties have the form: key = value;
-// all statements are finished with a semi-colon.
-// value can be:
-// - int
-// - float
-// - array of elements
-// - composed type
-// a composed type enclose properties in { and }
-// an array enclose composed types in { }, separated with a comma.
-// exemple:
-// {
-//   x = 3;
-//   y = 4;
-//   value = {
-//     x = 3;
-//     y = 4;
-//   };
-//   anarray = [
-//     { x = 3; },
-//     { y = 4; }
-//   ];
-// }
-
-void lwrite(FILE* file, const char* str)
+void LayerAndroid::dumpLayer(FILE* file, int indentLevel) const
 {
-    fwrite(str, sizeof(char), strlen(str), file);
-}
-
-void writeIndent(FILE* file, int indentLevel)
-{
-    if (indentLevel)
-        fprintf(file, "%*s", indentLevel*2, " ");
-}
-
-void writeln(FILE* file, int indentLevel, const char* str)
-{
-    writeIndent(file, indentLevel);
-    lwrite(file, str);
-    lwrite(file, "\n");
-}
-
-void writeIntVal(FILE* file, int indentLevel, const char* str, int value)
-{
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = %d;\n", str, value);
-}
-
-void writeHexVal(FILE* file, int indentLevel, const char* str, int value)
-{
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = %x;\n", str, value);
-}
-
-void writeFloatVal(FILE* file, int indentLevel, const char* str, float value)
-{
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = %.3f;\n", str, value);
-}
-
-void writePoint(FILE* file, int indentLevel, const char* str, SkPoint point)
-{
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = { x = %.3f; y = %.3f; };\n", str, point.fX, point.fY);
-}
-
-void writeSize(FILE* file, int indentLevel, const char* str, SkSize size)
-{
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = { w = %.3f; h = %.3f; };\n", str, size.width(), size.height());
-}
-
-void writeRect(FILE* file, int indentLevel, const char* str, SkRect rect)
-{
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = { x = %.3f; y = %.3f; w = %.3f; h = %.3f; };\n",
-            str, rect.fLeft, rect.fTop, rect.width(), rect.height());
-}
-
-void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
-{
-    if (!length.defined())
-        return;
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
-}
-
-void writeMatrix(FILE* file, int indentLevel, const char* str, const TransformationMatrix& matrix)
-{
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = { (%.2f,%.2f,%.2f,%.2f),(%.2f,%.2f,%.2f,%.2f),"
-            "(%.2f,%.2f,%.2f,%.2f),(%.2f,%.2f,%.2f,%.2f) };\n",
-            str,
-            matrix.m11(), matrix.m12(), matrix.m13(), matrix.m14(),
-            matrix.m21(), matrix.m22(), matrix.m23(), matrix.m24(),
-            matrix.m31(), matrix.m32(), matrix.m33(), matrix.m34(),
-            matrix.m41(), matrix.m42(), matrix.m43(), matrix.m44());
-}
-
-void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
-{
-    writeln(file, indentLevel, "{");
-
     writeHexVal(file, indentLevel + 1, "layer", (int)this);
     writeIntVal(file, indentLevel + 1, "layerId", m_uniqueId);
     writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
-    writeIntVal(file, indentLevel + 1, "isFixed", m_isFixed);
+    writeIntVal(file, indentLevel + 1, "isFixed", isFixed());
     writeIntVal(file, indentLevel + 1, "m_isIframe", m_isIframe);
-    writePoint(file, indentLevel + 1, "m_iframeOffset", m_iframeOffset);
+    writeIntPoint(file, indentLevel + 1, "m_iframeOffset", m_iframeOffset);
 
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
     writeSize(file, indentLevel + 1, "size", getSize());
@@ -1138,22 +995,17 @@ void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
     writeMatrix(file, indentLevel + 1, "transformMatrix", m_transform);
     writeRect(file, indentLevel + 1, "clippingRect", SkRect(m_clippingRect));
 
-    if (m_isFixed) {
-        writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
-        writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);
-        writeLength(file, indentLevel + 1, "fixedRight", m_fixedRight);
-        writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
-        writeLength(file, indentLevel + 1, "fixedMarginLeft", m_fixedMarginLeft);
-        writeLength(file, indentLevel + 1, "fixedMarginTop", m_fixedMarginTop);
-        writeLength(file, indentLevel + 1, "fixedMarginRight", m_fixedMarginRight);
-        writeLength(file, indentLevel + 1, "fixedMarginBottom", m_fixedMarginBottom);
-        writeRect(file, indentLevel + 1, "fixedRect", m_fixedRect);
-    }
-
     if (m_recordingPicture) {
         writeIntVal(file, indentLevel + 1, "m_recordingPicture.width", m_recordingPicture->width());
         writeIntVal(file, indentLevel + 1, "m_recordingPicture.height", m_recordingPicture->height());
     }
+}
+
+void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
+{
+    writeln(file, indentLevel, "{");
+
+    dumpLayer(file, indentLevel);
 
     if (countChildren()) {
         writeln(file, indentLevel + 1, "children = [");

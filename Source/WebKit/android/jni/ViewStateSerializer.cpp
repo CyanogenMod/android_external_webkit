@@ -27,6 +27,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "CreateJavaOutputStreamAdaptor.h"
+#include "FixedLayerAndroid.h"
 #include "ImagesManager.h"
 #include "Layer.h"
 #include "LayerAndroid.h"
@@ -49,6 +50,9 @@
 #undef XLOG
 #define XLOG(...)
 
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ViewStateSerializer", __VA_ARGS__)
+
 #endif // DEBUG
 
 namespace android {
@@ -57,6 +61,7 @@ enum LayerTypes {
     LTNone = 0,
     LTLayerAndroid = 1,
     LTScrollableLayerAndroid = 2,
+    LTFixedLayerAndroid = 3
 };
 
 static bool nativeSerializeViewState(JNIEnv* env, jobject, jint jbaseLayer,
@@ -91,8 +96,8 @@ static bool nativeSerializeViewState(JNIEnv* env, jobject, jint jbaseLayer,
     return true;
 }
 
-static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jobject jstream,
-                                      jbyteArray jstorage)
+static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jint version,
+                                                    jobject jstream, jbyteArray jstorage)
 {
     SkStream* stream = CreateJavaInputStreamAdaptor(env, jstream, jstorage);
     if (!stream)
@@ -107,7 +112,7 @@ static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jobjec
     SkSafeUnref(picture);
     int childCount = stream->readS32();
     for (int i = 0; i < childCount; i++) {
-        LayerAndroid* childLayer = deserializeLayer(stream);
+        LayerAndroid* childLayer = deserializeLayer(version, stream);
         if (childLayer)
             layer->addChild(childLayer);
     }
@@ -253,9 +258,9 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
         stream->write8(LTNone);
         return;
     }
-    LayerTypes type = layer->contentIsScrollable()
-            ? LTScrollableLayerAndroid
-            : LTLayerAndroid;
+    LayerTypes type = LTLayerAndroid;
+    if (layer->contentIsScrollable())
+        type = LTScrollableLayerAndroid;
     stream->write8(type);
 
     // Start with Layer fields
@@ -272,20 +277,43 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
 
     // Next up, LayerAndroid fields
     stream->writeBool(layer->m_haveClip);
-    stream->writeBool(layer->m_isFixed);
+    stream->writeBool(layer->isFixed());
     stream->writeBool(layer->m_backgroundColorSet);
     stream->writeBool(layer->m_isIframe);
-    writeSkLength(stream, layer->m_fixedLeft);
-    writeSkLength(stream, layer->m_fixedTop);
-    writeSkLength(stream, layer->m_fixedRight);
-    writeSkLength(stream, layer->m_fixedBottom);
-    writeSkLength(stream, layer->m_fixedMarginLeft);
-    writeSkLength(stream, layer->m_fixedMarginTop);
-    writeSkLength(stream, layer->m_fixedMarginRight);
-    writeSkLength(stream, layer->m_fixedMarginBottom);
-    writeSkRect(stream, layer->m_fixedRect);
-    stream->write32(layer->m_renderLayerPos.x());
-    stream->write32(layer->m_renderLayerPos.y());
+
+    // With the current LayerAndroid hierarchy, LayerAndroid doesn't have
+    // those fields anymore. Let's keep the current serialization format for
+    // now and output blank fields... not great, but probably better than
+    // dealing with multiple versions.
+    if (layer->isFixed()) {
+        FixedLayerAndroid* fixedLayer = static_cast<FixedLayerAndroid*>(layer);
+        writeSkLength(stream, fixedLayer->m_fixedLeft);
+        writeSkLength(stream, fixedLayer->m_fixedTop);
+        writeSkLength(stream, fixedLayer->m_fixedRight);
+        writeSkLength(stream, fixedLayer->m_fixedBottom);
+        writeSkLength(stream, fixedLayer->m_fixedMarginLeft);
+        writeSkLength(stream, fixedLayer->m_fixedMarginTop);
+        writeSkLength(stream, fixedLayer->m_fixedMarginRight);
+        writeSkLength(stream, fixedLayer->m_fixedMarginBottom);
+        writeSkRect(stream, fixedLayer->m_fixedRect);
+        stream->write32(fixedLayer->m_renderLayerPos.x());
+        stream->write32(fixedLayer->m_renderLayerPos.y());
+    } else {
+        SkLength length;
+        SkRect rect;
+        writeSkLength(stream, length); // fixedLeft
+        writeSkLength(stream, length); // fixedTop
+        writeSkLength(stream, length); // fixedRight
+        writeSkLength(stream, length); // fixedBottom
+        writeSkLength(stream, length); // fixedMarginLeft
+        writeSkLength(stream, length); // fixedMarginTop
+        writeSkLength(stream, length); // fixedMarginRight
+        writeSkLength(stream, length); // fixedMarginBottom
+        writeSkRect(stream, rect);     // fixedRect
+        stream->write32(0);            // renderLayerPos.x()
+        stream->write32(0);            // renderLayerPos.y()
+    }
+
     stream->writeBool(layer->m_backfaceVisibility);
     stream->writeBool(layer->m_visible);
     stream->write32(layer->m_backgroundColor);
@@ -327,7 +355,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
         serializeLayer(layer->getChild(i), stream);
 }
 
-LayerAndroid* deserializeLayer(SkStream* stream)
+LayerAndroid* deserializeLayer(int version, SkStream* stream)
 {
     int type = stream->readU8();
     if (type == LTNone)
@@ -354,20 +382,46 @@ LayerAndroid* deserializeLayer(SkStream* stream)
 
     // LayerAndroid fields
     layer->m_haveClip = stream->readBool();
-    layer->m_isFixed = stream->readBool();
-    layer->m_backgroundColorSet = stream->readBool();
-    layer->m_isIframe = stream->readBool();
-    layer->m_fixedLeft = readSkLength(stream);
-    layer->m_fixedTop = readSkLength(stream);
-    layer->m_fixedRight = readSkLength(stream);
-    layer->m_fixedBottom = readSkLength(stream);
-    layer->m_fixedMarginLeft = readSkLength(stream);
-    layer->m_fixedMarginTop = readSkLength(stream);
-    layer->m_fixedMarginRight = readSkLength(stream);
-    layer->m_fixedMarginBottom = readSkLength(stream);
-    layer->m_fixedRect = readSkRect(stream);
-    layer->m_renderLayerPos.setX(stream->readS32());
-    layer->m_renderLayerPos.setY(stream->readS32());
+
+    // Keep the legacy serialization/deserialization format...
+    bool isFixed = stream->readBool();
+    if (isFixed) {
+        FixedLayerAndroid* fixedLayer = new FixedLayerAndroid(*layer);
+        layer->unref();
+        layer = fixedLayer;
+
+        layer->m_backgroundColorSet = stream->readBool();
+        layer->m_isIframe = stream->readBool();
+
+        fixedLayer->m_fixedLeft = readSkLength(stream);
+        fixedLayer->m_fixedTop = readSkLength(stream);
+        fixedLayer->m_fixedRight = readSkLength(stream);
+        fixedLayer->m_fixedBottom = readSkLength(stream);
+        fixedLayer->m_fixedMarginLeft = readSkLength(stream);
+        fixedLayer->m_fixedMarginTop = readSkLength(stream);
+        fixedLayer->m_fixedMarginRight = readSkLength(stream);
+        fixedLayer->m_fixedMarginBottom = readSkLength(stream);
+        fixedLayer->m_fixedRect = readSkRect(stream);
+        fixedLayer->m_renderLayerPos.setX(stream->readS32());
+        fixedLayer->m_renderLayerPos.setY(stream->readS32());
+    } else {
+        layer->m_backgroundColorSet = stream->readBool();
+        layer->m_isIframe = stream->readBool();
+
+        // Not a fixed element, bypass the values in the stream
+        readSkLength(stream); // fixedLeft
+        readSkLength(stream); // fixedTop
+        readSkLength(stream); // fixedRight
+        readSkLength(stream); // fixedBottom
+        readSkLength(stream); // fixedMarginLeft
+        readSkLength(stream); // fixedMarginTop
+        readSkLength(stream); // fixedMarginRight
+        readSkLength(stream); // fixedMarginBottom
+        readSkRect(stream);   // fixedRect
+        stream->readS32();    // renderLayerPos.x()
+        stream->readS32();    // renderLayerPos.y()
+    }
+
     layer->m_backfaceVisibility = stream->readBool();
     layer->m_visible = stream->readBool();
     layer->m_backgroundColor = stream->readU32();
@@ -404,7 +458,7 @@ LayerAndroid* deserializeLayer(SkStream* stream)
     }
     int childCount = stream->readU32();
     for (int i = 0; i < childCount; i++) {
-        LayerAndroid *childLayer = deserializeLayer(stream);
+        LayerAndroid *childLayer = deserializeLayer(version, stream);
         if (childLayer)
             layer->addChild(childLayer);
     }
@@ -419,7 +473,7 @@ LayerAndroid* deserializeLayer(SkStream* stream)
 static JNINativeMethod gSerializerMethods[] = {
     { "nativeSerializeViewState", "(ILjava/io/OutputStream;[B)Z",
         (void*) nativeSerializeViewState },
-    { "nativeDeserializeViewState", "(Ljava/io/InputStream;[B)I",
+    { "nativeDeserializeViewState", "(ILjava/io/InputStream;[B)I",
         (void*) nativeDeserializeViewState },
 };
 
