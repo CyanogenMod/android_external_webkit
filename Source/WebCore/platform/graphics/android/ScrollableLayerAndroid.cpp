@@ -47,7 +47,7 @@ void ScrollableLayerAndroid::getScrollRect(SkIRect* out) const
 {
     const SkPoint& pos = getPosition();
     out->fLeft = m_scrollLimits.fLeft - pos.fX;
-    out->fTop = m_scrollLimits.fTop - pos.fY + m_offset.y();
+    out->fTop = m_scrollLimits.fTop - pos.fY;
 
     if (isIFrame()) {
         out->fLeft += m_iframeScrollOffset.x();
