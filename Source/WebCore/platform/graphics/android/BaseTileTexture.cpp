@@ -28,7 +28,6 @@
 
 #include "BaseTile.h"
 #include "ClassTracker.h"
-#include "DeleteTextureOperation.h"
 #include "GLUtils.h"
 #include "TilesManager.h"
 
