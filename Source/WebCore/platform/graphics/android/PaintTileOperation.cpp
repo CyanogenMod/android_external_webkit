@@ -34,7 +34,7 @@
 namespace WebCore {
 
 PaintTileOperation::PaintTileOperation(BaseTile* tile, TilePainter* painter)
-    : QueuedOperation(QueuedOperation::PaintTile, tile->page())
+    : QueuedOperation(tile->page())
     , m_tile(tile)
     , m_painter(painter)
 {
@@ -60,8 +60,6 @@ PaintTileOperation::~PaintTileOperation()
 
 bool PaintTileOperation::operator==(const QueuedOperation* operation)
 {
-    if (operation->type() != type())
-        return false;
     const PaintTileOperation* op = static_cast<const PaintTileOperation*>(operation);
     return op->m_tile == m_tile;
 }

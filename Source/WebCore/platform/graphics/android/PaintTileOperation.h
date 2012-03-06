@@ -59,12 +59,8 @@ public:
         , m_scale(scale) {}
     virtual bool check(QueuedOperation* operation)
     {
-        if (operation->type() == QueuedOperation::PaintTile) {
-            PaintTileOperation* op = static_cast<PaintTileOperation*>(operation);
-            if ((op->painter() == m_painter) && (op->scale() != m_scale))
-                return true;
-        }
-        return false;
+        PaintTileOperation* op = static_cast<PaintTileOperation*>(operation);
+        return ((op->painter() == m_painter) && (op->scale() != m_scale));
     }
 private:
     const TilePainter* m_painter;
@@ -77,12 +73,8 @@ public:
     TilePainterFilter(TilePainter* painter) : m_painter(painter) {}
     virtual bool check(QueuedOperation* operation)
     {
-        if (operation->type() == QueuedOperation::PaintTile) {
-            PaintTileOperation* op = static_cast<PaintTileOperation*>(operation);
-            if (op->painter() == m_painter)
-                return true;
-        }
-        return false;
+        PaintTileOperation* op = static_cast<PaintTileOperation*>(operation);
+        return op->painter() == m_painter;
     }
 private:
     TilePainter* m_painter;

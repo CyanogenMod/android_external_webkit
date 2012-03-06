@@ -67,7 +67,7 @@ void TexturesGenerator::removeOperationsForPage(TiledPage* page)
 
 void TexturesGenerator::removePaintOperationsForPage(TiledPage* page, bool waitForRunning)
 {
-    removeOperationsForFilter(new PagePaintFilter(page), waitForRunning);
+    removeOperationsForFilter(new PageFilter(page), waitForRunning);
 }
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
