@@ -4232,13 +4232,14 @@ int WebViewCore::findTextOnPage(const WTF::String &text)
         frame->document()->markers()->removeMarkers(DocumentMarker::TextMatch);
         m_matchCount += frame->editor()->countMatchesForText(text, findOptions,
             0, true);
-        updateMatchCount();
         frame->editor()->setMarkedTextMatchesAreHighlighted(true);
         frame = frame->tree()->traverseNextWithWrap(false);
     } while (frame);
-
     m_activeMatchIndex = m_matchCount - 1; // prime first findNext
-    findNextOnPage(true);
+    if (!m_matchCount) // send at least one update, even if no hits
+        updateMatchCount();
+    else
+        findNextOnPage(true);
     return m_matchCount;
 }
 
