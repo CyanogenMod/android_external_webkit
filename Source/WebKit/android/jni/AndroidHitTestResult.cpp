@@ -135,11 +135,15 @@ void AndroidHitTestResult::buildHighlightRects()
         node = m_hitTestResult.innerNode();
     if (!node || !node->renderer())
         return;
+    if (!WebViewCore::nodeIsClickableOrFocusable(node))
+        return;
     Frame* frame = node->document()->frame();
     IntPoint frameOffset = m_webViewCore->convertGlobalContentToFrameContent(IntPoint(), frame);
     RenderObject* renderer = node->renderer();
     Vector<FloatQuad> quads;
     renderer->absoluteFocusRingQuads(quads);
+    if (!quads.size())
+        renderer->absoluteQuads(quads); // No fancy rings, grab some backups
     for (size_t i = 0; i < quads.size(); i++) {
         IntRect boundingBox = quads[i].enclosingBoundingBox();
         boundingBox.move(-frameOffset.x(), -frameOffset.y());
