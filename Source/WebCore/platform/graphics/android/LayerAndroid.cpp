@@ -25,6 +25,12 @@
 #define LAYER_DEBUG // Add diagonals for debugging
 #undef LAYER_DEBUG
 
+#define DISABLE_LAYER_MERGE
+#undef DISABLE_LAYER_MERGE
+
+#define LAYER_GROUPING_DEBUG
+#undef LAYER_GROUPING_DEBUG
+
 #include <cutils/log.h>
 #include <wtf/text/CString.h>
 #define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
@@ -76,6 +82,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner, SubclassType subclassType) : Laye
     m_type(LayerAndroid::WebCoreLayer),
     m_subclassType(subclassType),
     m_hasText(true),
+    m_intrinsicallyComposited(true),
     m_layerGroup(0)
 {
     m_backgroundColor = 0;
@@ -95,7 +102,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer, SubclassType subclassType)
     m_uniqueId(layer.m_uniqueId),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
-    m_hasText(true),
+    m_hasText(layer.m_hasText),
+    m_intrinsicallyComposited(layer.m_intrinsicallyComposited),
     m_layerGroup(0)
 {
     m_imageCRC = layer.m_imageCRC;
@@ -134,8 +142,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer, SubclassType subclassType)
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it) {
         m_animations.add(it->first, it->second);
     }
-
-    m_hasText = layer.m_hasText;
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid - recopy (UI)");
@@ -179,6 +185,7 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_type(LayerAndroid::NavCacheLayer),
     m_subclassType(LayerAndroid::StandardLayer),
     m_hasText(true),
+    m_intrinsicallyComposited(true),
     m_layerGroup(0)
 {
     m_backgroundColor = 0;
@@ -619,22 +626,6 @@ void LayerAndroid::showLayer(int indent)
         this->getChild(i)->showLayer(indent + 1);
 }
 
-void LayerAndroid::setIsPainting(Layer* drawingTree)
-{
-    XLOG("setting layer %p as painting, needs texture %d, drawing tree %p",
-         this, needsTexture(), drawingTree);
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->setIsPainting(drawingTree);
-
-
-    LayerAndroid* drawingLayer = 0;
-    if (drawingTree)
-        drawingLayer = static_cast<LayerAndroid*>(drawingTree)->findById(uniqueId());
-
-    obtainTextureForPainting(drawingLayer);
-}
-
 void LayerAndroid::mergeInvalsInto(LayerAndroid* replacementTree)
 {
     int count = this->countChildren();
@@ -690,49 +681,90 @@ bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
     return false;
 }
 
-void LayerAndroid::obtainTextureForPainting(LayerAndroid* drawingLayer)
-{
-    if (!needsTexture())
-        return;
-
-    // layer group init'd with previous drawing layer
-    m_layerGroup->initializeGroup(this, m_dirtyRegion, drawingLayer);
-    m_dirtyRegion.setEmpty();
-}
-
-
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 {
     return a->zValue() > b->zValue();
 }
 
-void LayerAndroid::assignGroups(Vector<LayerGroup*>* allGroups)
+bool LayerAndroid::canJoinGroup(LayerGroup* group)
 {
-    // recurse through layers in draw order
-    // if a layer needs isolation (e.g. has animation, is fixed, overflow:scroll)
-    //     create new layer group on the stack
+#if DISABLE_LAYER_MERGE
+    return false;
+#else
+    // returns true if the layer can be merged onto the layergroup
+    if (!group)
+        return false;
 
-    bool needsIsolation = false;
-    LayerGroup* currentLayerGroup = 0;
-    if (!allGroups->isEmpty())
-        currentLayerGroup = allGroups->at(0);
+    LayerAndroid* lastLayer = group->getFirstLayer();
 
-    // TODO: compare layer with group on top of stack - fixed? overscroll? transformed?
-    needsIsolation = isFixed() || (m_animations.size() != 0);
+    // isolate non-tiled layers
+    // TODO: remove this check so that multiple tiled layers with a invisible
+    // one inbetween can be merged
+    if (!needsTexture() || !lastLayer->needsTexture())
+        return false;
 
-    if (!currentLayerGroup || needsIsolation || true) {
-        currentLayerGroup = new LayerGroup();
-        allGroups->append(currentLayerGroup);
+    // isolate clipped layers
+    // TODO: paint correctly with clip when merged
+    if (m_haveClip || lastLayer->m_haveClip)
+        return false;
+
+    // isolate intrinsically composited layers
+    if (m_intrinsicallyComposited || lastLayer->m_intrinsicallyComposited)
+        return false;
+
+    // TODO: investigate potential for combining transformed layers
+    if (!m_drawTransform.isIdentityOrTranslation()
+        || !lastLayer->m_drawTransform.isIdentityOrTranslation())
+        return false;
+
+    // currently, we don't group zoomable with non-zoomable layers (unless the
+    // group or the layer doesn't need a texture)
+    if (group->needsTexture() && needsTexture() && m_hasText != group->hasText())
+        return false;
+
+    // TODO: compare other layer properties - fixed? overscroll? transformed?
+    return true;
+#endif
+}
+
+void LayerAndroid::assignGroups(LayerMergeState* mergeState)
+{
+    // recurse through layers in draw order, and merge layers when able
+
+    bool needNewGroup = !mergeState->currentLayerGroup
+        || mergeState->nonMergeNestedLevel > 0
+        || !canJoinGroup(mergeState->currentLayerGroup);
+
+    if (needNewGroup) {
+        mergeState->currentLayerGroup = new LayerGroup();
+        mergeState->groupList->append(mergeState->currentLayerGroup);
     }
 
-    currentLayerGroup->addLayer(this);
-    m_layerGroup = currentLayerGroup;
+#ifdef LAYER_GROUPING_DEBUG
+    XLOGC("%*slayer %p(%d) rl %p %s group %p, fixed %d, anim %d, intCom %d, haveClip %d scroll %d",
+          4*mergeState->depth, "", this, m_uniqueId, m_owningLayer,
+          needNewGroup ? "NEW" : "joins", mergeState->currentLayerGroup,
+          m_isFixed, m_animations.size() != 0,
+          m_intrinsicallyComposited,
+          m_haveClip,
+          contentIsScrollable());
+#endif
+
+    mergeState->currentLayerGroup->addLayer(this, m_drawTransform);
+    m_layerGroup = mergeState->currentLayerGroup;
+
+    if (m_haveClip || contentIsScrollable() || isFixed()) {
+        // disable layer merging within the children of these layer types
+        mergeState->nonMergeNestedLevel++;
+    }
+
 
     // pass the layergroup through children in drawing order, so that they may
     // attach themselves (and paint on it) if possible, or ignore it and create
     // a new one if not
     int count = this->countChildren();
     if (count > 0) {
+        mergeState->depth++;
         Vector <LayerAndroid*> sublayers;
         for (int i = 0; i < count; i++)
             sublayers.append(getChild(i));
@@ -740,7 +772,16 @@ void LayerAndroid::assignGroups(Vector<LayerGroup*>* allGroups)
         // sort for the transparency
         std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
         for (int i = 0; i < count; i++)
-            sublayers[i]->assignGroups(allGroups);
+            sublayers[i]->assignGroups(mergeState);
+        mergeState->depth--;
+    }
+
+    if (m_haveClip || contentIsScrollable() || isFixed()) {
+        // re-enable joining
+        mergeState->nonMergeNestedLevel--;
+
+        // disallow layers painting after to join with this group
+        mergeState->currentLayerGroup = 0;
     }
 }
 
@@ -789,7 +830,7 @@ IntRect LayerAndroid::visibleArea()
     return rect;
 }
 
-bool LayerAndroid::drawCanvas(SkCanvas* canvas)
+bool LayerAndroid::drawCanvas(SkCanvas* canvas, bool drawChildren, PaintStyle style)
 {
     if (!m_visible)
         return false;
@@ -808,11 +849,14 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas)
         SkMatrix canvasMatrix = canvas->getTotalMatrix();
         matrix.postConcat(canvasMatrix);
         canvas->setMatrix(matrix);
-        onDraw(canvas, m_drawOpacity, 0);
+        onDraw(canvas, m_drawOpacity, 0, style);
     }
 
+    if (!drawChildren)
+        return false;
+
     // When the layer is dirty, the UI thread should be notified to redraw.
-    askScreenUpdate |= drawChildrenCanvas(canvas);
+    askScreenUpdate |= drawChildrenCanvas(canvas, style);
     m_atomicSync.lock();
     if (askScreenUpdate || m_hasRunningAnimations || m_drawTransform.hasPerspective())
         addDirtyArea();
@@ -843,7 +887,7 @@ bool LayerAndroid::drawGL(bool layerTilesDisabled)
     return askScreenUpdate;
 }
 
-bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas)
+bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas, PaintStyle style)
 {
     bool askScreenUpdate = false;
     int count = this->countChildren();
@@ -856,14 +900,14 @@ bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas)
         std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
         for (int i = 0; i < count; i++) {
             LayerAndroid* layer = sublayers[i];
-            askScreenUpdate |= layer->drawCanvas(canvas);
+            askScreenUpdate |= layer->drawCanvas(canvas, true, style);
         }
     }
 
     return askScreenUpdate;
 }
 
-void LayerAndroid::contentDraw(SkCanvas* canvas)
+void LayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
 {
     if (m_recordingPicture)
       canvas->drawPicture(*m_recordingPicture);
@@ -872,10 +916,17 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
         float w = getSize().width();
         float h = getSize().height();
         SkPaint paint;
-        paint.setARGB(128, 255, 0, 0);
+
+        if (style == MergedLayers)
+            paint.setARGB(255, 255, 255, 0);
+        else if (style == UnmergedLayers)
+            paint.setARGB(255, 255, 0, 0);
+        else if (style == FlattenedLayers)
+            paint.setARGB(255, 255, 0, 255);
+
         canvas->drawLine(0, 0, w, h, paint);
         canvas->drawLine(0, h, w, 0, paint);
-        paint.setARGB(128, 0, 255, 0);
+
         canvas->drawLine(0, 0, 0, h, paint);
         canvas->drawLine(0, h, w, h, paint);
         canvas->drawLine(w, h, w, 0, paint);
@@ -883,7 +934,8 @@ void LayerAndroid::contentDraw(SkCanvas* canvas)
     }
 }
 
-void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity, android::DrawExtra* extra)
+void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
+                          android::DrawExtra* extra, PaintStyle style)
 {
     if (m_haveClip) {
         SkRect r;
@@ -912,7 +964,7 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity, android::DrawExtra
         }
         ImagesManager::instance()->releaseImage(m_imageCRC);
     }
-    contentDraw(canvas);
+    contentDraw(canvas, style);
     if (extra)
         extra->draw(canvas, this);
 }

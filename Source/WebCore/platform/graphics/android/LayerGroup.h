@@ -26,6 +26,7 @@
 #ifndef LayerGroup_h
 #define LayerGroup_h
 
+#include "IntRect.h"
 #include "TilePainter.h"
 #include "Vector.h"
 
@@ -44,10 +45,11 @@ public:
     LayerGroup();
     virtual ~LayerGroup();
 
-    void initializeGroup(LayerAndroid* newLayer, const SkRegion& newLayerInval,
-                         LayerAndroid* oldLayer);
+    bool tryUpdateLayerGroup(LayerGroup* oldLayerGroup);
 
-    void addLayer(LayerAndroid* layer);
+
+    void addLayer(LayerAndroid* layer, const TransformationMatrix& transform);
+    IntRect visibleArea();
     void prepareGL(bool layerTilesDisabled);
     bool drawGL(bool layerTilesDisabled);
     void swapTiles();
@@ -56,13 +58,46 @@ public:
     IntRect computePrepareArea();
     void computeTexturesAmount(TexturesResult* result);
 
+    LayerAndroid* getFirstLayer() { return m_layers[0]; }
+    bool singleLayer() { return m_layers.size() == 1; }
+    bool needsTexture() { return m_needsTexture; }
+    bool hasText() { return m_hasText; }
+
     // TilePainter methods
     virtual bool paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed);
     virtual float opacity();
 private:
-    bool m_hasText;
+    const TransformationMatrix* drawTransform();
+    IntRect m_unclippedArea;
+    TransformationMatrix m_drawTransform;
+
     DualTiledTexture* m_dualTiledTexture;
+    bool m_needsTexture;
+    bool m_hasText;
     Vector<LayerAndroid*> m_layers;
+};
+
+class LayerMergeState {
+public:
+    LayerMergeState(Vector<LayerGroup*>* const allGroups)
+        : groupList(allGroups)
+        , currentLayerGroup(0)
+        , nonMergeNestedLevel(-1) // start at -1 to ignore first LayerAndroid's clipping
+        , depth(0)
+        {}
+
+    // vector storing all generated layer groups
+    Vector<LayerGroup*>* const groupList;
+
+    // currently merging group. if cleared, no more layers may join
+    LayerGroup* currentLayerGroup;
+
+    // records depth within non-mergeable parents (clipping, fixed, scrolling)
+    // and disable merging therein.
+    int nonMergeNestedLevel;
+
+    // counts layer tree depth for debugging
+    int depth;
 };
 
 } // namespace WebCore

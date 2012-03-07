@@ -71,9 +71,9 @@ LayerAndroid* FixedLayerAndroid::updateFixedLayerPosition(SkRect viewport,
     return iframeLayer;
 }
 
-void FixedLayerAndroid::contentDraw(SkCanvas* canvas)
+void FixedLayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
 {
-    LayerAndroid::contentDraw(canvas);
+    LayerAndroid::contentDraw(canvas, style);
     if (TilesManager::instance()->getShowVisualIndicator()) {
         SkPaint paint;
         paint.setARGB(80, 255, 0, 0);

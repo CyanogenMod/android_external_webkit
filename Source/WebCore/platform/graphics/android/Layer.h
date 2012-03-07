@@ -151,8 +151,9 @@ public:
 
     virtual bool contentIsScrollable() const { return false; }
 
+    enum PaintStyle { MergedLayers, UnmergedLayers, FlattenedLayers };
 protected:
-    virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra);
+    virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style) {}
 
     bool m_hasOverflowChildren;
 

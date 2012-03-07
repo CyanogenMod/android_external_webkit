@@ -66,6 +66,7 @@ namespace WebCore {
 class AndroidAnimation;
 class BaseTileTexture;
 class GLWebViewState;
+class LayerMergeState;
 class RenderLayer;
 class TiledPage;
 class PaintedSurface;
@@ -134,8 +135,8 @@ public:
     float getScale() { return m_scale; }
 
     virtual bool drawGL(bool layerTilesDisabled);
-    virtual bool drawCanvas(SkCanvas*);
-    bool drawChildrenCanvas(SkCanvas*);
+    virtual bool drawCanvas(SkCanvas* canvas, bool drawChildren, PaintStyle style);
+    bool drawChildrenCanvas(SkCanvas* canvas, PaintStyle style);
 
     void updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                    const FloatRect& clip, float opacity, float scale);
@@ -237,7 +238,7 @@ public:
 
     void clearDirtyRegion();
 
-    virtual void contentDraw(SkCanvas*);
+    virtual void contentDraw(SkCanvas* canvas, PaintStyle style);
 
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
@@ -254,8 +255,6 @@ public:
     friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
-    void obtainTextureForPainting(LayerAndroid* drawingLayer);
-
     // Update layers using another tree. Only works for basic properties
     // such as the position, the transform. Return true if anything more
     // complex is needed.
@@ -271,15 +270,17 @@ public:
     void copyAnimationStartTimesRecursive(LayerAndroid* oldTree);
 
 // rendering asset management
-    void setIsPainting(Layer* drawingTree);
+    SkRegion* getInvalRegion() { return &m_dirtyRegion; }
     void mergeInvalsInto(LayerAndroid* replacementTree);
 
-    void assignGroups(Vector<LayerGroup*>* allGroups);
+    bool canJoinGroup(LayerGroup* group);
+    void assignGroups(LayerMergeState* mergeState);
     LayerGroup* group() { return m_layerGroup; }
 
-protected:
-    virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra);
+    void setIntrinsicallyComposited(bool intCom) { m_intrinsicallyComposited = intCom; }
 
+protected:
+    virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style);
     IntPoint m_offset;
     IntPoint m_iframeOffset;
     IntPoint m_iframeScrollOffset;
@@ -359,6 +360,7 @@ private:
     SubclassType m_subclassType;
 
     bool m_hasText;
+    bool m_intrinsicallyComposited;
 
     LayerGroup* m_layerGroup;
 

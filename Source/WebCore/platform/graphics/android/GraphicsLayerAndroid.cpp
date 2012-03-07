@@ -521,6 +521,8 @@ void GraphicsLayerAndroid::updateScrollingLayers()
         if (layerNeedsOverflow) {
             ASSERT(!m_foregroundLayer && !m_foregroundClipLayer);
             m_foregroundLayer = new ScrollableLayerAndroid(layer);
+
+            // TODO: can clip layer be set to not intrinsically composited?
             m_foregroundClipLayer = new LayerAndroid(layer);
             m_foregroundClipLayer->setMasksToBounds(true);
             m_foregroundClipLayer->addChild(m_foregroundLayer);
@@ -1029,6 +1031,12 @@ void GraphicsLayerAndroid::gatherRootLayers(Vector<const RenderLayer*>& list)
 
 void GraphicsLayerAndroid::syncCompositingStateForThisLayerOnly()
 {
+    if (m_contentLayer) {
+        RenderLayer* renderLayer = renderLayerFromClient(m_client);
+        int intrinsicallyComposited = renderLayer ? renderLayer->intrinsicallyComposited() : true;
+        m_contentLayer->setIntrinsicallyComposited(intrinsicallyComposited);
+    }
+
     updateScrollingLayers();
     updateFixedPosition();
     syncChildren();
