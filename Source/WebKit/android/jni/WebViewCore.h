@@ -29,6 +29,7 @@
 #include "DeviceMotionAndOrientationManager.h"
 #include "DOMSelection.h"
 #include "FileChooser.h"
+#include "FocusDirection.h"
 #include "HitTestResult.h"
 #include "PictureSet.h"
 #include "PlatformGraphicsContext.h"
@@ -318,6 +319,8 @@ namespace android {
          * @return Whether keyCode was handled by this class.
          */
         bool key(const WebCore::PlatformKeyboardEvent& event);
+        bool chromeCanTakeFocus(FocusDirection direction);
+        void chromeTakeFocus(FocusDirection direction);
 
         /**
          * Handle (trackball) click event / dpad center press from Java.

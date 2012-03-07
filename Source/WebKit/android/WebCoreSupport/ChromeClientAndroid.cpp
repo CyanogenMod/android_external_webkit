@@ -161,8 +161,15 @@ void ChromeClientAndroid::focus()
 }
 void ChromeClientAndroid::unfocus() { notImplemented(); }
 
-bool ChromeClientAndroid::canTakeFocus(FocusDirection) { notImplemented(); return false; }
-void ChromeClientAndroid::takeFocus(FocusDirection) { notImplemented(); }
+bool ChromeClientAndroid::canTakeFocus(FocusDirection direction)
+{
+    return android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->chromeCanTakeFocus(direction);
+}
+
+void ChromeClientAndroid::takeFocus(FocusDirection direction)
+{
+    android::WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view())->chromeTakeFocus(direction);
+}
 
 void ChromeClientAndroid::focusedNodeChanged(Node* node)
 {
