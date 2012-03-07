@@ -512,6 +512,7 @@ namespace android {
                 Node** node, HitTestResult* hitTestResult);
         // This does a sloppy hit test
         AndroidHitTestResult hitTestAtPoint(int x, int y, int slop, bool doMoveMouse = false);
+        static bool nodeIsClickableOrFocusable(Node* node);
 
         // Open a file chooser for selecting a file to upload
         void openFileChooser(PassRefPtr<WebCore::FileChooser> );

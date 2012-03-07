@@ -1674,6 +1674,23 @@ void WebViewCore::selectText(int startX, int startY, int endX, int endY)
         sc->setSelection(selection);
 }
 
+bool WebViewCore::nodeIsClickableOrFocusable(Node* node)
+{
+    if (!node)
+        return false;
+    if (node->disabled())
+        return false;
+    if (!node->inDocument())
+        return false;
+    if (!node->renderer() || node->renderer()->style()->visibility() != VISIBLE)
+        return false;
+    return node->supportsFocus()
+            || node->hasEventListeners(eventNames().clickEvent)
+            || node->hasEventListeners(eventNames().mousedownEvent)
+            || node->hasEventListeners(eventNames().mouseupEvent)
+            || node->hasEventListeners(eventNames().mouseoverEvent);
+}
+
 // get the highlight rectangles for the touch point (x, y) with the slop
 AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool doMoveMouse)
 {
@@ -1715,11 +1732,7 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
             RenderObject* render = eventNode->renderer();
             if (render && (render->isBody() || render->isRenderView()))
                 break;
-            if (eventNode->supportsFocus()
-                    || eventNode->hasEventListeners(eventNames().clickEvent)
-                    || eventNode->hasEventListeners(eventNames().mousedownEvent)
-                    || eventNode->hasEventListeners(eventNames().mouseupEvent)
-                    || eventNode->hasEventListeners(eventNames().mouseoverEvent)) {
+            if (nodeIsClickableOrFocusable(eventNode)) {
                 found = true;
                 break;
             }
@@ -1820,15 +1833,15 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
     }
     // now get the node's highlight rectangles in the page coordinate system
     if (final.mUrlNode) {
+        // Update innerNode and innerNonSharedNode
+        androidHitResult.hitTestResult().setInnerNode(final.mInnerNode);
+        androidHitResult.hitTestResult().setInnerNonSharedNode(final.mInnerNode);
         if (final.mUrlNode->isElementNode()) {
             // We found a URL element. Update the hitTestResult
             androidHitResult.setURLElement(static_cast<Element*>(final.mUrlNode));
         } else {
             androidHitResult.setURLElement(0);
         }
-        // Update innerNode and innerNonSharedNode
-        androidHitResult.hitTestResult().setInnerNode(final.mInnerNode);
-        androidHitResult.hitTestResult().setInnerNonSharedNode(final.mInnerNode);
         IntPoint frameAdjust;
         if (frame != m_mainFrame) {
             frameAdjust = frame->view()->contentsToWindow(IntPoint());
