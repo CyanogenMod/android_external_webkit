@@ -20,6 +20,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "LayerAndroid.h"
+#include "IFrameLayerAndroid.h"
 
 namespace WebCore {
 
@@ -56,13 +57,14 @@ class FixedLayerAndroid : public LayerAndroid {
 
 public:
     FixedLayerAndroid(RenderLayer* owner)
-        : LayerAndroid(owner, LayerAndroid::FixedLayer) {}
+        : LayerAndroid(owner) {}
     FixedLayerAndroid(const LayerAndroid& layer)
-        : LayerAndroid(layer, LayerAndroid::FixedLayer) {}
+        : LayerAndroid(layer) {}
     FixedLayerAndroid(const FixedLayerAndroid& layer);
     virtual ~FixedLayerAndroid() {};
 
     virtual LayerAndroid* copy() const { return new FixedLayerAndroid(*this); }
+    virtual SubclassType subclassType() { return LayerAndroid::FixedLayer; }
 
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
     friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
@@ -92,8 +94,8 @@ public:
         setShouldInheritFromRootTransform(true);
     }
 
-    virtual LayerAndroid* updateFixedLayerPosition(SkRect viewPort,
-                                                   LayerAndroid* parentIframeLayer);
+    virtual IFrameLayerAndroid* updatePosition(SkRect viewPort,
+                                               IFrameLayerAndroid* parentIframeLayer);
 
     virtual void contentDraw(SkCanvas* canvas, PaintStyle style);
 

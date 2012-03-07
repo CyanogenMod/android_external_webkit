@@ -292,7 +292,7 @@ void BaseLayerAndroid::updateLayerPositions(const SkRect& visibleRect)
     if (!compositedRoot)
         return;
     TransformationMatrix ident;
-    compositedRoot->updateFixedLayersPositions(visibleRect);
+    compositedRoot->updateLayerPositions(visibleRect);
     FloatRect clip(0, 0, content()->width(), content()->height());
     compositedRoot->updateGLPositionsAndScale(
         ident, clip, 1, m_state->zoomManager()->layersScale());

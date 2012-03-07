@@ -656,6 +656,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/GradientAndroid.cpp \
 	platform/graphics/android/GraphicsContextAndroid.cpp \
 	platform/graphics/android/GraphicsLayerAndroid.cpp \
+	platform/graphics/android/IFrameContentLayerAndroid.cpp \
+	platform/graphics/android/IFrameLayerAndroid.cpp \
 	platform/graphics/android/ImageAndroid.cpp \
 	platform/graphics/android/ImageBufferAndroid.cpp \
 	platform/graphics/android/ImageSourceAndroid.cpp \

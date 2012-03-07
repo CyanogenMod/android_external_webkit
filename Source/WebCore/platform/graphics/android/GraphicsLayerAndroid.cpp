@@ -24,6 +24,8 @@
 #include "FloatRect.h"
 #include "FixedLayerAndroid.h"
 #include "GraphicsContext.h"
+#include "IFrameContentLayerAndroid.h"
+#include "IFrameLayerAndroid.h"
 #include "Image.h"
 #include "ImagesManager.h"
 #include "Layer.h"
@@ -233,8 +235,12 @@ void GraphicsLayerAndroid::updateFixedPosition()
         return;
 
     // We will need the Iframe flag in the LayerAndroid tree for fixed position
-    if (view->isRenderIFrame())
-        m_contentLayer->setIsIframe(true);
+    if (view->isRenderIFrame() && !m_contentLayer->isIFrame()) {
+        LayerAndroid* layer = new IFrameLayerAndroid(*m_contentLayer);
+        m_contentLayer->unref();
+        m_contentLayer = layer;
+    }
+
     // If we are a fixed position layer, just set it
     if (view->isPositioned() && view->style()->position() == FixedPosition) {
         // We need to get the passed CSS properties for the element
@@ -533,8 +539,7 @@ void GraphicsLayerAndroid::updateScrollingLayers()
             // No need to copy the children as they will be removed and synced.
             m_contentLayer->removeChildren();
             // Replace the content layer with a scrollable layer.
-            LayerAndroid* layer = new ScrollableLayerAndroid(*m_contentLayer);
-            layer->setIsIframe(true);
+            LayerAndroid* layer = new IFrameContentLayerAndroid(*m_contentLayer);
             m_contentLayer->unref();
             m_contentLayer = layer;
             if (m_parent) {
@@ -578,10 +583,10 @@ void GraphicsLayerAndroid::updateScrollOffset() {
     if (m_foregroundLayer) {
         IntSize scroll = layer->scrolledContentOffset();
         m_foregroundLayer->setScrollOffset(IntPoint(scroll.width(), scroll.height()));
-    } else if (m_contentLayer->contentIsScrollable()) {
+    } else if (m_contentLayer->isIFrameContent()) {
         IntPoint p(layer->renderer()->frame()->view()->scrollX(),
                    layer->renderer()->frame()->view()->scrollY());
-        static_cast<ScrollableLayerAndroid*>(m_contentLayer)->setIFrameScrollOffset(p);
+        static_cast<IFrameContentLayerAndroid*>(m_contentLayer)->setIFrameScrollOffset(p);
     }
     askForSync();
 }
@@ -668,9 +673,9 @@ bool GraphicsLayerAndroid::repaint()
             m_contentLayer->checkForPictureOptimizations();
             // Check for a scrollable iframe and report the scrolling
             // limits based on the view size.
-            if (m_contentLayer->contentIsScrollable()) {
+            if (m_contentLayer->isIFrameContent()) {
                 FrameView* view = layer->renderer()->frame()->view();
-                static_cast<ScrollableLayerAndroid*>(m_contentLayer)->setScrollLimits(
+                static_cast<IFrameContentLayerAndroid*>(m_contentLayer)->setScrollLimits(
                     m_position.x(), m_position.y(), view->layoutWidth(), view->layoutHeight());
                 LOG("setScrollLimits(%.2f, %.2f, w: %d h: %d) layer %d, frame scroll position is %d, %d",
                       m_position.x(), m_position.y(), view->layoutWidth(), view->layoutHeight(),

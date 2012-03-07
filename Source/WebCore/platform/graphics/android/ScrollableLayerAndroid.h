@@ -41,19 +41,20 @@ public:
     virtual bool contentIsScrollable() const { return true; }
 
     virtual LayerAndroid* copy() const { return new ScrollableLayerAndroid(*this); }
+    virtual SubclassType subclassType() { return LayerAndroid::ScrollableLayer; }
 
     virtual bool updateWithLayer(LayerAndroid*) { return true; }
 
     // Scrolls to the given position in the layer.
     // Returns whether or not any scrolling was required.
-    bool scrollTo(int x, int y);
+    virtual bool scrollTo(int x, int y);
 
     // Fills the rect with the current scroll offset and the maximum scroll offset.
     // fLeft   = scrollX
     // fTop    = scrollY
     // fRight  = maxScrollX
     // fBottom = maxScrollY
-    void getScrollRect(SkIRect*) const;
+    virtual void getScrollRect(SkIRect*) const;
 
     void setScrollLimits(float x, float y, float width, float height)
     {
@@ -70,7 +71,7 @@ public:
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
     friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
 
-private:
+protected:
 
     void getScrollBounds(IntRect*) const;
 

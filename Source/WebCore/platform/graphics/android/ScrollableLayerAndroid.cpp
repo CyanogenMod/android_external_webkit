@@ -21,15 +21,8 @@ bool ScrollableLayerAndroid::scrollTo(int x, int y)
     SkScalar newX = SkScalarPin(x, scrollBounds.x(), scrollBounds.width());
     SkScalar newY = SkScalarPin(y, scrollBounds.y(), scrollBounds.height());
     // Check for no change.
-    if (isIFrame()) {
-        if (newX == m_iframeScrollOffset.x() && newY == m_iframeScrollOffset.y())
-            return false;
-        newX = newX - m_iframeScrollOffset.x();
-        newY = newY - m_iframeScrollOffset.y();
-    } else {
-        if (newX == m_offset.x() && newY == m_offset.y())
-            return false;
-    }
+    if (newX == m_offset.x() && newY == m_offset.y())
+        return false;
     setScrollOffset(IntPoint(newX, newY));
     return true;
 }
@@ -46,16 +39,8 @@ void ScrollableLayerAndroid::getScrollBounds(IntRect* out) const
 void ScrollableLayerAndroid::getScrollRect(SkIRect* out) const
 {
     const SkPoint& pos = getPosition();
-    out->fLeft = m_scrollLimits.fLeft - pos.fX;
-    out->fTop = m_scrollLimits.fTop - pos.fY;
-
-    if (isIFrame()) {
-        out->fLeft += m_iframeScrollOffset.x();
-        out->fTop += m_iframeScrollOffset.y();
-    } else {
-        out->fLeft += m_offset.x();
-        out->fTop += m_offset.y();
-    }
+    out->fLeft = m_scrollLimits.fLeft - pos.fX + m_offset.x();
+    out->fTop = m_scrollLimits.fTop - pos.fY + m_offset.y();
 
     out->fRight = getSize().width() - m_scrollLimits.width();
     out->fBottom = getSize().height() - m_scrollLimits.height();

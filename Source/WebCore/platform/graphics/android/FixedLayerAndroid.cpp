@@ -15,7 +15,7 @@
 namespace WebCore {
 
 FixedLayerAndroid::FixedLayerAndroid(const FixedLayerAndroid& layer)
-        : LayerAndroid(layer, LayerAndroid::FixedLayer)
+        : LayerAndroid(layer)
         , m_fixedLeft(layer.m_fixedLeft)
         , m_fixedTop(layer.m_fixedTop)
         , m_fixedRight(layer.m_fixedRight)
@@ -29,10 +29,10 @@ FixedLayerAndroid::FixedLayerAndroid(const FixedLayerAndroid& layer)
 {
 }
 
-LayerAndroid* FixedLayerAndroid::updateFixedLayerPosition(SkRect viewport,
-                                                          LayerAndroid* parentIframeLayer)
+IFrameLayerAndroid* FixedLayerAndroid::updatePosition(SkRect viewport,
+                                                      IFrameLayerAndroid* parentIframeLayer)
 {
-    LayerAndroid* iframeLayer = LayerAndroid::updateFixedLayerPosition(viewport, parentIframeLayer);
+    IFrameLayerAndroid* iframeLayer = LayerAndroid::updatePosition(viewport, parentIframeLayer);
 
     // So if this is a fixed layer inside a iframe, use the iframe offset
     // and the iframe's size as the viewport and pass to the children

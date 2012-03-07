@@ -29,6 +29,8 @@
 #include "CreateJavaOutputStreamAdaptor.h"
 #include "FixedLayerAndroid.h"
 #include "ImagesManager.h"
+#include "IFrameContentLayerAndroid.h"
+#include "IFrameLayerAndroid.h"
 #include "Layer.h"
 #include "LayerAndroid.h"
 #include "PictureSet.h"
@@ -279,7 +281,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
     stream->writeBool(layer->m_haveClip);
     stream->writeBool(layer->isFixed());
     stream->writeBool(layer->m_backgroundColorSet);
-    stream->writeBool(layer->m_isIframe);
+    stream->writeBool(layer->isIFrame());
 
     // With the current LayerAndroid hierarchy, LayerAndroid doesn't have
     // those fields anymore. Let's keep the current serialization format for
@@ -385,13 +387,25 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
 
     // Keep the legacy serialization/deserialization format...
     bool isFixed = stream->readBool();
+
+    layer->m_backgroundColorSet = stream->readBool();
+
+    bool isIframe = stream->readBool();
+    // If we are a scrollable layer android, we are an iframe content
+    if (isIframe && type == LTScrollableLayerAndroid) {
+         IFrameContentLayerAndroid* iframeContent = new IFrameContentLayerAndroid(*layer);
+         layer->unref();
+         layer = iframeContent;
+    } else if (isIframe) { // otherwise we are just the iframe (we use it to compute offset)
+         IFrameLayerAndroid* iframe = new IFrameLayerAndroid(*layer);
+         layer->unref();
+         layer = iframe;
+    }
+
     if (isFixed) {
         FixedLayerAndroid* fixedLayer = new FixedLayerAndroid(*layer);
         layer->unref();
         layer = fixedLayer;
-
-        layer->m_backgroundColorSet = stream->readBool();
-        layer->m_isIframe = stream->readBool();
 
         fixedLayer->m_fixedLeft = readSkLength(stream);
         fixedLayer->m_fixedTop = readSkLength(stream);
@@ -405,9 +419,6 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
         fixedLayer->m_renderLayerPos.setX(stream->readS32());
         fixedLayer->m_renderLayerPos.setY(stream->readS32());
     } else {
-        layer->m_backgroundColorSet = stream->readBool();
-        layer->m_isIframe = stream->readBool();
-
         // Not a fixed element, bypass the values in the stream
         readSkLength(stream); // fixedLeft
         readSkLength(stream); // fixedTop

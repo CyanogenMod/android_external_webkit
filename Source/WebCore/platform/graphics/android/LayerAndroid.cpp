@@ -64,9 +64,8 @@ private:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-LayerAndroid::LayerAndroid(RenderLayer* owner, SubclassType subclassType) : Layer(),
+LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_haveClip(false),
-    m_isIframe(false),
     m_backfaceVisibility(true),
     m_visible(true),
     m_preserves3D(false),
@@ -80,7 +79,6 @@ LayerAndroid::LayerAndroid(RenderLayer* owner, SubclassType subclassType) : Laye
     m_lastComputeTextureSize(0),
     m_owningLayer(owner),
     m_type(LayerAndroid::WebCoreLayer),
-    m_subclassType(subclassType),
     m_hasText(true),
     m_intrinsicallyComposited(true),
     m_layerGroup(0)
@@ -95,9 +93,8 @@ LayerAndroid::LayerAndroid(RenderLayer* owner, SubclassType subclassType) : Laye
 #endif
 }
 
-LayerAndroid::LayerAndroid(const LayerAndroid& layer, SubclassType subclassType) : Layer(layer),
+LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_haveClip(layer.m_haveClip),
-    m_isIframe(layer.m_isIframe),
     m_zValue(layer.m_zValue),
     m_uniqueId(layer.m_uniqueId),
     m_owningLayer(layer.m_owningLayer),
@@ -115,14 +112,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer, SubclassType subclassType)
     m_visible = layer.m_visible;
     m_backgroundColor = layer.m_backgroundColor;
 
-    if (subclassType == LayerAndroid::CopyLayer)
-        m_subclassType = layer.m_subclassType;
-    else
-        m_subclassType = subclassType;
-
-    m_iframeOffset = layer.m_iframeOffset;
     m_offset = layer.m_offset;
-    m_iframeScrollOffset = layer.m_iframeScrollOffset;
     m_recordingPicture = layer.m_recordingPicture;
     SkSafeRef(m_recordingPicture);
 
@@ -174,7 +164,6 @@ void LayerAndroid::checkForPictureOptimizations()
 
 LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_haveClip(false),
-    m_isIframe(false),
     m_recordingPicture(picture),
     m_zValue(0),
     m_uniqueId(++gUniqueId),
@@ -183,7 +172,6 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_lastComputeTextureSize(0),
     m_owningLayer(0),
     m_type(LayerAndroid::NavCacheLayer),
-    m_subclassType(LayerAndroid::StandardLayer),
     m_hasText(true),
     m_intrinsicallyComposited(true),
     m_layerGroup(0)
@@ -389,40 +377,24 @@ void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
         getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
 }
 
-LayerAndroid* LayerAndroid::updateFixedLayerPosition(SkRect viewport,
-                                                     LayerAndroid* parentIframeLayer)
+IFrameLayerAndroid* LayerAndroid::updatePosition(SkRect viewport,
+                                                 IFrameLayerAndroid* parentIframeLayer)
 {
-    LayerAndroid* iframe = parentIframeLayer;
-
-    // If this is an iframe, accumulate the offset from the parent with
-    // current position, and change the parent pointer.
-    if (m_isIframe) {
-        // If this is the top level, take the current position
-        SkPoint parentOffset;
-        parentOffset.set(0,0);
-        if (iframe)
-            parentOffset = iframe->getPosition();
-
-        SkPoint offset = parentOffset + getPosition();
-        m_iframeOffset = IntPoint(offset.fX, offset.fY);
-
-        iframe = this;
-    }
-
-    return iframe;
+    // subclasses can implement this virtual function to modify their position
+    return parentIframeLayer;
 }
 
-void LayerAndroid::updateFixedLayersPositions(SkRect viewport, LayerAndroid* parentIframeLayer)
+void LayerAndroid::updateLayerPositions(SkRect viewport, IFrameLayerAndroid* parentIframeLayer)
 {
     XLOG("updating fixed positions, using viewport %fx%f - %fx%f",
          viewport.fLeft, viewport.fTop,
          viewport.width(), viewport.height());
 
-    LayerAndroid* iframeLayer = updateFixedLayerPosition(viewport, parentIframeLayer);
+    IFrameLayerAndroid* iframeLayer = updatePosition(viewport, parentIframeLayer);
 
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        this->getChild(i)->updateFixedLayersPositions(viewport, iframeLayer);
+        this->getChild(i)->updateLayerPositions(viewport, iframeLayer);
 }
 
 void LayerAndroid::updatePositions()
@@ -609,7 +581,7 @@ void LayerAndroid::showLayer(int indent)
                  m_clippingRect.width(), m_clippingRect.height());
     XLOGC("%s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
           "clip (%d, %d, %d, %d) %s %s prepareContext(%x), pic w: %d h: %d",
-          spaces, subclassName().latin1().data(), m_subclassType, uniqueId(), m_owningLayer,
+          spaces, subclassName().latin1().data(), subclassType(), uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           m_imageCRC ? "has an image" : "no image",
           tr.x(), tr.y(), tr.width(), tr.height(),
@@ -1035,8 +1007,6 @@ void LayerAndroid::dumpLayer(FILE* file, int indentLevel) const
     writeIntVal(file, indentLevel + 1, "layerId", m_uniqueId);
     writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
     writeIntVal(file, indentLevel + 1, "isFixed", isFixed());
-    writeIntVal(file, indentLevel + 1, "m_isIframe", m_isIframe);
-    writeIntPoint(file, indentLevel + 1, "m_iframeOffset", m_iframeOffset);
 
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
     writeSize(file, indentLevel + 1, "size", getSize());

@@ -67,6 +67,7 @@ class AndroidAnimation;
 class BaseTileTexture;
 class GLWebViewState;
 class LayerMergeState;
+class IFrameLayerAndroid;
 class RenderLayer;
 class TiledPage;
 class PaintedSurface;
@@ -89,23 +90,28 @@ public:
 class TEST_EXPORT LayerAndroid : public Layer {
 public:
     typedef enum { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer } LayerType;
-    typedef enum { StandardLayer, CopyLayer, FixedLayer } SubclassType;
+    typedef enum { StandardLayer, FixedLayer, ScrollableLayer,
+                   IFrameLayer, IFrameContentLayer } SubclassType;
 
     String subclassName()
     {
-        switch (m_subclassType) {
+        switch (subclassType()) {
             case LayerAndroid::StandardLayer:
                 return "StandardLayer";
-            case LayerAndroid::CopyLayer:
-                return "CopyLayer";
             case LayerAndroid::FixedLayer:
                 return "FixedLayer";
+            case LayerAndroid::ScrollableLayer:
+                return "ScrollableLayer";
+            case LayerAndroid::IFrameLayer:
+                return "IFrameLayer";
+            case LayerAndroid::IFrameContentLayer:
+                return "IFrameContentLayer";
         }
         return "Undefined";
     }
 
-    LayerAndroid(RenderLayer* owner, SubclassType type = LayerAndroid::StandardLayer);
-    LayerAndroid(const LayerAndroid& layer, SubclassType type = LayerAndroid::CopyLayer);
+    LayerAndroid(RenderLayer* owner);
+    LayerAndroid(const LayerAndroid& layer);
     LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
 
@@ -156,10 +162,7 @@ public:
     const FloatRect& drawClip() { return m_clippingRect; }
 
     const IntPoint& scrollOffset() const { return m_offset; }
-    const IntPoint& iframeOffset() const { return m_iframeOffset; }
-    const IntPoint& iframeScrollOffset() const { return m_iframeScrollOffset; }
     void setScrollOffset(IntPoint offset) { m_offset = offset; }
-    void setIFrameScrollOffset(IntPoint offset) { m_iframeScrollOffset = offset; }
     void setBackgroundColor(SkColor color);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool masksToBounds)
@@ -196,9 +199,9 @@ public:
         This call is recursive, so it should be called on the root of the
         hierarchy.
     */
-    void updateFixedLayersPositions(SkRect viewPort, LayerAndroid* parentIframeLayer = 0);
-    virtual LayerAndroid* updateFixedLayerPosition(SkRect viewport,
-                                                   LayerAndroid* parentIframeLayer);
+    void updateLayerPositions(SkRect viewPort, IFrameLayerAndroid* parentIframeLayer = 0);
+    virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
+                                               IFrameLayerAndroid* parentIframeLayer);
 
     /** Call this to update the position attribute, so that later calls
         like bounds() will report the corrected position.
@@ -243,11 +246,11 @@ public:
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
     virtual bool isFixed() const { return false; }
+    virtual bool isIFrame() const { return false; }
+    virtual bool isIFrameContent() const { return false; }
 
     RenderLayer* owningLayer() const { return m_owningLayer; }
 
-    void setIsIframe(bool isIframe) { m_isIframe = isIframe; }
-    bool isIFrame() const { return m_isIframe; }
     float zValue() const { return m_zValue; }
 
     // ViewStateSerializer friends
@@ -262,7 +265,7 @@ public:
     virtual bool updateWithLayer(LayerAndroid*);
 
     LayerType type() { return m_type; }
-    SubclassType subclassType() { return m_subclassType; }
+    virtual SubclassType subclassType() { return LayerAndroid::StandardLayer; }
 
     bool hasText() { return m_hasText; }
     void checkForPictureOptimizations();
@@ -282,8 +285,6 @@ public:
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style);
     IntPoint m_offset;
-    IntPoint m_iframeOffset;
-    IntPoint m_iframeScrollOffset;
     TransformationMatrix m_drawTransform;
 
 private:
@@ -301,7 +302,6 @@ private:
 
     bool m_haveClip;
     bool m_backgroundColorSet;
-    bool m_isIframe;
 
     bool m_backfaceVisibility;
     bool m_visible;

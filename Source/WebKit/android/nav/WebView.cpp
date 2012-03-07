@@ -313,7 +313,7 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
     if (compositeLayer) {
         // call this to be sure we've adjusted for any scrolling or animations
         // before we actually draw
-        compositeLayer->updateFixedLayersPositions(m_visibleRect);
+        compositeLayer->updateLayerPositions(m_visibleRect);
         compositeLayer->updatePositions();
         // We have to set the canvas' matrix on the base layer
         // (to have fixed layers work as intended)
