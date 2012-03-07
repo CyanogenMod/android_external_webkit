@@ -101,23 +101,27 @@ bool LayerGroup::tryUpdateLayerGroup(LayerGroup* oldLayerGroup)
         SkRegion* layerInval = getFirstLayer()->getInvalRegion();
         m_dualTiledTexture->markAsDirty(*layerInval);
     } else {
-        bool inval = false;
+        SkRegion invalRegion;
+        bool fullInval = false;
         for (unsigned int i = 0; i < m_layers.size(); i++) {
-            if (m_layers[i]->uniqueId() != oldLayerGroup->m_layers[i]->uniqueId()
-                || !m_layers[i]->getInvalRegion()->isEmpty()) {
-                // layer list has changed, or one has been inval'd
-                inval = true;
+            if (m_layers[i]->uniqueId() != oldLayerGroup->m_layers[i]->uniqueId()) {
+                // layer list has changed, fully invalidate
+                // TODO: partially invalidate based on layer size/position
+                fullInval = true;
+                break;
+            } else if (!m_layers[i]->getInvalRegion()->isEmpty()) {
+                // merge layer inval - translate the layer's inval region into group coordinates
+                SkPoint pos = m_layers[i]->getPosition();
+                m_layers[i]->getInvalRegion()->translate(pos.fX, pos.fY);
+                invalRegion.op(*(m_layers[i]->getInvalRegion()), SkRegion::kUnion_Op);
                 break;
             }
         }
 
-        if (inval) {
-            // fully invalidate the layer
-            // TODO: partial multi-layer invalidations
-            SkRegion inval;
-            inval.setRect(-1e8, -1e8, 2e8, 2e8);
-            m_dualTiledTexture->markAsDirty(inval);
-        }
+        if (fullInval)
+            invalRegion.setRect(-1e8, -1e8, 2e8, 2e8);
+
+        m_dualTiledTexture->markAsDirty(invalRegion);
     }
     return true;
 }
