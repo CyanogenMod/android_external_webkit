@@ -120,54 +120,13 @@ bool BaseTileTexture::release(TextureOwner* owner)
     return true;
 }
 
-float BaseTileTexture::scale()
+void BaseTileTexture::transferComplete()
 {
-    TextureTileInfo* textureInfo = &m_ownTextureTileInfo;
-    return textureInfo->m_scale;
-}
-
-// This function + TilesManager::addItemInTransferQueue() is replacing the
-// setTile().
-void BaseTileTexture::setOwnTextureTileInfoFromQueue(const TextureTileInfo* info)
-{
-    m_ownTextureTileInfo.m_x = info->m_x;
-    m_ownTextureTileInfo.m_y = info->m_y;
-    m_ownTextureTileInfo.m_scale = info->m_scale;
-    m_ownTextureTileInfo.m_painter = info->m_painter;
-    m_ownTextureTileInfo.m_picture = info->m_picture;
-    m_ownTextureTileInfo.m_inverted = TilesManager::instance()->invertedScreen();
     if (m_owner) {
         BaseTile* owner = static_cast<BaseTile*>(m_owner);
         owner->backTextureTransfer();
-    }
-
-}
-
-bool BaseTileTexture::readyFor(BaseTile* baseTile)
-{
-    const TextureTileInfo* info = &m_ownTextureTileInfo;
-
-    if (isPureColor() && info->m_painter == baseTile->painter()) {
-        XLOG("ReadyFor saw a pureColor tile (%p) at (%d, %d), rgb %x",
-              this, baseTile->x(), baseTile->y(), pureColor().rgb());
-        return true;
-    }
-
-    if (!info->m_painter || !baseTile->painter())
-        return false;
-
-    if (info &&
-        (info->m_x == baseTile->x()) &&
-        (info->m_y == baseTile->y()) &&
-        (info->m_scale == baseTile->scale()) &&
-        (info->m_inverted == TilesManager::instance()->invertedScreen()))
-        return true;
-
-    XLOG("texture %p readyFor return false for tile x, y (%d %d) texId %d ,"
-         " BaseTileTexture %p, BaseTile is %p, SCALE %f, painter %p, inv %d",
-         this, baseTile->x(), baseTile->y(), m_ownTextureId, this, baseTile,
-         baseTile->scale(), baseTile->painter(), TilesManager::instance()->invertedScreen());
-    return false;
+    } else
+        XLOGC("ERROR: owner missing after transfer of texture %p", this);
 }
 
 void BaseTileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,

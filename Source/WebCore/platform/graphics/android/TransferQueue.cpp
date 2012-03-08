@@ -152,15 +152,6 @@ bool TransferQueue::checkObsolete(const TileTransferData* data)
         return true;
     }
 
-    const TextureTileInfo* tileInfo = &(data->tileInfo);
-
-    if (tileInfo->m_x != baseTilePtr->x()
-        || tileInfo->m_y != baseTilePtr->y()
-        || tileInfo->m_scale != baseTilePtr->scale()) {
-        XLOG("Mismatching x, y, scale or painter , such that the tile is obsolete");
-        return true;
-    }
-
     return false;
 }
 
@@ -176,7 +167,7 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
     int textureWidth = destTex->getSize().width();
     int textureHeight = destTex->getSize().height();
 
-    IntRect inval = m_transferQueue[index].tileInfo.m_inval;
+    IntRect inval = m_transferQueue[index].invalRect;
     bool partialInval = !inval.isEmpty();
 
     if (partialInval && frontTex) {
@@ -352,7 +343,7 @@ void TransferQueue::updatePureColorTiles()
             if (!obsoleteBaseTile) {
                 destTexture = data->savedBaseTilePtr->backTexture();
                 destTexture->setPureColor(data->pureColor);
-                destTexture->setOwnTextureTileInfoFromQueue(&data->tileInfo);
+                destTexture->transferComplete();
             }
         } else if (data->status == emptyItem || data->status == pendingDiscard) {
             // The queue should be clear instead of setting to different status.
@@ -413,7 +404,7 @@ void TransferQueue::updateDirtyBaseTiles()
                 // Here we just need to upload the bitmap content to the GL Texture
                 GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId,
                                                  *m_transferQueue[index].bitmap,
-                                                 m_transferQueue[index].tileInfo.m_inval);
+                                                 m_transferQueue[index].invalRect);
             } else {
                 if (!usedFboForUpload) {
                     saveGLState();
@@ -425,13 +416,8 @@ void TransferQueue::updateDirtyBaseTiles()
                                   index);
             }
 
-            // After the base tile copied into the GL texture, we need to
-            // update the texture's info such that at draw time, readyFor
-            // will find the latest texture's info
-            // We don't need a map any more, each texture contains its own
-            // texturesTileInfo.
             destTexture->setPure(false);
-            destTexture->setOwnTextureTileInfoFromQueue(&m_transferQueue[index].tileInfo);
+            destTexture->transferComplete();
 
             XLOG("Blit tile x, y %d %d with dest texture %p to destTexture->m_ownTextureId %d",
                  m_transferQueue[index].tileInfo.m_x,
@@ -548,9 +534,6 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
     data->status = pendingBlit;
     data->uploadType = type;
 
-    // Now fill the tileInfo.
-    TextureTileInfo* textureInfo = &(data->tileInfo);
-
     IntRect inval(0, 0, 0, 0);
     if (renderInfo->invalRect) {
         inval.setX(renderInfo->invalRect->fLeft);
@@ -558,14 +541,7 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
         inval.setWidth(renderInfo->invalRect->width());
         inval.setHeight(renderInfo->invalRect->height());
     }
-    textureInfo->m_inval = inval;
-
-    textureInfo->m_x = renderInfo->x;
-    textureInfo->m_y = renderInfo->y;
-    textureInfo->m_scale = renderInfo->scale;
-    textureInfo->m_painter = renderInfo->tilePainter;
-
-    textureInfo->m_picture = renderInfo->textureInfo->m_pictureCount;
+    data->invalRect = inval;
 }
 
 // Note that there should be lock/unlock around this function call.
