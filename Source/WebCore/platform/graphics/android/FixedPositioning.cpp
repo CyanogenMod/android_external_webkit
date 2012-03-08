@@ -1,46 +1,46 @@
 #include "config.h"
-#include "FixedLayerAndroid.h"
-#include "DumpLayer.h"
-#include "TilesManager.h"
+#include "FixedPositioning.h"
 
-#include "GLWebViewState.h"
+#include "DumpLayer.h"
+#include "IFrameLayerAndroid.h"
+#include "TilesManager.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include <wtf/CurrentTime.h>
 #include <cutils/log.h>
+#include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "FixedLayerAndroid", __VA_ARGS__)
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "FixedPositioning", __VA_ARGS__)
 
 namespace WebCore {
 
-FixedLayerAndroid::FixedLayerAndroid(const FixedLayerAndroid& layer)
-        : LayerAndroid(layer)
-        , m_fixedLeft(layer.m_fixedLeft)
-        , m_fixedTop(layer.m_fixedTop)
-        , m_fixedRight(layer.m_fixedRight)
-        , m_fixedBottom(layer.m_fixedBottom)
-        , m_fixedMarginLeft(layer.m_fixedMarginLeft)
-        , m_fixedMarginTop(layer.m_fixedMarginTop)
-        , m_fixedMarginRight(layer.m_fixedMarginRight)
-        , m_fixedMarginBottom(layer.m_fixedMarginBottom)
-        , m_fixedRect(layer.m_fixedRect)
-        , m_renderLayerPos(layer.m_renderLayerPos)
+// Called when copying the layer tree to the UI
+FixedPositioning::FixedPositioning(LayerAndroid* layer, const FixedPositioning& position)
+        : m_layer(layer)
+        , m_fixedLeft(position.m_fixedLeft)
+        , m_fixedTop(position.m_fixedTop)
+        , m_fixedRight(position.m_fixedRight)
+        , m_fixedBottom(position.m_fixedBottom)
+        , m_fixedMarginLeft(position.m_fixedMarginLeft)
+        , m_fixedMarginTop(position.m_fixedMarginTop)
+        , m_fixedMarginRight(position.m_fixedMarginRight)
+        , m_fixedMarginBottom(position.m_fixedMarginBottom)
+        , m_fixedRect(position.m_fixedRect)
+        , m_renderLayerPos(position.m_renderLayerPos)
 {
 }
 
-IFrameLayerAndroid* FixedLayerAndroid::updatePosition(SkRect viewport,
-                                                      IFrameLayerAndroid* parentIframeLayer)
+// Executed on the UI
+IFrameLayerAndroid* FixedPositioning::updatePosition(SkRect viewport,
+                                                     IFrameLayerAndroid* parentIframeLayer)
 {
-    IFrameLayerAndroid* iframeLayer = LayerAndroid::updatePosition(viewport, parentIframeLayer);
-
     // So if this is a fixed layer inside a iframe, use the iframe offset
     // and the iframe's size as the viewport and pass to the children
-    if (iframeLayer) {
-        viewport = SkRect::MakeXYWH(iframeLayer->iframeOffset().x(),
-                             iframeLayer->iframeOffset().y(),
-                             iframeLayer->getSize().width(),
-                             iframeLayer->getSize().height());
+    if (parentIframeLayer) {
+        viewport = SkRect::MakeXYWH(parentIframeLayer->iframeOffset().x(),
+                                    parentIframeLayer->iframeOffset().y(),
+                                    parentIframeLayer->getSize().width(),
+                                    parentIframeLayer->getSize().height());
     }
     float w = viewport.width();
     float h = viewport.height();
@@ -66,14 +66,13 @@ IFrameLayerAndroid* FixedLayerAndroid::updatePosition(SkRect viewport,
     else
         y += h - m_fixedMarginBottom.calcFloatValue(h) - m_fixedBottom.calcFloatValue(h) - m_fixedRect.fBottom;
 
-    this->setPosition(x, y);
+    m_layer->setPosition(x, y);
 
-    return iframeLayer;
+    return parentIframeLayer;
 }
 
-void FixedLayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
+void FixedPositioning::contentDraw(SkCanvas* canvas, Layer::PaintStyle style)
 {
-    LayerAndroid::contentDraw(canvas, style);
     if (TilesManager::instance()->getShowVisualIndicator()) {
         SkPaint paint;
         paint.setARGB(80, 255, 0, 0);
@@ -89,7 +88,7 @@ void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
     fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
 }
 
-void FixedLayerAndroid::dumpLayer(FILE* file, int indentLevel) const
+void FixedPositioning::dumpLayer(FILE* file, int indentLevel) const
 {
     writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
     writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);

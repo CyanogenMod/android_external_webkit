@@ -7,6 +7,7 @@
 #include "ClassTracker.h"
 #include "DrawExtra.h"
 #include "DumpLayer.h"
+#include "FixedPositioning.h"
 #include "GLUtils.h"
 #include "ImagesManager.h"
 #include "InspectorCanvas.h"
@@ -70,6 +71,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_visible(true),
     m_preserves3D(false),
     m_anchorPointZ(0),
+    m_fixedPosition(0),
     m_recordingPicture(0),
     m_zValue(0),
     m_uniqueId(++gUniqueId),
@@ -95,6 +97,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_haveClip(layer.m_haveClip),
+    m_fixedPosition(0),
     m_zValue(layer.m_zValue),
     m_uniqueId(layer.m_uniqueId),
     m_owningLayer(layer.m_owningLayer),
@@ -118,6 +121,12 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 
     m_preserves3D = layer.m_preserves3D;
     m_anchorPointZ = layer.m_anchorPointZ;
+
+    if (layer.m_fixedPosition) {
+        m_fixedPosition = new FixedPositioning(this, *layer.m_fixedPosition);
+        Layer::setShouldInheritFromRootTransform(true);
+    }
+
     m_drawTransform = layer.m_drawTransform;
     m_childrenTransform = layer.m_childrenTransform;
     m_pictureUsed = layer.m_pictureUsed;
@@ -164,6 +173,7 @@ void LayerAndroid::checkForPictureOptimizations()
 
 LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_haveClip(false),
+    m_fixedPosition(0),
     m_recordingPicture(picture),
     m_zValue(0),
     m_uniqueId(++gUniqueId),
@@ -189,6 +199,8 @@ LayerAndroid::~LayerAndroid()
 {
     if (m_imageCRC)
         ImagesManager::instance()->releaseImage(m_imageCRC);
+    if (m_fixedPosition)
+        delete m_fixedPosition;
 
     SkSafeUnref(m_recordingPicture);
     // Don't unref m_layerGroup, owned by BaseLayerAndroid
@@ -381,6 +393,8 @@ IFrameLayerAndroid* LayerAndroid::updatePosition(SkRect viewport,
                                                  IFrameLayerAndroid* parentIframeLayer)
 {
     // subclasses can implement this virtual function to modify their position
+    if (m_fixedPosition)
+        return m_fixedPosition->updatePosition(viewport, parentIframeLayer);
     return parentIframeLayer;
 }
 
@@ -904,6 +918,9 @@ void LayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
         canvas->drawLine(w, h, w, 0, paint);
         canvas->drawLine(w, 0, 0, 0, paint);
     }
+
+    if (m_fixedPosition)
+        return m_fixedPosition->contentDraw(canvas, style);
 }
 
 void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
@@ -964,6 +981,12 @@ bool LayerAndroid::prepareContext(bool force)
     return m_recordingPicture;
 }
 
+void LayerAndroid::setFixedPosition(FixedPositioning* position) {
+    if (m_fixedPosition && m_fixedPosition != position)
+        delete m_fixedPosition;
+    m_fixedPosition = position;
+}
+
 SkRect LayerAndroid::subtractLayers(const SkRect& visibleRect) const
 {
     SkRect result;
@@ -1021,6 +1044,9 @@ void LayerAndroid::dumpLayer(FILE* file, int indentLevel) const
         writeIntVal(file, indentLevel + 1, "m_recordingPicture.width", m_recordingPicture->width());
         writeIntVal(file, indentLevel + 1, "m_recordingPicture.height", m_recordingPicture->height());
     }
+
+    if (m_fixedPosition)
+        return m_fixedPosition->dumpLayer(file, indentLevel);
 }
 
 void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const

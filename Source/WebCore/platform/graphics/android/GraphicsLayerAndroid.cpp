@@ -22,7 +22,7 @@
 #include "AndroidAnimation.h"
 #include "Animation.h"
 #include "FloatRect.h"
-#include "FixedLayerAndroid.h"
+#include "FixedPositioning.h"
 #include "GraphicsContext.h"
 #include "IFrameContentLayerAndroid.h"
 #include "IFrameLayerAndroid.h"
@@ -272,23 +272,19 @@ void GraphicsLayerAndroid::updateFixedPosition()
         viewRect.set(paintingOffsetX, paintingOffsetY, paintingOffsetX + w, paintingOffsetY + h);
         IntPoint renderLayerPos(renderLayer->x(), renderLayer->y());
 
-        if (!m_contentLayer->isFixed()) {
-            FixedLayerAndroid* layer = new FixedLayerAndroid(*m_contentLayer);
-            m_contentLayer->unref();
-            m_contentLayer = layer;
+        FixedPositioning* fixedPosition = m_contentLayer->fixedPosition();
+        if (!fixedPosition) {
+            fixedPosition = new FixedPositioning();
+            m_contentLayer->setFixedPosition(fixedPosition);
         }
 
-        FixedLayerAndroid* layer = static_cast<FixedLayerAndroid*>(m_contentLayer);
-        layer->setFixedPosition(left, top, right, bottom,
-                                         marginLeft, marginTop,
-                                         marginRight, marginBottom,
-                                         renderLayerPos,
-                                         viewRect);
-    } else if (m_contentLayer->isFixed()) {
-        LayerAndroid* layer = new LayerAndroid(*m_contentLayer);
-        m_contentLayer->unref();
-        m_contentLayer = layer;
-    }
+        fixedPosition->setFixedPosition(left, top, right, bottom,
+                                        marginLeft, marginTop,
+                                        marginRight, marginBottom,
+                                        renderLayerPos,
+                                        viewRect);
+    } else if (m_contentLayer->isFixed())
+        m_contentLayer->setFixedPosition(0);
 }
 
 void GraphicsLayerAndroid::setPosition(const FloatPoint& point)

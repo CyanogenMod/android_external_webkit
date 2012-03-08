@@ -65,9 +65,10 @@ namespace WebCore {
 
 class AndroidAnimation;
 class BaseTileTexture;
+class FixedPositioning;
 class GLWebViewState;
-class LayerMergeState;
 class IFrameLayerAndroid;
+class LayerMergeState;
 class RenderLayer;
 class TiledPage;
 class PaintedSurface;
@@ -90,7 +91,7 @@ public:
 class TEST_EXPORT LayerAndroid : public Layer {
 public:
     typedef enum { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer } LayerType;
-    typedef enum { StandardLayer, FixedLayer, ScrollableLayer,
+    typedef enum { StandardLayer, ScrollableLayer,
                    IFrameLayer, IFrameContentLayer } SubclassType;
 
     String subclassName()
@@ -98,8 +99,6 @@ public:
         switch (subclassType()) {
             case LayerAndroid::StandardLayer:
                 return "StandardLayer";
-            case LayerAndroid::FixedLayer:
-                return "FixedLayer";
             case LayerAndroid::ScrollableLayer:
                 return "ScrollableLayer";
             case LayerAndroid::IFrameLayer:
@@ -245,9 +244,12 @@ public:
 
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
-    virtual bool isFixed() const { return false; }
+    bool isFixed() const { return m_fixedPosition; }
     virtual bool isIFrame() const { return false; }
     virtual bool isIFrameContent() const { return false; }
+
+    void setFixedPosition(FixedPositioning* position);
+    FixedPositioning* fixedPosition() { return m_fixedPosition; }
 
     RenderLayer* owningLayer() const { return m_owningLayer; }
 
@@ -311,6 +313,8 @@ private:
     bool m_preserves3D;
     float m_anchorPointZ;
     float m_drawOpacity;
+
+    FixedPositioning* m_fixedPosition;
 
     // Note that m_recordingPicture and m_imageRef are mutually exclusive;
     // m_recordingPicture is used when WebKit is asked to paint the layer's

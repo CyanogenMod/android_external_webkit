@@ -151,7 +151,7 @@ public:
 
     virtual bool contentIsScrollable() const { return false; }
 
-    enum PaintStyle { MergedLayers, UnmergedLayers, FlattenedLayers };
+    typedef enum { MergedLayers, UnmergedLayers, FlattenedLayers } PaintStyle;
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style) {}
 

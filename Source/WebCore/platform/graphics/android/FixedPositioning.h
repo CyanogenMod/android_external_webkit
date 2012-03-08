@@ -1,28 +1,38 @@
 /*
- * Copyright (C) 2012 The Android Open Source Project
+ * Copyright 2012, The Android Open Source Project
  *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FixedLayerAndroid_h
-#define FixedLayerAndroid_h
+#ifndef FixedPositioning_h
+#define FixedPositioning_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "LayerAndroid.h"
-#include "IFrameLayerAndroid.h"
 
 namespace WebCore {
+
+class IFrameLayerAndroid;
 
 struct SkLength {
     enum SkLengthType { Undefined, Auto, Relative,
@@ -53,23 +63,12 @@ struct SkLength {
     }
 };
 
-class FixedLayerAndroid : public LayerAndroid {
+class FixedPositioning {
 
 public:
-    FixedLayerAndroid(RenderLayer* owner)
-        : LayerAndroid(owner) {}
-    FixedLayerAndroid(const LayerAndroid& layer)
-        : LayerAndroid(layer) {}
-    FixedLayerAndroid(const FixedLayerAndroid& layer);
-    virtual ~FixedLayerAndroid() {};
-
-    virtual LayerAndroid* copy() const { return new FixedLayerAndroid(*this); }
-    virtual SubclassType subclassType() { return LayerAndroid::FixedLayer; }
-
-    friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
-    friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
-
-    virtual bool isFixed() const { return true; }
+    FixedPositioning(LayerAndroid* layer = 0) : m_layer(layer) {}
+    FixedPositioning(LayerAndroid* layer, const FixedPositioning& position);
+    virtual ~FixedPositioning() {};
 
     void setFixedPosition(SkLength left, // CSS left property
                           SkLength top, // CSS top property
@@ -91,17 +90,22 @@ public:
         m_fixedMarginBottom = marginBottom;
         m_fixedRect = viewRect;
         m_renderLayerPos = renderLayerPos;
-        setShouldInheritFromRootTransform(true);
     }
 
-    virtual IFrameLayerAndroid* updatePosition(SkRect viewPort,
-                                               IFrameLayerAndroid* parentIframeLayer);
+    IFrameLayerAndroid* updatePosition(SkRect viewPort,
+                                       IFrameLayerAndroid* parentIframeLayer);
 
-    virtual void contentDraw(SkCanvas* canvas, PaintStyle style);
+    void contentDraw(SkCanvas* canvas, Layer::PaintStyle style);
 
-    virtual void dumpLayer(FILE*, int indentLevel) const;
+    void dumpLayer(FILE*, int indentLevel) const;
+
+    // ViewStateSerializer friends
+    friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
+    friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
 
 private:
+    LayerAndroid* m_layer;
+
     SkLength m_fixedLeft;
     SkLength m_fixedTop;
     SkLength m_fixedRight;
@@ -121,4 +125,4 @@ private:
 
 #endif // USE(ACCELERATED_COMPOSITING)
 
-#endif // FixedLayerAndroid_h
+#endif // FixedPositioning_h

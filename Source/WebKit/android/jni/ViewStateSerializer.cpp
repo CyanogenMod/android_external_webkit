@@ -27,7 +27,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "CreateJavaOutputStreamAdaptor.h"
-#include "FixedLayerAndroid.h"
+#include "FixedPositioning.h"
 #include "ImagesManager.h"
 #include "IFrameContentLayerAndroid.h"
 #include "IFrameLayerAndroid.h"
@@ -287,19 +287,19 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
     // those fields anymore. Let's keep the current serialization format for
     // now and output blank fields... not great, but probably better than
     // dealing with multiple versions.
-    if (layer->isFixed()) {
-        FixedLayerAndroid* fixedLayer = static_cast<FixedLayerAndroid*>(layer);
-        writeSkLength(stream, fixedLayer->m_fixedLeft);
-        writeSkLength(stream, fixedLayer->m_fixedTop);
-        writeSkLength(stream, fixedLayer->m_fixedRight);
-        writeSkLength(stream, fixedLayer->m_fixedBottom);
-        writeSkLength(stream, fixedLayer->m_fixedMarginLeft);
-        writeSkLength(stream, fixedLayer->m_fixedMarginTop);
-        writeSkLength(stream, fixedLayer->m_fixedMarginRight);
-        writeSkLength(stream, fixedLayer->m_fixedMarginBottom);
-        writeSkRect(stream, fixedLayer->m_fixedRect);
-        stream->write32(fixedLayer->m_renderLayerPos.x());
-        stream->write32(fixedLayer->m_renderLayerPos.y());
+    if (layer->fixedPosition()) {
+        FixedPositioning* fixedPosition = layer->fixedPosition();
+        writeSkLength(stream, fixedPosition->m_fixedLeft);
+        writeSkLength(stream, fixedPosition->m_fixedTop);
+        writeSkLength(stream, fixedPosition->m_fixedRight);
+        writeSkLength(stream, fixedPosition->m_fixedBottom);
+        writeSkLength(stream, fixedPosition->m_fixedMarginLeft);
+        writeSkLength(stream, fixedPosition->m_fixedMarginTop);
+        writeSkLength(stream, fixedPosition->m_fixedMarginRight);
+        writeSkLength(stream, fixedPosition->m_fixedMarginBottom);
+        writeSkRect(stream, fixedPosition->m_fixedRect);
+        stream->write32(fixedPosition->m_renderLayerPos.x());
+        stream->write32(fixedPosition->m_renderLayerPos.y());
     } else {
         SkLength length;
         SkRect rect;
@@ -403,21 +403,21 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
     }
 
     if (isFixed) {
-        FixedLayerAndroid* fixedLayer = new FixedLayerAndroid(*layer);
-        layer->unref();
-        layer = fixedLayer;
+        FixedPositioning* fixedPosition = new FixedPositioning(layer);
 
-        fixedLayer->m_fixedLeft = readSkLength(stream);
-        fixedLayer->m_fixedTop = readSkLength(stream);
-        fixedLayer->m_fixedRight = readSkLength(stream);
-        fixedLayer->m_fixedBottom = readSkLength(stream);
-        fixedLayer->m_fixedMarginLeft = readSkLength(stream);
-        fixedLayer->m_fixedMarginTop = readSkLength(stream);
-        fixedLayer->m_fixedMarginRight = readSkLength(stream);
-        fixedLayer->m_fixedMarginBottom = readSkLength(stream);
-        fixedLayer->m_fixedRect = readSkRect(stream);
-        fixedLayer->m_renderLayerPos.setX(stream->readS32());
-        fixedLayer->m_renderLayerPos.setY(stream->readS32());
+        fixedPosition->m_fixedLeft = readSkLength(stream);
+        fixedPosition->m_fixedTop = readSkLength(stream);
+        fixedPosition->m_fixedRight = readSkLength(stream);
+        fixedPosition->m_fixedBottom = readSkLength(stream);
+        fixedPosition->m_fixedMarginLeft = readSkLength(stream);
+        fixedPosition->m_fixedMarginTop = readSkLength(stream);
+        fixedPosition->m_fixedMarginRight = readSkLength(stream);
+        fixedPosition->m_fixedMarginBottom = readSkLength(stream);
+        fixedPosition->m_fixedRect = readSkRect(stream);
+        fixedPosition->m_renderLayerPos.setX(stream->readS32());
+        fixedPosition->m_renderLayerPos.setY(stream->readS32());
+
+        layer->setFixedPosition(fixedPosition);
     } else {
         // Not a fixed element, bypass the values in the stream
         readSkLength(stream); // fixedLeft
