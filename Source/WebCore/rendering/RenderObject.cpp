@@ -1667,6 +1667,12 @@ void RenderObject::styleWillChange(StyleDifference diff, const RenderStyle* newS
         // If our z-index changes value or our visibility changes,
         // we need to dirty our stacking context's z-order list.
         if (newStyle) {
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+            RenderLayer* layer = hasLayer() ? enclosingLayer() : 0;
+            if (layer && m_style->position() != newStyle->position()
+                && (m_style->position() == FixedPosition || newStyle->position() == FixedPosition))
+                layer->dirtyZOrderLists();
+#endif
             bool visibilityChanged = m_style->visibility() != newStyle->visibility() 
                 || m_style->zIndex() != newStyle->zIndex() 
                 || m_style->hasAutoZIndex() != newStyle->hasAutoZIndex();
