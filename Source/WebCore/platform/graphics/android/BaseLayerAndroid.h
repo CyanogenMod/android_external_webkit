@@ -29,6 +29,7 @@
 #include "Color.h"
 #include "Layer.h"
 #include "PictureSet.h"
+#include "LayerContent.h"
 
 namespace WebCore {
 
@@ -50,8 +51,9 @@ public:
     void setBackgroundColor(Color& color) { m_color = color; }
     Color getBackgroundColor() { return m_color; }
 #endif
-    void setContent(const android::PictureSet& src);
-    android::PictureSet* content() { return &m_content; }
+    void setContent(LayerContent* content);
+    LayerContent* content() { return m_content; }
+
     // This method will paint using the current PictureSet onto
     // the passed canvas. We used it to paint the GL tiles as well as
     // WebView::copyBaseContentToPicture(), so a lock is necessary as
@@ -78,7 +80,7 @@ private:
     android::Mutex m_drawLock;
     Color m_color;
 #endif
-    android::PictureSet m_content;
+    LayerContent* m_content;
 
     ScrollState m_scrollState;
 };

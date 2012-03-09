@@ -672,6 +672,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/PaintTileOperation.cpp \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
+	platform/graphics/android/PictureLayerContent.cpp \
+	platform/graphics/android/PictureSetLayerContent.cpp \
 	platform/graphics/android/PlatformGraphicsContext.cpp \
 	platform/graphics/android/PerformanceMonitor.cpp \
 	platform/graphics/android/RasterRenderer.cpp \

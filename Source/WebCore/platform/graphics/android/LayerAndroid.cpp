@@ -11,9 +11,11 @@
 #include "GLUtils.h"
 #include "ImagesManager.h"
 #include "InspectorCanvas.h"
+#include "LayerContent.h"
 #include "LayerGroup.h"
 #include "MediaLayer.h"
 #include "ParseCanvas.h"
+#include "PictureLayerContent.h"
 #include "SkBitmapRef.h"
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
@@ -72,15 +74,14 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_preserves3D(false),
     m_anchorPointZ(0),
     m_fixedPosition(0),
-    m_recordingPicture(0),
     m_zValue(0),
     m_uniqueId(++gUniqueId),
+    m_content(0),
     m_imageCRC(0),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(owner),
     m_type(LayerAndroid::WebCoreLayer),
-    m_hasText(true),
     m_intrinsicallyComposited(true),
     m_layerGroup(0)
 {
@@ -101,7 +102,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_uniqueId(layer.m_uniqueId),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
-    m_hasText(layer.m_hasText),
     m_intrinsicallyComposited(layer.m_intrinsicallyComposited),
     m_layerGroup(0)
 {
@@ -115,8 +115,9 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_backgroundColor = layer.m_backgroundColor;
 
     m_offset = layer.m_offset;
-    m_recordingPicture = layer.m_recordingPicture;
-    SkSafeRef(m_recordingPicture);
+
+    m_content = layer.m_content;
+    SkSafeRef(m_content);
 
     m_preserves3D = layer.m_preserves3D;
     m_anchorPointZ = layer.m_anchorPointZ;
@@ -146,33 +147,9 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 #endif
 }
 
-void LayerAndroid::checkForPictureOptimizations()
-{
-    if (m_recordingPicture) {
-        // Let's check if we have text or not. If we don't, we can limit
-        // ourselves to scale 1!
-        InspectorBounder inspectorBounder;
-        InspectorCanvas checker(&inspectorBounder, m_recordingPicture);
-        SkBitmap bitmap;
-        bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                         m_recordingPicture->width(),
-                         m_recordingPicture->height());
-        checker.setBitmapDevice(bitmap);
-        checker.drawPicture(*m_recordingPicture);
-        m_hasText = checker.hasText();
-        if (!checker.hasContent()) {
-            // no content to draw, discard picture so UI / tile generation
-            // doesn't bother with it
-            SkSafeUnref(m_recordingPicture);
-            m_recordingPicture = 0;
-        }
-    }
-}
-
 LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_haveClip(false),
     m_fixedPosition(0),
-    m_recordingPicture(picture),
     m_zValue(0),
     m_uniqueId(++gUniqueId),
     m_imageCRC(0),
@@ -180,12 +157,11 @@ LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
     m_lastComputeTextureSize(0),
     m_owningLayer(0),
     m_type(LayerAndroid::NavCacheLayer),
-    m_hasText(true),
     m_intrinsicallyComposited(true),
     m_layerGroup(0)
 {
     m_backgroundColor = 0;
-    SkSafeRef(m_recordingPicture);
+    m_content = new PictureLayerContent(picture);
     m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid - from picture");
@@ -200,7 +176,7 @@ LayerAndroid::~LayerAndroid()
     if (m_fixedPosition)
         delete m_fixedPosition;
 
-    SkSafeUnref(m_recordingPicture);
+    SkSafeUnref(m_content);
     // Don't unref m_layerGroup, owned by BaseLayerAndroid
     m_animations.clear();
 #ifdef DEBUG_COUNT
@@ -212,6 +188,11 @@ LayerAndroid::~LayerAndroid()
     else if (m_type == LayerAndroid::NavCacheLayer)
         ClassTracker::instance()->decrement("LayerAndroid - from picture");
 #endif
+}
+
+bool LayerAndroid::hasText()
+{
+    return m_content && m_content->hasText();
 }
 
 static int gDebugNbAnims = 0;
@@ -381,7 +362,7 @@ void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
     localBounds.intersect(local);
     if (localBounds.isEmpty())
         return;
-    if (m_recordingPicture && boundsIsUnique(*region, localBounds))
+    if (m_content && boundsIsUnique(*region, localBounds))
         *region->append() = localBounds;
     for (int i = 0; i < countChildren(); i++)
         getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
@@ -536,10 +517,16 @@ void LayerAndroid::setContentsImage(SkBitmapRef* img)
     m_imageCRC = image ? image->imageCRC() : 0;
 }
 
+void LayerAndroid::setContent(LayerContent* content)
+{
+    SkSafeRef(content);
+    SkSafeUnref(m_content);
+    m_content = content;
+}
+
 bool LayerAndroid::needsTexture()
 {
-    return (m_recordingPicture
-        && m_recordingPicture->width() && m_recordingPicture->height());
+    return m_content && !m_content->isEmpty();
 }
 
 IntRect LayerAndroid::clippedRect() const
@@ -592,7 +579,7 @@ void LayerAndroid::showLayer(int indent)
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
     XLOGC("%s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
-          "clip (%d, %d, %d, %d) %s %s prepareContext(%x), pic w: %d h: %d",
+          "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d",
           spaces, subclassName().latin1().data(), subclassType(), uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           m_imageCRC ? "has an image" : "no image",
@@ -601,9 +588,9 @@ void LayerAndroid::showLayer(int indent)
           clip.x(), clip.y(), clip.width(), clip.height(),
           contentIsScrollable() ? "SCROLLABLE" : "",
           isFixed() ? "FIXED" : "",
-          m_recordingPicture,
-          m_recordingPicture ? m_recordingPicture->width() : -1,
-          m_recordingPicture ? m_recordingPicture->height() : -1);
+          m_content,
+          m_content ? m_content->width() : -1,
+          m_content ? m_content->height() : -1);
 
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
@@ -658,7 +645,7 @@ bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
     if (m_imageCRC != layer->m_imageCRC)
         m_visible = false;
 
-    if ((m_recordingPicture != layer->m_recordingPicture)
+    if ((m_content != layer->m_content)
         || (m_imageCRC != layer->m_imageCRC))
         return true;
 
@@ -703,7 +690,7 @@ bool LayerAndroid::canJoinGroup(LayerGroup* group)
 
     // currently, we don't group zoomable with non-zoomable layers (unless the
     // group or the layer doesn't need a texture)
-    if (group->needsTexture() && needsTexture() && m_hasText != group->hasText())
+    if (group->needsTexture() && needsTexture() && m_content->hasText() != group->hasText())
         return false;
 
     // TODO: compare other layer properties - fixed? overscroll? transformed?
@@ -893,8 +880,8 @@ bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas, PaintStyle style)
 
 void LayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
 {
-    if (m_recordingPicture)
-      canvas->drawPicture(*m_recordingPicture);
+    if (m_content)
+        m_content->draw(canvas);
 
     if (TilesManager::instance()->getShowVisualIndicator()) {
         float w = getSize().width();
@@ -931,7 +918,7 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
         return;
     }
 
-    if (!prepareContext())
+    if (masksToBounds() || !m_content)
         return;
 
     // we just have this save/restore for opacity...
@@ -956,29 +943,6 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
         extra->draw(canvas, this);
 }
 
-SkPicture* LayerAndroid::recordContext()
-{
-    if (prepareContext(true))
-        return m_recordingPicture;
-    return 0;
-}
-
-bool LayerAndroid::prepareContext(bool force)
-{
-    if (masksToBounds())
-        return false;
-
-    if (force || !m_recordingPicture ||
-        (m_recordingPicture &&
-         ((m_recordingPicture->width() != (int) getSize().width()) ||
-          (m_recordingPicture->height() != (int) getSize().height())))) {
-        SkSafeUnref(m_recordingPicture);
-        m_recordingPicture = new SkPicture();
-    }
-
-    return m_recordingPicture;
-}
-
 void LayerAndroid::setFixedPosition(FixedPositioning* position) {
     if (m_fixedPosition && m_fixedPosition != position)
         delete m_fixedPosition;
@@ -1001,9 +965,9 @@ void LayerAndroid::dumpLayer(FILE* file, int indentLevel) const
     writeMatrix(file, indentLevel + 1, "transformMatrix", m_transform);
     writeRect(file, indentLevel + 1, "clippingRect", SkRect(m_clippingRect));
 
-    if (m_recordingPicture) {
-        writeIntVal(file, indentLevel + 1, "m_recordingPicture.width", m_recordingPicture->width());
-        writeIntVal(file, indentLevel + 1, "m_recordingPicture.height", m_recordingPicture->height());
+    if (m_content) {
+        writeIntVal(file, indentLevel + 1, "m_content.width", m_content->width());
+        writeIntVal(file, indentLevel + 1, "m_content.height", m_content->height());
     }
 
     if (m_fixedPosition)

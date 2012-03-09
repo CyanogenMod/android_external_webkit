@@ -24,6 +24,7 @@
 #include "GraphicsLayer.h"
 #include "GraphicsLayerClient.h"
 #include "LayerAndroid.h"
+#include "LayerContent.h"
 #include "RefPtr.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkBitmapRef.h"
@@ -143,7 +144,7 @@ private:
     bool repaint();
     void needsNotifyClient();
 
-    bool paintContext(SkPicture* context, const IntRect& rect);
+    bool paintContext(LayerAndroid* layer, const IntRect& rect);
 
     bool m_needsSyncChildren;
     bool m_needsSyncMask;

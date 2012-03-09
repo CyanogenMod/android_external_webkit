@@ -31,6 +31,7 @@
 #include "Layer.h"
 #include "Length.h"
 #include "MediaLayer.h"
+#include "PictureLayerContent.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
 #include "RenderLayerBacking.h"
@@ -603,9 +604,8 @@ bool GraphicsLayerAndroid::repaint()
             PaintingPhase phase(this);
             // Paint the background into a separate context.
             phase.set(GraphicsLayerPaintBackground);
-            if (!paintContext(m_contentLayer->recordContext(), layerBounds))
+            if (!paintContext(m_contentLayer, layerBounds))
                 return false;
-            m_contentLayer->checkForPictureOptimizations();
 
             // Construct the foreground layer and draw.
             RenderBox* box = layer->renderBox();
@@ -625,8 +625,7 @@ bool GraphicsLayerAndroid::repaint()
             IntSize scroll = layer->scrolledContentOffset();
             layer->scrollToOffset(0, 0);
             // At this point, it doesn't matter if painting failed.
-            (void) paintContext(m_foregroundLayer->recordContext(), contentsRect);
-            m_foregroundLayer->checkForPictureOptimizations();
+            (void) paintContext(m_foregroundLayer, contentsRect);
             layer->scrollToOffset(scroll.width(), scroll.height());
 
             // Construct the clip layer for masking the contents.
@@ -661,11 +660,9 @@ bool GraphicsLayerAndroid::repaint()
         } else {
             // If there is no contents clip, we can draw everything into one
             // picture.
-            bool painting = paintContext(m_contentLayer->recordContext(), layerBounds);
+            bool painting = paintContext(m_contentLayer, layerBounds);
             if (!painting)
                 return false;
-            // We painted new content
-            m_contentLayer->checkForPictureOptimizations();
             // Check for a scrollable iframe and report the scrolling
             // limits based on the view size.
             if (m_contentLayer->isIFrameContent()) {
@@ -703,19 +700,32 @@ bool GraphicsLayerAndroid::repaint()
     return false;
 }
 
-bool GraphicsLayerAndroid::paintContext(SkPicture* context,
+bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
                                         const IntRect& rect)
 {
-    SkAutoPictureRecord arp(context, rect.width(), rect.height());
-    SkCanvas* canvas = arp.getRecordingCanvas();
-
-    if (!canvas)
+    if (!layer)
         return false;
+
+    SkPicture* picture = new SkPicture();
+    SkCanvas* canvas = picture->beginRecording(rect.width(), rect.height(), 0);
+    if (!canvas) {
+        picture->endRecording();
+        SkSafeUnref(picture);
+        return false;
+    }
 
     PlatformGraphicsContext platformContext(canvas);
     GraphicsContext graphicsContext(&platformContext);
 
     paintGraphicsLayerContents(graphicsContext, rect);
+
+    picture->endRecording();
+
+    PictureLayerContent* layerContent = new PictureLayerContent(picture);
+    layerContent->checkForOptimisations();
+    layer->setContent(layerContent);
+    SkSafeUnref(layerContent);
+    SkSafeUnref(picture);
     return true;
 }
 

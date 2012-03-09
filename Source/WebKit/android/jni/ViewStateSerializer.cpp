@@ -33,6 +33,8 @@
 #include "IFrameLayerAndroid.h"
 #include "Layer.h"
 #include "LayerAndroid.h"
+#include "LayerContent.h"
+#include "PictureLayerContent.h"
 #include "PictureSet.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkPicture.h"
@@ -79,14 +81,12 @@ static bool nativeSerializeViewState(JNIEnv* env, jobject, jint jbaseLayer,
 #else
     stream->write32(0);
 #endif
-    SkPicture picture;
-    PictureSet* content = baseLayer->content();
-    baseLayer->drawCanvas(picture.beginRecording(content->width(), content->height(),
-            SkPicture::kUsePathBoundsForClip_RecordingFlag));
-    picture.endRecording();
     if (!stream)
         return false;
-    picture.serialize(stream);
+    if (baseLayer->content())
+        baseLayer->content()->serialize(stream);
+    else
+        return false;
     int childCount = baseLayer->countChildren();
     XLOG("BaseLayer has %d child(ren)", childCount);
     stream->write32(childCount);
@@ -110,7 +110,9 @@ static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jint v
     layer->setBackgroundColor(color);
 #endif
     SkPicture* picture = new SkPicture(stream);
-    layer->setContent(picture);
+    PictureLayerContent* content = new PictureLayerContent(picture);
+    layer->setContent(content);
+    SkSafeUnref(content);
     SkSafeUnref(picture);
     int childCount = stream->readS32();
     for (int i = 0; i < childCount; i++) {
@@ -335,10 +337,10 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
         stream->write32(buffer.size());
         buffer.writeToStream(stream);
     }
-    bool hasRecordingPicture = layer->m_recordingPicture != 0;
+    bool hasRecordingPicture = layer->m_content != 0 && !layer->m_content->isEmpty();
     stream->writeBool(hasRecordingPicture);
     if (hasRecordingPicture)
-        layer->m_recordingPicture->serialize(stream);
+        layer->m_content->serialize(stream);
     // TODO: support m_animations (maybe?)
     stream->write32(0); // placeholder for m_animations.size();
     writeTransformationMatrix(stream, layer->m_transform);
@@ -453,7 +455,11 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
     }
     bool hasRecordingPicture = stream->readBool();
     if (hasRecordingPicture) {
-        layer->m_recordingPicture = new SkPicture(stream);
+        SkPicture* picture = new SkPicture(stream);
+        PictureLayerContent* content = new PictureLayerContent(picture);
+        layer->setContent(content);
+        SkSafeUnref(content);
+        SkSafeUnref(picture);
     }
     int animationCount = stream->readU32(); // TODO: Support (maybe?)
     readTransformationMatrix(stream, layer->m_transform);

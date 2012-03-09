@@ -48,6 +48,7 @@ class SkPicture;
 
 namespace WebCore {
 class LayerAndroid;
+class LayerContent;
 class LayerGroup;
 class ImageTexture;
 }
@@ -170,7 +171,8 @@ public:
     }
     bool masksToBounds() const { return m_haveClip; }
 
-    SkPicture* recordContext();
+    LayerContent* content() { return m_content; }
+    void setContent(LayerContent* content);
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimationsForProperty(AnimatedPropertyID property);
@@ -180,8 +182,6 @@ public:
     void initAnimations();
     bool hasAnimations() const;
     void addDirtyArea();
-
-    SkPicture* picture() const { return m_recordingPicture; }
 
     virtual void dumpLayer(FILE*, int indentLevel) const;
     void dumpLayers(FILE*, int indentLevel) const;
@@ -261,8 +261,7 @@ public:
     LayerType type() { return m_type; }
     virtual SubclassType subclassType() { return LayerAndroid::StandardLayer; }
 
-    bool hasText() { return m_hasText; }
-    void checkForPictureOptimizations();
+    bool hasText();
 
     void copyAnimationStartTimesRecursive(LayerAndroid* oldTree);
 
@@ -308,14 +307,6 @@ private:
 
     FixedPositioning* m_fixedPosition;
 
-    // Note that m_recordingPicture and m_imageRef are mutually exclusive;
-    // m_recordingPicture is used when WebKit is asked to paint the layer's
-    // content, while m_imageRef contains an image that we directly
-    // composite, using the layer's dimensions as a destination rect.
-    // We do this as if the layer only contains an image, directly compositing
-    // it is a much faster method than using m_recordingPicture.
-    SkPicture* m_recordingPicture;
-
     typedef HashMap<pair<String, int>, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
 
@@ -332,6 +323,13 @@ private:
 
     int m_uniqueId;
 
+    // Note that m_content and m_imageCRC are mutually exclusive;
+    // m_content is used when WebKit is asked to paint the layer's
+    // content, while m_imageCRC references an image that we directly
+    // composite, using the layer's dimensions as a destination rect.
+    // We do this as if the layer only contains an image, directly compositing
+    // it is a much faster method than using m_content.
+    LayerContent* m_content;
     unsigned m_imageCRC;
 
     // used to signal the framework we need a repaint
@@ -353,7 +351,6 @@ private:
     LayerType m_type;
     SubclassType m_subclassType;
 
-    bool m_hasText;
     bool m_intrinsicallyComposited;
 
     LayerGroup* m_layerGroup;

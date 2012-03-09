@@ -68,6 +68,7 @@ using namespace android;
 BaseLayerAndroid::BaseLayerAndroid()
 #if USE(ACCELERATED_COMPOSITING)
     : m_color(Color::white)
+    , m_content(0)
     , m_scrollState(NotScrolling)
 #endif
 {
@@ -78,23 +79,17 @@ BaseLayerAndroid::BaseLayerAndroid()
 
 BaseLayerAndroid::~BaseLayerAndroid()
 {
-    m_content.clear();
+    SkSafeUnref(m_content);
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("BaseLayerAndroid");
 #endif
 }
 
-void BaseLayerAndroid::setContent(const PictureSet& src)
+void BaseLayerAndroid::setContent(LayerContent* content)
 {
-#if USE(ACCELERATED_COMPOSITING)
-    // FIXME: We lock here because we do not want
-    // to paint and change the m_content concurrently.
-    // We should instead refactor PictureSet to use
-    // an atomic refcounting scheme and use atomic operations
-    // to swap PictureSets.
-    android::Mutex::Autolock lock(m_drawLock);
-#endif
-    m_content.set(src);
+    SkSafeRef(content);
+    SkSafeUnref(m_content);
+    m_content = content;
     // FIXME: We cannot set the size of the base layer because it will screw up
     // the matrix used.  We need to fix matrix computation for the base layer
     // and then we can set the size.
@@ -103,11 +98,9 @@ void BaseLayerAndroid::setContent(const PictureSet& src)
 
 bool BaseLayerAndroid::drawCanvas(SkCanvas* canvas)
 {
-#if USE(ACCELERATED_COMPOSITING)
     android::Mutex::Autolock lock(m_drawLock);
-#endif
-    if (!m_content.isEmpty())
-        m_content.draw(canvas);
+    if (m_content && !m_content->isEmpty())
+        m_content->draw(canvas);
     return true;
 }
 

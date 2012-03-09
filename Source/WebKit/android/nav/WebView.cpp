@@ -294,14 +294,14 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
     }
 
     // draw the content of the base layer first
-    PictureSet* content = m_baseLayer->content();
+    LayerContent* content = m_baseLayer->content();
+
     int sc = canvas->save(SkCanvas::kClip_SaveFlag);
     canvas->clipRect(SkRect::MakeLTRB(0, 0, content->width(),
                 content->height()), SkRegion::kDifference_Op);
     canvas->drawColor(bgColor);
     canvas->restoreToCount(sc);
-    if (content->draw(canvas))
-        ret = split ? new PictureSet(*content) : 0;
+    content->draw(canvas);
 
     DrawExtra* extra = getDrawExtra(extras);
     if (extra)
@@ -559,7 +559,7 @@ void replaceBaseContent(PictureSet* set)
 {
     if (!m_baseLayer)
         return;
-    m_baseLayer->setContent(*set);
+    // TODO: remove the split picture codepath
     delete set;
 }
 
@@ -567,7 +567,7 @@ void copyBaseContentToPicture(SkPicture* picture)
 {
     if (!m_baseLayer)
         return;
-    PictureSet* content = m_baseLayer->content();
+    LayerContent* content = m_baseLayer->content();
     m_baseLayer->drawCanvas(picture->beginRecording(content->width(), content->height(),
             SkPicture::kUsePathBoundsForClip_RecordingFlag));
     picture->endRecording();

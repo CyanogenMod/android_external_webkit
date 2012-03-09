@@ -87,6 +87,7 @@
 #include "NodeList.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "PictureSetLayerContent.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
 #include "PluginWidgetAndroid.h"
@@ -819,7 +820,10 @@ void WebViewCore::notifyAnimationStarted()
 BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
 {
     BaseLayerAndroid* base = new BaseLayerAndroid();
-    base->setContent(m_content);
+
+    PictureSetLayerContent* content = new PictureSetLayerContent(m_content);
+    base->setContent(content);
+    SkSafeUnref(content);
 
     m_skipContentDraw = true;
     bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
