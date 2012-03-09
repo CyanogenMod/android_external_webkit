@@ -23,36 +23,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "TiledPage"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "TiledPage.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "GLUtils.h"
 #include "IntRect.h"
 #include "PaintTileOperation.h"
 #include "SkPaint.h"
 #include "SkPaintFlagsDrawFilter.h"
 #include "TilesManager.h"
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TiledPage", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TiledPage", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -137,7 +122,8 @@ void TiledPage::invalidateRect(const IntRect& inval)
     const int lastDirtyTileX = static_cast<int>(ceilf(inval.maxX() * invTileContentWidth));
     const int lastDirtyTileY = static_cast<int>(ceilf(inval.maxY() * invTileContentHeight));
 
-    XLOG("Marking X %d-%d and Y %d-%d dirty", firstDirtyTileX, lastDirtyTileX, firstDirtyTileY, lastDirtyTileY);
+    ALOGV("Marking X %d-%d and Y %d-%d dirty",
+          firstDirtyTileX, lastDirtyTileX, firstDirtyTileY, lastDirtyTileY);
 #endif
     // We defer marking the tile as dirty until the next time we need to prepare
     // to draw.
@@ -171,14 +157,14 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
         }
 
         if (!currentTile && availableTile) {
-            XLOG("STEALING tile %d, %d (draw count %llu) for tile %d, %d",
+            ALOGV("STEALING tile %d, %d (draw count %llu) for tile %d, %d",
                   availableTile->x(), availableTile->y(), availableTile->drawCount(), x, y);
             availableTile->discardTextures(); // don't wait for textures to be stolen
             currentTile = availableTile;
         }
 
         if (!currentTile) {
-            XLOG("ERROR: No tile available for tile %d %d", x, y);
+            ALOGV("ERROR: No tile available for tile %d %d", x, y);
         }
 
         if (currentTile) {
@@ -266,7 +252,7 @@ void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBound
     float numTiles = static_cast<float>(nbTilesHeight) * static_cast<float>(nbTilesWidth);
     if (numTiles > TilesManager::getMaxTextureAllocation() || nbTilesHeight < 1 || nbTilesWidth < 1)
     {
-        XLOGC("ERROR: We don't have enough tiles for this page!"
+        ALOGE("ERROR: We don't have enough tiles for this page!"
               " nbTilesHeight %d nbTilesWidth %d", nbTilesHeight, nbTilesWidth);
         return;
     }
@@ -292,7 +278,7 @@ bool TiledPage::hasMissingContent(const SkIRect& tileBounds)
 bool TiledPage::isReady(const SkIRect& tileBounds)
 {
     int neededTiles = tileBounds.width() * tileBounds.height();
-    XLOG("tiled page %p needs %d ready tiles", this, neededTiles);
+    ALOGV("tiled page %p needs %d ready tiles", this, neededTiles);
     for (int j = 0; j < m_baseTileSize; j++) {
         BaseTile& tile = m_baseTiles[j];
         if (tileBounds.contains(tile.x(), tile.y())) {
@@ -300,7 +286,7 @@ bool TiledPage::isReady(const SkIRect& tileBounds)
                 neededTiles--;
         }
     }
-    XLOG("tiled page %p still needs %d ready tiles", this, neededTiles);
+    ALOGV("tiled page %p still needs %d ready tiles", this, neededTiles);
     return neededTiles == 0;
 }
 
@@ -332,7 +318,7 @@ bool TiledPage::swapBuffersIfReady(const SkIRect& tileBounds, float scale)
             swaps++;
     }
 
-    XLOG("%p greedy swapped %d textures, returning %d", this, swaps, fullSwap);
+    ALOGV("%p greedy swapped %d textures, returning %d", this, swaps, fullSwap);
     return fullSwap;
 }
 

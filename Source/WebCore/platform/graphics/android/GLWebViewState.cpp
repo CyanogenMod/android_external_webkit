@@ -23,11 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "GLWebViewState"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "GLWebViewState.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
 #include "GLUtils.h"
@@ -36,28 +40,10 @@
 #include "ScrollableLayerAndroid.h"
 #include "SkPath.h"
 #include "TilesManager.h"
-#include "TilesTracker.h"
 #include "SurfaceCollection.h"
 #include "SurfaceCollectionManager.h"
-#include <cutils/log.h>
 #include <pthread.h>
 #include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "GLWebViewState", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GLWebViewState", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 #define FIRST_TILED_PAGE_ID 1
 #define SECOND_TILED_PAGE_ID 2
@@ -139,7 +125,7 @@ bool GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndica
         m_layersRenderingMode = kAllTextures;
     }
     if (layer) {
-        XLOG("new base layer %p, with child %p", layer, layer->getChild(0));
+        ALOGV("new base layer %p, with child %p", layer, layer->getChild(0));
         layer->setState(this);
     }
     bool queueFull = m_surfaceCollectionManager.updateWithSurfaceCollection(
@@ -193,9 +179,9 @@ void GLWebViewState::inval(const IntRect& rect)
             m_frameworkInval = rect;
         else
             m_frameworkInval.unite(rect);
-        XLOG("intermediate invalRect(%d, %d, %d, %d) after unite with rect %d %d %d %d", m_frameworkInval.x(),
-             m_frameworkInval.y(), m_frameworkInval.width(), m_frameworkInval.height(),
-             rect.x(), rect.y(), rect.width(), rect.height());
+        ALOGV("intermediate invalRect(%d, %d, %d, %d) after unite with rect %d %d %d %d", m_frameworkInval.x(),
+              m_frameworkInval.y(), m_frameworkInval.width(), m_frameworkInval.height(),
+              rect.x(), rect.y(), rect.width(), rect.height());
     }
     TilesManager::instance()->getProfiler()->nextInval(rect, zoomManager()->currentScale());
 }
@@ -271,10 +257,10 @@ void GLWebViewState::setViewport(const SkRect& viewport, float scale)
     m_isViewportScrolling = m_viewport != viewport && SkRect::Intersects(m_viewport, viewport);
     m_viewport = viewport;
 
-    XLOG("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f currentScale: %.2f futureScale: %.2f)",
-         m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
-         m_viewport.width(), m_viewport.height(), scale,
-         zoomManager()->currentScale(), zoomManager()->futureScale());
+    ALOGV("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f currentScale: %.2f futureScale: %.2f)",
+          m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
+          m_viewport.width(), m_viewport.height(), scale,
+          zoomManager()->currentScale(), zoomManager()->futureScale());
 
     m_viewportTileBounds.set(
             static_cast<int>(floorf(viewport.fLeft * invTileContentWidth)),
@@ -287,7 +273,7 @@ void GLWebViewState::setViewport(const SkRect& viewport, float scale)
 void GLWebViewState::dumpMeasures()
 {
     for (int i = 0; i < m_timeCounter; i++) {
-        XLOGC("%d delay: %d ms", m_totalTimeCounter + i,
+        ALOGD("%d delay: %d ms", m_totalTimeCounter + i,
              static_cast<int>(m_delayTimes[i]*1000));
         m_delayTimes[i] = 0;
     }
@@ -355,12 +341,12 @@ double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visib
     // recreation caused by onTrimMemory in the framework.
     ShaderProgram* shader = tilesManager->shader();
     if (shader->needsInit()) {
-        XLOGC("Reinit shader");
+        ALOGD("Reinit shader");
         shader->initGLResources();
     }
     TransferQueue* transferQueue = tilesManager->transferQueue();
     if (transferQueue->needsInit()) {
-        XLOGC("Reinit transferQueue");
+        ALOGD("Reinit transferQueue");
         transferQueue->initGLResources(TilesManager::tileWidth(),
                                        TilesManager::tileHeight());
     }
@@ -425,7 +411,7 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
     if (m_layersRenderingMode != layersRenderingMode) {
         char* mode[] = { "kAllTextures", "kClippedTextures",
             "kScrollableAndFixedLayers", "kFixedLayers", "kSingleSurfaceRendering" };
-        XLOGC("Change from mode %s to %s -- We need textures: fixed: %d,"
+        ALOGD("Change from mode %s to %s -- We need textures: fixed: %d,"
               " scrollable: %d, clipped: %d, full: %d, max textures: %d",
               static_cast<char*>(mode[layersRenderingMode]),
               static_cast<char*>(mode[m_layersRenderingMode]),
@@ -472,10 +458,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                                            scale);
     tilesManager->incDrawGLCount();
 
-#ifdef DEBUG
-    tilesManager->getTilesTracker()->clear();
-#endif
-
     float viewWidth = (viewport.fRight - viewport.fLeft) * TILE_PREFETCH_RATIO;
     float viewHeight = (viewport.fBottom - viewport.fTop) * TILE_PREFETCH_RATIO;
     bool noPrefetch = tilesManager->useMinimalMemory() || !tilesManager->highEndGfx();
@@ -484,20 +466,20 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     m_expandedTileBoundsX = (useHorzPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
     m_expandedTileBoundsY = (useVertPrefetch) ? TILE_PREFETCH_DISTANCE : 0;
 
-    XLOG("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
-         rect.x(), rect.y(), rect.width(), rect.height(),
-         viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
+    ALOGV("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
+          rect.x(), rect.y(), rect.width(), rect.height(),
+          viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
 
-    XLOG("drawGL, invalRect(%d, %d, %d, %d), webViewRect(%d, %d, %d, %d)"
-         "clip (%d, %d, %d, %d), scale %f",
-         invalRect->x(), invalRect->y(), invalRect->width(), invalRect->height(),
-         webViewRect.x(), webViewRect.y(), webViewRect.width(), webViewRect.height(),
-         clip.x(), clip.y(), clip.width(), clip.height(), scale);
+    ALOGV("drawGL, invalRect(%d, %d, %d, %d), webViewRect(%d, %d, %d, %d)"
+          "clip (%d, %d, %d, %d), scale %f",
+          invalRect->x(), invalRect->y(), invalRect->width(), invalRect->height(),
+          webViewRect.x(), webViewRect.y(), webViewRect.width(), webViewRect.height(),
+          clip.x(), clip.y(), clip.width(), clip.height(), scale);
 
     resetLayersDirtyArea();
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
-        XLOGC("WARNING, scale seems corrupted before update: %e", scale);
+        ALOGW("WARNING, scale seems corrupted before update: %e", scale);
 
     // Here before we draw, update the BaseTile which has updated content.
     // Inside this function, just do GPU blits from the transfer queue into
@@ -510,7 +492,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     bool ret = ImagesManager::instance()->prepareTextures(this);
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING) {
-        XLOGC("WARNING, scale seems corrupted after update: %e", scale);
+        ALOGW("WARNING, scale seems corrupted after update: %e", scale);
         CRASH();
     }
 
@@ -531,7 +513,7 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         resetFrameworkInval();
 
     int nbTexturesForImages = ImagesManager::instance()->nbTextures();
-    XLOG("*** We have %d textures for images, %d full, %d clipped, total %d / %d",
+    ALOGV("*** We have %d textures for images, %d full, %d clipped, total %d / %d",
           nbTexturesForImages, nbTexturesNeeded.full, nbTexturesNeeded.clipped,
           nbTexturesNeeded.full + nbTexturesForImages,
           nbTexturesNeeded.clipped + nbTexturesForImages);
@@ -571,8 +553,8 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
             invalRect->setWidth(inval.width());
             invalRect->setHeight(inval.height());
 
-            XLOG("invalRect(%d, %d, %d, %d)", inval.x(),
-                 inval.y(), inval.width(), inval.height());
+            ALOGV("invalRect(%d, %d, %d, %d)", inval.x(),
+                  inval.y(), inval.width(), inval.height());
 
             if (!invalRect->intersects(rect)) {
                 // invalidate is occurring offscreen, do full inval to guarantee redraw
@@ -591,10 +573,6 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     }
 
     showFrameInfo(rect, *collectionsSwappedPtr);
-
-#ifdef DEBUG
-    tilesManager->getTilesTracker()->showTrackTextures();
-#endif
 
     return ret;
 }

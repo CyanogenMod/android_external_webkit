@@ -23,6 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "ViewStateSerializer"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 
 #include "BaseLayerAndroid.h"
@@ -43,21 +46,6 @@
 #include <JNIUtility.h>
 #include <JNIHelp.h>
 #include <jni.h>
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ViewStateSerializer", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ViewStateSerializer", __VA_ARGS__)
-
-#endif // DEBUG
 
 namespace android {
 
@@ -88,7 +76,7 @@ static bool nativeSerializeViewState(JNIEnv* env, jobject, jint jbaseLayer,
     else
         return false;
     int childCount = baseLayer->countChildren();
-    XLOG("BaseLayer has %d child(ren)", childCount);
+    ALOGV("BaseLayer has %d child(ren)", childCount);
     stream->write32(childCount);
     for (int i = 0; i < childCount; i++) {
         LayerAndroid* layer = static_cast<LayerAndroid*>(baseLayer->getChild(i));
@@ -251,12 +239,12 @@ void readTransformationMatrix(SkStream *stream, TransformationMatrix& matrix)
 void serializeLayer(LayerAndroid* layer, SkWStream* stream)
 {
     if (!layer) {
-        XLOG("NULL layer!");
+        ALOGV("NULL layer!");
         stream->write8(LTNone);
         return;
     }
     if (layer->isMedia() || layer->isVideo()) {
-        XLOG("Layer isn't supported for serialization: isMedia: %s, isVideo: %s",
+        ALOGV("Layer isn't supported for serialization: isMedia: %s, isVideo: %s",
              layer->isMedia() ? "true" : "false",
              layer->isVideo() ? "true" : "false");
         stream->write8(LTNone);
@@ -371,7 +359,7 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
     else if (type == LTScrollableLayerAndroid)
         layer = new ScrollableLayerAndroid((RenderLayer*) 0);
     else {
-        XLOG("Unexpected layer type: %d, aborting!", type);
+        ALOGV("Unexpected layer type: %d, aborting!", type);
         return 0;
     }
 
@@ -479,7 +467,7 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
         if (childLayer)
             layer->addChild(childLayer);
     }
-    XLOG("Created layer with id %d", layer->uniqueId());
+    ALOGV("Created layer with id %d", layer->uniqueId());
     return layer;
 }
 

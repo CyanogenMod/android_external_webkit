@@ -23,31 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "BaseTileTexture"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "BaseTileTexture.h"
 
+#include "AndroidLog.h"
 #include "BaseTile.h"
 #include "ClassTracker.h"
 #include "GLUtils.h"
 #include "TilesManager.h"
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTileTexture", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTileTexture", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -112,7 +98,7 @@ bool BaseTileTexture::setOwner(TextureOwner* owner, bool force)
 
 bool BaseTileTexture::release(TextureOwner* owner)
 {
-    XLOG("texture %p releasing tile %p, m_owner %p", this, owner, m_owner);
+    ALOGV("texture %p releasing tile %p, m_owner %p", this, owner, m_owner);
     if (m_owner != owner)
         return false;
 
@@ -126,7 +112,7 @@ void BaseTileTexture::transferComplete()
         BaseTile* owner = static_cast<BaseTile*>(m_owner);
         owner->backTextureTransfer();
     } else
-        XLOGC("ERROR: owner missing after transfer of texture %p", this);
+        ALOGE("ERROR: owner missing after transfer of texture %p", this);
 }
 
 void BaseTileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,

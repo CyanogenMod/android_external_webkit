@@ -23,28 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "TilesProfiler"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "TilesProfiler.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "TilesManager.h"
 #include <wtf/CurrentTime.h>
-
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TilesProfiler", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // Hard limit on amount of frames (and thus memory) profiling can take
 #define MAX_PROF_FRAMES 400
@@ -63,19 +52,19 @@ void TilesProfiler::start()
     m_badTiles = 0;
     m_records.clear();
     m_time = currentTimeMS();
-    XLOG("initializing tileprofiling");
+    ALOGV("initializing tileprofiling");
 }
 
 float TilesProfiler::stop()
 {
     m_enabled = false;
-    XLOG("completed tile profiling, observed %d frames", m_records.size());
+    ALOGV("completed tile profiling, observed %d frames", m_records.size());
     return (1.0 * m_goodTiles) / (m_goodTiles + m_badTiles);
 }
 
 void TilesProfiler::clear()
 {
-    XLOG("clearing tile profiling of its %d frames", m_records.size());
+    ALOGV("clearing tile profiling of its %d frames", m_records.size());
     m_records.clear();
 }
 
@@ -90,8 +79,8 @@ void TilesProfiler::nextFrame(int left, int top, int right, int bottom, float sc
 
 #ifdef DEBUG
     if (m_records.size() != 0) {
-        XLOG("completed tile profiling frame, observed %d tiles. %f ms since last",
-             m_records[0].size(), timeDelta);
+        ALOGD("completed tile profiling frame, observed %d tiles. %f ms since last",
+              m_records[0].size(), timeDelta);
     }
 #endif // DEBUG
 
@@ -123,7 +112,7 @@ void TilesProfiler::nextTile(BaseTile& tile, float scale, bool inView)
     m_records.last().append(TileProfileRecord(
                                 left, top, right, bottom,
                                 scale, isReady, (int)tile.drawCount()));
-    XLOG("adding tile %d %d %d %d, scale %f", left, top, right, bottom, scale);
+    ALOGV("adding tile %d %d %d %d, scale %f", left, top, right, bottom, scale);
 }
 
 void TilesProfiler::nextInval(const IntRect& rect, float scale)
@@ -134,8 +123,8 @@ void TilesProfiler::nextInval(const IntRect& rect, float scale)
     m_records.last().append(TileProfileRecord(
                                 rect.x(), rect.y(),
                                 rect.maxX(), rect.maxY(), scale, false, INVAL_CODE));
-    XLOG("adding inval region %d %d %d %d, scale %f", rect.x(), rect.y(),
-         rect.maxX(), rect.maxY(), scale);
+    ALOGV("adding inval region %d %d %d %d, scale %f", rect.x(), rect.y(),
+          rect.maxX(), rect.maxY(), scale);
 }
 
 } // namespace WebCore

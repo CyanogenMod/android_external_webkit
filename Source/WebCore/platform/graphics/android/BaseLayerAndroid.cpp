@@ -23,10 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "BaseLayerAndroid"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "BaseLayerAndroid.h"
 
-#if USE(ACCELERATED_COMPOSITING)
+#include "AndroidLog.h"
 #include "ClassTracker.h"
 #include "GLUtils.h"
 #include "LayerGroup.h"
@@ -34,26 +37,6 @@
 #include "SkCanvas.h"
 #include "TilesManager.h"
 #include <GLES2/gl2.h>
-#include <wtf/CurrentTime.h>
-#endif // USE(ACCELERATED_COMPOSITING)
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "BaseLayerAndroid", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseLayerAndroid", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // TODO: dynamically determine based on DPI
 #define PREFETCH_SCALE_MODIFIER 0.3
@@ -120,23 +103,23 @@ void BaseLayerAndroid::prefetchBasePicture(const SkRect& viewport, float current
     bool goingLeft = m_state->goingLeft();
 
 
-    XLOG("fetch rect %f %f %f %f, scale %f",
-         viewport.fLeft,
-         viewport.fTop,
-         viewport.fRight,
-         viewport.fBottom,
-         currentScale);
+    ALOGV("fetch rect %f %f %f %f, scale %f",
+          viewport.fLeft,
+          viewport.fTop,
+          viewport.fRight,
+          viewport.fBottom,
+          currentScale);
 
     bounds.fLeft = static_cast<int>(floorf(viewport.fLeft * invTileWidth)) - PREFETCH_X_DIST;
     bounds.fTop = static_cast<int>(floorf(viewport.fTop * invTileHeight)) - PREFETCH_Y_DIST;
     bounds.fRight = static_cast<int>(ceilf(viewport.fRight * invTileWidth)) + PREFETCH_X_DIST;
     bounds.fBottom = static_cast<int>(ceilf(viewport.fBottom * invTileHeight)) + PREFETCH_Y_DIST;
 
-    XLOG("prefetch rect %d %d %d %d, scale %f, preparing page %p",
-         bounds.fLeft, bounds.fTop,
-         bounds.fRight, bounds.fBottom,
-         prefetchScale,
-         prefetchTiledPage);
+    ALOGV("prefetch rect %d %d %d %d, scale %f, preparing page %p",
+          bounds.fLeft, bounds.fTop,
+          bounds.fRight, bounds.fBottom,
+          prefetchScale,
+          prefetchTiledPage);
 
     prefetchTiledPage->setScale(prefetchScale);
     prefetchTiledPage->updateTileDirtiness();
@@ -152,12 +135,12 @@ bool BaseLayerAndroid::isReady()
 {
     ZoomManager* zoomManager = m_state->zoomManager();
     if (ZoomManager::kNoScaleRequest != zoomManager->scaleRequestState()) {
-        XLOG("base layer not ready, still zooming");
+        ALOGV("base layer not ready, still zooming");
         return false; // still zooming
     }
 
     if (!m_state->frontPage()->isReady(m_state->preZoomBounds())) {
-        XLOG("base layer not ready, front page not done painting");
+        ALOGV("base layer not ready, front page not done painting");
         return false;
     }
 
@@ -175,7 +158,7 @@ void BaseLayerAndroid::swapTiles()
 
 void BaseLayerAndroid::setIsPainting()
 {
-    XLOG("BLA %p setIsPainting, dirty %d", this, isDirty());
+    ALOGV("BLA %p setIsPainting, dirty %d", this, isDirty());
     m_state->invalRegion(m_dirtyRegion);
     m_dirtyRegion.setEmpty();
 }
@@ -187,7 +170,7 @@ void BaseLayerAndroid::mergeInvalsInto(BaseLayerAndroid* replacementLayer)
 
 void BaseLayerAndroid::prepareGL(const SkRect& viewport, float scale, double currentTime)
 {
-    XLOG("prepareGL BLA %p, m_state %p", this, m_state);
+    ALOGV("prepareGL BLA %p, m_state %p", this, m_state);
 
     ZoomManager* zoomManager = m_state->zoomManager();
 
@@ -195,8 +178,8 @@ void BaseLayerAndroid::prepareGL(const SkRect& viewport, float scale, double cur
     bool goingLeft = m_state->goingLeft();
 
     const SkIRect& viewportTileBounds = m_state->viewportTileBounds();
-    XLOG("drawBasePicture, TX: %d, TY: %d scale %.2f", viewportTileBounds.fLeft,
-            viewportTileBounds.fTop, scale);
+    ALOGV("drawBasePicture, TX: %d, TY: %d scale %.2f", viewportTileBounds.fLeft,
+          viewportTileBounds.fTop, scale);
 
     // Query the resulting state from the zoom manager
     bool prepareNextTiledPage = zoomManager->needPrepareNextTiledPage();
@@ -256,7 +239,7 @@ void BaseLayerAndroid::prepareGL(const SkRect& viewport, float scale, double cur
         tiledPage->prepare(goingDown, goingLeft, preZoomBounds,
                            TiledPage::ExpandedBounds);
 
-    XLOG("scrollState %d, zooming %d", m_scrollState, zooming);
+    ALOGV("scrollState %d, zooming %d", m_scrollState, zooming);
 
     // prefetch in the nextTiledPage if unused by zooming (even if not scrolling
     // since we want the tiles to be ready before they're needed)
@@ -291,9 +274,9 @@ void BaseLayerAndroid::updateLayerPositions(const SkRect& visibleRect)
 
 #ifdef DEBUG
     compositedRoot->showLayer(0);
-    XLOG("We have %d layers, %d textured",
-         compositedRoot->nbLayers(),
-         compositedRoot->nbTexturedLayers());
+    ALOGV("We have %d layers, %d textured",
+          compositedRoot->nbLayers(),
+          compositedRoot->nbTexturedLayers());
 #endif
 }
 
@@ -301,7 +284,7 @@ void BaseLayerAndroid::updateLayerPositions(const SkRect& visibleRect)
 
 void BaseLayerAndroid::drawGL(float scale)
 {
-    XLOG("drawGL BLA %p", this);
+    ALOGV("drawGL BLA %p", this);
 
     // TODO: consider moving drawBackground outside of prepare (into tree manager)
     m_state->drawBackground(m_color);

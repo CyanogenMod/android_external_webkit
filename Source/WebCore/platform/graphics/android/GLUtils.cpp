@@ -23,6 +23,9 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "GLUtils"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "GLUtils.h"
 
@@ -31,25 +34,9 @@
 #include "ShaderProgram.h"
 #include "TilesManager.h"
 
-#include <cutils/log.h>
+#include <AndroidLog.h>
 #include <gui/SurfaceTexture.h>
 #include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "GLUtils", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GLUtils", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // We will limit GL error logging for LOG_VOLUME_PER_CYCLE times every
 // LOG_VOLUME_PER_CYCLE seconds.
@@ -148,7 +135,7 @@ static void crashIfOOM(GLint errorCode)
 {
     const GLint OOM_ERROR_CODE = 0x505;
     if (errorCode == OOM_ERROR_CODE) {
-        XLOGC("ERROR: Fatal OOM detected.");
+        ALOGE("ERROR: Fatal OOM detected.");
         CRASH();
     }
 }
@@ -159,14 +146,14 @@ void GLUtils::checkEglError(const char* op, EGLBoolean returnVal)
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        XLOGC("EGL ERROR - %s() returned %d\n", op, returnVal);
+        ALOGE("EGL ERROR - %s() returned %d\n", op, returnVal);
     }
 
     for (EGLint error = eglGetError(); error != EGL_SUCCESS; error = eglGetError()) {
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        XLOGC("after %s() eglError (0x%x)\n", op, error);
+        ALOGE("after %s() eglError (0x%x)\n", op, error);
         crashIfOOM(error);
     }
 }
@@ -178,7 +165,7 @@ bool GLUtils::checkGlError(const char* op)
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        XLOGC("GL ERROR - after %s() glError (0x%x)\n", op, error);
+        ALOGE("GL ERROR - after %s() glError (0x%x)\n", op, error);
         crashIfOOM(error);
         ret = true;
     }
@@ -192,7 +179,7 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op)
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        XLOGC("GL ERROR on %x - after %s() glError (0x%x)\n", p, op, error);
+        ALOGE("GL ERROR on %x - after %s() glError (0x%x)\n", p, op, error);
         crashIfOOM(error);
         ret = true;
     }
@@ -205,7 +192,7 @@ void GLUtils::checkSurfaceTextureError(const char* functionName, int status)
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        XLOGC("ERROR at calling %s status is (%d)", functionName, status);
+        ALOGE("ERROR at calling %s status is (%d)", functionName, status);
     }
 }
 /////////////////////////////////////////////////////////////////////////////////////////
@@ -313,7 +300,7 @@ EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext)
     EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
     checkEglError("eglGetDisplay");
     if (display == EGL_NO_DISPLAY) {
-        XLOG("eglGetDisplay returned EGL_NO_DISPLAY");
+        ALOGE("eglGetDisplay returned EGL_NO_DISPLAY");
         return EGL_NO_CONTEXT;
     }
 
@@ -322,7 +309,7 @@ EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext)
     EGLBoolean returnValue = eglInitialize(display, &majorVersion, &minorVersion);
     checkEglError("eglInitialize", returnValue);
     if (returnValue != EGL_TRUE) {
-        XLOG("eglInitialize failed\n");
+        ALOGE("eglInitialize failed\n");
         return EGL_NO_CONTEXT;
     }
 
@@ -336,14 +323,14 @@ EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext)
     EGLContext context = eglCreateContext(display, config, sharedContext, contextAttribs);
     checkEglError("eglCreateContext");
     if (context == EGL_NO_CONTEXT) {
-        XLOG("eglCreateContext failed\n");
+        ALOGE("eglCreateContext failed\n");
         return EGL_NO_CONTEXT;
     }
 
     returnValue = eglMakeCurrent(display, surface, surface, context);
     checkEglError("eglMakeCurrent", returnValue);
     if (returnValue != EGL_TRUE) {
-        XLOG("eglMakeCurrent failed\n");
+        ALOGE("eglMakeCurrent failed\n");
         return EGL_NO_CONTEXT;
     }
 
@@ -455,8 +442,8 @@ bool GLUtils::isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor)
     if (sameColor) {
         char* rgbaPtr = static_cast<char*>(bitmap.getPixels());
         pureColor = Color(rgbaPtr[0], rgbaPtr[1], rgbaPtr[2], rgbaPtr[3]);
-        XLOG("sameColor tile found , %x at (%d, %d, %d, %d)",
-             *firstPixelPtr, rgbaPtr[0], rgbaPtr[1], rgbaPtr[2], rgbaPtr[3]);
+        ALOGV("sameColor tile found , %x at (%d, %d, %d, %d)",
+              *firstPixelPtr, rgbaPtr[0], rgbaPtr[1], rgbaPtr[2], rgbaPtr[3]);
     }
     bitmap.unlockPixels();
 
@@ -509,9 +496,9 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
         GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, bitmap);
     else {
         if (!requiredSize.equals(bitmap.width(), bitmap.height())) {
-            XLOG("The bitmap size (%d,%d) does not equal the texture size (%d,%d)",
-                    bitmap.width(), bitmap.height(),
-                    requiredSize.width(), requiredSize.height());
+            ALOGV("The bitmap size (%d,%d) does not equal the texture size (%d,%d)",
+                  bitmap.width(), bitmap.height(),
+                  requiredSize.width(), requiredSize.height());
         }
         GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, bitmap);
 
@@ -547,9 +534,9 @@ void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GL
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        XLOGC("GL ERROR: glTexImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
-             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
-             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+        ALOGE("GL ERROR: glTexImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+              " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
+              bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
@@ -587,9 +574,9 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, const SkBitmap& bitmap,
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        XLOGC("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
-             " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
-             bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+        ALOGE("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+              " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
+              bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);

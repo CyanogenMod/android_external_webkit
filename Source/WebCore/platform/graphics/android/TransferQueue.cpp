@@ -23,33 +23,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "TransferQueue"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "TransferQueue.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "BaseTile.h"
 #include "GLUtils.h"
 #include "TilesManager.h"
 #include <android/native_window.h>
 #include <gui/SurfaceTexture.h>
 #include <gui/SurfaceTextureClient.h>
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TransferQueue", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TransferQueue", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // For simple webView usage, MINIMAL_SIZE is recommended for memory saving.
 // In browser case, EFFICIENT_SIZE is preferred.
@@ -142,13 +130,13 @@ bool TransferQueue::checkObsolete(const TileTransferData* data)
 {
     BaseTile* baseTilePtr = data->savedBaseTilePtr;
     if (!baseTilePtr) {
-        XLOG("Invalid savedBaseTilePtr , such that the tile is obsolete");
+        ALOGV("Invalid savedBaseTilePtr , such that the tile is obsolete");
         return true;
     }
 
     BaseTileTexture* baseTileTexture = baseTilePtr->backTexture();
     if (!baseTileTexture) {
-        XLOG("Invalid baseTileTexture , such that the tile is obsolete");
+        ALOGV("Invalid baseTileTexture , such that the tile is obsolete");
         return true;
     }
 
@@ -208,7 +196,7 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
                       destTex->getSize().height());
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
-        XLOG("Error: glCheckFramebufferStatus failed");
+        ALOGV("Error: glCheckFramebufferStatus failed");
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return;
     }
@@ -347,7 +335,7 @@ void TransferQueue::updatePureColorTiles()
             }
         } else if (data->status == emptyItem || data->status == pendingDiscard) {
             // The queue should be clear instead of setting to different status.
-            XLOG("Warning: Don't expect an emptyItem here.");
+            ALOGV("Warning: Don't expect an emptyItem here.");
         }
     }
     m_pureColorTileQueue.clear();
@@ -387,12 +375,12 @@ void TransferQueue::updateDirtyBaseTiles()
             if (m_transferQueue[index].uploadType == GpuUpload) {
                 status_t result = m_sharedSurfaceTexture->updateTexImage();
                 if (result != OK)
-                    XLOGC("unexpected error: updateTexImage return %d", result);
+                    ALOGE("unexpected error: updateTexImage return %d", result);
             }
             m_transferQueue[index].savedBaseTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
             if (obsoleteBaseTile) {
-                XLOG("Warning: the texture is obsolete for this baseTile");
+                ALOGV("Warning: the texture is obsolete for this baseTile");
                 index = (index + 1) % m_transferQueueSize;
                 continue;
             }
@@ -419,11 +407,10 @@ void TransferQueue::updateDirtyBaseTiles()
             destTexture->setPure(false);
             destTexture->transferComplete();
 
-            XLOG("Blit tile x, y %d %d with dest texture %p to destTexture->m_ownTextureId %d",
-                 m_transferQueue[index].tileInfo.m_x,
-                 m_transferQueue[index].tileInfo.m_y,
-                 destTexture,
-                 destTexture->m_ownTextureId);
+            ALOGV("Blit tile x, y %d %d with dest texture %p to destTexture->m_ownTextureId %d",
+                  m_transferQueue[index].savedBaseTilePtr,
+                  destTexture,
+                  destTexture->m_ownTextureId);
         }
         index = (index + 1) % m_transferQueueSize;
     }
@@ -464,14 +451,14 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
     bool ready = readyForUpdate();
     TextureUploadType currentUploadType = m_currentUploadType;
     if (!ready) {
-        XLOG("Quit bitmap update: not ready! for tile x y %d %d",
-             renderInfo->x, renderInfo->y);
+        ALOGV("Quit bitmap update: not ready! for tile x y %d %d",
+              renderInfo->x, renderInfo->y);
         return false;
     }
     if (currentUploadType == GpuUpload) {
         // a) Dequeue the Surface Texture and write into the buffer
         if (!m_ANW.get()) {
-            XLOG("ERROR: ANW is null");
+            ALOGV("ERROR: ANW is null");
             return false;
         }
 
@@ -507,8 +494,8 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
     // b) After update the Surface Texture, now udpate the transfer queue info.
     addItemInTransferQueue(renderInfo, currentUploadType, &bitmap);
 
-    XLOG("Bitmap updated x, y %d %d, baseTile %p",
-         renderInfo->x, renderInfo->y, renderInfo->baseTile);
+    ALOGV("Bitmap updated x, y %d %d, baseTile %p",
+          renderInfo->x, renderInfo->y, renderInfo->baseTile);
     return true;
 }
 
@@ -555,7 +542,7 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
     int index = m_transferQueueIndex;
     if (m_transferQueue[index].savedBaseTilePtr
         || m_transferQueue[index].status != emptyItem) {
-        XLOG("ERROR update a tile which is dirty already @ index %d", index);
+        ALOGV("ERROR update a tile which is dirty already @ index %d", index);
     }
 
     TileTransferData* data = &m_transferQueue[index];
@@ -583,7 +570,7 @@ void TransferQueue::setTextureUploadType(TextureUploadType type)
     setPendingDiscard();
 
     m_currentUploadType = type;
-    XLOGC("Now we set the upload to %s", m_currentUploadType == GpuUpload ? "GpuUpload" : "CpuUpload");
+    ALOGD("Now we set the upload to %s", m_currentUploadType == GpuUpload ? "GpuUpload" : "CpuUpload");
 }
 
 // Note: this need to be called within the lock and on the UI thread.
@@ -600,7 +587,7 @@ void TransferQueue::cleanupPendingDiscard()
             if (m_transferQueue[index].uploadType == GpuUpload) {
                 status_t result = m_sharedSurfaceTexture->updateTexImage();
                 if (result != OK)
-                    XLOGC("unexpected error: updateTexImage return %d", result);
+                    ALOGE("unexpected error: updateTexImage return %d", result);
             }
 
             // since tiles in the queue may be from another webview, remove
@@ -611,7 +598,7 @@ void TransferQueue::cleanupPendingDiscard()
                 // since tile destruction removes textures on the UI thread, the
                 // texture->owner ptr guarantees the tile is valid
                 tile->discardBackTexture();
-                XLOG("transfer queue discarded tile %p, removed texture", tile);
+                ALOGV("transfer queue discarded tile %p, removed texture", tile);
             }
 
             m_transferQueue[index].savedBaseTilePtr = 0;

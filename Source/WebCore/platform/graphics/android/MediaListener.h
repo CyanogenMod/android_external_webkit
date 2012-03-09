@@ -26,21 +26,6 @@
 #include "MediaTexture.h"
 #include "WebCoreJni.h"
 
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "MediaListener", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
-
 namespace WebCore {
 
 class MediaListener : public android::SurfaceTexture::FrameAvailableListener {

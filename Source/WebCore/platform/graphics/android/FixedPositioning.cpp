@@ -1,16 +1,15 @@
+#define LOG_TAG "FixedPositioning"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "FixedPositioning.h"
 
+#include "AndroidLog.h"
 #include "DumpLayer.h"
 #include "IFrameLayerAndroid.h"
 #include "TilesManager.h"
 
 #if USE(ACCELERATED_COMPOSITING)
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "FixedPositioning", __VA_ARGS__)
 
 namespace WebCore {
 

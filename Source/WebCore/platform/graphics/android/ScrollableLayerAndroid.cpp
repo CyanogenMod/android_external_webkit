@@ -1,3 +1,6 @@
+#define LOG_TAG "ScrollableLayerAndroid"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "ScrollableLayerAndroid.h"
 
@@ -5,10 +8,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include <wtf/CurrentTime.h>
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ScrollableLayerAndroid", __VA_ARGS__)
+#include "AndroidLog.h"
 
 namespace WebCore {
 

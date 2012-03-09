@@ -23,31 +23,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "TexturesGenerator"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "TexturesGenerator.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseLayerAndroid.h"
+#include "AndroidLog.h"
 #include "GLUtils.h"
 #include "PaintTileOperation.h"
 #include "TilesManager.h"
-
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TexturesGenerator", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -123,7 +110,7 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter, bool 
 status_t TexturesGenerator::readyToRun()
 {
     TilesManager::instance()->markGeneratorAsReady();
-    XLOG("Thread ready to run");
+    ALOGV("Thread ready to run");
     return NO_ERROR;
 }
 
@@ -167,20 +154,21 @@ bool TexturesGenerator::threadLoop()
     while (!mRequestedOperations.size())
         mRequestedOperationsCond.wait(mRequestedOperationsLock);
 
-    XLOG("threadLoop, got signal");
+    ALOGV("threadLoop, got signal");
     mRequestedOperationsLock.unlock();
 
     m_currentOperation = 0;
     bool stop = false;
     while (!stop) {
         mRequestedOperationsLock.lock();
-        XLOG("threadLoop, %d operations in the queue", mRequestedOperations.size());
+        ALOGV("threadLoop, %d operations in the queue", mRequestedOperations.size());
         if (mRequestedOperations.size())
             m_currentOperation = popNext();
         mRequestedOperationsLock.unlock();
 
         if (m_currentOperation) {
-            XLOG("threadLoop, painting the request with priority %d", m_currentOperation->priority());
+            ALOGV("threadLoop, painting the request with priority %d",
+                  m_currentOperation->priority());
             m_currentOperation->run();
         }
 
@@ -199,7 +187,7 @@ bool TexturesGenerator::threadLoop()
         if (oldOperation)
             delete oldOperation; // delete outside lock
     }
-    XLOG("threadLoop empty");
+    ALOGV("threadLoop empty");
 
     return true;
 }

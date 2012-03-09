@@ -23,31 +23,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "VideoLayerManager"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "VideoLayerManager.h"
 
+#include "AndroidLog.h"
 #include "RenderSkinMediaButton.h"
 #include "SkCanvas.h"
-#include <cutils/log.h>
 #include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
 
 #if USE(ACCELERATED_COMPOSITING)
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "VideoLayerManager", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "VideoLayerManager", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // The animation of the play/pause icon will last for PLAY_PAUSE_ICON_SHOW_TIME
 // seconds.
@@ -112,7 +99,7 @@ GLuint VideoLayerManager::createTextureFromImage(int buttonType)
 void VideoLayerManager::initGLResourcesIfNeeded()
 {
     if (!m_createdTexture) {
-        XLOGC("Reinit GLResource for VideoLayer");
+        ALOGD("Reinit GLResource for VideoLayer");
         initGLResources();
     }
 }
@@ -155,7 +142,7 @@ void VideoLayerManager::cleanupGLResources()
         // The map include every video has been played, so their textureId can
         // be deleted already, like hitting onTrimMemory multiple times.
         if (it->second->textureId) {
-            XLOG("delete texture from the map %d", it->second->textureId);
+            ALOGV("delete texture from the map %d", it->second->textureId);
             glDeleteTextures(1, &it->second->textureId);
             // Set the textureID to 0 to show the video icon.
             it->second->textureId = 0;
@@ -230,7 +217,7 @@ void VideoLayerManager::registerTexture(const int layerId, const GLuint textureI
     pInfo->iconState = Registered;
 
     m_videoLayerInfoMap.add(layerId, pInfo);
-    XLOG("GL texture %d regisered for layerId %d", textureId, layerId);
+    ALOGV("GL texture %d regisered for layerId %d", textureId, layerId);
 
     return;
 }
@@ -272,7 +259,7 @@ void VideoLayerManager::updateMatrix(const int layerId, const GLfloat* matrix)
             return;
         memcpy(pInfo->surfaceMatrix, matrix, sizeof(pInfo->surfaceMatrix));
     } else {
-        XLOG("Error: should not reach here, the layerId %d should exist!", layerId);
+        ALOGV("Error: should not reach here, the layerId %d should exist!", layerId);
         ASSERT(false);
     }
     return;
@@ -290,10 +277,10 @@ bool VideoLayerManager::recycleTextureMem()
 
     InfoIterator end = m_videoLayerInfoMap.end();
 #ifdef DEBUG
-    XLOG("VideoLayerManager::recycleTextureMem m_videoLayerInfoMap contains");
+    ALOGV("VideoLayerManager::recycleTextureMem m_videoLayerInfoMap contains");
     for (InfoIterator it = m_videoLayerInfoMap.begin(); it != end; ++it)
-        XLOG("  layerId %d, textureId %d, videoSize %d, timeStamp %d ",
-             it->first, it->second->textureId, it->second->videoSize, it->second->timeStamp);
+        ALOGV("  layerId %d, textureId %d, videoSize %d, timeStamp %d ",
+              it->first, it->second->textureId, it->second->videoSize, it->second->timeStamp);
 #endif
     for (InfoIterator it = m_videoLayerInfoMap.begin(); it != end; ++it) {
         if (it->second->timeStamp < oldestTimeStamp) {
@@ -325,7 +312,7 @@ void VideoLayerManager::deleteUnusedTextures()
             if (textureName) {
                 textureNames[index] = textureName;
                 index++;
-                XLOG("GL texture %d will be deleted", textureName);
+                ALOGV("GL texture %d will be deleted", textureName);
             }
         }
         glDeleteTextures(size, textureNames);

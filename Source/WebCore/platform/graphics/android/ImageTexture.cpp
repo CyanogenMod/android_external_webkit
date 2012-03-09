@@ -23,34 +23,19 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "ImageTexture"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "ImageTexture.h"
 
+#include "AndroidLog.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
 #include "SkDevice.h"
 #include "SkPicture.h"
 #include "TilesManager.h"
 #include "TiledTexture.h"
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ImageTexture", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ImageTexture", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -166,7 +151,7 @@ int ImageTexture::nbTextures()
     // a list of the clients layer, etc.)
     IntRect visibleArea(0, 0, m_image->width(), m_image->height());
     int nbTextures = m_texture->nbTextures(visibleArea, 1.0);
-    XLOG("ImageTexture %p, %d x %d needs %d textures",
+    ALOGV("ImageTexture %p, %d x %d needs %d textures",
           this, m_image->width(), m_image->height(),
           nbTextures);
     return nbTextures;
@@ -233,11 +218,11 @@ float ImageTexture::opacity()
 bool ImageTexture::paint(BaseTile* tile, SkCanvas* canvas)
 {
     if (!m_picture) {
-        XLOG("IT %p COULDNT PAINT, NO PICTURE", this);
+        ALOGV("IT %p COULDNT PAINT, NO PICTURE", this);
         return false;
     }
 
-    XLOG("IT %p painting tile %d, %d with picture %p", this, tile->x(), tile->y(), m_picture);
+    ALOGV("IT %p painting tile %d, %d with picture %p", this, tile->x(), tile->y(), m_picture);
     canvas->drawPicture(*m_picture);
 
     return true;

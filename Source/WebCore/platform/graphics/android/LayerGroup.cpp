@@ -23,32 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "LayerGroup"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "LayerGroup.h"
 
+#include "AndroidLog.h"
 #include "ClassTracker.h"
 #include "LayerAndroid.h"
 #include "TiledTexture.h"
 #include "TilesManager.h"
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "LayerGroup", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "LayerGroup", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // LayerGroups with an area larger than 2048*2048 should never be unclipped
 #define MAX_UNCLIPPED_AREA 4194304
@@ -88,8 +73,8 @@ bool LayerGroup::tryUpdateLayerGroup(LayerGroup* oldLayerGroup)
     m_dualTiledTexture = oldLayerGroup->m_dualTiledTexture;
     SkSafeRef(m_dualTiledTexture);
 
-    XLOG("%p taking old DTT %p from group %p, nt %d",
-         this, m_dualTiledTexture, oldLayerGroup, oldLayerGroup->needsTexture());
+    ALOGV("%p taking old DTT %p from group %p, nt %d",
+          this, m_dualTiledTexture, oldLayerGroup, oldLayerGroup->needsTexture());
 
     if (!m_dualTiledTexture) {
         // no DTT to inval, so don't worry about it.
@@ -148,10 +133,10 @@ void LayerGroup::addLayer(LayerAndroid* layer, const TransformationMatrix& trans
             m_unclippedArea = rect;
         } else
             m_unclippedArea.unite(rect);
-        XLOG("LG %p adding LA %p, size  %d, %d  %dx%d, now LG size %d,%d  %dx%d",
-             this, layer, rect.x(), rect.y(), rect.width(), rect.height(),
-             m_unclippedArea.x(), m_unclippedArea.y(),
-             m_unclippedArea.width(), m_unclippedArea.height());
+        ALOGV("LG %p adding LA %p, size  %d, %d  %dx%d, now LG size %d,%d  %dx%d",
+              this, layer, rect.x(), rect.y(), rect.width(), rect.height(),
+              m_unclippedArea.x(), m_unclippedArea.y(),
+              m_unclippedArea.width(), m_unclippedArea.height());
     }
 }
 
@@ -174,8 +159,8 @@ IntRect LayerGroup::visibleArea()
 void LayerGroup::prepareGL(bool layerTilesDisabled)
 {
     if (!m_dualTiledTexture) {
-        XLOG("prepareGL on LG %p, no DTT, needsTexture? %d",
-             this, m_dualTiledTexture, needsTexture());
+        ALOGV("prepareGL on LG %p, no DTT, needsTexture? %d",
+              this, m_dualTiledTexture, needsTexture());
 
         if (needsTexture())
             m_dualTiledTexture = new DualTiledTexture();
@@ -189,8 +174,8 @@ void LayerGroup::prepareGL(bool layerTilesDisabled)
         bool allowZoom = hasText(); // only allow for scale > 1 if painting vectors
         IntRect prepareArea = computePrepareArea();
 
-        XLOG("prepareGL on LG %p with DTT %p, %d layers",
-             this, m_dualTiledTexture, m_layers.size());
+        ALOGV("prepareGL on LG %p with DTT %p, %d layers",
+              this, m_dualTiledTexture, m_layers.size());
         m_dualTiledTexture->prepareGL(getFirstLayer()->state(), allowZoom,
                                       prepareArea, this);
     }
@@ -207,7 +192,7 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
 
     bool askRedraw = false;
     if (m_dualTiledTexture && !layerTilesDisabled) {
-        XLOG("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
+        ALOGV("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
 
         IntRect drawArea = visibleArea();
         askRedraw |= m_dualTiledTexture->drawGL(drawArea, opacity(), drawTransform());

@@ -34,7 +34,6 @@
 #include "SkPaint.h"
 #include "SkTypeface.h"
 #include "SkUtils.h"
-#include <wtf/text/CString.h>
 
 namespace WebCore {
 

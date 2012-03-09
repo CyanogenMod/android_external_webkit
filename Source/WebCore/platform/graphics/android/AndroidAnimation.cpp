@@ -14,38 +14,21 @@
  * limitations under the License.
  */
 
+#define LOG_TAG "AndroidAnimation"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "AndroidAnimation.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "Animation.h"
 #include "GraphicsLayerAndroid.h"
-
 #include "Timer.h"
 #include "TimingFunction.h"
 #include "TranslateTransformOperation.h"
 #include "UnitBezier.h"
-
-#include <wtf/CurrentTime.h>
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "AndroidAnimation", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "AndroidAnimation", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
-
 
 namespace WebCore {
 
@@ -251,10 +234,10 @@ void AndroidOpacityAnimation::applyForProgress(LayerAndroid* layer, float progre
     FloatAnimationValue* fromValue = (FloatAnimationValue*) m_operations->at(from);
     FloatAnimationValue* toValue = (FloatAnimationValue*) m_operations->at(to);
 
-    XLOG("[layer %d] opacity fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
-         layer->uniqueId(),
-         fromValue, fromValue->keyTime(),
-         toValue, toValue->keyTime(), progress);
+    ALOGV("[layer %d] opacity fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
+          layer->uniqueId(),
+          fromValue, fromValue->keyTime(),
+          toValue, toValue->keyTime(), progress);
 
     // We now have the correct two values to work with, let's compute the
     // progress value
@@ -293,10 +276,10 @@ void AndroidTransformAnimation::applyForProgress(LayerAndroid* layer, float prog
     TransformAnimationValue* fromValue = (TransformAnimationValue*) m_operations->at(from);
     TransformAnimationValue* toValue = (TransformAnimationValue*) m_operations->at(to);
 
-    XLOG("[layer %d] fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
-         layer->uniqueId(),
-         fromValue, fromValue->keyTime(),
-         toValue, toValue->keyTime(), progress);
+    ALOGV("[layer %d] fromValue %x, key %.2f, toValue %x, key %.2f for progress %.2f",
+          layer->uniqueId(),
+          fromValue, fromValue->keyTime(),
+          toValue, toValue->keyTime(), progress);
 
     // We now have the correct two values to work with, let's compute the
     // progress value
@@ -304,8 +287,8 @@ void AndroidTransformAnimation::applyForProgress(LayerAndroid* layer, float prog
     const TimingFunction* timingFunction = fromValue->timingFunction();
     float p = applyTimingFunction(fromValue->keyTime(), toValue->keyTime(),
                                   progress, timingFunction);
-    XLOG("progress %.2f => %.2f from: %.2f to: %.2f", progress, p, fromValue->keyTime(),
-         toValue->keyTime());
+    ALOGV("progress %.2f => %.2f from: %.2f to: %.2f", progress, p, fromValue->keyTime(),
+          toValue->keyTime());
     progress = p;
 
     // With both values and the progress, we also need to check out that

@@ -23,30 +23,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "InspectorCanvas"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "InspectorCanvas.h"
 
+#include "AndroidLog.h"
 #include "SkPicture.h"
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "InspectorCanvas", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "InspectorCanvas", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
-
 
 namespace WebCore {
 
@@ -110,9 +94,9 @@ void InspectorCanvas::drawRect(const SkRect& rect, const SkPaint& paint)
         // regular rect drawing path
         setHasContent();
     }
-    XLOG("draw rect at %f %f, size %f %f, picture size %d %d",
-         rect.fLeft, rect.fTop, rect.width(), rect.height(),
-         m_picture->width(), m_picture->height());
+    ALOGV("draw rect at %f %f, size %f %f, picture size %d %d",
+          rect.fLeft, rect.fTop, rect.width(), rect.height(),
+          m_picture->width(), m_picture->height());
 }
 void InspectorCanvas::drawSprite(const SkBitmap& , int , int ,
                                  const SkPaint* paint)

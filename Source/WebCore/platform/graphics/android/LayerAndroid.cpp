@@ -1,8 +1,12 @@
+#define LOG_TAG "LayerAndroid"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "LayerAndroid.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "AndroidAnimation.h"
 #include "ClassTracker.h"
 #include "DrawExtra.h"
@@ -23,32 +27,14 @@
 #include "TilesManager.h"
 
 #include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 #include <math.h>
-
-#define LAYER_DEBUG // Add diagonals for debugging
-#undef LAYER_DEBUG
 
 #define DISABLE_LAYER_MERGE
 #undef DISABLE_LAYER_MERGE
 
 #define LAYER_GROUPING_DEBUG
 #undef LAYER_GROUPING_DEBUG
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "LayerAndroid", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -379,9 +365,9 @@ IFrameLayerAndroid* LayerAndroid::updatePosition(SkRect viewport,
 
 void LayerAndroid::updateLayerPositions(SkRect viewport, IFrameLayerAndroid* parentIframeLayer)
 {
-    XLOG("updating fixed positions, using viewport %fx%f - %fx%f",
-         viewport.fLeft, viewport.fTop,
-         viewport.width(), viewport.height());
+    ALOGV("updating fixed positions, using viewport %fx%f - %fx%f",
+          viewport.fLeft, viewport.fTop,
+          viewport.width(), viewport.height());
 
     IFrameLayerAndroid* iframeLayer = updatePosition(viewport, parentIframeLayer);
 
@@ -436,9 +422,9 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
         // that layers (defined in content coordinates) will align to display/view pixels
         float desiredContentX = round(m_drawTransform.m41() * scale) / scale;
         float desiredContentY = round(m_drawTransform.m42() * scale) / scale;
-        XLOG("fudging translation from %f, %f to %f, %f",
-             m_drawTransform.m41(), m_drawTransform.m42(),
-             desiredContentX, desiredContentY);
+        ALOGV("fudging translation from %f, %f to %f, %f",
+              m_drawTransform.m41(), m_drawTransform.m42(),
+              desiredContentX, desiredContentY);
         m_drawTransform.setM41(desiredContentX);
         m_drawTransform.setM42(desiredContentY);
     }
@@ -566,9 +552,9 @@ void LayerAndroid::showLayer(int indent)
         spaces[i] = ' ';
 
     if (!indent) {
-        XLOGC("\n\n--- LAYERS TREE ---");
+        ALOGD("\n\n--- LAYERS TREE ---");
         IntRect documentViewport(TilesManager::instance()->shader()->documentViewport());
-        XLOGC("documentViewport(%d, %d, %d, %d)",
+        ALOGD("documentViewport(%d, %d, %d, %d)",
               documentViewport.x(), documentViewport.y(),
               documentViewport.width(), documentViewport.height());
     }
@@ -578,7 +564,7 @@ void LayerAndroid::showLayer(int indent)
     IntRect visible = visibleArea();
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
-    XLOGC("%s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
+    ALOGD("%s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
           "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d",
           spaces, subclassName().latin1().data(), subclassType(), uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
@@ -712,7 +698,7 @@ void LayerAndroid::assignGroups(LayerMergeState* mergeState)
     }
 
 #ifdef LAYER_GROUPING_DEBUG
-    XLOGC("%*slayer %p(%d) rl %p %s group %p, fixed %d, anim %d, intCom %d, haveClip %d scroll %d",
+    ALOGD("%*slayer %p(%d) rl %p %s group %p, fixed %d, anim %d, intCom %d, haveClip %d scroll %d",
           4*mergeState->depth, "", this, m_uniqueId, m_owningLayer,
           needNewGroup ? "NEW" : "joins", mergeState->currentLayerGroup,
           m_isFixed, m_animations.size() != 0,

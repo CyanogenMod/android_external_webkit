@@ -23,14 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "PerformanceMonitor"
+#define LOG_NDEBUG 1
+
 #include "PerformanceMonitor.h"
 
+#include "AndroidLog.h"
 #include <wtf/text/CString.h>
-
-#include <wtf/CurrentTime.h>
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "PerformanceMonitor", __VA_ARGS__)
 
 namespace WebCore {
 
@@ -90,14 +89,14 @@ void PerformanceMonitor::display(int limit)
         PerfItem* item = it->second;
         if (item->average_ms > limit) {
            if (!shown) {
-                XLOGC("=== DISPLAY MONITOR ====");
+                ALOGD("=== DISPLAY MONITOR ====");
                 shown = true;
            }
-           XLOGC("item %s took longer than %d ms: %.2f", it->first.latin1().data(), limit, item->average_ms);
+           ALOGD("item %s took longer than %d ms: %.2f", it->first.latin1().data(), limit, item->average_ms);
         }
     }
     if (shown)
-        XLOGC("=== END DISPLAY MONITOR ====");
+        ALOGD("=== END DISPLAY MONITOR ====");
 }
 
 } // namespace WebCore

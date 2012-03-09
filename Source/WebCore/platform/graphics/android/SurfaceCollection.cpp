@@ -23,9 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "SurfaceCollection"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "SurfaceCollection.h"
 
+#include "AndroidLog.h"
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
 #include "LayerAndroid.h"
@@ -33,25 +37,6 @@
 #include "GLWebViewState.h"
 #include "ScrollableLayerAndroid.h"
 #include "TilesManager.h"
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "SurfaceCollection", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "SurfaceCollection", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -75,7 +60,7 @@ SurfaceCollection::SurfaceCollection(BaseLayerAndroid* baseLayer)
         m_baseLayer->updateLayerPositions(visibleRect);
 
         // allocate groups for layers, merging where possible
-        XLOG("new tree, allocating groups for tree %p", m_baseLayer);
+        ALOGV("new tree, allocating groups for tree %p", m_baseLayer);
 
         LayerMergeState layerMergeState(&m_layerGroups);
         m_compositedRoot->assignGroups(&layerMergeState);
@@ -174,7 +159,7 @@ bool SurfaceCollection::isReady()
 
     for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
         if (!m_layerGroups[i]->isReady()) {
-            XLOG("layer group %p isn't ready", m_layerGroups[i]);
+            ALOGV("layer group %p isn't ready", m_layerGroups[i]);
             return false;
         }
     }

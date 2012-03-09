@@ -23,32 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "ZoomManager"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "ZoomManager.h"
 
+#include "AndroidLog.h"
 #include "GLWebViewState.h"
 
 #if USE(ACCELERATED_COMPOSITING)
-
-#include <wtf/CurrentTime.h>
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ZoomManager", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ZoomManager", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 

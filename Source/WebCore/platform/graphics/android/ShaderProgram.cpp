@@ -23,35 +23,21 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "ShaderProgram"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "ShaderProgram.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "FloatPoint3D.h"
 #include "GLUtils.h"
 #include "TilesManager.h"
 
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ShaderProgram", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ShaderProgram", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -172,7 +158,7 @@ GLuint ShaderProgram::loadShader(GLenum shaderType, const char* pSource)
                 char* buf = (char*) malloc(infoLen);
                 if (buf) {
                 glGetShaderInfoLog(shader, infoLen, 0, buf);
-                XLOGC("could not compile shader %d:\n%s\n", shaderType, buf);
+                ALOGE("could not compile shader %d:\n%s\n", shaderType, buf);
                 free(buf);
             }
             glDeleteShader(shader);
@@ -187,13 +173,13 @@ GLint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragm
 {
     GLuint vertexShader = loadShader(GL_VERTEX_SHADER, pVertexSource);
     if (!vertexShader) {
-        XLOGC("couldn't load the vertex shader!");
+        ALOGE("couldn't load the vertex shader!");
         return -1;
     }
 
     GLuint pixelShader = loadShader(GL_FRAGMENT_SHADER, pFragmentSource);
     if (!pixelShader) {
-        XLOGC("couldn't load the pixel shader!");
+        ALOGE("couldn't load the pixel shader!");
         return -1;
     }
 
@@ -213,7 +199,7 @@ GLint ShaderProgram::createProgram(const char* pVertexSource, const char* pFragm
                 char* buf = (char*) malloc(bufLength);
                 if (buf) {
                     glGetProgramInfoLog(program, bufLength, 0, buf);
-                    XLOGC("could not link program:\n%s\n", buf);
+                    ALOGE("could not link program:\n%s\n", buf);
                     free(buf);
                 }
             }

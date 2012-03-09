@@ -23,32 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "SurfaceCollectionManager"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "SurfaceCollectionManager.h"
 
+#include "AndroidLog.h"
 #include "BaseLayerAndroid.h"
 #include "LayerGroup.h"
 #include "TilesManager.h"
 #include "SurfaceCollection.h"
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "SurfaceCollectionManager", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "SurfaceCollectionManager", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -77,36 +62,36 @@ void SurfaceCollectionManager::swap()
 
     android::Mutex::Autolock lock(m_paintSwapLock);
 
-    XLOG("SWAPPING, D %p, P %p, Q %p",
-         m_drawingCollection, m_paintingCollection, m_queuedCollection);
+    ALOGV("SWAPPING, D %p, P %p, Q %p",
+          m_drawingCollection, m_paintingCollection, m_queuedCollection);
 
     // if we have a drawing collection, discard it since the painting collection is done
     if (m_drawingCollection) {
-        XLOG("destroying drawing collection %p", m_drawingCollection);
+        ALOGV("destroying drawing collection %p", m_drawingCollection);
         SkSafeUnref(m_drawingCollection);
     }
 
     // painting collection becomes the drawing collection
-    XLOG("drawing collection %p", m_paintingCollection);
+    ALOGV("drawing collection %p", m_paintingCollection);
     m_paintingCollection->setIsDrawing(); // initialize animations
 
     if (m_queuedCollection) {
         // start painting with the queued collection
-        XLOG("now painting collection %p", m_queuedCollection);
+        ALOGV("now painting collection %p", m_queuedCollection);
         m_queuedCollection->setIsPainting(m_paintingCollection);
     }
     m_drawingCollection = m_paintingCollection;
     m_paintingCollection = m_queuedCollection;
     m_queuedCollection = 0;
 
-    XLOG("SWAPPING COMPLETE, D %p, P %p, Q %p",
+    ALOGV("SWAPPING COMPLETE, D %p, P %p, Q %p",
          m_drawingCollection, m_paintingCollection, m_queuedCollection);
 }
 
 // clear all of the content in the three collections held by the collection manager
 void SurfaceCollectionManager::clearCollections()
 {
-    XLOG("SurfaceCollectionManager %p removing PS from state %p", this, m_state);
+    ALOGV("SurfaceCollectionManager %p removing PS from state %p", this, m_state);
 
     SkSafeUnref(m_drawingCollection);
     m_drawingCollection = 0;
@@ -122,9 +107,9 @@ void SurfaceCollectionManager::clearCollections()
 bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* newCollection,
                                                            bool brandNew)
 {
-    XLOG("updateWithSurfaceCollection - %p, has children %d, has animations %d",
-         newCollection, newCollection->hasCompositedLayers(),
-         newCollection->hasCompositedAnimations);
+    ALOGV("updateWithSurfaceCollection - %p, has children %d, has animations %d",
+          newCollection, newCollection->hasCompositedLayers(),
+          newCollection->hasCompositedAnimations());
 
     // can't have a queued collection unless have a painting collection too
     ASSERT(m_paintingCollection || !m_queuedCollection);
@@ -152,9 +137,9 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
                 TilesManager::instance()->incContentUpdates();
             }
 
-            XLOG("DISCARDING collection - %p, has children %d, has animations %d",
-                 newCollection, newCollection->hasCompositedLayers(),
-                 newCollection->hasCompositedAnimations());
+            ALOGV("DISCARDING collection - %p, has children %d, has animations %d",
+                  newCollection, newCollection->hasCompositedLayers(),
+                  newCollection->hasCompositedAnimations());
         }
         SkSafeUnref(m_queuedCollection);
         m_queuedCollection = newCollection;
@@ -184,13 +169,13 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
 {
     m_fastSwapMode |= enterFastSwapMode;
 
-    XLOG("drawGL, D %p, P %p, Q %p, fastSwap %d",
-         m_drawingCollection, m_paintingCollection, m_queuedCollection, m_fastSwapMode);
+    ALOGV("drawGL, D %p, P %p, Q %p, fastSwap %d",
+          m_drawingCollection, m_paintingCollection, m_queuedCollection, m_fastSwapMode);
 
     bool ret = false;
     bool didCollectionSwap = false;
     if (m_paintingCollection) {
-        XLOG("preparing painting collection %p", m_paintingCollection);
+        ALOGV("preparing painting collection %p", m_paintingCollection);
 
         m_paintingCollection->evaluateAnimations(currentTime);
 
@@ -198,7 +183,7 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         m_paintingCollection->computeTexturesAmount(texturesResultPtr);
 
         if (!TilesManager::instance()->useDoubleBuffering() || m_paintingCollection->isReady()) {
-            XLOG("have painting collection %p ready, swapping!", m_paintingCollection);
+            ALOGV("have painting collection %p ready, swapping!", m_paintingCollection);
             didCollectionSwap = true;
             TilesManager::instance()->incContentUpdates();
             if (collectionsSwappedPtr)
@@ -208,7 +193,7 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
             swap();
         }
     } else if (m_drawingCollection) {
-        XLOG("preparing drawing collection %p", m_drawingCollection);
+        ALOGV("preparing drawing collection %p", m_drawingCollection);
         m_drawingCollection->prepareGL(visibleRect, scale, currentTime);
         m_drawingCollection->computeTexturesAmount(texturesResultPtr);
     }
@@ -232,7 +217,7 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         }
 
         m_drawingCollection->evaluateAnimations(currentTime);
-        XLOG("drawing collection %p", m_drawingCollection);
+        ALOGV("drawing collection %p", m_drawingCollection);
         ret |= m_drawingCollection->drawGL(visibleRect, scale);
     } else {
         // Dont have a drawing collection, draw white background
@@ -241,7 +226,7 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     }
 
     if (m_paintingCollection) {
-        XLOG("still have painting collection %p", m_paintingCollection);
+        ALOGV("still have painting collection %p", m_paintingCollection);
         return true;
     }
 

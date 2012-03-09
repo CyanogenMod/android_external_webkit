@@ -23,31 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "GLExtras"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 
+#include "AndroidLog.h"
 #include "DrawExtra.h"
 #include "GLExtras.h"
 #include "IntRect.h"
 #include "TilesManager.h"
 #include "android_graphics.h"
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "GLExtras", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GLExtras", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // Touch ring border width. This is doubled if the ring is not pressed
 #define RING_BORDER_WIDTH 1
@@ -68,8 +54,8 @@ void GLExtras::drawRing(SkRect& srcRect, Color color, const TransformationMatrix
         // Invalid rect, reject it
         return;
     }
-    XLOG("drawQuad [%fx%f, %f, %f]", srcRect.fLeft, srcRect.fTop,
-         srcRect.width(), srcRect.height());
+    ALOGV("drawQuad [%fx%f, %f, %f]", srcRect.fLeft, srcRect.fTop,
+          srcRect.width(), srcRect.height());
     // Pull the alpha out of the color so that the shader applies it correctly.
     // Otherwise we either don't have blending enabled, or the alpha will get
     // double applied

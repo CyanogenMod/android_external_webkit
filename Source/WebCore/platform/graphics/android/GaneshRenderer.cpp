@@ -23,33 +23,19 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "GaneshRenderer"
+#define LOG_NDEBUG 1
 
 #include "config.h"
 #include "GaneshRenderer.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "GaneshContext.h"
 #include "SkCanvas.h"
 #include "SkGpuDevice.h"
 #include "TilesManager.h"
-
-
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GaneshRenderer", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -90,7 +76,7 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
     bool ready = tileQueue->readyForUpdate();
     if (!ready) {
-        XLOG("!ready");
+        ALOGV("!ready");
         tileQueue->unlockQueue();
         return;
     }
@@ -101,9 +87,9 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
         device = ganesh->getDeviceForBaseTile(renderInfo);
     } else {
         // TODO support arbitrary sizes for layers
-        XLOG("ERROR: expected (%d,%d) actual (%d,%d)",
-                TilesManager::tileWidth(), TilesManager::tileHeight(),
-                renderInfo.tileSize.width(), renderInfo.tileSize.height());
+        ALOGV("ERROR: expected (%d,%d) actual (%d,%d)",
+              TilesManager::tileWidth(), TilesManager::tileHeight(),
+              renderInfo.tileSize.width(), renderInfo.tileSize.height());
     }
 
     if (renderInfo.measurePerf) {
@@ -132,7 +118,7 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
         m_perfMon.start(TAG_UPDATE_TEXTURE);
     }
 
-    XLOG("rendered to tile (%d,%d)", renderInfo.x, renderInfo.y);
+    ALOGV("rendered to tile (%d,%d)", renderInfo.x, renderInfo.y);
 
     GaneshContext::instance()->flush();
 

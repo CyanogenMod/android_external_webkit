@@ -23,11 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "TilesManager"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "TilesManager.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "BaseTile.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
@@ -36,26 +40,7 @@
 #include <cutils/atomic.h>
 #include <gui/SurfaceTexture.h>
 #include <gui/SurfaceTextureClient.h>
-
-
-#include <cutils/log.h>
 #include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TilesManager", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "TilesManager", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // Important: We need at least twice as many textures as is needed to cover
 // one viewport, otherwise the allocation may stall.
@@ -111,7 +96,7 @@ TilesManager::TilesManager()
     , m_lastTimeLayersUsed(0)
     , m_hasLayerTextures(false)
 {
-    XLOG("TilesManager ctor");
+    ALOGV("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_availableTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_tilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
@@ -123,7 +108,7 @@ TilesManager::TilesManager()
 void TilesManager::allocateTiles()
 {
     int nbTexturesToAllocate = m_maxTextureCount - m_textures.size();
-    XLOG("%d tiles to allocate (%d textures planned)", nbTexturesToAllocate, m_maxTextureCount);
+    ALOGV("%d tiles to allocate (%d textures planned)", nbTexturesToAllocate, m_maxTextureCount);
     int nbTexturesAllocated = 0;
     for (int i = 0; i < nbTexturesToAllocate; i++) {
         BaseTileTexture* texture = new BaseTileTexture(
@@ -138,8 +123,8 @@ void TilesManager::allocateTiles()
     }
 
     int nbLayersTexturesToAllocate = m_maxLayerTextureCount - m_tilesTextures.size();
-    XLOG("%d layers tiles to allocate (%d textures planned)",
-         nbLayersTexturesToAllocate, m_maxLayerTextureCount);
+    ALOGV("%d layers tiles to allocate (%d textures planned)",
+          nbLayersTexturesToAllocate, m_maxLayerTextureCount);
     int nbLayersTexturesAllocated = 0;
     for (int i = 0; i < nbLayersTexturesToAllocate; i++) {
         BaseTileTexture* texture = new BaseTileTexture(
@@ -152,11 +137,11 @@ void TilesManager::allocateTiles()
         m_tilesTextures.append(loadedTexture);
         nbLayersTexturesAllocated++;
     }
-    XLOG("allocated %d textures for base (total: %d, %d Mb), %d textures for layers (total: %d, %d Mb)",
-         nbTexturesAllocated, m_textures.size(),
-         m_textures.size() * TILE_WIDTH * TILE_HEIGHT * 4 / 1024 / 1024,
-         nbLayersTexturesAllocated, m_tilesTextures.size(),
-         m_tilesTextures.size() * LAYER_TILE_WIDTH * LAYER_TILE_HEIGHT * 4 / 1024 / 1024);
+    ALOGV("allocated %d textures for base (total: %d, %d Mb), %d textures for layers (total: %d, %d Mb)",
+          nbTexturesAllocated, m_textures.size(),
+          m_textures.size() * TILE_WIDTH * TILE_HEIGHT * 4 / 1024 / 1024,
+          nbLayersTexturesAllocated, m_tilesTextures.size(),
+          m_tilesTextures.size() * LAYER_TILE_WIDTH * LAYER_TILE_HEIGHT * 4 / 1024 / 1024);
 }
 
 void TilesManager::discardTextures(bool allTextures, bool glTextures)
@@ -209,16 +194,16 @@ void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
         int remainedTextureNumber = textures.size();
         int* countPtr = base ? &m_maxTextureCount : &m_maxLayerTextureCount;
         if (remainedTextureNumber < *countPtr) {
-            XLOG("reset maxTextureCount for %s tiles from %d to %d",
-                 base ? "base" : "layer", *countPtr, remainedTextureNumber);
+            ALOGV("reset maxTextureCount for %s tiles from %d to %d",
+                  base ? "base" : "layer", *countPtr, remainedTextureNumber);
             *countPtr = remainedTextureNumber;
         }
 
     }
 
-    XLOG("Discarded %d %s textures (out of %d %s tiles)",
-         dealloc, (deallocateGLTextures ? "gl" : ""),
-         max, base ? "base" : "layer");
+    ALOGV("Discarded %d %s textures (out of %d %s tiles)",
+          dealloc, (deallocateGLTextures ? "gl" : ""),
+          max, base ? "base" : "layer");
 }
 
 void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
@@ -241,7 +226,7 @@ void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextur
 void TilesManager::printTextures()
 {
 #ifdef DEBUG
-    XLOG("++++++");
+    ALOGV("++++++");
     for (unsigned int i = 0; i < m_textures.size(); i++) {
         BaseTileTexture* texture = m_textures[i];
         BaseTile* o = 0;
@@ -253,11 +238,11 @@ void TilesManager::printTextures()
             x = o->x();
             y = o->y();
         }
-        XLOG("[%d] texture %x owner: %x (%d, %d) page: %x scale: %.2f",
-               i, texture,
-               o, x, y, o ? o->page() : 0, o ? o->scale() : 0);
+        ALOGV("[%d] texture %x owner: %x (%d, %d) page: %x scale: %.2f",
+              i, texture,
+              o, x, y, o ? o->page() : 0, o ? o->scale() : 0);
     }
-    XLOG("------");
+    ALOGV("------");
 #endif // DEBUG
 }
 
@@ -280,8 +265,8 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
 
     // Sanity check that the tile does not already own a texture
     if (owner->backTexture() && owner->backTexture()->owner() == owner) {
-        XLOG("same owner (%d, %d), getAvailableBackTexture(%x) => texture %x",
-             owner->x(), owner->y(), owner, owner->backTexture());
+        ALOGV("same owner (%d, %d), getAvailableBackTexture(%x) => texture %x",
+              owner->x(), owner->y(), owner, owner->backTexture());
         if (owner->isLayerTile())
             m_availableTilesTextures.remove(m_availableTilesTextures.find(owner->backTexture()));
         else
@@ -335,11 +320,11 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
             if (previousOwner) {
                 previousOwner->removeTexture(farthestTexture);
 
-                XLOG("%s texture %p stolen from tile %d, %d for %d, %d, drawCount was %llu (now %llu)",
-                     owner->isLayerTile() ? "LAYER" : "BASE",
-                     farthestTexture, previousOwner->x(), previousOwner->y(),
-                     owner->x(), owner->y(),
-                     oldestDrawCount, getDrawGLCount());
+                ALOGV("%s texture %p stolen from tile %d, %d for %d, %d, drawCount was %llu (now %llu)",
+                      owner->isLayerTile() ? "LAYER" : "BASE",
+                      farthestTexture, previousOwner->x(), previousOwner->y(),
+                      owner->x(), owner->y(),
+                      oldestDrawCount, getDrawGLCount());
             }
 
             availableTexturePool->remove(availableTexturePool->find(farthestTexture));
@@ -354,7 +339,7 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         }
     }
 
-    XLOG("Couldn't find an available texture for %s tile %x (%d, %d) out of %d available",
+    ALOGV("Couldn't find an available texture for %s tile %x (%d, %d) out of %d available",
           owner->isLayerTile() ? "LAYER" : "BASE",
           owner, owner->x(), owner->y(), max);
 #ifdef DEBUG
@@ -387,7 +372,7 @@ int TilesManager::maxLayerTextureCount()
 
 void TilesManager::setMaxTextureCount(int max)
 {
-    XLOG("setMaxTextureCount: %d (current: %d, total:%d)",
+    ALOGV("setMaxTextureCount: %d (current: %d, total:%d)",
          max, m_maxTextureCount, MAX_TEXTURE_ALLOCATION);
     if (m_maxTextureCount == MAX_TEXTURE_ALLOCATION ||
          max <= m_maxTextureCount)
@@ -405,7 +390,7 @@ void TilesManager::setMaxTextureCount(int max)
 
 void TilesManager::setMaxLayerTextureCount(int max)
 {
-    XLOG("setMaxLayerTextureCount: %d (current: %d, total:%d)",
+    ALOGV("setMaxLayerTextureCount: %d (current: %d, total:%d)",
          max, m_maxLayerTextureCount, MAX_TEXTURE_ALLOCATION);
     if (!max && m_hasLayerTextures) {
         double secondsSinceLayersUsed = WTF::currentTime() - m_lastTimeLayersUsed;
@@ -466,10 +451,10 @@ TilesManager* TilesManager::instance()
 {
     if (!gInstance) {
         gInstance = new TilesManager();
-        XLOG("instance(), new gInstance is %x", gInstance);
-        XLOG("Waiting for the generator...");
+        ALOGV("instance(), new gInstance is %x", gInstance);
+        ALOGV("Waiting for the generator...");
         gInstance->waitForGenerator();
-        XLOG("Generator ready!");
+        ALOGV("Generator ready!");
     }
     return gInstance;
 }

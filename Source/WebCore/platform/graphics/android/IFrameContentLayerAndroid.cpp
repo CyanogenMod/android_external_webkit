@@ -1,12 +1,12 @@
+#define LOG_TAG "IFrameContentLayerAndroid"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "IFrameContentLayerAndroid.h"
 
-#if USE(ACCELERATED_COMPOSITING)
+#include "AndroidLog.h"
 
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "IFrameContentLayerAndroid", __VA_ARGS__)
+#if USE(ACCELERATED_COMPOSITING)
 
 namespace WebCore {
 

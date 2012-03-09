@@ -23,12 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "BaseRenderer"
+#define LOG_NDEBUG 1
 
 #include "config.h"
 #include "BaseRenderer.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "GaneshRenderer.h"
 #include "GLUtils.h"
 #include "RasterRenderer.h"
@@ -40,24 +43,6 @@
 #include "TilesManager.h"
 
 #include <wtf/text/CString.h>
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "BaseRenderer", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseRenderer", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 #define UPDATE_COUNT_MASK 0xFF // displayed count wraps at 256
 #define UPDATE_COUNT_ALPHA_MASK 0x3F // alpha wraps at 64
@@ -127,7 +112,8 @@ void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     setupCanvas(renderInfo, &canvas);
 
     if (!canvas.getDevice()) {
-        XLOG("Error: No Device");
+        // TODO: consider ALOGE
+        ALOGV("Error: No Device");
         return;
     }
 

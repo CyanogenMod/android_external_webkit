@@ -37,7 +37,6 @@
 #include "TexturesGenerator.h"
 #include "TiledPage.h"
 #include "TilesProfiler.h"
-#include "TilesTracker.h"
 #include "TransferQueue.h"
 #include "VideoLayerManager.h"
 #include <utils/threads.h>
@@ -132,11 +131,6 @@ public:
     TilesProfiler* getProfiler()
     {
         return &m_profiler;
-    }
-
-    TilesTracker* getTilesTracker()
-    {
-        return &m_tilesTracker;
     }
 
     bool invertedScreen()
@@ -250,7 +244,6 @@ private:
     VideoLayerManager m_videoLayerManager;
 
     TilesProfiler m_profiler;
-    TilesTracker m_tilesTracker;
     unsigned long long m_drawGLCount;
     double m_lastTimeLayersUsed;
     bool m_hasLayerTextures;

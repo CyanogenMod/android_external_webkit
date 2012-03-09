@@ -23,29 +23,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "GaneshContext"
+#define LOG_NDEBUG 1
 
 #include "config.h"
 #include "GaneshContext.h"
+
+#include "AndroidLog.h"
 #include "GLUtils.h"
 
 #include "android/native_window.h"
 
 #if USE(ACCELERATED_COMPOSITING)
-
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "GaneshContext", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -87,8 +76,8 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
     // reset the Ganesh context to prevent rendering issues.
     bool contextNeedsReset = false;
     if (eglGetCurrentContext() != m_surfaceContext) {
-        XLOG("Warning: EGLContext has Changed! %p, %p", m_surfaceContext,
-                                                        eglGetCurrentContext());
+        ALOGV("Warning: EGLContext has Changed! %p, %p",
+              m_surfaceContext, eglGetCurrentContext());
         contextNeedsReset = true;
     }
 
@@ -97,7 +86,7 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
     if (!m_surfaceContext) {
 
         if(eglGetCurrentContext() != EGL_NO_CONTEXT) {
-            XLOG("ERROR: should not have a context yet");
+            ALOGV("ERROR: should not have a context yet");
         }
 
         display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
@@ -150,12 +139,12 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
         tileQueue->m_eglSurface = eglCreateWindowSurface(display, m_surfaceConfig, anw, NULL);
 
         GLUtils::checkEglError("eglCreateWindowSurface");
-        XLOG("eglCreateWindowSurface");
+        ALOGV("eglCreateWindowSurface");
     }
 
     EGLBoolean returnValue = eglMakeCurrent(display, tileQueue->m_eglSurface, tileQueue->m_eglSurface, m_surfaceContext);
     GLUtils::checkEglError("eglMakeCurrent", returnValue);
-    XLOG("eglMakeCurrent");
+    ALOGV("eglMakeCurrent");
 
     if (!m_baseTileDeviceSurface) {
 
@@ -172,7 +161,7 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
 
         m_baseTileDeviceSurface = new SkGpuDevice(grContext, renderTarget);
         renderTarget->unref();
-        XLOG("generated device %p", m_baseTileDeviceSurface);
+        ALOGV("generated device %p", m_baseTileDeviceSurface);
     }
 
     GLUtils::checkGlError("getDeviceForBaseTile");

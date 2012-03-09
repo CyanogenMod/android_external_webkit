@@ -13,30 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#define LOG_TAG "MediaLayer"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "MediaLayer.h"
+
+#include "AndroidLog.h"
 #include "MediaTexture.h"
 #include "TilesManager.h"
 
 #if USE(ACCELERATED_COMPOSITING)
-
-#define LAYER_DEBUG
-#undef LAYER_DEBUG
-
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "MediaLayer", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
@@ -47,7 +35,7 @@ MediaLayer::MediaLayer(jobject webViewRef) : LayerAndroid((RenderLayer*) NULL)
 
     m_isCopy = false;
     m_outlineSize = 0;
-    XLOG("Creating Media Layer %p", this);
+    ALOGV("Creating Media Layer %p", this);
 }
 
 MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
@@ -57,12 +45,12 @@ MediaLayer::MediaLayer(const MediaLayer& layer) : LayerAndroid(layer)
 
     m_isCopy = true;
     m_outlineSize = layer.m_outlineSize;
-    XLOG("Creating Media Layer Copy %p -> %p", &layer, this);
+    ALOGV("Creating Media Layer Copy %p -> %p", &layer, this);
 }
 
 MediaLayer::~MediaLayer()
 {
-    XLOG("Deleting Media Layer");
+    ALOGV("Deleting Media Layer");
     m_mediaTexture->decStrong(this);
 }
 

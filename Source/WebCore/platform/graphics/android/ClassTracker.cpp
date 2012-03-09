@@ -23,18 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "ClassTracker"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "ClassTracker.h"
 
+#include "AndroidLog.h"
 #include "LayerAndroid.h"
 #include "TilesManager.h"
 
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
 #include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ClassTracker", __VA_ARGS__)
 
 #define DEBUG_LAYERS
 #undef DEBUG_LAYERS
@@ -85,12 +84,12 @@ void ClassTracker::remove(LayerAndroid* layer)
 void ClassTracker::show()
 {
    android::Mutex::Autolock lock(m_lock);
-   XLOG("*** Tracking %d classes ***", m_classes.size());
+   ALOGD("*** Tracking %d classes ***", m_classes.size());
    for (HashMap<String, int>::iterator iter = m_classes.begin(); iter != m_classes.end(); ++iter) {
-       XLOG("class %s has %d instances",
-            iter->first.latin1().data(), iter->second);
+       ALOGD("class %s has %d instances",
+             iter->first.latin1().data(), iter->second);
    }
-   XLOG("*** %d Layers ***", m_layers.size());
+   ALOGD("*** %d Layers ***", m_layers.size());
    int nbTextures = 0;
    int nbAllocatedTextures = 0;
    int nbLayerTextures = 0;
@@ -98,23 +97,23 @@ void ClassTracker::show()
    float textureSize = 256 * 256 * 4 / 1024.0 / 1024.0;
    TilesManager::instance()->gatherTexturesNumbers(&nbTextures, &nbAllocatedTextures,
                                                    &nbLayerTextures, &nbAllocatedLayerTextures);
-   XLOG("*** textures: %d/%d (%.2f Mb), layer textures: %d/%d (%.2f Mb) : total used %.2f Mb",
-        nbAllocatedTextures, nbTextures,
-        nbAllocatedTextures * textureSize,
-        nbAllocatedLayerTextures, nbLayerTextures,
-        nbAllocatedLayerTextures * textureSize,
-        (nbAllocatedTextures + nbAllocatedLayerTextures) * textureSize);
+   ALOGD("*** textures: %d/%d (%.2f Mb), layer textures: %d/%d (%.2f Mb) : total used %.2f Mb",
+         nbAllocatedTextures, nbTextures,
+         nbAllocatedTextures * textureSize,
+         nbAllocatedLayerTextures, nbLayerTextures,
+         nbAllocatedLayerTextures * textureSize,
+         (nbAllocatedTextures + nbAllocatedLayerTextures) * textureSize);
 
 #ifdef DEBUG_LAYERS
    for (unsigned int i = 0; i < m_layers.size(); i++) {
        LayerAndroid* layer = m_layers[i];
-       XLOG("[%d/%d] layer %x (%.2f, %.2f) of type %d, refcount(%d) has texture %x has image ref %x (%x) root: %x parent: %x",
-            i, m_layers.size(), layer,
-            layer->getWidth(), layer->getHeight(),
-            layer->type(), layer->getRefCnt(),
-            layer->texture(), layer->imageRef(),
-            layer->imageTexture(), (LayerAndroid*) layer->getRootLayer(),
-            (LayerAndroid*) layer->getParent());
+       ALOGD("[%d/%d] layer %x (%.2f, %.2f) of type %d, refcount(%d) has texture %x has image ref %x (%x) root: %x parent: %x",
+             i, m_layers.size(), layer,
+             layer->getWidth(), layer->getHeight(),
+             layer->type(), layer->getRefCnt(),
+             layer->texture(), layer->imageRef(),
+             layer->imageTexture(), (LayerAndroid*) layer->getRootLayer(),
+             (LayerAndroid*) layer->getParent());
    }
 #endif
 }

@@ -23,12 +23,13 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_NDEBUG 0
-#define LOG_TAG "pictureset"
+#define LOG_TAG "PictureSet"
+#define LOG_NDEBUG 1
 
 #include "config.h"
 #include "PictureSet.h"
 
+#include "AndroidLog.h"
 #include "android_graphics.h"
 #include "SkBounder.h"
 #include "SkCanvas.h"
@@ -45,26 +46,6 @@
 #define BUCKET_SIZE 1024
 #define MAX_BUCKET_COUNT_X 16
 #define MAX_BUCKET_COUNT_Y 64
-
-#include <wtf/CurrentTime.h>
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "PictureSet", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "PictureSet", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 #if PICTURE_SET_DEBUG
 class MeasureStream : public SkWStream {
@@ -190,7 +171,7 @@ Bucket* PictureSet::getBucket(int x, int y)
 
     BucketPosition position(x+1, y+1);
     if (!mBuckets.contains(position)) {
-        XLOG("PictureSet::getBucket(%d, %d) adding new bucket", x, y);
+        ALOGV("PictureSet::getBucket(%d, %d) adding new bucket", x, y);
         Bucket* bucket = new Bucket();
         mBuckets.add(position, bucket);
     }
@@ -202,7 +183,7 @@ void PictureSet::displayBucket(Bucket* bucket)
     BucketPicture* first = bucket->begin();
     BucketPicture* last = bucket->end();
     for (BucketPicture* current = first; current != last; current++) {
-        XLOGC("- in %x, bucketPicture %d,%d,%d,%d - %dx%d, picture: %x, base: %x",
+        ALOGD("- in %x, bucketPicture %d,%d,%d,%d - %dx%d, picture: %x, base: %x",
               bucket,
               current->mArea.fLeft,
               current->mArea.fTop,
@@ -217,12 +198,12 @@ void PictureSet::displayBucket(Bucket* bucket)
 
 void PictureSet::displayBuckets()
 {
-    XLOGC("\n\n****** DISPLAY BUCKETS ON PictureSet %x ******", this);
+    ALOGD("\n\n****** DISPLAY BUCKETS ON PictureSet %x ******", this);
     for (BucketMap::iterator iter = mBuckets.begin(); iter != mBuckets.end(); ++iter) {
-        XLOGC("\n*** Bucket %x for %d, %d", iter->second, iter->first.first, iter->first.second);
+        ALOGD("\n*** Bucket %x for %d, %d", iter->second, iter->first.first, iter->first.second);
         displayBucket(iter->second);
     }
-    XLOGC("\n****** END OF DISPLAY BUCKETS ******\n\n");
+    ALOGD("\n****** END OF DISPLAY BUCKETS ******\n\n");
 }
 
 // When we receive an inval in a Bucket, we try to see if we intersect with
@@ -341,12 +322,12 @@ void PictureSet::addToBucket(Bucket* bucket, int dx, int dy, SkIRect& rect)
 
 void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect& rect)
 {
-    XLOG("\n--- gatherBucketsForArea for rect %d, %d, %d, %d (%d x %d)",
+    ALOGV("\n--- gatherBucketsForArea for rect %d, %d, %d, %d (%d x %d)",
           rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
           rect.width(), rect.height());
 
     if (!mBucketSizeX || !mBucketSizeY) {
-        XLOGC("PictureSet::gatherBucketsForArea() called with bad bucket size: x=%d y=%d",
+        ALOGD("PictureSet::gatherBucketsForArea() called with bad bucket size: x=%d y=%d",
               mBucketSizeX, mBucketSizeY);
         return;
     }
@@ -361,7 +342,7 @@ void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect&
     for (int i = firstTileX; i <= lastTileX; i++) {
         for (int j = firstTileY; j <= lastTileY; j++) {
             Bucket* bucket = getBucket(i, j);
-            XLOG("gather bucket %x for %d, %d", bucket, i+1, j+1);
+            ALOGV("gather bucket %x for %d, %d", bucket, i+1, j+1);
             if (bucket)
                 list.append(bucket);
         }
@@ -373,12 +354,12 @@ void PictureSet::gatherBucketsForArea(WTF::Vector<Bucket*>& list, const SkIRect&
 // each Bucket we intersect with). We then send that inval to the Bucket.
 void PictureSet::splitAdd(const SkIRect& rect)
 {
-    XLOG("\n--- splitAdd for rect %d, %d, %d, %d (%d x %d)",
+    ALOGV("\n--- splitAdd for rect %d, %d, %d, %d (%d x %d)",
           rect.fLeft, rect.fTop, rect.fRight, rect.fBottom,
           rect.width(), rect.height());
 
     if (!mBucketSizeX || !mBucketSizeY) {
-        XLOGC("PictureSet::splitAdd() called with bad bucket size: x=%d y=%d",
+        ALOGD("PictureSet::splitAdd() called with bad bucket size: x=%d y=%d",
               mBucketSizeX, mBucketSizeY);
         return;
     }
@@ -391,7 +372,7 @@ void PictureSet::splitAdd(const SkIRect& rect)
     int lastTileX = rect.fRight / mBucketSizeX;
     int lastTileY = rect.fBottom / mBucketSizeY;
 
-    XLOG("--- firstTile(%d, %d) lastTile(%d, %d)",
+    ALOGV("--- firstTile(%d, %d) lastTile(%d, %d)",
           firstTileX, firstTileY,
           lastTileX, lastTileY);
 
@@ -415,7 +396,7 @@ void PictureSet::splitAdd(const SkIRect& rect)
         }
     }
 
-    XLOG("--- splitAdd DONE\n");
+    ALOGV("--- splitAdd DONE\n");
 }
 
 #endif // FAST_PICTURESET
@@ -452,16 +433,16 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
     Pictures* first = mPictures.begin();
     Pictures* last = mPictures.end();
 #ifdef DEBUG
-    XLOG("--- before adding the new inval ---");
+    ALOGV("--- before adding the new inval ---");
     for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
         SkIRect currentArea = working->mArea;
-        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c",
-             working - first,
-             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
-             currentArea.width(), currentArea.height(),
-             working->mBase ? 'Y' : 'N');
+        ALOGV("picture %d (%d, %d, %d, %d - %d x %d) base: %c",
+              working - first,
+              currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+              currentArea.width(), currentArea.height(),
+              working->mBase ? 'Y' : 'N');
     }
-    XLOG("----------------------------------");
+    ALOGV("----------------------------------");
 #endif
 
     // let's gather all the Pictures intersecting with the new invalidated
@@ -488,12 +469,12 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
                 mAdditionalArea -= currentArea.width() * currentArea.height();
 
             totalArea.join(currentArea);
-            XLOG("picture %d (%d, %d, %d, %d - %d x %d) intersects with the new inval area (%d, %d, %d, %d - %d x %d)",
-                 working - first,
-                 currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
-                 currentArea.width(), currentArea.height(),
-                 inval.fLeft, inval.fTop, inval.fRight, inval.fBottom,
-                 inval.width(), inval.height());
+            ALOGV("picture %d (%d, %d, %d, %d - %d x %d) intersects with the new inval area (%d, %d, %d, %d - %d x %d)",
+                  working - first,
+                  currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+                  currentArea.width(), currentArea.height(),
+                  inval.fLeft, inval.fTop, inval.fRight, inval.fBottom,
+                  inval.width(), inval.height());
             working->mArea.setEmpty();
             SkSafeUnref(working->mPicture);
             working->mPicture = 0;
@@ -526,14 +507,14 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
     // the total number of pictures under our limit
     bool clearUp = false;
     if (last - first > MAX_ADDITIONAL_PICTURES) {
-        XLOG("--- too many pictures, only keeping the bases : %d", last - first);
+        ALOGV("--- too many pictures, only keeping the bases : %d", last - first);
         clearUp = true;
     }
 
     if (!clearUp) {
         if (mBaseArea > 0 && mBaseArea * MAX_ADDITIONAL_AREA <= mAdditionalArea) {
-            XLOG("+++ the sum of the additional area is > %.2f\% of the base Area (%.2f (%.2f) <= %.2f",
-                 MAX_ADDITIONAL_AREA * 100, mBaseArea * 0.65, mBaseArea, mAdditionalArea);
+            ALOGV("+++ the sum of the additional area is > %.2f\% of the base Area (%.2f (%.2f) <= %.2f",
+                  MAX_ADDITIONAL_AREA * 100, mBaseArea * 0.65, mBaseArea, mAdditionalArea);
             clearUp = true;
         }
     }
@@ -548,17 +529,17 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
     }
 
 #ifdef DEBUG
-    XLOG("--- after adding the new inval, but before collapsing ---");
+    ALOGV("--- after adding the new inval, but before collapsing ---");
     for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
         SkIRect currentArea = working->mArea;
-        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c",
-             working - first,
-             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
-             currentArea.width(), currentArea.height(),
-             working->mBase ? 'Y' : 'N');
+        ALOGV("picture %d (%d, %d, %d, %d - %d x %d) base: %c",
+              working - first,
+              currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+              currentArea.width(), currentArea.height(),
+              working->mBase ? 'Y' : 'N');
     }
-    XLOG("----------------------------------");
-    XLOG("let's collapse...");
+    ALOGV("----------------------------------");
+    ALOGV("let's collapse...");
 #endif
 
     // Finally, let's do a pass to collapse out empty regions
@@ -568,20 +549,20 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
             continue;
         *writer++ = *working;
     }
-    XLOG("shiking of %d elements", writer - first);
+    ALOGV("shiking of %d elements", writer - first);
     mPictures.shrink(writer - first);
 
 #ifdef DEBUG
-    XLOG("--- after adding the new inval ---");
+    ALOGV("--- after adding the new inval ---");
     for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
         SkIRect currentArea = working->mArea;
-        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c picture %x",
-             working - first,
-             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
-             currentArea.width(), currentArea.height(),
-             working->mBase ? 'Y' : 'N', working->mPicture);
+        ALOGV("picture %d (%d, %d, %d, %d - %d x %d) base: %c picture %x",
+              working - first,
+              currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+              currentArea.width(), currentArea.height(),
+              working->mBase ? 'Y' : 'N', working->mPicture);
     }
-    XLOG("----------------------------------");
+    ALOGV("----------------------------------");
 #endif
 
     // Base pictures might have been removed/added -- let's recompute them
@@ -589,7 +570,7 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
     if (checkForNewBases) {
         drawn.setEmpty();
         Pictures* last = mPictures.end();
-        XLOG("checkForNewBases...");
+        ALOGV("checkForNewBases...");
         for (Pictures* working = mPictures.begin(); working != last; working++) {
             SkRegion area;
             area.setRect(working->mArea);
@@ -605,16 +586,16 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
     }
 
 #ifdef DEBUG
-    XLOG("--- after checking for bases ---");
+    ALOGV("--- after checking for bases ---");
     for (Pictures* working = mPictures.begin(); working != mPictures.end(); working++) {
         SkIRect currentArea = working->mArea;
-        XLOG("picture %d (%d, %d, %d, %d - %d x %d) base: %c picture %x",
-             working - first,
-             currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
-             currentArea.width(), currentArea.height(),
-             working->mBase ? 'Y' : 'N', working->mPicture);
+        ALOGV("picture %d (%d, %d, %d, %d - %d x %d) base: %c picture %x",
+              working - first,
+              currentArea.fLeft, currentArea.fTop, currentArea.fRight, currentArea.fBottom,
+              currentArea.width(), currentArea.height(),
+              working->mBase ? 'Y' : 'N', working->mPicture);
     }
-    XLOG("----------------------------------");
+    ALOGV("----------------------------------");
 #endif
 }
 #endif // FAST_PICTURESET
@@ -658,10 +639,10 @@ void PictureSet::setDimensions(int width, int height, SkRegion* inval)
     if (bucketSizeX != mBucketSizeX || bucketSizeY != mBucketSizeY)
         clearCache = true;
 
-    XLOG("old width=%d height=%d bucketSizeX=%d bucketSizeY=%d bucketCountX=%d bucketCountY=%d clearCache=%d",
-         mWidth, mHeight, mBucketSizeX, mBucketSizeY, mBucketCountX, mBucketCountY, clearCache);
-    XLOG("new width=%d height=%d bucketSizeX=%d bucketSizeY=%d bucketCountX=%d bucketCountY=%d clearCache=%d",
-         width, height, bucketSizeX, bucketSizeY, bucketCountX, bucketCountY, clearCache);
+    ALOGV("old width=%d height=%d bucketSizeX=%d bucketSizeY=%d bucketCountX=%d bucketCountY=%d clearCache=%d",
+          mWidth, mHeight, mBucketSizeX, mBucketSizeY, mBucketCountX, mBucketCountY, clearCache);
+    ALOGV("new width=%d height=%d bucketSizeX=%d bucketSizeY=%d bucketCountX=%d bucketCountY=%d clearCache=%d",
+          width, height, bucketSizeX, bucketSizeY, bucketCountX, bucketCountY, clearCache);
 #endif
     if (clearCache)
         clear();
@@ -721,7 +702,7 @@ uint32_t getThreadMsec()
 bool PictureSet::draw(SkCanvas* canvas)
 {
 #ifdef FAST_PICTURESET
-    XLOG("PictureSet %x draw on canvas %x", this, canvas);
+    ALOGV("PictureSet %x draw on canvas %x", this, canvas);
     SkRect bounds;
     if (canvas->getClipBounds(&bounds) == false)
         return false;
@@ -731,10 +712,10 @@ bool PictureSet::draw(SkCanvas* canvas)
     WTF::Vector<Bucket*> list;
     gatherBucketsForArea(list, irect);
 
-    XLOG("PictureSet draw on canvas %x, we have %d buckets", canvas, list.size());
+    ALOGV("PictureSet draw on canvas %x, we have %d buckets", canvas, list.size());
     for (unsigned int i = 0; i < list.size(); i++) {
         Bucket* bucket = list[i];
-        XLOG("We paint using bucket %x with %d pictures", bucket, bucket->size());
+        ALOGV("We paint using bucket %x with %d pictures", bucket, bucket->size());
         for (unsigned int j = 0; j < bucket->size(); j++)  {
             BucketPicture& picture = bucket->at(j);
             if (!picture.mPicture)
@@ -742,7 +723,7 @@ bool PictureSet::draw(SkCanvas* canvas)
             int saved = canvas->save();
             SkRect pathBounds;
             pathBounds.set(picture.mRealArea);
-            XLOG("[%d/%d] draw on canvas with clip %d, %d, %d, %d - %d x %d",
+            ALOGV("[%d/%d] draw on canvas with clip %d, %d, %d, %d - %d x %d",
                   j, bucket->size(),
                   picture.mRealArea.fLeft,
                   picture.mRealArea.fTop,
@@ -1011,26 +992,26 @@ void PictureSet::set(const PictureSet& src)
     clear();
     setDimensions(src.mWidth, src.mHeight);
 #ifdef FAST_PICTURESET
-    XLOG("\n--- set picture ---");
+    ALOGV("\n--- set picture ---");
     for (BucketMap::const_iterator iter = src.mBuckets.begin();
          iter != src.mBuckets.end(); ++iter) {
          Bucket* sourceBucket = iter->second;
          Bucket* targetBucket = getBucket(iter->first.first-1, iter->first.second-1);
          BucketPicture* first = sourceBucket->begin();
          BucketPicture* last = sourceBucket->end();
-         XLOG("set from bucket %x (%d, %d), %d pictures", sourceBucket,
-              iter->first.first, iter->first.second, sourceBucket->size());
+         ALOGV("set from bucket %x (%d, %d), %d pictures", sourceBucket,
+               iter->first.first, iter->first.second, sourceBucket->size());
          for (BucketPicture* current = first; current != last; current++) {
-             XLOG("set picture %x from bucket %x in bucket %x (%d, %d)",
-                  current->mPicture, sourceBucket, targetBucket,
-                  iter->first.first, iter->first.second);
+             ALOGV("set picture %x from bucket %x in bucket %x (%d, %d)",
+                   current->mPicture, sourceBucket, targetBucket,
+                   iter->first.first, iter->first.second);
              SkSafeRef(current->mPicture);
              BucketPicture picture = { current->mPicture, current->mArea,
                                        current->mRealArea, current->mBase };
              targetBucket->append(picture);
          }
     }
-    XLOG("--- DONE set picture ---\n");
+    ALOGV("--- DONE set picture ---\n");
 #else
     const Pictures* last = src.mPictures.end();
     for (const Pictures* working = src.mPictures.begin(); working != last; working++)

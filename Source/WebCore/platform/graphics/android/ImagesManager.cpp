@@ -23,32 +23,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "ImagesManager"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "ImagesManager.h"
 
+#include "AndroidLog.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
 #include "SkRefCnt.h"
 #include "ImageTexture.h"
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "ImagesManager", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "ImagesManager", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 

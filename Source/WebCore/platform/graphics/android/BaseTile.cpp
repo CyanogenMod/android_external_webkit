@@ -23,36 +23,19 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "BaseTile"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "BaseTile.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "GLUtils.h"
 #include "RasterRenderer.h"
 #include "TextureInfo.h"
 #include "TilesManager.h"
-
-#include <cutils/atomic.h>
-
-#include <cutils/log.h>
-#include <wtf/CurrentTime.h>
-#include <wtf/text/CString.h>
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTile", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseTile", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // If the dirty portion of a tile exceeds this ratio, fully repaint.
 // Lower values give fewer partial repaints, thus fewer front-to-back
@@ -127,14 +110,14 @@ void BaseTile::reserveTexture()
 
     android::AutoMutex lock(m_atomicSync);
     if (texture && m_backTexture != texture) {
-        XLOG("tile %p reserving texture %p, back was %p (front %p)",
-             this, texture, m_backTexture, m_frontTexture);
+        ALOGV("tile %p reserving texture %p, back was %p (front %p)",
+              this, texture, m_backTexture, m_frontTexture);
         m_state = Unpainted;
         m_backTexture = texture;
     }
 
     if (m_state == UpToDate) {
-        XLOG("moving tile %p to unpainted, since it reserved while up to date", this);
+        ALOGV("moving tile %p to unpainted, since it reserved while up to date", this);
         m_dirty = true;
         m_state = Unpainted;
     }
@@ -142,13 +125,13 @@ void BaseTile::reserveTexture()
 
 bool BaseTile::removeTexture(BaseTileTexture* texture)
 {
-    XLOG("%p removeTexture %p, back %p front %p... page %p",
-         this, texture, m_backTexture, m_frontTexture, m_page);
+    ALOGV("%p removeTexture %p, back %p front %p... page %p",
+          this, texture, m_backTexture, m_frontTexture, m_page);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
     if (m_frontTexture == texture) {
         if (m_state == UpToDate) {
-            XLOG("front texture removed, state was UpToDate, now becoming unpainted, bt is %p", m_backTexture);
+            ALOGV("front texture removed, state was UpToDate, now becoming unpainted, bt is %p", m_backTexture);
             m_state = Unpainted;
         }
 
@@ -206,7 +189,7 @@ void BaseTile::markAsDirty(const SkRegion& dirtyArea)
     } else if (m_state != Unpainted) {
         // TODO: fix it so that they can paint while deferring the markAsDirty
         // call (or block updates)
-        XLOG("Warning: tried to mark tile %p at %d, %d islayertile %d as dirty, state %d, page %p",
+        ALOGV("Warning: tried to mark tile %p at %d, %d islayertile %d as dirty, state %d, page %p",
               this, m_x, m_y, isLayerTile(), m_state, m_page);
 
         // prefetch tiles can be marked dirty while in the process of painting,
@@ -324,7 +307,7 @@ void BaseTile::paintBitmap()
         return;
     }
     if (m_state != Unpainted) {
-        XLOG("Warning: started painting tile %p, but was at state %d, ft %p bt %p",
+        ALOGV("Warning: started painting tile %p, but was at state %d, ft %p bt %p",
               this, m_state, m_frontTexture, m_backTexture);
     }
     m_state = PaintingStarted;
@@ -447,12 +430,12 @@ void BaseTile::paintBitmap()
         if (!m_dirtyArea.isEmpty())
             m_dirty = true;
 
-        XLOG("painted tile %p (%d, %d), texture %p, dirty=%d", this, x, y, texture, m_dirty);
+        ALOGV("painted tile %p (%d, %d), texture %p, dirty=%d", this, x, y, texture, m_dirty);
 
         validatePaint();
     } else {
-        XLOG("tile %p no longer owns texture %p, m_state %d. ft %p bt %p",
-             this, texture, m_state, m_frontTexture, m_backTexture);
+        ALOGV("tile %p no longer owns texture %p, m_state %d. ft %p bt %p",
+              this, texture, m_state, m_frontTexture, m_backTexture);
     }
 
     m_atomicSync.unlock();
@@ -460,8 +443,8 @@ void BaseTile::paintBitmap()
 
 void BaseTile::discardTextures() {
     android::AutoMutex lock(m_atomicSync);
-    XLOG("%p discarding bt %p, ft %p",
-         this, m_backTexture, m_frontTexture);
+    ALOGV("%p discarding bt %p, ft %p",
+          this, m_backTexture, m_frontTexture);
     if (m_frontTexture) {
         m_frontTexture->release(this);
         m_frontTexture = 0;
@@ -497,8 +480,8 @@ bool BaseTile::swapTexturesIfNeeded() {
         m_frontTexture = m_backTexture;
         m_backTexture = 0;
         m_state = UpToDate;
-        XLOG("display texture for %p at %d, %d front is now %p, back is %p",
-             this, m_x, m_y, m_frontTexture, m_backTexture);
+        ALOGV("display texture for %p at %d, %d front is now %p, back is %p",
+              this, m_x, m_y, m_frontTexture, m_backTexture);
 
         return true;
     }
@@ -513,8 +496,8 @@ void BaseTile::backTextureTransfer() {
         m_state = ReadyToSwap;
     else {
         // shouldn't have transferred a tile in any other state, log
-        XLOG("Note: transferred tile %p at %d %d, state wasn't paintingstarted or validated: %d",
-             this, m_x, m_y, m_state);
+        ALOGV("Note: transferred tile %p at %d %d, state wasn't paintingstarted or validated: %d",
+              this, m_x, m_y, m_state);
     }
 }
 
@@ -542,7 +525,7 @@ void BaseTile::validatePaint() {
             // to reset m_dirty bit to true.
             m_state = ReadyToSwap;
         } else {
-            XLOG("Note: validated tile %p at %d %d, state wasn't paintingstarted or transferred %d",
+            ALOGV("Note: validated tile %p at %d %d, state wasn't paintingstarted or transferred %d",
                   this, m_x, m_y, m_state);
             // failed transferring, in which case mark dirty (since
             // paintBitmap() may have cleared m_dirty)
@@ -550,11 +533,11 @@ void BaseTile::validatePaint() {
         }
 
         if (m_deferredDirty) {
-            XLOG("Note: deferred dirty flag set, possibly a missed paint on tile %p", this);
+            ALOGV("Note: deferred dirty flag set, possibly a missed paint on tile %p", this);
             m_deferredDirty = false;
         }
     } else {
-        XLOG("Note: paint was unsuccessful.");
+        ALOGV("Note: paint was unsuccessful.");
         m_state = Unpainted;
     }
 

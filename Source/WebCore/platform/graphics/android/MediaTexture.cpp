@@ -13,8 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+#define LOG_TAG "MediaTexture"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "MediaTexture.h"
+
+#include "AndroidLog.h"
 #include "TilesManager.h"
 #include "GLUtils.h"
 #include "MediaListener.h"
@@ -24,27 +30,8 @@
 #include <android/native_window.h>
 #include <gui/SurfaceTexture.h>
 #include <gui/SurfaceTextureClient.h>
-#include <wtf/CurrentTime.h>
 #include <JNIUtility.h>
 #include "WebCoreJni.h"
-
-#define LAYER_DEBUG
-#undef LAYER_DEBUG
-
-#ifdef DEBUG
-
-#include <cutils/log.h>
-#include <wtf/text/CString.h>
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "MediaTexture", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 // Limits the number of ANativeWindows that can be allocated for video playback.
 // The limit is currently set to 2 as that is the current max number of
@@ -171,7 +158,7 @@ void MediaTexture::draw(const TransformationMatrix& contentMatrix,
 
 #ifdef DEBUG
         if (!mediaBounds.contains(dimensions)) {
-            XLOG("The video exceeds is parent's bounds.");
+            ALOGV("The video exceeds is parent's bounds.");
         }
 #endif // DEBUG
 

@@ -23,31 +23,18 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "VideoLayerAndroid"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "VideoLayerAndroid.h"
 
+#include "AndroidLog.h"
 #include "TilesManager.h"
 #include <GLES2/gl2.h>
-#include <cutils/log.h>
 #include <gui/SurfaceTexture.h>
-#include <wtf/text/CString.h>
 
 #if USE(ACCELERATED_COMPOSITING)
-
-#undef XLOGC
-#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "VideoLayerAndroid", __VA_ARGS__)
-
-#ifdef DEBUG
-
-#undef XLOG
-#define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "VideoLayerAndroid", __VA_ARGS__)
-
-#else
-
-#undef XLOG
-#define XLOG(...)
-
-#endif // DEBUG
 
 namespace WebCore {
 
