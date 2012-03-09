@@ -255,11 +255,7 @@ void BaseTile::drawGL(float opacity, const SkRect& rect, float scale,
     if (!isTexturePainted)
         return;
 
-    if (m_frontTexture->readyFor(this))
-        m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform);
-    else {
-        XLOG("tile %p at %d, %d not readyfor (at draw),", this, m_x, m_y);
-    }
+    m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform);
 }
 
 bool BaseTile::isTileReady()
@@ -280,14 +276,7 @@ bool BaseTile::isTileReady()
     if (m_state != ReadyToSwap && m_state != UpToDate)
         return false;
 
-    bool ready = texture->readyFor(this);
-
-    if (ready)
-        return true;
-
-    XLOG("tile %p at %d, %d not readyfor (at isTileReady)", this, m_x, m_y);
-
-    return false;
+    return true;
 }
 
 bool BaseTile::intersectWithRect(int x, int y, int tileWidth, int tileHeight,

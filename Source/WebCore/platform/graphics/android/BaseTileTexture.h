@@ -39,30 +39,6 @@ namespace WebCore {
 
 class BaseTile;
 
-class TextureTileInfo {
-public:
-    TextureTileInfo()
-    : m_x(-1)
-    , m_y(-1)
-    , m_layerId(-1)
-    , m_scale(0)
-    , m_texture(0)
-    , m_painter(0)
-    , m_picture(0)
-    , m_inverted(false)
-    {
-    }
-    int m_x;
-    int m_y;
-    int m_layerId;
-    float m_scale;
-    TextureInfo* m_texture;
-    TilePainter* m_painter;
-    unsigned int m_picture;
-    bool m_inverted;
-    IntRect m_inval;
-};
-
 class BaseTileTexture {
 public:
     // This object is to be constructed on the consumer's thread and must have
@@ -92,7 +68,7 @@ public:
     void requireGLTexture();
     void discardGLTexture();
 
-    void setOwnTextureTileInfoFromQueue(const TextureTileInfo* info);
+    void transferComplete();
 
     TextureInfo* getTextureInfo() { return &m_ownTextureInfo; }
 
@@ -106,8 +82,6 @@ public:
     void drawGL(bool isLayer, const SkRect& rect, float opacity,
                 const TransformationMatrix* transform);
 private:
-    TextureTileInfo m_ownTextureTileInfo;
-    // TODO: Merge this info into the TextureTileInfo.
     TextureInfo m_ownTextureInfo;
     SkSize m_size;
     SkBitmap::Config m_config;
