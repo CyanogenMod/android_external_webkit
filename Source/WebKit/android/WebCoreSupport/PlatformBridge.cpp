@@ -176,11 +176,9 @@ void PlatformBridge::setScrollPosition(ScrollView* scrollView, int x, int y) {
     // Check to make sure the view is the main FrameView.
     android::WebViewCore *webViewCore = android::WebViewCore::getWebViewCore(scrollView);
     if (webViewCore->mainFrame()->view() == scrollView) {
-        const IntRect& visibleContentRect = frameView->visibleContentRect();
         x = std::max(0, std::min(frameView->contentsWidth(), x));
         y = std::max(0, std::min(frameView->contentsHeight(), y));
-        if ((x != visibleContentRect.x()) || (y != visibleContentRect.y()))
-            webViewCore->scrollTo(x, y);
+        webViewCore->scrollTo(x, y);
     }
 }
 
