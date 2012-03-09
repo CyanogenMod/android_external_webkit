@@ -152,7 +152,7 @@ void TiledTexture::prepareGL(GLWebViewState* state, float scale,
     // apply dirty region to affected tiles
     if (!m_dirtyRegion.isEmpty()) {
         for (unsigned int i = 0; i < m_tiles.size(); i++)
-            m_tiles[i]->markAsDirty(1, m_dirtyRegion);
+            m_tiles[i]->markAsDirty(m_dirtyRegion);
         m_dirtyRegion.setEmpty();
     }
 

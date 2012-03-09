@@ -32,6 +32,7 @@
 #include "LayerGroup.h"
 #include "GLWebViewState.h"
 #include "ScrollableLayerAndroid.h"
+#include "TilesManager.h"
 
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
@@ -62,8 +63,11 @@ SurfaceCollection::SurfaceCollection(BaseLayerAndroid* baseLayer)
         : m_baseLayer(baseLayer)
         , m_compositedRoot(0)
 {
+    if (!m_baseLayer)
+        return;
+
     SkSafeRef(m_baseLayer);
-    if (m_baseLayer && m_baseLayer->countChildren()) {
+    if (m_baseLayer->countChildren()) {
         m_compositedRoot = static_cast<LayerAndroid*>(m_baseLayer->getChild(0));
 
         // calculate draw transforms and z values
@@ -76,6 +80,14 @@ SurfaceCollection::SurfaceCollection(BaseLayerAndroid* baseLayer)
         LayerMergeState layerMergeState(&m_layerGroups);
         m_compositedRoot->assignGroups(&layerMergeState);
     }
+
+    // set the layergroups' and tiledpages' update count, to be drawn on painted tiles
+    unsigned int updateCount = TilesManager::instance()->incWebkitContentUpdates();
+    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
+        m_layerGroups[i]->setUpdateCount(updateCount);
+    m_baseLayer->state()->frontPage()->setUpdateCount(updateCount);
+    m_baseLayer->state()->backPage()->setUpdateCount(updateCount);
+
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("SurfaceCollection");
 #endif

@@ -76,7 +76,7 @@ public:
     BaseRenderer(RendererType type) : m_type(type) {}
     virtual ~BaseRenderer() {}
 
-    int renderTiledContent(const TileRenderInfo& renderInfo);
+    void renderTiledContent(const TileRenderInfo& renderInfo);
 
     RendererType getType() { return m_type; }
 
@@ -92,7 +92,7 @@ protected:
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
 
     void drawTileInfo(SkCanvas* canvas, const TileRenderInfo& renderInfo,
-            int pictureCount);
+            int updateCount);
 
     virtual const String* getPerformanceTags(int& tagCount) = 0;
 

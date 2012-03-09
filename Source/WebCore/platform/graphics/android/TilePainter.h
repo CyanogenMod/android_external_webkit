@@ -39,10 +39,16 @@ class TilePainter : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
     virtual ~TilePainter() { }
-    virtual bool paint(BaseTile* tile, SkCanvas*, unsigned int*) = 0;
+    virtual bool paint(BaseTile* tile, SkCanvas* canvas) = 0;
     virtual float opacity() { return 1.0; }
     enum SurfaceType { Painted, Image };
     virtual SurfaceType type() { return Painted; }
+
+    unsigned int getUpdateCount() { return m_updateCount; }
+    void setUpdateCount(unsigned int updateCount) { m_updateCount = updateCount; }
+
+private:
+    unsigned int m_updateCount;
 };
 
 }

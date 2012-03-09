@@ -64,8 +64,6 @@ public:
     sp<ANativeWindow> m_ANW;
     // The EGLSurface wraps the m_ANW to enable direct OpenGL rendering (e.g. Ganesh)
     EGLSurface m_eglSurface;
-
-    int m_pictureCount;
 };
 
 } // namespace WebCore

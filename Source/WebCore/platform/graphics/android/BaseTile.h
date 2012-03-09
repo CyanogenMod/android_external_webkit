@@ -112,8 +112,7 @@ public:
                            SkRect& realTileRect);
     bool isTileVisible(const IntRect& viewTileBounds);
 
-    void markAsDirty(const unsigned int pictureCount,
-                     const SkRegion& dirtyArea);
+    void markAsDirty(const SkRegion& dirtyArea);
     bool isDirty();
     bool isRepaintPending();
     void setRepaintPending(bool pending);
@@ -167,10 +166,6 @@ private:
 
     // used to signal that a repaint is pending
     bool m_repaintPending;
-    // stores the id of the latest picture from webkit that caused this tile to
-    // become dirty. A tile is no longer dirty when it has been painted with a
-    // picture that is newer than this value.
-    unsigned int m_lastDirtyPicture;
 
     // store the dirty region
     SkRegion m_dirtyArea;

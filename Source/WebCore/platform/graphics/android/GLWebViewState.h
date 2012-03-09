@@ -175,7 +175,7 @@ public:
     const SkIRect& futureViewport() const { return m_futureViewportTileBounds; }
     void setFutureViewport(const SkIRect& viewport) { m_futureViewportTileBounds = viewport; }
 
-    unsigned int paintBaseLayerContent(SkCanvas* canvas);
+    void paintBaseLayerContent(SkCanvas* canvas);
     bool setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndicator,
                       bool isPictureAfterFirstLayout);
     void paintExtras();
@@ -196,8 +196,6 @@ public:
     // a rect containing the viewportTileBounds before there was a scale change
     const SkIRect& preZoomBounds() const { return m_preZoomBounds; }
     void setPreZoomBounds(const SkIRect& bounds) { m_preZoomBounds = bounds; }
-
-    unsigned int currentPictureCounter() const { return m_currentPictureCounter; }
 
     void setIsScrolling(bool isScrolling) { m_isScrolling = isScrolling; }
     bool isScrolling() { return m_isScrolling || m_isViewportScrolling; }
@@ -264,7 +262,6 @@ private:
     SkIRect m_futureViewportTileBounds;
     SkIRect m_preZoomBounds;
 
-    unsigned int m_currentPictureCounter;
     bool m_usePageA;
     TiledPage* m_tiledPageA;
     TiledPage* m_tiledPageB;

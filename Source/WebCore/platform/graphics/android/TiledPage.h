@@ -65,9 +65,8 @@ public:
     // prepare the page for display on the screen
     void prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds, PrepareBounds bounds);
 
-    // update tiles with inval information, return true if visible ones are
-    // dirty (and thus repaint needed)
-    bool updateTileDirtiness(const SkIRect& tileBounds);
+    // update tiles with inval information
+    void updateTileDirtiness();
 
     // returns true if the page can't draw the entire region (may still be stale)
     bool hasMissingContent(const SkIRect& tileBounds);
@@ -83,7 +82,7 @@ public:
 
     // TilePainter implementation
     // used by individual tiles to generate the bitmap for their tile
-    bool paint(BaseTile*, SkCanvas*, unsigned int*);
+    bool paint(BaseTile* tile, SkCanvas* canvas);
 
     // used by individual tiles to get the information about the current picture
     GLWebViewState* glWebViewState() { return m_glWebViewState; }
@@ -93,7 +92,7 @@ public:
     //TODO: clear all textures if this is called with a new value
     void setScale(float scale) { m_scale = scale; m_invScale = 1 / scale; }
 
-    void invalidateRect(const IntRect& invalRect, const unsigned int pictureCount);
+    void invalidateRect(const IntRect& invalRect);
     void discardTextures();
     void updateBaseTileSize();
     bool scrollingDown() { return m_scrollingDown; }
@@ -116,15 +115,8 @@ private:
     float m_invScale;
     GLWebViewState* m_glWebViewState;
 
-    // used to identify the tiles that have been invalidated (marked dirty) since
-    // the last time updateTileState() has been called. The region is stored in
-    // terms of the (x,y) coordinates used to determine the location of the tile
-    // within the page, not in content/view pixel coordinates.
-    SkRegion m_invalRegion;
 
-    // inval regions in content coordinates
-    SkRegion m_invalTilesRegion;
-    unsigned int m_latestPictureInval;
+    SkRegion m_invalRegion; // in content coordinates
     bool m_prepare;
     bool m_scrollingDown;
     bool m_isPrefetchPage;

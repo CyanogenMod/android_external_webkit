@@ -658,7 +658,6 @@ bool GraphicsLayerAndroid::repaint()
             SkRegion region;
             region.setRect(0, 0, contentsRect.width(), contentsRect.height());
             m_foregroundLayer->markAsDirty(region);
-            m_foregroundLayer->needsRepaint();
         } else {
             // If there is no contents clip, we can draw everything into one
             // picture.
@@ -688,7 +687,6 @@ bool GraphicsLayerAndroid::repaint()
 
         m_contentLayer->markAsDirty(m_dirtyRegion);
         m_dirtyRegion.setEmpty();
-        m_contentLayer->needsRepaint();
         m_needsRepaint = false;
 
         return true;
@@ -698,7 +696,6 @@ bool GraphicsLayerAndroid::repaint()
         // texture. Only do so if we effectively have a new image!
         m_contentLayer->markAsDirty(m_dirtyRegion);
         m_dirtyRegion.setEmpty();
-        m_contentLayer->needsRepaint();
         m_newImage = false;
         m_needsRepaint = false;
         return true;
