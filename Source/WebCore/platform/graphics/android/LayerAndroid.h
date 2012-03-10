@@ -183,11 +183,6 @@ public:
 
     SkPicture* picture() const { return m_recordingPicture; }
 
-    // Given a rect in global space, subtracts from it the bounds of this layer
-    // and of all of its children. Returns the bounding rectangle of the result,
-    // in global space.
-    SkRect subtractLayers(const SkRect&) const;
-
     virtual void dumpLayer(FILE*, int indentLevel) const;
     void dumpLayers(FILE*, int indentLevel) const;
     void dumpToLog() const;

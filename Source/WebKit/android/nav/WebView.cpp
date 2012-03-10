@@ -874,26 +874,6 @@ static jobject nativeLayerBounds(JNIEnv* env, jobject obj, jint jlayer)
     return rect;
 }
 
-static jobject nativeSubtractLayers(JNIEnv* env, jobject obj, jobject jrect)
-{
-    SkIRect irect = jrect_to_webrect(env, jrect);
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* root = GET_NATIVE_VIEW(env, obj)->compositeRoot();
-    if (root) {
-        SkRect rect;
-        rect.set(irect);
-        rect = root->subtractLayers(rect);
-        rect.round(&irect);
-    }
-#endif
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
-        irect.fRight, irect.fBottom);
-    env->DeleteLocalRef(rectClass);
-    return rect;
-}
-
 static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1235,8 +1215,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTileProfilingGetFloat },
     { "nativeStopGL", "()V",
         (void*) nativeStopGL },
-    { "nativeSubtractLayers", "(Landroid/graphics/Rect;)Landroid/graphics/Rect;",
-        (void*) nativeSubtractLayers },
     { "nativeScrollableLayer", "(IILandroid/graphics/Rect;Landroid/graphics/Rect;)I",
         (void*) nativeScrollableLayer },
     { "nativeScrollLayer", "(III)Z",
