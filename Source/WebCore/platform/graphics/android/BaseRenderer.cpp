@@ -41,10 +41,13 @@
 
 #include <wtf/text/CString.h>
 
-#ifdef DEBUG
-
 #include <cutils/log.h>
 #include <wtf/CurrentTime.h>
+
+#undef XLOGC
+#define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "BaseRenderer", __VA_ARGS__)
+
+#ifdef DEBUG
 
 #undef XLOG
 #define XLOG(...) android_printLog(ANDROID_LOG_DEBUG, "BaseRenderer", __VA_ARGS__)
@@ -55,6 +58,9 @@
 #define XLOG(...)
 
 #endif // DEBUG
+
+#define UPDATE_COUNT_MASK 0xFF // displayed count wraps at 256
+#define UPDATE_COUNT_ALPHA_MASK 0x3F // alpha wraps at 64
 
 namespace WebCore {
 
@@ -79,12 +85,12 @@ void BaseRenderer::swapRendererIfNeeded(BaseRenderer*& renderer)
 }
 
 void BaseRenderer::drawTileInfo(SkCanvas* canvas,
-        const TileRenderInfo& renderInfo, int pictureCount)
+        const TileRenderInfo& renderInfo, int updateCount)
 {
     SkPaint paint;
     char str[256];
     snprintf(str, 256, "(%d,%d) %.2f, tl%x p%x c%d", renderInfo.x, renderInfo.y,
-            renderInfo.scale, this, renderInfo.tilePainter, pictureCount);
+            renderInfo.scale, this, renderInfo.tilePainter, updateCount);
     paint.setARGB(255, 0, 0, 0);
     canvas->drawText(str, strlen(str), 0, 10, paint);
     paint.setARGB(255, 255, 0, 0);
@@ -112,7 +118,7 @@ void BaseRenderer::drawTileInfo(SkCanvas* canvas,
     canvas->drawText(str, strlen(str), 0, textY + 1, paint);
 }
 
-int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
+void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
 {
     const bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
     const SkSize& tileSize = renderInfo.tileSize;
@@ -122,7 +128,7 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
 
     if (!canvas.getDevice()) {
         XLOG("Error: No Device");
-        return 0;
+        return;
     }
 
     if (visualIndicator)
@@ -131,12 +137,12 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     setupPartialInval(renderInfo, &canvas);
     canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
     canvas.scale(renderInfo.scale, renderInfo.scale);
-    unsigned int pictureCount = 0;
-    renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas, &pictureCount);
+    renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas);
 
     if (visualIndicator) {
         canvas.restore();
-        const int color = 20 + (pictureCount % 100);
+        unsigned int updateCount = renderInfo.tilePainter->getUpdateCount() & UPDATE_COUNT_MASK;
+        const int color = updateCount & UPDATE_COUNT_ALPHA_MASK;
 
         // only color the invalidated area
         SkPaint invalPaint;
@@ -173,11 +179,9 @@ int BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
         }
 
         if (renderInfo.measurePerf)
-            drawTileInfo(&canvas, renderInfo, pictureCount);
+            drawTileInfo(&canvas, renderInfo, updateCount);
     }
-    renderInfo.textureInfo->m_pictureCount = pictureCount;
     renderingComplete(renderInfo, &canvas);
-    return pictureCount;
 }
 
 } // namespace WebCore

@@ -146,7 +146,7 @@ void BaseLayerAndroid::prefetchBasePicture(const SkRect& viewport, float current
          prefetchTiledPage);
 
     prefetchTiledPage->setScale(prefetchScale);
-    prefetchTiledPage->updateTileDirtiness(bounds);
+    prefetchTiledPage->updateTileDirtiness();
     prefetchTiledPage->prepare(goingDown, goingLeft, bounds,
                                TiledPage::ExpandedBounds);
     prefetchTiledPage->swapBuffersIfReady(bounds,
@@ -218,8 +218,7 @@ void BaseLayerAndroid::prepareGL(const SkRect& viewport, float scale, double cur
         nextTiledPage->setScale(scale);
         m_state->setFutureViewport(viewportTileBounds);
 
-        // ignore dirtiness return value since while zooming we repaint regardless
-        nextTiledPage->updateTileDirtiness(viewportTileBounds);
+        nextTiledPage->updateTileDirtiness();
 
         nextTiledPage->prepare(goingDown, goingLeft, viewportTileBounds,
                                TiledPage::VisibleBounds);
@@ -256,7 +255,7 @@ void BaseLayerAndroid::prepareGL(const SkRect& viewport, float scale, double cur
         m_state->swapPages();
     }
 
-    tiledPage->updateTileDirtiness(preZoomBounds);
+    tiledPage->updateTileDirtiness();
 
     // paint what's needed unless we're zooming, since the new tiles won't
     // be relevant soon anyway

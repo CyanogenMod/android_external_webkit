@@ -65,7 +65,6 @@ TiledPage::TiledPage(int id, GLWebViewState* state)
     , m_scale(1)
     , m_invScale(1)
     , m_glWebViewState(state)
-    , m_latestPictureInval(0)
     , m_prepare(false)
     , m_isPrefetchPage(false)
     , m_willDraw(false)
@@ -126,8 +125,9 @@ void TiledPage::discardTextures()
     return;
 }
 
-void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureCount)
+void TiledPage::invalidateRect(const IntRect& inval)
 {
+#ifdef DEBUG
     // Given the current scale level we need to mark the appropriate tiles as dirty
     const float invTileContentWidth = m_scale / TilesManager::tileWidth();
     const float invTileContentHeight = m_scale / TilesManager::tileHeight();
@@ -138,11 +138,10 @@ void TiledPage::invalidateRect(const IntRect& inval, const unsigned int pictureC
     const int lastDirtyTileY = static_cast<int>(ceilf(inval.maxY() * invTileContentHeight));
 
     XLOG("Marking X %d-%d and Y %d-%d dirty", firstDirtyTileX, lastDirtyTileX, firstDirtyTileY, lastDirtyTileY);
+#endif
     // We defer marking the tile as dirty until the next time we need to prepare
     // to draw.
-    m_invalRegion.op(firstDirtyTileX, firstDirtyTileY, lastDirtyTileX, lastDirtyTileY, SkRegion::kUnion_Op);
-    m_invalTilesRegion.op(inval.x(), inval.y(), inval.maxX(), inval.maxY(), SkRegion::kUnion_Op);
-    m_latestPictureInval = pictureCount;
+    m_invalRegion.op(inval.x(), inval.y(), inval.maxX(), inval.maxY(), SkRegion::kUnion_Op);
 }
 
 void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y, const SkIRect& tileBounds)
@@ -205,32 +204,17 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
     }
 }
 
-bool TiledPage::updateTileDirtiness(const SkIRect& tileBounds)
+void TiledPage::updateTileDirtiness()
 {
-    if (!m_glWebViewState || tileBounds.isEmpty()) {
-        m_invalRegion.setEmpty();
-        m_invalTilesRegion.setEmpty();
-        return false;
-    }
+    if (!m_glWebViewState || m_invalRegion.isEmpty())
+        return;
 
-    bool visibleTileIsDirty = false;
-    for (int x = 0; x < m_baseTileSize; x++) {
-
-        BaseTile& tile = m_baseTiles[x];
-
-        // if the tile is in the dirty region then we must invalidate it
-        if (m_invalRegion.contains(tile.x(), tile.y())) {
-            tile.markAsDirty(m_latestPictureInval, m_invalTilesRegion);
-            if (tileBounds.contains(tile.x(), tile.y()))
-                visibleTileIsDirty = true;
-        }
-    }
+    for (int x = 0; x < m_baseTileSize; x++)
+        m_baseTiles[x].markAsDirty(m_invalRegion);
 
     // clear the invalidated region as all tiles within that region have now
     // been marked as dirty.
     m_invalRegion.setEmpty();
-    m_invalTilesRegion.setEmpty();
-    return visibleTileIsDirty;
 }
 
 void TiledPage::prepare(bool goingDown, bool goingLeft, const SkIRect& tileBounds, PrepareBounds bounds)
@@ -385,7 +369,7 @@ void TiledPage::drawGL()
     m_willDraw = false; // don't redraw until re-prepared
 }
 
-bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
+bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas)
 {
     static SkPaintFlagsDrawFilter prefetchFilter(SkPaint::kAllFlags,
                                                  SkPaint::kAntiAlias_Flag);
@@ -396,7 +380,7 @@ bool TiledPage::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUse
     if (isPrefetchPage())
         canvas->setDrawFilter(&prefetchFilter);
 
-    *pictureUsed = m_glWebViewState->paintBaseLayerContent(canvas);
+    m_glWebViewState->paintBaseLayerContent(canvas);
     return true;
 }
 

@@ -81,7 +81,6 @@ using namespace android;
 
 GLWebViewState::GLWebViewState()
     : m_zoomManager(this)
-    , m_currentPictureCounter(0)
     , m_usePageA(true)
     , m_frameworkInval(0, 0, 0, 0)
     , m_frameworkLayersInval(0, 0, 0, 0)
@@ -186,11 +185,10 @@ void GLWebViewState::invalRegion(const SkRegion& region)
 
 void GLWebViewState::inval(const IntRect& rect)
 {
-    m_currentPictureCounter++;
     if (!rect.isEmpty()) {
         // find which tiles fall within the invalRect and mark them as dirty
-        m_tiledPageA->invalidateRect(rect, m_currentPictureCounter);
-        m_tiledPageB->invalidateRect(rect, m_currentPictureCounter);
+        m_tiledPageA->invalidateRect(rect);
+        m_tiledPageB->invalidateRect(rect);
         if (m_frameworkInval.isEmpty())
             m_frameworkInval = rect;
         else
@@ -202,10 +200,9 @@ void GLWebViewState::inval(const IntRect& rect)
     TilesManager::instance()->getProfiler()->nextInval(rect, zoomManager()->currentScale());
 }
 
-unsigned int GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
+void GLWebViewState::paintBaseLayerContent(SkCanvas* canvas)
 {
     m_surfaceCollectionManager.drawCanvas(canvas, m_layersRenderingMode == kSingleSurfaceRendering);
-    return m_currentPictureCounter;
 }
 
 TiledPage* GLWebViewState::sibling(TiledPage* page)

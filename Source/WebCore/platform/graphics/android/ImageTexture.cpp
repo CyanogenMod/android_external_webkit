@@ -230,7 +230,7 @@ float ImageTexture::opacity()
     return m_layer->drawOpacity();
 }
 
-bool ImageTexture::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
+bool ImageTexture::paint(BaseTile* tile, SkCanvas* canvas)
 {
     if (!m_picture) {
         XLOG("IT %p COULDNT PAINT, NO PICTURE", this);

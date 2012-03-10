@@ -473,7 +473,6 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
         if (childLayer)
             layer->addChild(childLayer);
     }
-    layer->needsRepaint();
     XLOG("Created layer with id %d", layer->uniqueId());
     return layer;
 }

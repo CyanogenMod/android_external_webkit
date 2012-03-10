@@ -76,7 +76,6 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_zValue(0),
     m_uniqueId(++gUniqueId),
     m_imageCRC(0),
-    m_pictureUsed(0),
     m_scale(1),
     m_lastComputeTextureSize(0),
     m_owningLayer(owner),
@@ -129,7 +128,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 
     m_drawTransform = layer.m_drawTransform;
     m_childrenTransform = layer.m_childrenTransform;
-    m_pictureUsed = layer.m_pictureUsed;
     m_dirtyRegion = layer.m_dirtyRegion;
     m_scale = layer.m_scale;
     m_lastComputeTextureSize = 0;

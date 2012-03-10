@@ -262,7 +262,7 @@ void LayerGroup::computeTexturesAmount(TexturesResult* result)
     m_dualTiledTexture->computeTexturesAmount(result, getFirstLayer());
 }
 
-bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed)
+bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas)
 {
     if (singleLayer()) {
         getFirstLayer()->contentDraw(canvas, Layer::UnmergedLayers);

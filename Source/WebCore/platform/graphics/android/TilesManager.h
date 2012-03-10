@@ -182,6 +182,9 @@ public:
     }
     bool useDoubleBuffering() { return m_useDoubleBuffering; }
 
+
+    unsigned int incWebkitContentUpdates() { return m_webkitContentUpdates++; }
+
     void incContentUpdates() { m_contentUpdates++; }
     unsigned int getContentUpdates() { return m_contentUpdates; }
     void clearContentUpdates() { m_contentUpdates = 0; }
@@ -231,6 +234,7 @@ private:
 
     bool m_useDoubleBuffering;
     unsigned int m_contentUpdates; // nr of successful tiled paints
+    unsigned int m_webkitContentUpdates; // nr of paints from webkit
 
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 

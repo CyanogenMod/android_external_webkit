@@ -64,7 +64,7 @@ public:
     bool hasText() { return m_hasText; }
 
     // TilePainter methods
-    virtual bool paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed);
+    virtual bool paint(BaseTile* tile, SkCanvas* canvas);
     virtual float opacity();
 private:
     const TransformationMatrix* drawTransform();

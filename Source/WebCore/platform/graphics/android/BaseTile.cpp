@@ -74,7 +74,6 @@ BaseTile::BaseTile(bool isLayerTile)
     , m_scale(1)
     , m_dirty(true)
     , m_repaintPending(false)
-    , m_lastDirtyPicture(0)
     , m_fullRepaint(true)
     , m_isTexturePainted(false)
     , m_isLayerTile(isLayerTile)
@@ -167,13 +166,11 @@ bool BaseTile::removeTexture(BaseTileTexture* texture)
     return true;
 }
 
-void BaseTile::markAsDirty(int unsigned pictureCount,
-                           const SkRegion& dirtyArea)
+void BaseTile::markAsDirty(const SkRegion& dirtyArea)
 {
     if (dirtyArea.isEmpty())
         return;
     android::AutoMutex lock(m_atomicSync);
-    m_lastDirtyPicture = pictureCount;
     m_dirtyArea.op(dirtyArea, SkRegion::kUnion_Op);
 
     // Check if we actually intersect with the area
@@ -340,8 +337,6 @@ void BaseTile::paintBitmap()
         return;
     }
 
-    unsigned int pictureCount = 0;
-
     // swap out the renderer if necessary
     BaseRenderer::swapRendererIfNeeded(m_renderer);
     // setup the common renderInfo fields;
@@ -418,7 +413,7 @@ void BaseTile::paintBitmap()
         if (!fullRepaint) {
             renderInfo.invalRect = &totalRect;
             renderInfo.measurePerf = false;
-            pictureCount = m_renderer->renderTiledContent(renderInfo);
+            m_renderer->renderTiledContent(renderInfo);
         }
     }
 
@@ -426,7 +421,7 @@ void BaseTile::paintBitmap()
     if (fullRepaint) {
         renderInfo.invalRect = 0;
         renderInfo.measurePerf = TilesManager::instance()->getShowVisualIndicator();
-        pictureCount = m_renderer->renderTiledContent(renderInfo);
+        m_renderer->renderTiledContent(renderInfo);
     }
 
     m_atomicSync.lock();

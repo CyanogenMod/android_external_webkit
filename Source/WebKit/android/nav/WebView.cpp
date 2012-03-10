@@ -258,7 +258,6 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
 
     DrawExtra* extra = getDrawExtra((DrawExtras) extras);
 
-    unsigned int pic = m_glWebViewState->currentPictureCounter();
     m_glWebViewState->glExtras()->setDrawExtra(extra);
 
     // Make sure we have valid coordinates. We might not have valid coords
@@ -280,7 +279,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
             checkException(env);
         }
     }
-    if (ret || m_glWebViewState->currentPictureCounter() != pic)
+    if (ret)
         return !m_isDrawingPaused;
 #endif
     return false;

@@ -235,9 +235,6 @@ public:
 
     virtual LayerAndroid* copy() const { return new LayerAndroid(*this); }
 
-    void needsRepaint() { m_pictureUsed++; }
-    unsigned int pictureUsed() { return m_pictureUsed; }
-
     void clearDirtyRegion();
 
     virtual void contentDraw(SkCanvas* canvas, PaintStyle style);
@@ -341,8 +338,6 @@ private:
     int m_uniqueId;
 
     unsigned m_imageCRC;
-
-    unsigned int m_pictureUsed;
 
     // used to signal the framework we need a repaint
     bool m_hasRunningAnimations;

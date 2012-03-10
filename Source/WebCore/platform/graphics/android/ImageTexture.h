@@ -85,7 +85,7 @@ public:
     bool equalsCRC(unsigned crc);
 
     // methods used by TiledTexture
-    virtual bool paint(BaseTile* tile, SkCanvas* canvas, unsigned int* pictureUsed);
+    virtual bool paint(BaseTile* tile, SkCanvas* canvas);
     virtual float opacity();
 
     int nbTextures();
