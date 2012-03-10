@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef RenderObjectChildList_h
@@ -43,12 +43,12 @@ public:
 
     RenderObject* firstChild() const { return m_firstChild; }
     RenderObject* lastChild() const { return m_lastChild; }
-    
+
     // FIXME: Temporary while RenderBox still exists. Eventually this will just happen during insert/append/remove methods on the child list, and nobody
     // will need to manipulate firstChild or lastChild directly.
     void setFirstChild(RenderObject* child) { m_firstChild = child; }
     void setLastChild(RenderObject* child) { m_lastChild = child; }
-    
+
     void destroyLeftoverChildren();
 
     RenderObject* removeChildNode(RenderObject* owner, RenderObject*, bool fullRemove = true);
@@ -56,6 +56,8 @@ public:
     void insertChildNode(RenderObject* owner, RenderObject* child, RenderObject* before, bool fullInsert = true);
 
     void updateBeforeAfterContent(RenderObject* owner, PseudoId type, RenderObject* styledObject = 0);
+    RenderObject* beforePseudoElementRenderer(RenderObject* owner);
+    RenderObject* afterPseudoElementRenderer(RenderObject* owner);
     void invalidateCounters(RenderObject* owner, const AtomicString& identifier);
 
 private:

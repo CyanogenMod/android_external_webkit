@@ -167,6 +167,18 @@ public:
             return children->lastChild();
         return 0;
     }
+    RenderObject* beforePseudoElementRenderer()
+    {
+        if ( RenderObjectChildList* children = virtualChildren())
+            return children->beforePseudoElementRenderer(this);
+        return 0;
+    }
+    RenderObject* afterPseudoElementRenderer()
+    {
+        if ( RenderObjectChildList* children = virtualChildren())
+            return children->afterPseudoElementRenderer(this);
+        return 0;
+    }
     virtual RenderObjectChildList* virtualChildren() { return 0; }
     virtual const RenderObjectChildList* virtualChildren() const { return 0; }
 
@@ -211,7 +223,7 @@ public:
     // again.  We have to make sure the render tree updates as needed to accommodate the new
     // normal flow object.
     void handleDynamicFloatPositionChange();
-    
+
     // RenderObject tree manipulation
     //////////////////////////////////////////
     virtual bool canHaveChildren() const { return virtualChildren(); }
@@ -379,9 +391,9 @@ public:
     bool isRunIn() const { return style()->display() == RUN_IN; } // run-in object
     bool isDragging() const { return m_isDragging; }
     bool isReplaced() const { return m_replaced; } // a "replaced" element (see CSS)
-    
+
     bool hasLayer() const { return m_hasLayer; }
-    
+
     bool hasBoxDecorations() const { return m_paintBackground; }
     bool mustRepaintBackgroundOrBorder() const;
 
@@ -391,7 +403,7 @@ public:
     bool needsPositionedMovementLayoutOnly() const { return m_needsPositionedMovementLayout && !m_needsLayout && !m_normalChildNeedsLayout && !m_posChildNeedsLayout; }
     bool posChildNeedsLayout() const { return m_posChildNeedsLayout; }
     bool normalChildNeedsLayout() const { return m_normalChildNeedsLayout; }
-    
+
     bool prefWidthsDirty() const { return m_prefWidthsDirty; }
 
     bool isSelectionBorder() const;
@@ -412,7 +424,7 @@ public:
     // any pseudo classes (and therefore has no concept of changing state).
     RenderStyle* getCachedPseudoStyle(PseudoId, RenderStyle* parentStyle = 0) const;
     PassRefPtr<RenderStyle> getUncachedPseudoStyle(PseudoId, RenderStyle* parentStyle = 0, RenderStyle* ownStyle = 0) const;
-    
+
     virtual void updateDragState(bool dragOn);
 
     RenderView* view() const;
@@ -443,7 +455,7 @@ public:
     void setNeedsPositionedMovementLayout();
     void setPrefWidthsDirty(bool, bool markParents = true);
     void invalidateContainerPrefWidths();
-    
+
     void setNeedsLayoutAndPrefWidthsRecalc()
     {
         setNeedsLayout(true);
@@ -514,7 +526,7 @@ public:
     // Called when a positioned object moves but doesn't necessarily change size.  A simplified layout is attempted
     // that just updates the object's position. If the size does change, the object remains dirty.
     virtual void tryLayoutDoingPositionedMovementOnly() { }
-    
+
     // used for element state updates that cannot be fixed with a
     // repaint and do not need a relayout
     virtual void updateFromElement() { }
@@ -567,7 +579,7 @@ public:
     virtual IntSize offsetFromContainer(RenderObject*) const;
     // Return the offset from an object up the container() chain. Asserts that none of the intermediate objects have transforms.
     IntSize offsetFromAncestorContainer(RenderObject*) const;
-    
+
     virtual void absoluteRects(Vector<IntRect>&, int, int) { }
     // FIXME: useTransforms should go away eventually
     IntRect absoluteBoundingBoxRect(bool useTransforms = false);
@@ -594,7 +606,7 @@ public:
     // Anonymous blocks that are part of of a continuation chain will return their inline continuation's outline style instead.
     // This is typically only relevant when repainting.
     virtual RenderStyle* outlineStyleForRepaint() const { return style(); }
-    
+
     void getTextDecorationColors(int decorations, Color& underline, Color& overline,
                                  Color& linethrough, bool quirksMode = false);
 
@@ -605,7 +617,7 @@ public:
     // Actually do the repaint of rect r for this object which has been computed in the coordinate space
     // of repaintContainer. If repaintContainer is 0, repaint via the view.
     void repaintUsingContainer(RenderBoxModelObject* repaintContainer, const IntRect& r, bool immediate = false);
-    
+
     // Repaint the entire object.  Called when, e.g., the color of a border changes, or when a border
     // style changes.
     void repaint(bool immediate = false);
@@ -630,7 +642,7 @@ public:
     {
         return clippedOverflowRectForRepaint(0);
     }
-    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);    
+    virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
     virtual IntRect rectWithOutlineForRepaint(RenderBoxModelObject* repaintContainer, int outlineWidth);
 
     // Given a rect in the object's coordinate space, compute a rect suitable for repainting
@@ -747,7 +759,7 @@ public:
 
     bool hasOverrideSize() const { return m_hasOverrideSize; }
     void setHasOverrideSize(bool b) { m_hasOverrideSize = b; }
-    
+
     void remove() { if (parent()) parent()->removeChild(this); }
 
     AnimationController* animation() const;
@@ -761,7 +773,7 @@ public:
 
     bool shouldUseTransformFromContainer(const RenderObject* container) const;
     void getTransformFromContainer(const RenderObject* container, const IntSize& offsetInContainer, TransformationMatrix&) const;
-    
+
     virtual void addFocusRingRects(Vector<IntRect>&, int /*tx*/, int /*ty*/) { };
 
     IntRect absoluteOutlineBounds() const
@@ -799,15 +811,15 @@ protected:
                 m_oldOutlineBox = m_object.outlineBoundsForRepaint(m_repaintContainer);
             }
         }
-        
+
         // Return true if it repainted.
         bool repaintAfterLayout()
         {
             return m_checkForRepaint ? m_object.repaintAfterLayoutIfNeeded(m_repaintContainer, m_oldBounds, m_oldOutlineBox) : false;
         }
-        
+
         bool checkForRepaint() const { return m_checkForRepaint; }
-        
+
     private:
         RenderObject& m_object;
         RenderBoxModelObject* m_repaintContainer;
@@ -815,11 +827,11 @@ protected:
         IntRect m_oldOutlineBox;
         bool m_checkForRepaint;
     };
-    
+
 private:
     RenderStyle* firstLineStyleSlowCase() const;
     StyleDifference adjustStyleDifference(StyleDifference, unsigned contextSensitiveProperties) const;
-    
+
     RefPtr<RenderStyle> m_style;
 
     Node* m_node;
@@ -859,7 +871,7 @@ private:
     bool m_hasReflection             : 1;
 
     bool m_hasOverrideSize           : 1;
-    
+
 public:
     bool m_hasCounterNodeMap         : 1;
     bool m_everHadLayout             : 1;
@@ -873,7 +885,7 @@ private:
     bool m_hasMarkupTruncation : 1;
     unsigned m_selectionState : 3; // SelectionState
     bool m_hasColumns : 1;
-    
+
     // from RenderTableCell
     bool m_cellWidthChanged : 1;
 
@@ -943,7 +955,7 @@ inline void RenderObject::setNeedsPositionedMovementLayout()
     }
 }
 
-inline bool objectIsRelayoutBoundary(const RenderObject *obj) 
+inline bool objectIsRelayoutBoundary(const RenderObject *obj)
 {
     // FIXME: In future it may be possible to broaden this condition in order to improve performance.
     // Table cells are excluded because even when their CSS height is fixed, their height()
@@ -964,7 +976,7 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
     RenderObject* last = this;
 
     while (o) {
-        // Don't mark the outermost object of an unrooted subtree. That object will be 
+        // Don't mark the outermost object of an unrooted subtree. That object will be
         // marked when the subtree is added to the document.
         RenderObject* container = o->container();
         if (!container && !o->isRenderView())

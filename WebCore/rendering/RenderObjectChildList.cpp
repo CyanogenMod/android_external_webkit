@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -77,7 +77,7 @@ RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, Render
         oldChild->setNeedsLayoutAndPrefWidthsRecalc();
         oldChild->repaint();
     }
-        
+
     // If we have a line box wrapper, delete it.
     if (oldChild->isBox())
         toRenderBox(oldChild)->deleteLineBoxWrapper();
@@ -96,15 +96,15 @@ RenderObject* RenderObjectChildList::removeChildNode(RenderObject* owner, Render
                 layer = owner->enclosingLayer();
             oldChild->removeLayers(layer);
         }
-        
+
         // renumber ordered lists
         if (oldChild->isListItem())
             updateListMarkerNumbers(oldChild->nextSibling());
-        
+
         if (oldChild->isPositioned() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(oldChild);
     }
-    
+
     // If oldChild is the start or end of the selection, then clear the selection to
     // avoid problems of invalid pointers.
     // FIXME: The SelectionController should be responsible for this when it
@@ -148,7 +148,7 @@ void RenderObjectChildList::appendChildNode(RenderObject* owner, RenderObject* n
         setFirstChild(newChild);
 
     setLastChild(newChild);
-    
+
     if (fullAppend) {
         // Keep our layer hierarchy updated.  Optimize for the common case where we don't have any children
         // and don't have a layer attached to ourselves.
@@ -166,7 +166,7 @@ void RenderObjectChildList::appendChildNode(RenderObject* owner, RenderObject* n
             if (layer)
                 layer->setHasVisibleContent(true);
         }
-        
+
         if (!newChild->isFloatingOrPositioned() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(newChild);
     }
@@ -174,7 +174,7 @@ void RenderObjectChildList::appendChildNode(RenderObject* owner, RenderObject* n
     newChild->setNeedsLayoutAndPrefWidthsRecalc(); // Goes up the containing block hierarchy.
     if (!owner->normalChildNeedsLayout())
         owner->setChildNeedsLayout(true); // We may supply the static position for an absolute positioned child.
-    
+
     if (AXObjectCache::accessibilityEnabled())
         owner->document()->axObjectCache()->childrenChanged(owner);
 }
@@ -204,7 +204,7 @@ void RenderObjectChildList::insertChildNode(RenderObject* owner, RenderObject* c
     child->setPreviousSibling(prev);
 
     child->setParent(owner);
-    
+
     if (fullInsert) {
         // Keep our layer hierarchy updated.  Optimize for the common case where we don't have any children
         // and don't have a layer attached to ourselves.
@@ -223,7 +223,7 @@ void RenderObjectChildList::insertChildNode(RenderObject* owner, RenderObject* c
                 layer->setHasVisibleContent(true);
         }
 
-        
+
         if (!child->isFloating() && owner->childrenInline())
             owner->dirtyLinesFromChangedChild(child);
     }
@@ -231,7 +231,7 @@ void RenderObjectChildList::insertChildNode(RenderObject* owner, RenderObject* c
     child->setNeedsLayoutAndPrefWidthsRecalc();
     if (!owner->normalChildNeedsLayout())
         owner->setChildNeedsLayout(true); // We may supply the static position for an absolute positioned child.
-    
+
     if (AXObjectCache::accessibilityEnabled())
         owner->document()->axObjectCache()->childrenChanged(owner);
 }
@@ -276,6 +276,54 @@ static RenderObject* findBeforeAfterParent(RenderObject* object)
     return beforeAfterParent;
 }
 
+
+RenderObject* RenderObjectChildList::beforePseudoElementRenderer(RenderObject* owner)
+{
+    // An anonymous (generated) inline run-in that has PseudoId BEFORE must come from a grandparent.
+    // Therefore we should skip these generated run-ins when checking our immediate children.
+    // If we don't find our :before child immediately, then we should check if we own a
+    // generated inline run-in in the next level of children.
+    RenderObject*  first = owner;
+    do {
+        first = first->firstChild();
+        // Skip list markers and generated run-ins.
+        while (first && (first->isListMarker() || (first->isRenderInline() && first->isRunIn())))
+            first = first->nextInPreOrderAfterChildren(owner);
+    } while (first && first->isAnonymous() && first->style()->styleType() == NOPSEUDO);
+
+    if (!first)
+        return 0;
+
+    if (first->style()->styleType() == BEFORE)
+        return first;
+
+    // Check for a possible generated run-in, using run-in positioning rules.
+    first = owner->firstChild();
+    if (!first->isRenderBlock())
+        return 0;
+
+    first = first->firstChild();
+    // We still need to skip any list markers that could exist before the run-in.
+    while (first && first->isListMarker())
+        first = first->nextSibling();
+    if (first && first->style()->styleType() == BEFORE && first->isRenderInline() && first->isRunIn())
+        return first;
+
+    return 0;
+}
+
+RenderObject* RenderObjectChildList::afterPseudoElementRenderer(RenderObject* owner)
+{
+    RenderObject* last = owner;
+    do {
+        last = last->lastChild();
+    } while (last && last->isAnonymous() && last->style()->styleType() == NOPSEUDO && !last->isListMarker());
+    if (last && last->style()->styleType() != AFTER)
+        return 0;
+    return last;
+}
+
+
 static void invalidateCountersInContainer(RenderObject* container, const AtomicString& identifier)
 {
     if (!container)
@@ -309,7 +357,7 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
     // In CSS2, before/after pseudo-content cannot nest.  Check this first.
     if (owner->style()->styleType() == BEFORE || owner->style()->styleType() == AFTER)
         return;
-    
+
     if (!styledObject)
         styledObject = owner;
 
@@ -319,7 +367,7 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
     // Whether or not we currently have generated content attached.
     bool oldContentPresent = child;
 
-    // Whether or not we now want generated content.  
+    // Whether or not we now want generated content.
     bool newContentWanted = pseudoElementStyle && pseudoElementStyle->display() != NONE;
 
     // For <q><p/></q>, if this object is the inline continuation of the <q>, we only want to generate
@@ -331,12 +379,12 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
     // then we don't generate the :after content.
     if (newContentWanted && type == AFTER && owner->isRenderInline() && toRenderInline(owner)->continuation())
         newContentWanted = false;
-    
+
     // If we don't want generated content any longer, or if we have generated content, but it's no longer
     // identical to the new content data we want to build render objects for, then we nuke all
     // of the old generated content.
     if (!newContentWanted || (oldContentPresent && Node::diff(child->style(), pseudoElementStyle) == Node::Detach)) {
-        // Nuke the child. 
+        // Nuke the child.
         if (child && child->style()->styleType() == type) {
             oldContentPresent = false;
             child->destroy();
@@ -388,13 +436,13 @@ void RenderObjectChildList::updateBeforeAfterContent(RenderObject* owner, Pseudo
         }
         return; // We've updated the generated content. That's all we needed to do.
     }
-    
+
     RenderObject* insertBefore = (type == BEFORE) ? owner->virtualChildren()->firstChild() : 0;
 
     // Generated content consists of a single container that houses multiple children (specified
     // by the content property).  This generated content container gets the pseudo-element style set on it.
     RenderObject* generatedContentContainer = 0;
-    
+
     // Walk our list of generated content and create render objects for each.
     for (const ContentData* content = pseudoElementStyle->contentData(); content; content = content->next()) {
         RenderObject* renderer = 0;
