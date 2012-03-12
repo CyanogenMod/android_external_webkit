@@ -670,6 +670,14 @@ namespace android {
         void initEditField(Node* node);
 
         /**
+         * If node is not a text input field or if it explicitly requests
+         * not to have keyboard input, then the soft keyboard is closed. If
+         * it is a text input field then initEditField is called and
+         * auto-fill information is requested for HTML form input fields.
+         */
+        void initializeTextInput(Node* node, bool fake = false);
+
+        /**
          * Gets the input type a Node. NONE is returned if it isn't an
          * input field.
          */
@@ -713,6 +721,9 @@ namespace android {
         void selectWordAroundPosition(Frame* frame, VisiblePosition pos);
         SelectText* createSelectText(const VisibleSelection&);
         static int getMaxLength(Node* node);
+        static String getFieldName(Node* node);
+        static bool isAutoCompleteEnabled(Node* node);
+        IntRect boundingRect(Node* node, LayerAndroid* layer);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);

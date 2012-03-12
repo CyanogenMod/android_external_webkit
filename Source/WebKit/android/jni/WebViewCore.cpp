@@ -123,6 +123,7 @@
 #include "TypingCommand.h"
 #include "WebCache.h"
 #include "WebCoreFrameBridge.h"
+#include "WebCoreJni.h"
 #include "WebFrameView.h"
 #include "WindowsKeyboardCodes.h"
 #include "android_graphics.h"
@@ -463,7 +464,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_getDeviceOrientationService = GetJMethod(env, clazz, "getDeviceOrientationService", "()Landroid/webkit/DeviceOrientationService;");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
     m_javaGlue->m_formDidBlur = GetJMethod(env, clazz, "formDidBlur", "(I)V");
-    m_javaGlue->m_focusNodeChanged = GetJMethod(env, clazz, "focusNodeChanged", "(Landroid/webkit/WebViewCore$WebKitHitTest;)V");
+    m_javaGlue->m_focusNodeChanged = GetJMethod(env, clazz, "focusNodeChanged", "(ILandroid/webkit/WebViewCore$WebKitHitTest;)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;II)V");
     m_javaGlue->m_hideFullScreenPlugin = GetJMethod(env, clazz, "hideFullScreenPlugin", "()V");
@@ -483,7 +484,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
-    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZLjava/lang/String;IIII)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZZLjava/lang/String;Ljava/lang/String;IIIILandroid/graphics/Rect;I)V");
     m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
     m_javaGlue->m_chromeCanTakeFocus = GetJMethod(env, clazz, "chromeCanTakeFocus", "(I)Z");
     m_javaGlue->m_chromeTakeFocus = GetJMethod(env, clazz, "chromeTakeFocus", "(I)V");
@@ -3217,41 +3218,8 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
     webFrame->setUserInitiatedAction(false);
 
-    // If the user clicked on a textfield, make the focusController active
-    // so we show the blinking cursor.
     WebCore::Node* focusNode = currentFocus();
-    if (focusNode) {
-        WebCore::RenderTextControl* rtc = toRenderTextControl(focusNode);
-        if (rtc) {
-            bool ime = !shouldSuppressKeyboard(focusNode)
-                    && !(static_cast<WebCore::HTMLInputElement*>(focusNode))->readOnly();
-            if (ime) {
-#if ENABLE(WEB_AUTOFILL)
-                if (rtc->isTextField()) {
-                    EditorClientAndroid* editorC = static_cast<EditorClientAndroid*>(framePtr->page()->editorClient());
-                    WebAutofill* autoFill = editorC->getAutofill();
-                    autoFill->formFieldFocused(static_cast<HTMLFormControlElement*>(focusNode));
-                }
-#endif
-                if (!fake)
-                    initEditField(focusNode);
-            } else if (!fake) {
-                requestKeyboard(false);
-            }
-        } else if (!fake){
-            // If the selection is contentEditable, show the keyboard so the
-            // user can type.  Otherwise hide the keyboard because no text
-            // input is needed.
-            if (isContentEditable(focusNode)) {
-                initEditField(focusNode);
-            } else if (!nodeIsPlugin(focusNode)) {
-                clearTextEntry();
-            }
-        }
-    } else if (!fake) {
-        // There is no focusNode, so the keyboard is not needed.
-        clearTextEntry();
-    }
+    initializeTextInput(focusNode, fake);
     return handled;
 }
 
@@ -3295,6 +3263,16 @@ int WebViewCore::getMaxLength(Node* node)
     return maxLength;
 }
 
+String WebViewCore::getFieldName(Node* node)
+{
+    String name;
+    if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
+        HTMLInputElement* htmlInput = static_cast<HTMLInputElement*>(node);
+        name = htmlInput->name();
+    }
+    return name;
+}
+
 bool WebViewCore::isSpellCheckEnabled(Node* node)
 {
     bool isEnabled = true;
@@ -3303,6 +3281,34 @@ bool WebViewCore::isSpellCheckEnabled(Node* node)
         isEnabled = element->isSpellCheckingEnabled();
     }
     return isEnabled;
+}
+
+bool WebViewCore::isAutoCompleteEnabled(Node* node)
+{
+    bool isEnabled = false;
+    if (node->hasTagName(WebCore::HTMLNames::inputTag)) {
+        HTMLInputElement* htmlInput = static_cast<HTMLInputElement*>(node);
+        isEnabled = htmlInput->autoComplete();
+    }
+    return isEnabled;
+}
+
+WebCore::IntRect WebViewCore::boundingRect(WebCore::Node* node,
+        LayerAndroid* layer)
+{
+    // Caret selection
+    IntRect boundingRect;
+    if (node) {
+        RenderObject* render = node->renderer();
+        if (render && !render->isBody()) {
+            IntPoint offset = convertGlobalContentToFrameContent(IntPoint(),
+                    node->document()->frame());
+            WebViewCore::layerToAbsoluteOffset(layer, offset);
+            boundingRect = render->absoluteBoundingBoxRect(true);
+            boundingRect.move(-offset.x(), -offset.y());
+        }
+    }
+    return boundingRect;
 }
 
 void WebViewCore::initEditField(Node* node)
@@ -3326,13 +3332,19 @@ void WebViewCore::initEditField(Node* node)
     bool spellCheckEnabled = isSpellCheckEnabled(node);
     int maxLength = getMaxLength(node);
     String label = requestLabel(document->frame(), node);
+    bool autoComplete = isAutoCompleteEnabled(node);
+    jstring name = wtfStringToJstring(env, getFieldName(node), false);
     jstring fieldText = wtfStringToJstring(env, text, true);
     jstring labelText = wtfStringToJstring(env, text, false);
+    LayerAndroid* layer = 0;
+    int layerId = platformLayerIdFromNode(node, &layer);
+    jobject nodeBounds = intRectToRect(env, boundingRect(node, layer));
     SelectText* selectText = createSelectText(focusedFrame()->selection()->selection());
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
             reinterpret_cast<int>(node), fieldText, inputType,
-            spellCheckEnabled, isNextText, labelText, start, end,
-            reinterpret_cast<int>(selectText), maxLength);
+            spellCheckEnabled, autoComplete, isNextText, name, labelText,
+            start, end, reinterpret_cast<int>(selectText), maxLength,
+            nodeBounds, layerId);
     checkException(env);
 }
 
@@ -3382,13 +3394,49 @@ WebCore::Node* nextNodeWithinParent(WebCore::Node* parent, WebCore::Node* start)
     return 0;
 }
 
+void WebViewCore::initializeTextInput(WebCore::Node* node, bool fake)
+{
+    if (node) {
+        if (isTextInput(node)) {
+            initEditField(node);
+            WebCore::RenderTextControl* rtc = toRenderTextControl(node);
+            if (rtc && node->hasTagName(HTMLNames::inputTag)) {
+                HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(node);
+                bool ime = !shouldSuppressKeyboard(node) && !inputElement->readOnly();
+                if (ime) {
+#if ENABLE(WEB_AUTOFILL)
+                    if (rtc->isTextField()) {
+                        Page* page = node->document()->page();
+                        EditorClient* editorClient = page->editorClient();
+                        EditorClientAndroid* androidEditor =
+                                static_cast<EditorClientAndroid*>(editorClient);
+                        WebAutofill* autoFill = androidEditor->getAutofill();
+                        autoFill->formFieldFocused(inputElement);
+                    }
+#endif
+                } else if (!fake) {
+                    requestKeyboard(false);
+                }
+            }
+        } else if (!fake && !nodeIsPlugin(node)) {
+            // not a text entry field, put away the keyboard.
+            clearTextEntry();
+        }
+    } else if (!fake) {
+        // There is no focusNode, so the keyboard is not needed.
+        clearTextEntry();
+    }
+}
+
 void WebViewCore::focusNodeChanged(WebCore::Node* newFocus)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
         return;
-    if (!isTextInput(newFocus) && m_blurringNodePointer) {
+    if (isTextInput(newFocus))
+        initializeTextInput(newFocus);
+    else if (m_blurringNodePointer) {
         env->CallVoidMethod(javaObject.get(), m_javaGlue->m_formDidBlur, m_blurringNodePointer);
         checkException(env);
         m_blurringNodePointer = 0;
@@ -3420,7 +3468,8 @@ void WebViewCore::focusNodeChanged(WebCore::Node* newFocus)
     }
     AndroidHitTestResult androidHitTest(this, focusHitResult);
     jobject jHitTestObj = androidHitTest.createJavaObject(env);
-    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_focusNodeChanged, jHitTestObj);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_focusNodeChanged,
+            reinterpret_cast<int>(newFocus), jHitTestObj);
     env->DeleteLocalRef(jHitTestObj);
 }
 
