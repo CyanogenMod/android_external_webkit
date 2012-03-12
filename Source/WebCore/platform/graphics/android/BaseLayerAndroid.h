@@ -26,6 +26,8 @@
 #ifndef BaseLayerAndroid_h
 #define BaseLayerAndroid_h
 
+#include <utils/threads.h>
+
 #include "Color.h"
 #include "Layer.h"
 #include "PictureSet.h"

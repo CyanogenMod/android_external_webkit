@@ -41,7 +41,6 @@ TextureInfo::TextureInfo()
     m_width = 0;
     m_height = 0;
     m_internalFormat = 0;
-    m_eglSurface = EGL_NO_SURFACE;
 }
 
 bool TextureInfo::equalsAttributes(const TextureInfo* otherTexture)

@@ -51,9 +51,6 @@ namespace WebCore {
 
 GaneshContext::GaneshContext()
     : m_grContext(0)
-    , m_baseTileDeviceFBO(0)
-    , m_baseTileFBO(0)
-    , m_baseTileStencil(0)
     , m_baseTileDeviceSurface(0)
     , m_surfaceConfig(0)
     , m_surfaceContext(EGL_NO_CONTEXT)
@@ -95,18 +92,6 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
         contextNeedsReset = true;
     }
 
-    SkDevice* device = getDeviceForBaseTileSurface(renderInfo);
-
-    // We must reset the Ganesh context only after we are sure we have
-    // re-established our EGLContext as the current context.
-    if (device && contextNeedsReset)
-        getGrContext()->resetContext();
-
-    return device;
-}
-
-SkDevice* GaneshContext::getDeviceForBaseTileSurface(const TileRenderInfo& renderInfo)
-{
     EGLDisplay display;
 
     if (!m_surfaceContext) {
@@ -150,7 +135,6 @@ SkDevice* GaneshContext::getDeviceForBaseTileSurface(const TileRenderInfo& rende
     }
 
     TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
-
     if (tileQueue->m_eglSurface == EGL_NO_SURFACE) {
 
         const float tileWidth = renderInfo.tileSize.width();
@@ -175,17 +159,16 @@ SkDevice* GaneshContext::getDeviceForBaseTileSurface(const TileRenderInfo& rende
 
     if (!m_baseTileDeviceSurface) {
 
-        GrPlatformSurfaceDesc surfaceDesc;
-        surfaceDesc.fSurfaceType = kRenderTarget_GrPlatformSurfaceType;
-        surfaceDesc.fRenderTargetFlags = kNone_GrPlatformRenderTargetFlagBit;
-        surfaceDesc.fWidth = TilesManager::tileWidth();
-        surfaceDesc.fHeight = TilesManager::tileHeight();
-        surfaceDesc.fConfig = kRGBA_8888_GrPixelConfig;
-        surfaceDesc.fStencilBits = 8;
-        surfaceDesc.fPlatformRenderTarget = 0;
+        GrPlatformRenderTargetDesc renderTargetDesc;
+        renderTargetDesc.fWidth = TilesManager::tileWidth();
+        renderTargetDesc.fHeight = TilesManager::tileHeight();
+        renderTargetDesc.fConfig = kRGBA_8888_PM_GrPixelConfig;
+        renderTargetDesc.fSampleCnt = 0;
+        renderTargetDesc.fStencilBits = 8;
+        renderTargetDesc.fRenderTargetHandle = 0;
 
         GrContext* grContext = getGrContext();
-        GrRenderTarget* renderTarget = (GrRenderTarget*) grContext->createPlatformSurface(surfaceDesc);
+        GrRenderTarget* renderTarget = grContext->createPlatformRenderTarget(renderTargetDesc);
 
         m_baseTileDeviceSurface = new SkGpuDevice(grContext, renderTarget);
         renderTarget->unref();
@@ -193,74 +176,15 @@ SkDevice* GaneshContext::getDeviceForBaseTileSurface(const TileRenderInfo& rende
     }
 
     GLUtils::checkGlError("getDeviceForBaseTile");
+
+    // We must reset the Ganesh context only after we are sure we have
+    // re-established our EGLContext as the current context.
+    if (m_baseTileDeviceSurface && contextNeedsReset)
+        getGrContext()->resetContext();
+
     return m_baseTileDeviceSurface;
 }
 
-SkDevice* GaneshContext::getDeviceForBaseTileFBO(const TileRenderInfo& renderInfo)
-{
-    const GLuint textureId = renderInfo.textureInfo->m_textureId;
-    const float tileWidth = renderInfo.tileSize.width();
-    const float tileHeight = renderInfo.tileSize.height();
-
-    // bind to the current texture
-    glBindTexture(GL_TEXTURE_2D, textureId);
-
-    // setup the texture if needed
-    if (renderInfo.textureInfo->m_width != tileWidth
-            || renderInfo.textureInfo->m_height != tileHeight) {
-
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tileWidth, tileHeight,
-                 0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
-        renderInfo.textureInfo->m_width = tileWidth;
-        renderInfo.textureInfo->m_height = tileHeight;
-
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    }
-
-    if (!m_baseTileFBO) {
-        glGenFramebuffers(1, &m_baseTileFBO);
-        XLOG("generated FBO");
-    }
-
-    if (!m_baseTileStencil) {
-        glGenRenderbuffers(1, &m_baseTileStencil);
-        glBindRenderbuffer(GL_RENDERBUFFER, m_baseTileStencil);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8,
-                              TilesManager::tileWidth(),
-                              TilesManager::tileHeight());
-        glClearStencil(0);
-        glClear(GL_STENCIL_BUFFER_BIT);
-        XLOG("generated stencil");
-    }
-
-    // bind the FBO and attach the texture and stencil
-    glBindFramebuffer(GL_FRAMEBUFFER, m_baseTileFBO);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureId, 0);
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_baseTileStencil);
-
-    if (!m_baseTileDeviceFBO) {
-
-        GrPlatformSurfaceDesc surfaceDesc;
-        surfaceDesc.fSurfaceType = kRenderTarget_GrPlatformSurfaceType;
-        surfaceDesc.fRenderTargetFlags = kNone_GrPlatformRenderTargetFlagBit;
-        surfaceDesc.fWidth = TilesManager::tileWidth();
-        surfaceDesc.fHeight = TilesManager::tileHeight();
-        surfaceDesc.fConfig = kRGBA_8888_GrPixelConfig;
-        surfaceDesc.fStencilBits = 8;
-        surfaceDesc.fPlatformRenderTarget = m_baseTileFBO;
-
-        GrContext* grContext = getGrContext();
-        GrRenderTarget* renderTarget = (GrRenderTarget*) grContext->createPlatformSurface(surfaceDesc);
-
-        m_baseTileDeviceFBO = new SkGpuDevice(grContext, renderTarget);
-        renderTarget->unref();
-        XLOG("generated device %p", m_baseTileDeviceFBO);
-    }
-
-    GLUtils::checkGlError("getDeviceForBaseTile");
-    return m_baseTileDeviceFBO;
-}
 
 
 } // namespace WebCore

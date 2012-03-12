@@ -49,6 +49,7 @@
 #include <jni.h>
 #include <androidfw/KeycodeLabels.h>
 #include <ui/PixelFormat.h>
+#include <utils/threads.h>
 
 namespace WebCore {
     class Color;

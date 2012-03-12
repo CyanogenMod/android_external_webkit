@@ -59,11 +59,6 @@ public:
     int32_t m_width;
     int32_t m_height;
     GLenum m_internalFormat;
-
-    // TODO: Delete this after the Ganesh code path get fixed.
-    sp<ANativeWindow> m_ANW;
-    // The EGLSurface wraps the m_ANW to enable direct OpenGL rendering (e.g. Ganesh)
-    EGLSurface m_eglSurface;
 };
 
 } // namespace WebCore
