@@ -380,7 +380,10 @@ NPError PluginView::getValueStatic(NPNVariable variable, void* value)
         case kJavaContext_ANPGetValue: {
             jobject* retObject = static_cast<jobject*>(value);
             *retObject = android::WebViewCore::getApplicationContext();
-            return NPERR_NO_ERROR;
+            if (*retObject)
+                return NPERR_NO_ERROR;
+            else
+                return NPERR_GENERIC_ERROR;
         }
         default:
             ; // do nothing
