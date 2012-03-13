@@ -137,7 +137,7 @@ private:
     void syncChildren();
     void syncMask();
 
-    void updateFixedPosition();
+    void updatePositionedLayers();
     void updateScrollingLayers();
 
     // with SkPicture, we always repaint the entire layer's content.

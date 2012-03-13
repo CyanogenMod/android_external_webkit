@@ -219,7 +219,7 @@ private:
     void updateCompositingLayersTimerFired(Timer<RenderLayerCompositor>*);
 
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    bool checkForFixedLayers(Vector<RenderLayer*>* list, bool stopAtFixedLayer);
+    bool checkForPositionedElements(Vector<RenderLayer*>* list);
 #endif
 
     // Returns true if any layer's compositing changed

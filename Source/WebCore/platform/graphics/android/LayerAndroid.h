@@ -236,10 +236,12 @@ public:
 
     virtual bool isMedia() const { return false; }
     virtual bool isVideo() const { return false; }
-    bool isFixed() const { return m_fixedPosition; }
     virtual bool isIFrame() const { return false; }
     virtual bool isIFrameContent() const { return false; }
 
+    bool isPositionFixed() const { return m_fixedPosition; }
+    void setAbsolutePosition(bool isAbsolute) { m_isPositionAbsolute = isAbsolute; }
+    bool isPositionAbsolute() { return m_isPositionAbsolute; }
     void setFixedPosition(FixedPositioning* position);
     FixedPositioning* fixedPosition() { return m_fixedPosition; }
 
@@ -305,6 +307,7 @@ private:
     float m_anchorPointZ;
     float m_drawOpacity;
 
+    bool m_isPositionAbsolute;
     FixedPositioning* m_fixedPosition;
 
     typedef HashMap<pair<String, int>, RefPtr<AndroidAnimation> > KeyframesMap;

@@ -59,6 +59,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_visible(true),
     m_preserves3D(false),
     m_anchorPointZ(0),
+    m_isPositionAbsolute(false),
     m_fixedPosition(0),
     m_zValue(0),
     m_uniqueId(++gUniqueId),
@@ -83,6 +84,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_haveClip(layer.m_haveClip),
+    m_isPositionAbsolute(layer.m_isPositionAbsolute),
     m_fixedPosition(0),
     m_zValue(layer.m_zValue),
     m_uniqueId(layer.m_uniqueId),
@@ -119,8 +121,42 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_scale = layer.m_scale;
     m_lastComputeTextureSize = 0;
 
-    for (int i = 0; i < layer.countChildren(); i++)
-        addChild(layer.getChild(i)->copy())->unref();
+    // If we have absolute elements, we may need to reorder them if they
+    // are followed by another layer that is not also absolutely positioned.
+    // (as absolutely positioned elements are out of the normal flow)
+    bool hasAbsoluteChildren = false;
+    bool hasOnlyAbsoluteFollowers = true;
+    for (int i = 0; i < layer.countChildren(); i++) {
+        if (layer.getChild(i)->isPositionAbsolute()) {
+            hasAbsoluteChildren = true;
+            continue;
+        }
+        if (hasAbsoluteChildren
+            && !layer.getChild(i)->isPositionAbsolute()) {
+            hasOnlyAbsoluteFollowers = false;
+            break;
+        }
+    }
+
+    if (hasAbsoluteChildren && !hasOnlyAbsoluteFollowers) {
+        Vector<LayerAndroid*> normalLayers;
+        Vector<LayerAndroid*> absoluteLayers;
+        for (int i = 0; i < layer.countChildren(); i++) {
+            LayerAndroid* child = layer.getChild(i);
+            if (child->isPositionAbsolute()
+                || child->isPositionFixed())
+                absoluteLayers.append(child);
+            else
+                normalLayers.append(child);
+        }
+        for (unsigned int i = 0; i < normalLayers.size(); i++)
+            addChild(normalLayers[i]->copy())->unref();
+        for (unsigned int i = 0; i < absoluteLayers.size(); i++)
+            addChild(absoluteLayers[i]->copy())->unref();
+    } else {
+        for (int i = 0; i < layer.countChildren(); i++)
+            addChild(layer.getChild(i)->copy())->unref();
+    }
 
     KeyframesMap::const_iterator end = layer.m_animations.end();
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it) {
@@ -379,7 +415,7 @@ void LayerAndroid::updateLayerPositions(SkRect viewport, IFrameLayerAndroid* par
 void LayerAndroid::updatePositions()
 {
     // apply the viewport to us
-    if (!isFixed()) {
+    if (!isPositionFixed()) {
         // turn our fields into a matrix.
         //
         // FIXME: this should happen in the caller, and we should remove these
@@ -405,7 +441,7 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     float originX = anchorPoint.x() * layerSize.width();
     float originY = anchorPoint.y() * layerSize.height();
     TransformationMatrix localMatrix;
-    if (!isFixed())
+    if (!isPositionFixed())
         localMatrix = parentMatrix;
     localMatrix.translate3d(originX + position.x(),
                             originY + position.y(),
@@ -573,7 +609,7 @@ void LayerAndroid::showLayer(int indent)
           visible.x(), visible.y(), visible.width(), visible.height(),
           clip.x(), clip.y(), clip.width(), clip.height(),
           contentIsScrollable() ? "SCROLLABLE" : "",
-          isFixed() ? "FIXED" : "",
+          isPositionFixed() ? "FIXED" : "",
           m_content,
           m_content ? m_content->width() : -1,
           m_content ? m_content->height() : -1);
@@ -701,7 +737,7 @@ void LayerAndroid::assignGroups(LayerMergeState* mergeState)
     ALOGD("%*slayer %p(%d) rl %p %s group %p, fixed %d, anim %d, intCom %d, haveClip %d scroll %d",
           4*mergeState->depth, "", this, m_uniqueId, m_owningLayer,
           needNewGroup ? "NEW" : "joins", mergeState->currentLayerGroup,
-          m_isFixed, m_animations.size() != 0,
+          isPositionFixed(), m_animations.size() != 0,
           m_intrinsicallyComposited,
           m_haveClip,
           contentIsScrollable());
@@ -710,7 +746,7 @@ void LayerAndroid::assignGroups(LayerMergeState* mergeState)
     mergeState->currentLayerGroup->addLayer(this, m_drawTransform);
     m_layerGroup = mergeState->currentLayerGroup;
 
-    if (m_haveClip || contentIsScrollable() || isFixed()) {
+    if (m_haveClip || contentIsScrollable() || isPositionFixed()) {
         // disable layer merging within the children of these layer types
         mergeState->nonMergeNestedLevel++;
     }
@@ -733,7 +769,7 @@ void LayerAndroid::assignGroups(LayerMergeState* mergeState)
         mergeState->depth--;
     }
 
-    if (m_haveClip || contentIsScrollable() || isFixed()) {
+    if (m_haveClip || contentIsScrollable() || isPositionFixed()) {
         // re-enable joining
         mergeState->nonMergeNestedLevel--;
 
@@ -940,7 +976,7 @@ void LayerAndroid::dumpLayer(FILE* file, int indentLevel) const
     writeHexVal(file, indentLevel + 1, "layer", (int)this);
     writeIntVal(file, indentLevel + 1, "layerId", m_uniqueId);
     writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
-    writeIntVal(file, indentLevel + 1, "isFixed", isFixed());
+    writeIntVal(file, indentLevel + 1, "isFixed", isPositionFixed());
 
     writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
     writeSize(file, indentLevel + 1, "size", getSize());

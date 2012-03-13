@@ -386,12 +386,12 @@ void DualTiledTexture::computeTexturesAmount(TexturesResult* result, LayerAndroi
     int nbTexturesClipped = tiledTexture->nbTextures(clippedVisibleArea, m_scale);
 
     // Set kFixedLayers level
-    if (layer->isFixed())
+    if (layer->isPositionFixed())
         result->fixed += nbTexturesClipped;
 
     // Set kScrollableAndFixedLayers level
     if (layer->contentIsScrollable()
-        || layer->isFixed())
+        || layer->isPositionFixed())
         result->scrollable += nbTexturesClipped;
 
     // Set kClippedTextures level

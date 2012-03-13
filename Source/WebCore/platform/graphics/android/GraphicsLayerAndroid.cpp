@@ -215,7 +215,7 @@ void GraphicsLayerAndroid::removeFromParent()
     }
 }
 
-void GraphicsLayerAndroid::updateFixedPosition()
+void GraphicsLayerAndroid::updatePositionedLayers()
 {
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
     if (!renderLayer)
@@ -234,6 +234,7 @@ void GraphicsLayerAndroid::updateFixedPosition()
 
     // If we are a fixed position layer, just set it
     if (view->isPositioned() && view->style()->position() == FixedPosition) {
+        m_contentLayer->setAbsolutePosition(false);
         // We need to get the passed CSS properties for the element
         SkLength left, top, right, bottom;
         left = convertLength(view->style()->left());
@@ -274,8 +275,12 @@ void GraphicsLayerAndroid::updateFixedPosition()
                                         marginRight, marginBottom,
                                         renderLayerPos,
                                         viewRect);
-    } else if (m_contentLayer->isFixed())
+    } else if (view->isPositioned() && view->style()->position() == AbsolutePosition) {
+        m_contentLayer->setAbsolutePosition(true);
+    } else {
         m_contentLayer->setFixedPosition(0);
+        m_contentLayer->setAbsolutePosition(false);
+    }
 }
 
 void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
@@ -1036,7 +1041,7 @@ void GraphicsLayerAndroid::syncCompositingStateForThisLayerOnly()
     }
 
     updateScrollingLayers();
-    updateFixedPosition();
+    updatePositionedLayers();
     syncChildren();
     syncMask();
 

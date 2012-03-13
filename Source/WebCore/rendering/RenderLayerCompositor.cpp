@@ -78,7 +78,7 @@ struct CompositingState {
         : m_compositingAncestor(compAncestor)
         , m_subtreeIsCompositing(false)
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-        , m_fixedSibling(false)
+        , m_positionedSibling(false)
         , m_hasFixedElement(false)
 #endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -97,7 +97,7 @@ struct CompositingState {
     // It is used to reject creating unnecesary layers.
     IntRect m_compositingBounds;
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    bool m_fixedSibling;
+    bool m_positionedSibling;
     bool m_hasFixedElement;
 #endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -351,7 +351,11 @@ bool RenderLayerCompositor::updateBacking(RenderLayer* layer, CompositingChangeR
 {
     bool layerChanged = false;
 
+#if ENABLE(ANDROID_OVERFLOW_SCROLL)
+    if (needsToBeComposited(layer) || layer->shouldComposite()) {
+#else
     if (needsToBeComposited(layer)) {
+#endif
         enableCompositingMode();
         
         // 3D transforms turn off the testing of overlap.
@@ -617,23 +621,49 @@ bool RenderLayerCompositor::overlapsCompositedLayers(OverlapMap& overlapMap, con
 
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
 
-// to properly support z-index with composited fixed elements, we need to turn
-// layers following a fixed layer into compositing mode; but if a layer is fully
-// contained into a previous layer already composited (that is not the fixed
-// layer), we don't need to composite it. This saves up quite a bit on the
-// number of layers we have to composite.
-//
-bool RenderLayerCompositor::checkForFixedLayers(Vector<RenderLayer*>* list, bool stopAtFixedLayer)
+bool RenderLayerCompositor::checkForPositionedElements(Vector<RenderLayer*>* list)
 {
     int listSize = list->size();
     int haveFixedLayer = -1;
     bool fixedSibling = false;
+    bool positionedSibling = false;
+
+    // For absolute positioned elements, we need to check if they are followed
+    // by a composited element; if so, they also need to be composited, as the
+    // layer display rendering might be incorrect (absolute elements being
+    // removed from the flow).
+    for (int i = 0; i < listSize; ++i) {
+        RenderLayer* currentLayer = list->at(i);
+        if (!needsToBeComposited(currentLayer)
+            && !currentLayer->shouldComposite()
+            && currentLayer->renderer()->isPositioned()) {
+            positionedSibling = true;
+            // check if there is a composited layer later, if so we should be
+            // composited.
+            for (int j = i + 1; j < listSize; ++j) {
+                RenderLayer* layer = list->at(j);
+                if (needsToBeComposited(layer)) {
+                    currentLayer->setShouldComposite(true);
+                    break;
+                }
+            }
+            break;
+        }
+    }
+
+    // If we find a fixed layer, let's mark all the following layers as being
+    // composited. The layers' surfaces will be merged if needed UI-side.
     for (int j = 0; j < listSize; ++j) {
         RenderLayer* currentLayer = list->at(j);
+        if (currentLayer->shouldComposite())
+            continue;
+
         if (currentLayer->isFixed() && needsToBeComposited(currentLayer)) {
             haveFixedLayer = j;
             fixedSibling = true;
         }
+
+        // Bypass fixed layers with a width or height or 1 or less...
         IntRect currentLayerBounds = currentLayer->renderer()->localToAbsoluteQuad(
             FloatRect(currentLayer->localBoundingBox())).enclosingBoundingBox();
         if ((currentLayerBounds.width() <= 1
@@ -642,28 +672,11 @@ bool RenderLayerCompositor::checkForFixedLayers(Vector<RenderLayer*>* list, bool
             haveFixedLayer = -1;
             fixedSibling = false;
         }
-        if (haveFixedLayer != -1 && haveFixedLayer != j) {
-            bool needComposite = true;
-            int stop = 0;
-            if (stopAtFixedLayer)
-                stop = haveFixedLayer + 1;
 
-            for (int k = j - 1; k >= stop; --k) {
-                RenderLayer* aLayer = list->at(k);
-                if (aLayer && aLayer->renderer()) {
-                    IntRect bounds = aLayer->renderer()->localToAbsoluteQuad(
-                        FloatRect(aLayer->localBoundingBox())).enclosingBoundingBox();
-                    if (bounds.contains(currentLayerBounds)
-                        && needsToBeComposited(aLayer) && aLayer->isStackingContext()) {
-                        needComposite = false;
-                        break;
-                    }
-                }
-            }
-            currentLayer->setShouldComposite(needComposite);
-        }
+        if (haveFixedLayer != -1 && haveFixedLayer != j)
+            currentLayer->setShouldComposite(true);
     }
-    return fixedSibling;
+    return positionedSibling || fixedSibling;
 }
 
 #endif
@@ -707,16 +720,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
         if (compositingState.m_subtreeIsCompositing || !compositingState.m_compositingBounds.contains(absBounds))
             mustOverlapCompositedLayers = overlapsCompositedLayers(*overlapMap, absBounds);
     }
-    
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-    if (compositingState.m_fixedSibling)
-        layer->setMustOverlapCompositedLayers(layer->shouldComposite());
-    else
-        layer->setMustOverlapCompositedLayers(mustOverlapCompositedLayers);
-#else
+
     layer->setMustOverlapCompositedLayers(mustOverlapCompositedLayers);
-#endif
-    
+
     // The children of this layer don't need to composite, unless there is
     // a compositing layer among them, so start by inheriting the compositing
     // ancestor with m_subtreeIsCompositing set to false.
@@ -730,6 +736,11 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 #endif
 
     bool willBeComposited = needsToBeComposited(layer);
+
+#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+    willBeComposited |= layer->shouldComposite();
+    layer->setMustOverlapCompositedLayers(layer->shouldComposite());
+#endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // tell the parent it has scrollable descendants.
@@ -763,9 +774,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
         if (Vector<RenderLayer*>* negZOrderList = layer->negZOrderList()) {
             size_t listSize = negZOrderList->size();
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-            childState.m_fixedSibling = compositingState.m_fixedSibling;
-            if (checkForFixedLayers(negZOrderList, false))
-                childState.m_fixedSibling = true;
+            childState.m_positionedSibling = compositingState.m_positionedSibling;
+            if (checkForPositionedElements(negZOrderList))
+                childState.m_positionedSibling = true;
 #endif
             for (size_t i = 0; i < listSize; ++i) {
                 RenderLayer* curLayer = negZOrderList->at(i);
@@ -800,9 +811,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
     if (Vector<RenderLayer*>* normalFlowList = layer->normalFlowList()) {
         size_t listSize = normalFlowList->size();
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-        childState.m_fixedSibling = compositingState.m_fixedSibling;
-        if (checkForFixedLayers(normalFlowList, true))
-            childState.m_fixedSibling = true;
+        childState.m_positionedSibling = compositingState.m_positionedSibling;
+        if (checkForPositionedElements(normalFlowList))
+            childState.m_positionedSibling = true;
 #endif
         for (size_t i = 0; i < listSize; ++i) {
             RenderLayer* curLayer = normalFlowList->at(i);
@@ -814,9 +825,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
         if (Vector<RenderLayer*>* posZOrderList = layer->posZOrderList()) {
             size_t listSize = posZOrderList->size();
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
-            childState.m_fixedSibling = compositingState.m_fixedSibling;
-            if (checkForFixedLayers(posZOrderList, true))
-                childState.m_fixedSibling = true;
+            childState.m_positionedSibling = compositingState.m_positionedSibling;
+            if (checkForPositionedElements(posZOrderList))
+                childState.m_positionedSibling = true;
 #endif
             for (size_t i = 0; i < listSize; ++i) {
                 RenderLayer* curLayer = posZOrderList->at(i);

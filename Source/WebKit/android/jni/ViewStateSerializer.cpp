@@ -269,7 +269,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
 
     // Next up, LayerAndroid fields
     stream->writeBool(layer->m_haveClip);
-    stream->writeBool(layer->isFixed());
+    stream->writeBool(layer->isPositionFixed());
     stream->writeBool(layer->m_backgroundColorSet);
     stream->writeBool(layer->isIFrame());
 
