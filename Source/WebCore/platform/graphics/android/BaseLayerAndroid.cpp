@@ -269,8 +269,11 @@ void BaseLayerAndroid::updateLayerPositions(const SkRect& visibleRect)
     TransformationMatrix ident;
     compositedRoot->updateLayerPositions(visibleRect);
     FloatRect clip(0, 0, content()->width(), content()->height());
-    compositedRoot->updateGLPositionsAndScale(
-        ident, clip, 1, m_state->zoomManager()->layersScale());
+
+    // Note that this function may be called (and should still work) with no m_state in SW mode
+    // TODO: is this the best thing to do in software rendering
+    float scale = m_state ? m_state->scale() : 1.0f;
+    compositedRoot->updateGLPositionsAndScale(ident, clip, 1, scale);
 
 #ifdef DEBUG
     compositedRoot->showLayer(0);
