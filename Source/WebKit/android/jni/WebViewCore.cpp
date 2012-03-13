@@ -484,7 +484,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
-    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZZLjava/lang/String;Ljava/lang/String;IIIILandroid/graphics/Rect;I)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZZZLjava/lang/String;Ljava/lang/String;IIIILandroid/graphics/Rect;I)V");
     m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
     m_javaGlue->m_chromeCanTakeFocus = GetJMethod(env, clazz, "chromeCanTakeFocus", "(I)Z");
     m_javaGlue->m_chromeTakeFocus = GetJMethod(env, clazz, "chromeTakeFocus", "(I)V");
@@ -1360,19 +1360,16 @@ static bool isContentEditable(const WebCore::Node* node)
 {
     if (!node)
         return false;
-    Frame* frame = node->document()->frame();
-    if (!frame)
-        return false;
-    return frame->selection()->isContentEditable();
+    return node->isContentEditable();
 }
 
 // Returns true if the node is a textfield, textarea, or contentEditable
 static bool isTextInput(const WebCore::Node* node)
 {
-    if (isContentEditable(node))
-        return true;
     if (!node)
         return false;
+    if (isContentEditable(node))
+        return true;
     WebCore::RenderObject* renderer = node->renderer();
     return renderer && (renderer->isTextField() || renderer->isTextArea());
 }
@@ -3327,8 +3324,8 @@ void WebViewCore::initEditField(Node* node)
     PlatformKeyboardEvent tab(AKEYCODE_TAB, 0, 0, false, false, false, false);
     PassRefPtr<KeyboardEvent> tabEvent =
             KeyboardEvent::create(tab, document->defaultView());
-    Node* nextFocus = document->nextFocusableNode(node, tabEvent.get());
-    bool isNextText = isTextInput(nextFocus);
+    bool isNextText = isTextInput(document->nextFocusableNode(node, tabEvent.get()));
+    bool isPrevText = isTextInput(document->previousFocusableNode(node, tabEvent.get()));
     bool spellCheckEnabled = isSpellCheckEnabled(node);
     int maxLength = getMaxLength(node);
     String label = requestLabel(document->frame(), node);
@@ -3342,8 +3339,8 @@ void WebViewCore::initEditField(Node* node)
     SelectText* selectText = createSelectText(focusedFrame()->selection()->selection());
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
             reinterpret_cast<int>(node), fieldText, inputType,
-            spellCheckEnabled, autoComplete, isNextText, name, labelText,
-            start, end, reinterpret_cast<int>(selectText), maxLength,
+            spellCheckEnabled, autoComplete, isNextText, isPrevText, name,
+            labelText, start, end, reinterpret_cast<int>(selectText), maxLength,
             nodeBounds, layerId);
     checkException(env);
 }
