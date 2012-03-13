@@ -135,8 +135,9 @@ bool TransferQueue::checkObsolete(const TileTransferData* data)
     }
 
     BaseTileTexture* baseTileTexture = baseTilePtr->backTexture();
-    if (!baseTileTexture) {
-        ALOGV("Invalid baseTileTexture , such that the tile is obsolete");
+    if (!baseTileTexture || baseTileTexture != data->savedBaseTileTexturePtr) {
+        ALOGV("Invalid baseTileTexture %p (vs expected %p), such that the tile is obsolete",
+              baseTileTexture, data->savedBaseTileTexturePtr);
         return true;
     }
 
