@@ -196,6 +196,11 @@ public:
     void pruneCustomFontData(const FontData*);
     void pruneFontData(const SimpleFontData*, unsigned level = 0);
 
+#if PLATFORM(ANDROID)
+    static void resetRoots();
+    void resetChildren();
+#endif
+
     GlyphPageTreeNode* parent() const { return m_parent; }
     GlyphPageTreeNode* getChild(const FontData*, unsigned pageNumber);
 
