@@ -17,8 +17,11 @@ PictureSetLayerContent::~PictureSetLayerContent()
 
 void PictureSetLayerContent::draw(SkCanvas* canvas)
 {
-    if (!m_pictureSet.isEmpty())
-        m_pictureSet.draw(canvas);
+    if (m_pictureSet.isEmpty())
+        return;
+
+    android::Mutex::Autolock lock(m_drawLock);
+    m_pictureSet.draw(canvas);
 }
 
 void PictureSetLayerContent::serialize(SkWStream* stream)

@@ -611,14 +611,9 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(baseLayer);
     if (!layerImpl)
         return false;
-    if (!layerImpl->countChildren())
-        return false;
-    LayerAndroid* compositedRoot = static_cast<LayerAndroid*>(layerImpl->getChild(0));
-    if (!compositedRoot)
-        return false;
 
     VideoLayerAndroid* videoLayer =
-        static_cast<VideoLayerAndroid*>(compositedRoot->findById(videoLayerId));
+        static_cast<VideoLayerAndroid*>(layerImpl->findById(videoLayerId));
     if (!videoLayer)
         return false;
 

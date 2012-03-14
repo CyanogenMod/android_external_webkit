@@ -42,11 +42,11 @@ namespace WebCore {
 
 class TiledTexture {
 public:
-    TiledTexture()
+    TiledTexture(bool isBaseSurface)
         : m_prevTileX(0)
         , m_prevTileY(0)
         , m_scale(1)
-        , m_swapWhateverIsReady(false)
+        , m_isBaseSurface(isBaseSurface)
     {
         m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
@@ -63,7 +63,7 @@ public:
     void swapTiles();
     bool drawGL(const IntRect& visibleArea, float opacity, const TransformationMatrix* transform);
 
-    void prepareTile(int x, int y, TilePainter* painter);
+    void prepareTile(int x, int y, TilePainter* painter, GLWebViewState* state);
     void markAsDirty(const SkRegion& dirtyArea);
 
     BaseTile* getTile(int x, int y);
@@ -91,13 +91,13 @@ private:
     int m_prevTileY;
     float m_scale;
 
-    bool m_swapWhateverIsReady;
+    bool m_isBaseSurface;
 };
 
 class DualTiledTexture : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
-    DualTiledTexture();
+    DualTiledTexture(bool isBaseSurface);
     ~DualTiledTexture();
     void prepareGL(GLWebViewState* state, bool allowZoom,
                  const IntRect& prepareArea, TilePainter* painter);

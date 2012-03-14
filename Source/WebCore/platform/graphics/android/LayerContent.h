@@ -27,6 +27,7 @@
 #define LayerContent_h
 
 #include "SkRefCnt.h"
+#include <utils/threads.h>
 
 class SkCanvas;
 class SkPicture;
@@ -44,6 +45,10 @@ public:
     virtual void draw(SkCanvas* canvas) = 0;
 
     virtual void serialize(SkWStream* stream) = 0;
+
+protected:
+    // used to prevent parallel draws, as both SkPicture and PictureSet don't support them
+    android::Mutex m_drawLock;
 };
 
 } // WebCore

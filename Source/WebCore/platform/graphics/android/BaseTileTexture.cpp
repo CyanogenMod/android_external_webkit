@@ -131,7 +131,7 @@ void BaseTileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
          if (isPureColor())
              shader->drawQuad(rect, 0, opacity, pureColor());
          else
-            shader->drawQuad(rect, m_ownTextureId, opacity);
+             shader->drawQuad(rect, m_ownTextureId, opacity);
     }
 }
 

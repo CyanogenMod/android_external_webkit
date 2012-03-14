@@ -47,10 +47,8 @@
 namespace WebCore {
 
 BaseTile::BaseTile(bool isLayerTile)
-    : m_glWebViewState(0)
-    , m_x(-1)
+    : m_x(-1)
     , m_y(-1)
-    , m_page(0)
     , m_frontTexture(0)
     , m_backTexture(0)
     , m_scale(1)

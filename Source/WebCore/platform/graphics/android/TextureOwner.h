@@ -31,7 +31,6 @@ class Layer;
 
 namespace WebCore {
 
-class TiledPage;
 class BaseTileTexture;
 class GLWebViewState;
 
@@ -39,8 +38,6 @@ class TextureOwner {
 public:
     virtual ~TextureOwner() { }
     virtual bool removeTexture(BaseTileTexture* texture) = 0;
-    virtual TiledPage* page() = 0;
-    virtual GLWebViewState* state() = 0;
     virtual bool samePageAs(Layer* root) { return false; }
     virtual bool isRepaintPending() = 0;
     virtual unsigned long long drawCount() = 0;

@@ -35,9 +35,7 @@
 #include "SkCanvas.h"
 #include "SkRect.h"
 #include "SkRegion.h"
-#include "TiledPage.h"
 #include "SurfaceCollectionManager.h"
-#include "ZoomManager.h"
 #include <utils/threads.h>
 
 // Performance measurements probe
@@ -171,39 +169,16 @@ public:
     GLWebViewState();
     ~GLWebViewState();
 
-    ZoomManager* zoomManager() { return &m_zoomManager; }
-    const SkIRect& futureViewport() const { return m_futureViewportTileBounds; }
-    void setFutureViewport(const SkIRect& viewport) { m_futureViewportTileBounds = viewport; }
-
-    void paintBaseLayerContent(SkCanvas* canvas);
     bool setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndicator,
                       bool isPictureAfterFirstLayout);
     void paintExtras();
 
     GLExtras* glExtras() { return &m_glExtras; }
 
-    TiledPage* sibling(TiledPage* page);
-    TiledPage* frontPage();
-    TiledPage* backPage();
-    void swapPages();
-
-    // dimensions of the current base layer
-    int baseContentWidth();
-    int baseContentHeight();
-
-    // a rect containing the coordinates of all tiles in the current viewport
-    const SkIRect& viewportTileBounds() const { return m_viewportTileBounds; }
-    // a rect containing the viewportTileBounds before there was a scale change
-    const SkIRect& preZoomBounds() const { return m_preZoomBounds; }
-    void setPreZoomBounds(const SkIRect& bounds) { m_preZoomBounds = bounds; }
-
     void setIsScrolling(bool isScrolling) { m_isScrolling = isScrolling; }
     bool isScrolling() { return m_isScrolling || m_isViewportScrolling; }
 
-    void drawBackground(Color& backgroundColor);
-
     bool setLayersRenderingMode(TexturesResult&);
-    void fullInval();
 
     bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                 IntRect& webViewRect, int titleBarHeight,
@@ -214,7 +189,6 @@ public:
     void dumpMeasures();
 #endif
 
-    void resetFrameworkInval();
     void addDirtyArea(const IntRect& rect);
     void resetLayersDirtyArea();
 
@@ -224,9 +198,6 @@ public:
         m_goingDown = goingDown;
         m_goingLeft = goingLeft;
     }
-
-    int expandedTileBoundsX() { return m_expandedTileBoundsX; }
-    int expandedTileBoundsY() { return m_expandedTileBoundsY; }
 
     float scale() { return m_scale; }
 
@@ -242,10 +213,7 @@ public:
     LayersRenderingMode layersRenderingMode() { return m_layersRenderingMode; }
     void scrollLayer(int layerId, int x, int y);
 
-    void invalRegion(const SkRegion& region);
-
 private:
-    void inval(const IntRect& rect);
     void setViewport(const SkRect& viewport, float scale);
     double setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
                         const IntRect& webViewRect, int titleBarHeight,
@@ -255,18 +223,7 @@ private:
                             float b, float a);
     double m_prevDrawTime;
 
-    ZoomManager m_zoomManager;
-    android::Mutex m_tiledPageLock;
     SkRect m_viewport;
-    SkIRect m_viewportTileBounds;
-    SkIRect m_futureViewportTileBounds;
-    SkIRect m_preZoomBounds;
-
-    bool m_usePageA;
-    TiledPage* m_tiledPageA;
-    TiledPage* m_tiledPageB;
-    IntRect m_lastInval;
-    IntRect m_frameworkInval;
     IntRect m_frameworkLayersInval;
 
 #ifdef MEASURES_PERF
@@ -281,9 +238,6 @@ private:
     bool m_isViewportScrolling;
     bool m_goingDown;
     bool m_goingLeft;
-
-    int m_expandedTileBoundsX;
-    int m_expandedTileBoundsY;
 
     float m_scale;
 

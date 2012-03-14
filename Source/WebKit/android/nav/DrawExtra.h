@@ -54,7 +54,6 @@ namespace android {
 class DrawExtra {
 public:
     virtual ~DrawExtra() {}
-    virtual void drawLegacy(SkCanvas* , LayerAndroid* , IntRect* ) {}
     virtual void draw(SkCanvas*, LayerAndroid*) {}
     virtual void drawGL(GLExtras*, const LayerAndroid*) {}
 };

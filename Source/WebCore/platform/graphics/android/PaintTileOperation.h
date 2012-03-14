@@ -38,7 +38,7 @@ class ImageTexture;
 
 class PaintTileOperation : public QueuedOperation {
 public:
-    PaintTileOperation(BaseTile* tile, TilePainter* painter);
+    PaintTileOperation(BaseTile* tile, TilePainter* painter, GLWebViewState* state);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
@@ -50,6 +50,7 @@ public:
 private:
     BaseTile* m_tile;
     TilePainter* m_painter;
+    GLWebViewState* m_state;
 };
 
 class ScaleFilter : public OperationFilter {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2010, The Android Open Source Project
+ * Copyright 2012, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,67 +26,34 @@
 #ifndef BaseLayerAndroid_h
 #define BaseLayerAndroid_h
 
-#include <utils/threads.h>
-
 #include "Color.h"
-#include "Layer.h"
-#include "PictureSet.h"
-#include "LayerContent.h"
+#include "LayerAndroid.h"
 
 namespace WebCore {
 
-class TiledPage;
+class RenderLayerCompositor;
 
-class BaseLayerAndroid : public Layer {
+class BaseLayerAndroid : public LayerAndroid {
 
 public:
-    enum ScrollState {
-        NotScrolling = 0,
-        Scrolling = 1,
-        ScrollingFinishPaint = 2
-    };
+    BaseLayerAndroid(LayerContent* content);
 
-    BaseLayerAndroid();
-    virtual ~BaseLayerAndroid();
+    virtual ~BaseLayerAndroid() {};
 
-#if USE(ACCELERATED_COMPOSITING)
+    virtual SubclassType subclassType() { return LayerAndroid::BaseLayer; }
+    virtual bool needsTexture() { return true; }
+
     void setBackgroundColor(Color& color) { m_color = color; }
     Color getBackgroundColor() { return m_color; }
-#endif
-    void setContent(LayerContent* content);
-    LayerContent* content() { return m_content; }
 
-    // This method will paint using the current PictureSet onto
-    // the passed canvas. We used it to paint the GL tiles as well as
-    // WebView::copyBaseContentToPicture(), so a lock is necessary as
-    // we are running in different threads.
-    virtual bool drawCanvas(SkCanvas* canvas);
-
-    void updateLayerPositions(const SkRect& visibleRect);
-    void prepareGL(const SkRect& visibleRect, float scale, double currentTime);
-    void drawGL(float scale);
-
-    // rendering asset management
-    void swapTiles();
-    void setIsDrawing(bool isDrawing);
-    void setIsPainting();
-    void mergeInvalsInto(BaseLayerAndroid* replacementLayer);
-    bool isReady();
+    virtual void getLocalTransform(SkMatrix* matrix) const;
+    virtual const TransformationMatrix* drawTransform() const { return 0; }
 
 private:
-#if USE(ACCELERATED_COMPOSITING)
-    void prefetchBasePicture(const SkRect& viewport, float currentScale,
-                             TiledPage* prefetchTiledPage, bool draw);
-    void drawBasePictureInGL();
-
-    android::Mutex m_drawLock;
+    // TODO: move to SurfaceCollection.
     Color m_color;
-#endif
-    LayerContent* m_content;
-
-    ScrollState m_scrollState;
 };
 
 } // namespace WebCore
 
-#endif // BaseLayerAndroid_h
+#endif //BaseLayerAndroid_h

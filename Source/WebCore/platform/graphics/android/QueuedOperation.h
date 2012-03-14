@@ -28,38 +28,18 @@
 
 namespace WebCore {
 
-class TiledPage;
-
 class QueuedOperation {
 public:
-    QueuedOperation(TiledPage* page)
-        : m_page(page) {}
     virtual ~QueuedOperation() {}
     virtual void run() = 0;
     virtual bool operator==(const QueuedOperation* operation) = 0;
-    virtual int priority() { return -1; }
-    TiledPage* page() const { return m_page; }
-private:
-    TiledPage* m_page;
+    virtual int priority() = 0;
 };
 
 class OperationFilter {
 public:
     virtual ~OperationFilter() {}
     virtual bool check(QueuedOperation* operation) = 0;
-};
-
-class PageFilter : public OperationFilter {
-public:
-    PageFilter(TiledPage* page) : m_page(page) {}
-    virtual bool check(QueuedOperation* operation)
-    {
-        if (operation->page() == m_page)
-            return true;
-        return false;
-    }
-private:
-    TiledPage* m_page;
 };
 
 }

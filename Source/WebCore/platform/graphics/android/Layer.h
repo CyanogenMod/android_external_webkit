@@ -120,7 +120,7 @@ public:
         This does not include the childrenMatrix, since that is only applied
         after this layer draws (but before its children draw).
      */
-    void getLocalTransform(SkMatrix* matrix) const;
+    virtual void getLocalTransform(SkMatrix* matrix) const;
 
     /** Return, in matrix, the concatenation of transforms that are applied
         from this layer's root parent to the layer itself.

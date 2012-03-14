@@ -158,17 +158,18 @@ IntRect LayerGroup::visibleArea()
 
 void LayerGroup::prepareGL(bool layerTilesDisabled)
 {
+    bool tilesDisabled = layerTilesDisabled && !isBase();
     if (!m_dualTiledTexture) {
         ALOGV("prepareGL on LG %p, no DTT, needsTexture? %d",
               this, m_dualTiledTexture, needsTexture());
 
-        if (needsTexture())
-            m_dualTiledTexture = new DualTiledTexture();
-        else
+        if (!needsTexture())
             return;
+
+        m_dualTiledTexture = new DualTiledTexture(isBase());
     }
 
-    if (layerTilesDisabled) {
+    if (tilesDisabled) {
         m_dualTiledTexture->discardTextures();
     } else {
         bool allowZoom = hasText(); // only allow for scale > 1 if painting vectors
@@ -183,15 +184,19 @@ void LayerGroup::prepareGL(bool layerTilesDisabled)
 
 bool LayerGroup::drawGL(bool layerTilesDisabled)
 {
+    bool tilesDisabled = layerTilesDisabled && !isBase();
     if (!getFirstLayer()->visible())
         return false;
 
-    FloatRect drawClip = getFirstLayer()->drawClip();
-    FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip);
-    TilesManager::instance()->shader()->clip(clippingRect);
+    if (!isBase()) {
+        // TODO: why are clipping regions wrong for base layer?
+        FloatRect drawClip = getFirstLayer()->drawClip();
+        FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip);
+        TilesManager::instance()->shader()->clip(clippingRect);
+    }
 
     bool askRedraw = false;
-    if (m_dualTiledTexture && !layerTilesDisabled) {
+    if (m_dualTiledTexture && !tilesDisabled) {
         ALOGV("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
 
         IntRect drawArea = visibleArea();
@@ -200,7 +205,7 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
 
     // draw member layers (draws image textures, glextras)
     for (unsigned int i = 0; i < m_layers.size(); i++)
-        askRedraw |= m_layers[i]->drawGL(layerTilesDisabled);
+        askRedraw |= m_layers[i]->drawGL(tilesDisabled);
 
     return askRedraw;
 }
@@ -225,6 +230,7 @@ IntRect LayerGroup::computePrepareArea() {
     IntRect area;
 
     if (!getFirstLayer()->contentIsScrollable()
+        && !isBase()
         && getFirstLayer()->state()->layersRenderingMode() == GLWebViewState::kAllTextures) {
 
         area = singleLayer() ? getFirstLayer()->unclippedArea() : m_unclippedArea;
@@ -241,16 +247,34 @@ IntRect LayerGroup::computePrepareArea() {
 
 void LayerGroup::computeTexturesAmount(TexturesResult* result)
 {
-    if (!m_dualTiledTexture)
+    if (!m_dualTiledTexture || isBase())
         return;
 
     m_dualTiledTexture->computeTexturesAmount(result, getFirstLayer());
+}
+
+bool LayerGroup::isBase()
+{
+    // base layer group
+    // - doesn't use layer tiles (disables blending, doesn't compute textures amount)
+    // - ignores clip rects
+    // - only prepares clippedArea
+    return getFirstLayer()->subclassType() == LayerAndroid::BaseLayer;
 }
 
 bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas)
 {
     if (singleLayer()) {
         getFirstLayer()->contentDraw(canvas, Layer::UnmergedLayers);
+
+        // TODO: double buffer by disabling SurfaceCollection swaps and position
+        // updates until painting complete
+
+        // In single surface mode, draw layer content onto the base layer
+        if (isBase()
+            && getFirstLayer()->countChildren()
+            && getFirstLayer()->state()->layersRenderingMode() > GLWebViewState::kClippedTextures)
+            getFirstLayer()->getChild(0)->drawCanvas(canvas, true, Layer::FlattenedLayers);
     } else {
         SkAutoCanvasRestore acr(canvas, true);
         SkMatrix matrix;

@@ -92,14 +92,14 @@ void TilesProfiler::nextFrame(int left, int top, int right, int bottom, float sc
                                 scale, true, (int)(timeDelta * 1000)));
 }
 
-void TilesProfiler::nextTile(BaseTile& tile, float scale, bool inView)
+void TilesProfiler::nextTile(BaseTile* tile, float scale, bool inView)
 {
     if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES) || (m_records.size() == 0))
         return;
 
-    bool isReady = tile.isTileReady();
-    int left = tile.x() * TilesManager::tileWidth();
-    int top = tile.y() * TilesManager::tileWidth();
+    bool isReady = tile->isTileReady();
+    int left = tile->x() * TilesManager::tileWidth();
+    int top = tile->y() * TilesManager::tileWidth();
     int right = left + TilesManager::tileWidth();
     int bottom = top + TilesManager::tileWidth();
 
@@ -111,20 +111,20 @@ void TilesProfiler::nextTile(BaseTile& tile, float scale, bool inView)
     }
     m_records.last().append(TileProfileRecord(
                                 left, top, right, bottom,
-                                scale, isReady, (int)tile.drawCount()));
+                                scale, isReady, (int)tile->drawCount()));
     ALOGV("adding tile %d %d %d %d, scale %f", left, top, right, bottom, scale);
 }
 
-void TilesProfiler::nextInval(const IntRect& rect, float scale)
+void TilesProfiler::nextInval(const SkIRect& rect, float scale)
 {
     if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES) || (m_records.size() == 0))
         return;
 
     m_records.last().append(TileProfileRecord(
                                 rect.x(), rect.y(),
-                                rect.maxX(), rect.maxY(), scale, false, INVAL_CODE));
+                                rect.right(), rect.bottom(), scale, false, INVAL_CODE));
     ALOGV("adding inval region %d %d %d %d, scale %f", rect.x(), rect.y(),
-          rect.maxX(), rect.maxY(), scale);
+          rect.right(), rect.bottom(), scale);
 }
 
 } // namespace WebCore

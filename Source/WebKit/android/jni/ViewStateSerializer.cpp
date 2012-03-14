@@ -92,14 +92,13 @@ static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jint v
     SkStream* stream = CreateJavaInputStreamAdaptor(env, jstream, jstorage);
     if (!stream)
         return 0;
-    BaseLayerAndroid* layer = new BaseLayerAndroid();
     Color color = stream->readU32();
-#if USE(ACCELERATED_COMPOSITING)
-    layer->setBackgroundColor(color);
-#endif
     SkPicture* picture = new SkPicture(stream);
     PictureLayerContent* content = new PictureLayerContent(picture);
-    layer->setContent(content);
+
+    BaseLayerAndroid* layer = new BaseLayerAndroid(content);
+    layer->setBackgroundColor(color);
+
     SkSafeUnref(content);
     SkSafeUnref(picture);
     int childCount = stream->readS32();
