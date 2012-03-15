@@ -337,6 +337,7 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_sendViewInvalidate;
     jmethodID   m_updateTextfield;
     jmethodID   m_updateTextSelection;
+    jmethodID   m_updateTextSizeAndScroll;
     jmethodID   m_clearTextEntry;
     jmethodID   m_restoreScale;
     jmethodID   m_needTouchEvents;
@@ -471,6 +472,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
     m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
     m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIIII)V");
+    m_javaGlue->m_updateTextSizeAndScroll = GetJMethod(env, clazz, "updateTextSizeAndScroll", "(IIIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
     m_javaGlue->m_restoreScale = GetJMethod(env, clazz, "restoreScale", "(FF)V");
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
@@ -3799,6 +3801,24 @@ void WebViewCore::updateTextSelection()
     env->CallVoidMethod(javaObject.get(),
             m_javaGlue->m_updateTextSelection, reinterpret_cast<int>(currentFocus()),
             start, end, m_textGeneration, reinterpret_cast<int>(selectText));
+    checkException(env);
+}
+
+void WebViewCore::updateTextSizeAndScroll(WebCore::Node* node)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    AutoJObject javaObject = m_javaGlue->object(env);
+    if (!javaObject.get())
+        return;
+    RenderTextControl* rtc = toRenderTextControl(node);
+    if (!rtc)
+        return;
+    int width = rtc->scrollWidth();
+    int height = rtc->contentHeight();
+    int scrollX = rtc->scrollLeft();
+    int scrollY = rtc->scrollTop();
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_updateTextSizeAndScroll,
+            reinterpret_cast<int>(node), width, height, scrollX, scrollY);
     checkException(env);
 }
 

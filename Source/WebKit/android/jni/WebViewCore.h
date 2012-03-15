@@ -229,6 +229,12 @@ namespace android {
          */
         void updateTextSelection();
 
+        /**
+         * Updates the java side with the node's content size and scroll
+         * position.
+         */
+        void updateTextSizeAndScroll(WebCore::Node* node);
+
         void clearTextEntry();
         // JavaScript support
         void jsAlert(const WTF::String& url, const WTF::String& text);

@@ -228,8 +228,22 @@ void EditorClientAndroid::checkGrammarOfString(unsigned short const*, int, WTF::
 void EditorClientAndroid::checkSpellingOfString(unsigned short const*, int, int*, int*) {}
 String EditorClientAndroid::getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
 void EditorClientAndroid::textFieldDidEndEditing(Element*) {}
-void EditorClientAndroid::textDidChangeInTextArea(Element*) {}
-void EditorClientAndroid::textDidChangeInTextField(Element*) {}
+void EditorClientAndroid::textDidChangeInTextArea(Element* element)
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->view())
+        return;
+    WebViewCore* webViewCore = WebViewCore::getWebViewCore(frame->view());
+    webViewCore->updateTextSizeAndScroll(element);
+}
+void EditorClientAndroid::textDidChangeInTextField(Element* element)
+{
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (!frame || !frame->view())
+        return;
+    WebViewCore* webViewCore = WebViewCore::getWebViewCore(frame->view());
+    webViewCore->updateTextSizeAndScroll(element);
+}
 void EditorClientAndroid::textFieldDidBeginEditing(Element*) {}
 void EditorClientAndroid::ignoreWordInSpellDocument(String const&) {}
 
