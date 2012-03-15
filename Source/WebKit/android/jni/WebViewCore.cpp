@@ -384,6 +384,23 @@ struct WebViewCore::JavaGlue {
     }
 };
 
+struct WebViewCore::TextFieldInitDataGlue {
+    jmethodID  m_constructor;
+    jfieldID   m_fieldPointer;
+    jfieldID   m_text;
+    jfieldID   m_type;
+    jfieldID   m_isSpellCheckEnabled;
+    jfieldID   m_isTextFieldNext;
+    jfieldID   m_isTextFieldPrev;
+    jfieldID   m_isAutoCompleteEnabled;
+    jfieldID   m_name;
+    jfieldID   m_label;
+    jfieldID   m_maxLength;
+    jfieldID   m_nodeBounds;
+    jfieldID   m_nodeLayerId;
+    jfieldID   m_contentRect;
+};
+
 /*
  * WebViewCore Implementation
  */
@@ -399,6 +416,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     : m_touchGeneration(0)
     , m_lastGeneration(0)
     , m_javaGlue(new JavaGlue)
+    , m_textFieldInitDataGlue(new TextFieldInitDataGlue)
     , m_mainFrame(mainframe)
     , m_popupReply(0)
     , m_blurringNodePointer(0)
@@ -486,13 +504,30 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
-    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(ILjava/lang/String;IZZZZLjava/lang/String;Ljava/lang/String;IIIILandroid/graphics/Rect;I)V");
+    m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(IIILandroid/webkit/WebViewCore$TextFieldInitData;)V");
     m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
     m_javaGlue->m_chromeCanTakeFocus = GetJMethod(env, clazz, "chromeCanTakeFocus", "(I)Z");
     m_javaGlue->m_chromeTakeFocus = GetJMethod(env, clazz, "chromeTakeFocus", "(I)V");
     env->DeleteLocalRef(clazz);
 
     env->SetIntField(javaWebViewCore, gWebViewCoreFields.m_nativeClass, (jint)this);
+
+    jclass tfidClazz = env->FindClass("android/webkit/WebViewCore$TextFieldInitData");
+    m_textFieldInitDataGlue->m_fieldPointer = env->GetFieldID(tfidClazz, "mFieldPointer", "I");
+    m_textFieldInitDataGlue->m_text = env->GetFieldID(tfidClazz, "mText", "Ljava/lang/String;");
+    m_textFieldInitDataGlue->m_type = env->GetFieldID(tfidClazz, "mType", "I");
+    m_textFieldInitDataGlue->m_isSpellCheckEnabled = env->GetFieldID(tfidClazz, "mIsSpellCheckEnabled", "Z");
+    m_textFieldInitDataGlue->m_isTextFieldNext = env->GetFieldID(tfidClazz, "mIsTextFieldNext", "Z");
+    m_textFieldInitDataGlue->m_isTextFieldPrev = env->GetFieldID(tfidClazz, "mIsTextFieldPrev", "Z");
+    m_textFieldInitDataGlue->m_isAutoCompleteEnabled = env->GetFieldID(tfidClazz, "mIsAutoCompleteEnabled", "Z");
+    m_textFieldInitDataGlue->m_name = env->GetFieldID(tfidClazz, "mName", "Ljava/lang/String;");
+    m_textFieldInitDataGlue->m_label = env->GetFieldID(tfidClazz, "mLabel", "Ljava/lang/String;");
+    m_textFieldInitDataGlue->m_maxLength = env->GetFieldID(tfidClazz, "mMaxLength", "I");
+    m_textFieldInitDataGlue->m_nodeBounds = env->GetFieldID(tfidClazz, "mNodeBounds", "Landroid/graphics/Rect;");
+    m_textFieldInitDataGlue->m_nodeLayerId = env->GetFieldID(tfidClazz, "mNodeLayerId", "I");
+    m_textFieldInitDataGlue->m_contentRect = env->GetFieldID(tfidClazz, "mContentRect", "Landroid/graphics/Rect;");
+    m_textFieldInitDataGlue->m_constructor = GetJMethod(env, tfidClazz, "<init>", "()V");
+    env->DeleteLocalRef(tfidClazz);
 
     PageGroup::setShouldTrackVisitedLinks(true);
 
@@ -3311,40 +3346,66 @@ WebCore::IntRect WebViewCore::boundingRect(WebCore::Node* node,
     return boundingRect;
 }
 
+jobject WebViewCore::createTextFieldInitData(Node* node)
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    TextFieldInitDataGlue* classDef = m_textFieldInitDataGlue;
+    jclass clazz = env->FindClass("android/webkit/WebViewCore$TextFieldInitData");
+    jobject initData = env->NewObject(clazz, classDef->m_constructor);
+    env->SetIntField(initData, classDef->m_fieldPointer,
+            reinterpret_cast<int>(node));
+    env->SetObjectField(initData, classDef->m_text,
+            wtfStringToJstring(env, getInputText(node), true));
+    env->SetIntField(initData, classDef->m_type, getInputType(node));
+    env->SetBooleanField(initData, classDef->m_isSpellCheckEnabled,
+            isSpellCheckEnabled(node));
+    Document* document = node->document();
+    PlatformKeyboardEvent tab(AKEYCODE_TAB, 0, 0, false, false, false, false);
+    PassRefPtr<KeyboardEvent> tabEvent =
+            KeyboardEvent::create(tab, document->defaultView());
+    env->SetBooleanField(initData, classDef->m_isTextFieldNext,
+            isTextInput(document->nextFocusableNode(node, tabEvent.get())));
+    env->SetBooleanField(initData, classDef->m_isTextFieldPrev,
+            isTextInput(document->previousFocusableNode(node, tabEvent.get())));
+    env->SetBooleanField(initData, classDef->m_isAutoCompleteEnabled,
+            isAutoCompleteEnabled(node));
+    env->SetObjectField(initData, classDef->m_name,
+            wtfStringToJstring(env, getFieldName(node), false));
+    env->SetObjectField(initData, classDef->m_name,
+            wtfStringToJstring(env, requestLabel(document->frame(), node), false));
+    env->SetIntField(initData, classDef->m_maxLength, getMaxLength(node));
+    LayerAndroid* layer = 0;
+    int layerId = platformLayerIdFromNode(node, &layer);
+    IntRect bounds = boundingRect(node, layer);
+    env->SetObjectField(initData, classDef->m_nodeBounds,
+            intRectToRect(env, bounds));
+    env->SetIntField(initData, classDef->m_nodeLayerId, layerId);
+    IntRect contentRect;
+    RenderTextControl* rtc = toRenderTextControl(node);
+    if (rtc) {
+        contentRect.setWidth(rtc->scrollWidth());
+        contentRect.setHeight(rtc->scrollHeight());
+        contentRect.move(-rtc->scrollLeft(), -rtc->scrollTop());
+    }
+    env->SetObjectField(initData, classDef->m_contentRect,
+            intRectToRect(env, contentRect));
+    return initData;
+}
+
 void WebViewCore::initEditField(Node* node)
 {
-    String text = getInputText(node);
-    int start = 0;
-    int end = 0;
-    getSelectionOffsets(node, start, end);
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
         return;
     m_textGeneration = 0;
-    InputType inputType = getInputType(node);
-    Document* document = node->document();
-    PlatformKeyboardEvent tab(AKEYCODE_TAB, 0, 0, false, false, false, false);
-    PassRefPtr<KeyboardEvent> tabEvent =
-            KeyboardEvent::create(tab, document->defaultView());
-    bool isNextText = isTextInput(document->nextFocusableNode(node, tabEvent.get()));
-    bool isPrevText = isTextInput(document->previousFocusableNode(node, tabEvent.get()));
-    bool spellCheckEnabled = isSpellCheckEnabled(node);
-    int maxLength = getMaxLength(node);
-    String label = requestLabel(document->frame(), node);
-    bool autoComplete = isAutoCompleteEnabled(node);
-    jstring name = wtfStringToJstring(env, getFieldName(node), false);
-    jstring fieldText = wtfStringToJstring(env, text, true);
-    jstring labelText = wtfStringToJstring(env, text, false);
-    LayerAndroid* layer = 0;
-    int layerId = platformLayerIdFromNode(node, &layer);
-    jobject nodeBounds = intRectToRect(env, boundingRect(node, layer));
+    int start = 0;
+    int end = 0;
+    getSelectionOffsets(node, start, end);
     SelectText* selectText = createSelectText(focusedFrame()->selection()->selection());
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
-            reinterpret_cast<int>(node), fieldText, inputType,
-            spellCheckEnabled, autoComplete, isNextText, isPrevText, name,
-            labelText, start, end, reinterpret_cast<int>(selectText), maxLength,
-            nodeBounds, layerId);
+            start, end, reinterpret_cast<int>(selectText),
+            createTextFieldInitData(node));
     checkException(env);
 }
 

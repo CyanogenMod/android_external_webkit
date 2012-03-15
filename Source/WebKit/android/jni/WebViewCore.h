@@ -670,6 +670,7 @@ namespace android {
         void advanceAnchorNode(DOMSelection* selection, int direction, String& markup, bool ignoreFirstNode, ExceptionCode& ec);
         Node* getNextAnchorNode(Node* anchorNode, bool skipFirstHack, int direction);
         Node* getImplicitBoundaryNode(Node* node, unsigned offset, int direction);
+        jobject createTextFieldInitData(Node* node);
         /**
          * Calls into java to reset the text edit field with the
          * current contents and selection.
@@ -740,6 +741,8 @@ namespace android {
         friend class ListBoxReply;
         struct JavaGlue;
         struct JavaGlue*       m_javaGlue;
+        struct TextFieldInitDataGlue;
+        struct TextFieldInitDataGlue* m_textFieldInitDataGlue;
         WebCore::Frame*        m_mainFrame;
         WebCoreReply*          m_popupReply;
         int m_blurringNodePointer;
