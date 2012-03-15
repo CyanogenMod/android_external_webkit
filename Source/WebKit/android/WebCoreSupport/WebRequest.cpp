@@ -81,7 +81,6 @@ base::LazyInstance<RequestPackageName> s_packageName(base::LINKER_INITIALIZED);
 
 WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest)
     : m_urlLoader(loader)
-    , m_androidUrl(false)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
     , m_loadState(Created)
@@ -108,7 +107,6 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
 WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& webResourceRequest, UrlInterceptResponse* intercept)
     : m_urlLoader(loader)
     , m_interceptResponse(intercept)
-    , m_androidUrl(true)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
     , m_loadState(Created)
@@ -293,15 +291,9 @@ void WebRequest::handleInterceptedURL()
     // Get the MIME type from the URL. "text/html" is a last resort, hopefully overridden.
     std::string mimeType("text/html");
     if (mime == "") {
-        // Gmail appends the MIME to the end of the URL, with a ? separator.
-        size_t mimeTypeIndex = m_url.find_last_of('?');
-        if (mimeTypeIndex != std::string::npos) {
-            mimeType.assign(m_url.begin() + mimeTypeIndex + 1, m_url.end());
-        } else {
-            // Get the MIME type from the file extension, if any.
-            FilePath path(m_url);
-            net::GetMimeTypeFromFile(path, &mimeType);
-        }
+        // Get the MIME type from the file extension, if any.
+        FilePath path(m_url);
+        net::GetMimeTypeFromFile(path, &mimeType);
     } else {
         // Set from the intercept response.
         mimeType = mime;

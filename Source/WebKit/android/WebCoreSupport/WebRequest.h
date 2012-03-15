@@ -107,7 +107,6 @@ private:
     OwnPtr<net::URLRequest> m_request;
     scoped_refptr<net::IOBuffer> m_networkBuffer;
     scoped_ptr<UrlInterceptResponse> m_interceptResponse;
-    bool m_androidUrl;
     std::string m_url;
     std::string m_userAgent;
     LoadState m_loadState;
