@@ -2899,6 +2899,7 @@ void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
         renderText->clientWidth()));
     renderText->setScrollLeft(x);
     renderText->setScrollTop(y);
+    focus->document()->frame()->selection()->recomputeCaretRect();
 }
 
 void WebViewCore::setFocusControllerActive(bool active)
