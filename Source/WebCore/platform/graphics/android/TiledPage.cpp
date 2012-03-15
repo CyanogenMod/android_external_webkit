@@ -171,7 +171,7 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
             currentTile->setGLWebViewState(m_glWebViewState);
             currentTile->setPage(this);
 
-            currentTile->setContents(this, x, y, m_scale);
+            currentTile->setContents(x, y, m_scale);
 
             // TODO: move below (which is largely the same for layers / tiled
             // page) into prepare() function
@@ -183,7 +183,7 @@ void TiledPage::prepareRow(bool goingLeft, int tilesInRow, int firstTileX, int y
             if (currentTile->backTexture()
                     && currentTile->isDirty()
                     && !currentTile->isRepaintPending()) {
-                PaintTileOperation *operation = new PaintTileOperation(currentTile);
+                PaintTileOperation *operation = new PaintTileOperation(currentTile, this);
                 TilesManager::instance()->scheduleOperation(operation);
             }
         }

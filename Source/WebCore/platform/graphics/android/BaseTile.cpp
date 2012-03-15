@@ -48,7 +48,6 @@ namespace WebCore {
 
 BaseTile::BaseTile(bool isLayerTile)
     : m_glWebViewState(0)
-    , m_painter(0)
     , m_x(-1)
     , m_y(-1)
     , m_page(0)
@@ -85,11 +84,10 @@ BaseTile::~BaseTile()
 
 // All the following functions must be called from the main GL thread.
 
-void BaseTile::setContents(TilePainter* painter, int x, int y, float scale)
+void BaseTile::setContents(int x, int y, float scale)
 {
     // TODO: investigate whether below check/discard is necessary
-    if (!painter
-        || (m_x != x)
+    if ((m_x != x)
         || (m_y != y)
         || (m_scale != scale)) {
         // neither texture is relevant
@@ -97,7 +95,6 @@ void BaseTile::setContents(TilePainter* painter, int x, int y, float scale)
     }
 
     android::AutoMutex lock(m_atomicSync);
-    m_painter = painter;
     m_x = x;
     m_y = y;
     m_scale = scale;
@@ -288,7 +285,7 @@ bool BaseTile::isTileVisible(const IntRect& viewTileBounds)
 }
 
 // This is called from the texture generation thread
-void BaseTile::paintBitmap()
+void BaseTile::paintBitmap(TilePainter* painter)
 {
     // We acquire the values below atomically. This ensures that we are reading
     // values correctly across cores. Further, once we have these values they
@@ -300,7 +297,6 @@ void BaseTile::paintBitmap()
     float scale = m_scale;
     const int x = m_x;
     const int y = m_y;
-    TilePainter* painter = m_painter;
 
     if (!dirty || !texture) {
         m_atomicSync.unlock();

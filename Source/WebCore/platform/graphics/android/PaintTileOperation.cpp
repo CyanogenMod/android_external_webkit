@@ -67,7 +67,7 @@ bool PaintTileOperation::operator==(const QueuedOperation* operation)
 void PaintTileOperation::run()
 {
     if (m_tile) {
-        m_tile->paintBitmap();
+        m_tile->paintBitmap(m_painter);
         m_tile->setRepaintPending(false);
         m_tile = 0;
     }
