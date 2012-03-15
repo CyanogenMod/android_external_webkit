@@ -93,7 +93,9 @@ class TEST_EXPORT LayerAndroid : public Layer {
 public:
     typedef enum { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer } LayerType;
     typedef enum { StandardLayer, ScrollableLayer,
-                   IFrameLayer, IFrameContentLayer } SubclassType;
+                   IFrameLayer, IFrameContentLayer,
+                   CanvasLayer } SubclassType;
+    typedef enum { InvalidateNone = 0, InvalidateLayers } InvalidateFlags;
 
     String subclassName()
     {
@@ -106,6 +108,8 @@ public:
                 return "IFrameLayer";
             case LayerAndroid::IFrameContentLayer:
                 return "IFrameContentLayer";
+            case LayerAndroid::CanvasLayer:
+                return "CanvasLayer";
         }
         return "Undefined";
     }
@@ -230,7 +234,7 @@ public:
 
     virtual LayerAndroid* copy() const { return new LayerAndroid(*this); }
 
-    void clearDirtyRegion();
+    virtual void clearDirtyRegion();
 
     virtual void contentDraw(SkCanvas* canvas, PaintStyle style);
 
@@ -277,8 +281,11 @@ public:
 
     void setIntrinsicallyComposited(bool intCom) { m_intrinsicallyComposited = intCom; }
 
+    int setHwAccelerated(bool hwAccelerated);
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style);
+    virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated) { return InvalidateNone; }
     IntPoint m_offset;
     TransformationMatrix m_drawTransform;
 

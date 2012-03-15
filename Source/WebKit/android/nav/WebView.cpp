@@ -633,6 +633,17 @@ void mapLayerRect(int layerId, SkIRect& rect) {
     }
 }
 
+// This is called when WebView switches rendering modes in a more permanent fashion
+// such as when the layer type is set or the view is attached/detached from the window
+int setHwAccelerated(bool hwAccelerated) {
+    if (!m_glWebViewState)
+        return 0;
+    LayerAndroid* root = compositeRoot();
+    if (root)
+        return root->setHwAccelerated(hwAccelerated);
+    return 0;
+}
+
     bool m_isDrawingPaused;
 private: // local state for WebView
     // private to getFrameCache(); other functions operate in a different thread
@@ -1176,6 +1187,13 @@ static void nativeMapLayerRect(JNIEnv *env, jobject obj, jint nativeView,
     GraphicsJNI::irect_to_jrect(nativeRect, env, rect);
 }
 
+static jint nativeSetHwAccelerated(JNIEnv *env, jobject obj, jint nativeView,
+        jboolean hwAccelerated)
+{
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    return webview->setHwAccelerated(hwAccelerated);
+}
+
 /*
  * JNI registration
  */
@@ -1254,6 +1272,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeIsBaseFirst },
     { "nativeMapLayerRect", "(IILandroid/graphics/Rect;)V",
         (void*) nativeMapLayerRect },
+    { "nativeSetHwAccelerated", "(IZ)I",
+        (void*) nativeSetHwAccelerated },
 };
 
 int registerWebView(JNIEnv* env)

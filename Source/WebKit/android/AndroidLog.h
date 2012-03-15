@@ -26,8 +26,14 @@
 #ifndef AndroidLog_h
 #define AndroidLog_h
 
+#ifndef LOG_TAG
+#define LOG_TAG __FILE__
+#endif
+
+#include <cutils/log.h>
+#include <wtf/CurrentTime.h>
+
 #ifdef ANDROID_DOM_LOGGING
-#include <utils/Log.h>
 #include <stdio.h>
 extern FILE* gDomTreeFile;
 #define DOM_TREE_LOG_FILE "/sdcard/domTree.txt"
@@ -45,5 +51,22 @@ extern FILE* gRenderTreeFile;
 
 #define DISPLAY_TREE_LOG_FILE "/sdcard/displayTree.txt"
 #define LAYERS_TREE_LOG_FILE "/sdcard/layersTree.plist"
+
+#define TIME_METHOD() MethodTimer __method_timer(__func__)
+class MethodTimer {
+public:
+    MethodTimer(const char* name)
+        : m_methodName(name)
+    {
+        m_startTime = currentTimeMS();
+    }
+    virtual ~MethodTimer() {
+        double duration = currentTimeMS() - m_startTime;
+        ALOGD("%s took %.2fms", m_methodName, duration);
+    }
+private:
+    const char* m_methodName;
+    double m_startTime;
+};
 
 #endif // AndroidLog_h
