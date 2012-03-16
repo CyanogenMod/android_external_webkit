@@ -1745,6 +1745,11 @@ void FrameView::scheduleRelayout()
             m_frame->ownerRenderer()->setNeedsLayout(true, true);
     }
 
+#ifdef ANDROID_FLATTEN_FRAMESET
+    if (m_frame->ownerRenderer() && m_frame->ownerElement()->hasTagName(frameTag))
+        m_frame->ownerRenderer()->setNeedsLayoutAndPrefWidthsRecalc();
+#endif
+
     int delay = m_frame->document()->minimumLayoutDelay();
     if (m_layoutTimer.isActive() && m_delayedLayout && !delay)
         unscheduleRelayout();

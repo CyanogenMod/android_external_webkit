@@ -64,7 +64,12 @@ void RenderFrame::layout()
 {
     FrameView* view = static_cast<FrameView*>(widget());
     RenderView* root = view ? view->frame()->contentRenderer() : 0;
+
+    // Do not expand frames which has zero width or height
     if (!width() || !height() || !root) {
+        updateWidgetPosition();
+        if (view)
+            view->layout();
         setNeedsLayout(false);
         return;
     }
@@ -75,14 +80,17 @@ void RenderFrame::layout()
         return;
     }
 
-    int layoutWidth = width();
+    // Update the dimensions to get the correct width and height
+    updateWidgetPosition();
+    if (root->preferredLogicalWidthsDirty())
+        root->computePreferredLogicalWidths();
 
+    // Expand the frame by setting frame height = content height
     setWidth(max(view->contentsWidth() + borderAndPaddingWidth(), width()));
     setHeight(max(view->contentsHeight() + borderAndPaddingHeight(), height()));
 
-    // Trigger a layout of the FrameView which will schedule a relayout of this RenderFrame.
-    if (layoutWidth < width())
-        view->layout();
+    // Update one more time
+    updateWidgetPosition();
 
     setNeedsLayout(false);
 }
