@@ -285,6 +285,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libicuuc \
 	libicui18n \
 	libmedia \
+	libmedia_native \
 	libnativehelper \
 	libskia \
 	libsqlite \
