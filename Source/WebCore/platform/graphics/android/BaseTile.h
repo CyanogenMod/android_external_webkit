@@ -94,7 +94,7 @@ public:
 
     bool isLayerTile() { return m_isLayerTile; }
 
-    void setContents(TilePainter* painter, int x, int y, float scale);
+    void setContents(int x, int y, float scale);
     void setPage(TiledPage* page) { m_page = page; }
 
     void reserveTexture();
@@ -105,7 +105,7 @@ public:
                 const TransformationMatrix* transform);
 
     // the only thread-safe function called by the background thread
-    void paintBitmap();
+    void paintBitmap(TilePainter* painter);
 
     bool intersectWithRect(int x, int y, int tileWidth, int tileHeight,
                            float scale, const SkRect& dirtyRect,
@@ -138,14 +138,12 @@ public:
     virtual bool removeTexture(BaseTileTexture* texture);
     virtual TiledPage* page() { return m_page; }
     virtual GLWebViewState* state() { return m_glWebViewState; }
-    TilePainter* painter() { return m_painter; }
 
 private:
     void validatePaint();
 
     GLWebViewState* m_glWebViewState;
 
-    TilePainter* m_painter;
     int m_x;
     int m_y;
 

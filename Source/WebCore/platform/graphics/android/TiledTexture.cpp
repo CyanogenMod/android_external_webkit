@@ -168,7 +168,7 @@ void TiledTexture::prepareTile(int x, int y, TilePainter* painter)
     }
 
     ALOGV("preparing tile %p at %d, %d, painter is %p", tile, x, y, painter);
-    tile->setContents(painter, x, y, m_scale);
+    tile->setContents(x, y, m_scale);
 
     // TODO: move below (which is largely the same for layers / tiled page) into
     // prepareGL() function
