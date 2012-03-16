@@ -1003,14 +1003,14 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
             int glyph = walker.logClusters()[from];
             fromX = base + walker.positions()[glyph].x();
             fromAdvance = walker.advances()[glyph];
-        } else
+        } else if (!walker.rtl())
             from -= numCodePoints;
 
         if (toX == -1 && to < numCodePoints) {
             int glyph = walker.logClusters()[to];
             toX = base + walker.positions()[glyph].x();
             toAdvance = walker.advances()[glyph];
-        } else
+        } else if (!walker.rtl())
             to -= numCodePoints;
 
         if (!walker.rtl())
