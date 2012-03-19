@@ -1483,7 +1483,7 @@ VisiblePosition WebViewCore::visiblePositionForContentPoint(const IntPoint& poin
     return node->renderer()->positionForPoint(result.localPoint());
 }
 
-void WebViewCore::selectWordAt(int x, int y)
+bool WebViewCore::selectWordAt(int x, int y)
 {
     HitTestResult hoverResult;
     moveMouse(x, y, &hoverResult);
@@ -1505,25 +1505,29 @@ void WebViewCore::selectWordAt(int x, int y)
     // Matching the logic in MouseEventWithHitTestResults::targetNode()
     Node* node = result.innerNode();
     if (!node)
-        return;
+        return false;
     Element* element = node->parentElement();
     if (!node->inDocument() && element && element->inDocument())
         node = element;
 
     SelectionController* sc = focusedFrame()->selection();
+    bool wordSelected = false;
     if (!sc->contains(point) && (node->isContentEditable() || node->isTextNode()) && !result.isLiveLink()
             && node->dispatchEvent(Event::create(eventNames().selectstartEvent, true, true))) {
         VisiblePosition pos(node->renderer()->positionForPoint(result.localPoint()));
-        selectWordAroundPosition(node->document()->frame(), pos);
+        wordSelected = selectWordAroundPosition(node->document()->frame(), pos);
     }
+    return wordSelected;
 }
 
-void WebViewCore::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
+bool WebViewCore::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
 {
     VisibleSelection selection(pos);
     selection.expandUsingGranularity(WordGranularity);
+    SelectionController* selectionController = frame->selection();
 
-    if (frame->selection()->shouldChangeSelection(selection)) {
+    bool wordSelected = false;
+    if (selectionController->shouldChangeSelection(selection)) {
         bool allWhitespaces = true;
         RefPtr<Range> firstRange = selection.firstRange();
         String text = firstRange.get() ? firstRange->text() : "";
@@ -1533,13 +1537,15 @@ void WebViewCore::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
                 break;
             }
         }
-
         if (allWhitespaces) {
-            VisibleSelection emptySelection(selection.visibleStart(), selection.visibleStart());
-            frame->selection()->setSelection(emptySelection);
+            VisibleSelection emptySelection(pos);
+            selectionController->setSelection(emptySelection);
+        } else {
+            selectionController->setSelection(selection);
+            wordSelected = true;
         }
-        frame->selection()->setSelection(selection);
     }
+    return wordSelected;
 }
 
 int WebViewCore::platformLayerIdFromNode(Node* node, LayerAndroid** outLayer)
@@ -4983,10 +4989,10 @@ static void ClearSelection(JNIEnv* env, jobject obj, jint nativeClass)
     viewImpl->focusedFrame()->selection()->clear();
 }
 
-static void SelectWordAt(JNIEnv* env, jobject obj, jint nativeClass, jint x, jint y)
+static bool SelectWordAt(JNIEnv* env, jobject obj, jint nativeClass, jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    viewImpl->selectWordAt(x, y);
+    return viewImpl->selectWordAt(x, y);
 }
 
 static void SelectAll(JNIEnv* env, jobject obj, jint nativeClass)
@@ -5122,7 +5128,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SelectText },
     { "nativeClearTextSelection", "(I)V",
         (void*) ClearSelection },
-    { "nativeSelectWordAt", "(III)V",
+    { "nativeSelectWordAt", "(III)Z",
         (void*) SelectWordAt },
     { "nativeSelectAll", "(I)V",
         (void*) SelectAll },

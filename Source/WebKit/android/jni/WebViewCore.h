@@ -602,7 +602,7 @@ namespace android {
                 int startX, int startY, int endX, int endY);
         static int platformLayerIdFromNode(Node* node, LayerAndroid** outLayer = 0);
         void selectText(int startX, int startY, int endX, int endY);
-        void selectWordAt(int x, int y);
+        bool selectWordAt(int x, int y);
 
         // Converts from the global content coordinates that WebView sends
         // to frame-local content coordinates using the focused frame
@@ -732,7 +732,7 @@ namespace android {
 
         VisiblePosition visiblePositionForContentPoint(int x, int y);
         VisiblePosition visiblePositionForContentPoint(const IntPoint& point);
-        void selectWordAroundPosition(Frame* frame, VisiblePosition pos);
+        bool selectWordAroundPosition(Frame* frame, VisiblePosition pos);
         SelectText* createSelectText(const VisibleSelection&);
         static int getMaxLength(Node* node);
         static String getFieldName(Node* node);
