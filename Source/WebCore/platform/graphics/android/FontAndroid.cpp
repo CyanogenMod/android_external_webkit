@@ -88,6 +88,8 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     if (!mode)
         return false;
 
+    paint->setVerticalText(font->platformData().orientation() == Vertical);
+
     FloatSize shadowOffset;
     float shadowBlur;
     Color shadowColor;
@@ -193,14 +195,15 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     const GlyphBufferAdvance*   adv = glyphBuffer.advances(from);
     SkAutoSTMalloc<32, SkPoint> storage(numGlyphs), storage2(numGlyphs), storage3(numGlyphs);
     SkPoint*                    pos = storage.get();
-    SkPoint*                    vPosBegin = storage2.get();
-    SkPoint*                    vPosEnd = storage3.get();
 
     SkCanvas* canvas = gc->platformContext()->mCanvas;
 
     /*  We need an array of [x,y,x,y,x,y,...], but webkit is giving us
         point.xy + [width, height, width, height, ...], so we have to convert
      */
+
+    if (font->platformData().orientation() == Vertical)
+        y += SkFloatToScalar(font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
 
     if (EmojiFont::IsAvailable()) {
         // set filtering, to make scaled images look nice(r)
@@ -231,27 +234,25 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                                 localCount * sizeof(uint16_t),
                                 &pos[localIndex], paint);
     } else {
-        bool isVertical = font->platformData().orientation() == Vertical;
         for (int i = 0; i < numGlyphs; i++) {
             pos[i].set(x, y);
             y += SkFloatToScalar(adv[i].height());
-            if (isVertical) {
-                SkScalar myWidth = SkFloatToScalar(adv[i].width());
-                vPosBegin[i].set(x + myWidth, y);
-                vPosEnd[i].set(x + myWidth, y - myWidth);
-                x += myWidth;
-
-                SkPath path;
-                path.reset();
-                path.moveTo(vPosBegin[i]);
-                path.lineTo(vPosEnd[i]);
-                canvas->drawTextOnPath(glyphs + i, 2, path, 0, paint);
-            }
-            else
-                x += SkFloatToScalar(adv[i].width());
+            x += SkFloatToScalar(adv[i].width());
         }
-        if (!isVertical)
-            canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
+
+        if (font->platformData().orientation() == Vertical) {
+            canvas->save();
+            canvas->rotate(-90);
+            SkMatrix rotator;
+            rotator.reset();
+            rotator.setRotate(90);
+            rotator.mapPoints(pos, numGlyphs);
+        }
+
+        canvas->drawPosText(glyphs, numGlyphs * sizeof(uint16_t), pos, paint);
+
+        if (font->platformData().orientation() == Vertical)
+            canvas->restore();
     }
 }
 
