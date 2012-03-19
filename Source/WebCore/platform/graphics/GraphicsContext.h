@@ -287,8 +287,6 @@ namespace WebCore {
 #endif
 
 #if PLATFORM(ANDROID)
-        // initialize a paint for bitmaps
-        void setupBitmapPaint(SkPaint*);
         // initialize a paint for filling
         void setupFillPaint(SkPaint*);
         // initialize a paint for stroking
@@ -300,10 +298,6 @@ namespace WebCore {
         bool willFill() const;
         // returns true if there is a valid (non-transparent) stroke color
         bool willStroke() const;
-
-        // may return NULL, since we lazily allocate the path. This is the path
-        // that is drawn by drawPath()
-        const SkPath* getCurrPath() const;
 
         /** platform-specific factory method to return a bitmap graphicscontext,
          called by <canvas> when we need to draw offscreen. Caller is responsible for
