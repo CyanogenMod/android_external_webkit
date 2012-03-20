@@ -45,6 +45,7 @@ namespace WebCore {
 
 class TilesManager {
 public:
+    // May only be called from the UI thread
     static TilesManager* instance();
     static GLint getMaxTextureSize();
     static int getMaxTextureAllocation();
@@ -74,15 +75,6 @@ public:
                                int* nbLayerTextures, int* nbAllocatedLayerTextures);
 
     BaseTileTexture* getAvailableTexture(BaseTile* owner);
-
-    void markGeneratorAsReady()
-    {
-        {
-            android::Mutex::Autolock lock(m_generatorLock);
-            m_generatorReady = true;
-        }
-        m_generatorReadyCond.signal();
-    }
 
     void printTextures();
 
@@ -170,13 +162,6 @@ public:
 private:
     TilesManager();
 
-    void waitForGenerator()
-    {
-        android::Mutex::Autolock lock(m_generatorLock);
-        while (!m_generatorReady)
-            m_generatorReadyCond.wait(m_generatorLock);
-    }
-
     void discardTexturesVector(unsigned long long sparedDrawCount,
                                WTF::Vector<BaseTileTexture*>& textures,
                                bool deallocateGLTextures);
@@ -206,8 +191,6 @@ private:
     sp<TexturesGenerator> m_pixmapsGenerationThread;
 
     android::Mutex m_texturesLock;
-    android::Mutex m_generatorLock;
-    android::Condition m_generatorReadyCond;
 
     static TilesManager* gInstance;
 

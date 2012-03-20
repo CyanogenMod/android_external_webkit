@@ -100,7 +100,7 @@ TilesManager::TilesManager()
     m_availableTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_tilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_availableTilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
-    m_pixmapsGenerationThread = new TexturesGenerator();
+    m_pixmapsGenerationThread = new TexturesGenerator(this);
     m_pixmapsGenerationThread->run("TexturesGenerator");
 }
 
@@ -414,8 +414,9 @@ void TilesManager::setMaxLayerTextureCount(int max)
 
 TransferQueue* TilesManager::transferQueue()
 {
-    // To minimize the memory usage, transfer queue can be set to minimal size
-    // if required.
+    // m_queue will be created on the UI thread, although it may
+    // be accessed from the TexturesGenerator. However, that can only happen after
+    // a previous transferQueue() call due to a prepare.
     if (!m_queue)
         m_queue = new TransferQueue(m_useMinimalMemory);
     return m_queue;
@@ -446,9 +447,6 @@ TilesManager* TilesManager::instance()
     if (!gInstance) {
         gInstance = new TilesManager();
         ALOGV("instance(), new gInstance is %x", gInstance);
-        ALOGV("Waiting for the generator...");
-        gInstance->waitForGenerator();
-        ALOGV("Generator ready!");
     }
     return gInstance;
 }
