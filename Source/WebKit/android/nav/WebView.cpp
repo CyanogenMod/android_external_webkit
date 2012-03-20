@@ -981,6 +981,7 @@ static void dumpToFile(const char text[], void* file) {
 }
 #endif
 
+// Return true to view invalidate WebView
 static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jvalue)
 {
     WTF::String key = jstringToWtfString(env, jkey);
@@ -998,19 +999,15 @@ static bool nativeSetProperty(JNIEnv *env, jobject obj, jstring jkey, jstring jv
     else if (key == "enable_cpu_upload_path") {
         TilesManager::instance()->transferQueue()->setTextureUploadType(
             value == "true" ? CpuUpload : GpuUpload);
-        return true;
     }
     else if (key == "use_minimal_memory") {
         TilesManager::instance()->setUseMinimalMemory(value == "true");
-        return true;
     }
     else if (key == "use_double_buffering") {
         TilesManager::instance()->setUseDoubleBuffering(value == "true");
-        return true;
     }
     else if (key == "tree_updates") {
         TilesManager::instance()->clearContentUpdates();
-        return true;
     }
     return false;
 }

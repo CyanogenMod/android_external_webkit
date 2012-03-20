@@ -525,18 +525,12 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     // Clean up GL textures for video layer.
     tilesManager->videoLayerManager()->deleteUnusedTextures();
-    ret |= tilesManager->invertedScreenSwitch();
 
     if (ret) {
         // ret==true && empty inval region means we've inval'd everything,
         // but don't have new content. Keep redrawing full view (0,0,0,0)
         // until tile generation catches up and we swap pages.
         bool fullScreenInval = m_frameworkInval.isEmpty();
-
-        if (tilesManager->invertedScreenSwitch()) {
-            fullScreenInval = true;
-            tilesManager->setInvertedScreenSwitch(false);
-        }
 
         if (!fullScreenInval) {
             FloatRect frameworkInval = tilesManager->shader()->rectInInvScreenCoord(

@@ -59,9 +59,6 @@ public:
 
     const SkSize& getSize() const { return m_size; }
 
-    bool readyFor(BaseTile* baseTile);
-    float scale();
-
     // OpenGL ID of backing texture, 0 when not allocated
     GLuint m_ownTextureId;
     // these are used for dynamically (de)allocating backing graphics memory
