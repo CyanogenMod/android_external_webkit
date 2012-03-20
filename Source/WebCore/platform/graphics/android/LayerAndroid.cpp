@@ -791,6 +791,16 @@ void LayerAndroid::clearDirtyRegion()
     m_dirtyRegion.setEmpty();
 }
 
+int LayerAndroid::setHwAccelerated(bool hwAccelerated)
+{
+    int flags = InvalidateNone;
+    int count = this->countChildren();
+    for (int i = 0; i < count; i++)
+        flags |= this->getChild(i)->setHwAccelerated(hwAccelerated);
+
+    return flags | onSetHwAccelerated(hwAccelerated);
+}
+
 IntRect LayerAndroid::unclippedArea()
 {
     IntRect area;

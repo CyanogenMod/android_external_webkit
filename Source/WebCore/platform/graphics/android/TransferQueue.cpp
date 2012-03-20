@@ -463,33 +463,8 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
             return false;
         }
 
-        ANativeWindow_Buffer buffer;
-        if (ANativeWindow_lock(m_ANW.get(), &buffer, 0))
+        if (!GLUtils::updateSharedSurfaceTextureWithBitmap(m_ANW.get(), bitmap))
             return false;
-
-        uint8_t* img = (uint8_t*)buffer.bits;
-        int row;
-        int bpp = 4; // Now we only deal with RGBA8888 format.
-        int width = TilesManager::instance()->tileWidth();
-        int height = TilesManager::instance()->tileHeight();
-        if (bitmap.width() == width && bitmap.height() == height) {
-            bitmap.lockPixels();
-            uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
-
-            if (buffer.stride != bitmap.width())
-                // Copied line by line since we need to handle the offsets and stride.
-                for (row = 0 ; row < bitmap.height(); row ++) {
-                    uint8_t* dst = &(img[buffer.stride * row * bpp]);
-                    uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
-                    memcpy(dst, src, bpp * bitmap.width());
-                }
-            else
-                memcpy(img, bitmapOrigin, bpp * bitmap.width() * bitmap.height());
-
-            bitmap.unlockPixels();
-        }
-
-        ANativeWindow_unlockAndPost(m_ANW.get());
     }
 
     // b) After update the Surface Texture, now udpate the transfer queue info.

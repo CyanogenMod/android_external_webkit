@@ -128,6 +128,10 @@ public:
 
     void makeRenderingResultsAvailable();
 
+#if PLATFORM(ANDROID)
+    void clearDirtyRect() { m_dirtyRect = FloatRect(); }
+#endif
+
 private:
     HTMLCanvasElement(const QualifiedName&, Document*);
 

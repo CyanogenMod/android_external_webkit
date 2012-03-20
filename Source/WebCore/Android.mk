@@ -639,6 +639,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/BaseTile.cpp \
 	platform/graphics/android/BaseTileTexture.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
+	platform/graphics/android/CanvasLayer.cpp \
+	platform/graphics/android/CanvasTexture.cpp \
 	platform/graphics/android/ClassTracker.cpp \
 	platform/graphics/android/DumpLayer.cpp \
 	platform/graphics/android/FixedPositioning.cpp \

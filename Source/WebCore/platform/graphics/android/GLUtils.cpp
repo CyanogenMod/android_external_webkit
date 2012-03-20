@@ -493,14 +493,14 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
         return;
 
     if (requiredSize.equals(textureInfo->m_width, textureInfo->m_height))
-        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, bitmap);
+        GLUtils::updateQueueWithBitmap(renderInfo, bitmap);
     else {
         if (!requiredSize.equals(bitmap.width(), bitmap.height())) {
             ALOGV("The bitmap size (%d,%d) does not equal the texture size (%d,%d)",
                   bitmap.width(), bitmap.height(),
                   requiredSize.width(), requiredSize.height());
         }
-        GLUtils::updateSharedSurfaceTextureWithBitmap(renderInfo, bitmap);
+        GLUtils::updateQueueWithBitmap(renderInfo, bitmap);
 
         textureInfo->m_width = bitmap.width();
         textureInfo->m_height = bitmap.height();
@@ -508,7 +508,7 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
     }
 }
 
-void GLUtils::updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap)
+void GLUtils::updateQueueWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap)
 {
     if (!renderInfo
         || !renderInfo->textureInfo
@@ -516,6 +516,37 @@ void GLUtils::updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* renderI
         return;
 
     TilesManager::instance()->transferQueue()->updateQueueWithBitmap(renderInfo, bitmap);
+}
+
+bool GLUtils::updateSharedSurfaceTextureWithBitmap(ANativeWindow* anw, const SkBitmap& bitmap)
+{
+    SkAutoLockPixels alp(bitmap);
+    if (!bitmap.getPixels())
+        return false;
+    ANativeWindow_Buffer buffer;
+    if (ANativeWindow_lock(anw, &buffer, 0))
+        return false;
+    if (buffer.width < bitmap.width() || buffer.height < bitmap.height())
+        return false;
+    uint8_t* img = (uint8_t*)buffer.bits;
+    int row;
+    int bpp = 4; // Now we only deal with RGBA8888 format.
+    bitmap.lockPixels();
+    uint8_t* bitmapOrigin = static_cast<uint8_t*>(bitmap.getPixels());
+
+    if (buffer.stride != bitmap.width())
+        // Copied line by line since we need to handle the offsets and stride.
+        for (row = 0 ; row < bitmap.height(); row ++) {
+            uint8_t* dst = &(img[buffer.stride * row * bpp]);
+            uint8_t* src = &(bitmapOrigin[bitmap.width() * row * bpp]);
+            memcpy(dst, src, bpp * bitmap.width());
+        }
+    else
+        memcpy(img, bitmapOrigin, bpp * bitmap.width() * bitmap.height());
+
+    bitmap.unlockPixels();
+    ANativeWindow_unlockAndPost(anw);
+    return true;
 }
 
 void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter)

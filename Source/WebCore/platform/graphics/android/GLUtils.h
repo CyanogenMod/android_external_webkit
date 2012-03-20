@@ -79,7 +79,8 @@ public:
     static void createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter = GL_LINEAR);
 
     static void paintTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap);
-    static void updateSharedSurfaceTextureWithBitmap(const TileRenderInfo* , const SkBitmap& bitmap);
+    static void updateQueueWithBitmap(const TileRenderInfo* , const SkBitmap& bitmap);
+    static bool updateSharedSurfaceTextureWithBitmap(ANativeWindow* anw, const SkBitmap& bitmap);
     static void convertToTransformationMatrix(const float* matrix, TransformationMatrix& transformMatrix);
 
     static bool isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor);

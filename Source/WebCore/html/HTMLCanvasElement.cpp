@@ -45,6 +45,7 @@
 #include "MIMETypeRegistry.h"
 #include "Page.h"
 #include "RenderHTMLCanvas.h"
+#include "RenderLayer.h"
 #include "Settings.h"
 #include <math.h>
 #include <stdio.h>
@@ -225,6 +226,11 @@ void HTMLCanvasElement::didDraw(const FloatRect& rect)
             return;
 
         m_dirtyRect.unite(r);
+#if PLATFORM(ANDROID)
+        // We handle invals ourselves and don't want webkit to repaint if we
+        // have put the canvas on a layer
+        if (!ro->hasLayer())
+#endif
         ro->repaintRectangle(enclosingIntRect(m_dirtyRect));
     }
 

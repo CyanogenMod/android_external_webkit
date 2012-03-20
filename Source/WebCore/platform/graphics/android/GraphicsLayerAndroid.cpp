@@ -25,6 +25,7 @@
 #include "AndroidAnimation.h"
 #include "AndroidLog.h"
 #include "Animation.h"
+#include "CanvasLayer.h"
 #include "FloatRect.h"
 #include "FixedPositioning.h"
 #include "GraphicsContext.h"
@@ -119,7 +120,11 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_foregroundClipLayer(0)
 {
     RenderLayer* renderLayer = renderLayerFromClient(m_client);
-    m_contentLayer = new LayerAndroid(renderLayer);
+    if (renderLayer && renderLayer->renderer()->isCanvas()) {
+        m_contentLayer = new CanvasLayer(renderLayer,
+                static_cast<HTMLCanvasElement*>(renderLayer->renderer()->node()));
+    } else
+        m_contentLayer = new LayerAndroid(renderLayer);
     m_dirtyRegion.setEmpty();
     gDebugGraphicsLayerAndroidInstances++;
 }
