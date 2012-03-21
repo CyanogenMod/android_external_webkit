@@ -464,16 +464,14 @@ bool GLUtils::skipTransferForPureColor(const TileRenderInfo* renderInfo,
     if (tilePtr) {
         BaseTileTexture* tileTexture = tilePtr->backTexture();
         // Check the bitmap, and make everything ready here.
-        Color pureColor;
-        if (tileTexture && isPureColorBitmap(bitmap, pureColor)) {
+        if (tileTexture && renderInfo->isPureColor) {
             // update basetile's info
             // Note that we are skipping the whole TransferQueue.
             renderInfo->textureInfo->m_width = bitmap.width();
             renderInfo->textureInfo->m_height = bitmap.height();
             renderInfo->textureInfo->m_internalFormat = GL_RGBA;
 
-            TilesManager::instance()->transferQueue()->addItemInPureColorQueue(renderInfo,
-                                                                               pureColor);
+            TilesManager::instance()->transferQueue()->addItemInPureColorQueue(renderInfo);
 
             skipTransfer = true;
         }

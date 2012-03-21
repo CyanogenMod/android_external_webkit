@@ -92,6 +92,11 @@ void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
     GLUtils::paintTextureWithBitmap(&renderInfo, bitmap);
 }
 
+void RasterRenderer::checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas)
+{
+    renderInfo.isPureColor = GLUtils::isPureColorBitmap(*g_bitmap, renderInfo.pureColor);
+}
+
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)

@@ -88,7 +88,7 @@ void BaseRenderer::drawTileInfo(SkCanvas* canvas,
     canvas->drawText(str, strlen(str), 20, 15, paint);
 }
 
-void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
+void BaseRenderer::renderTiledContent(TileRenderInfo& renderInfo)
 {
     const bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
     const SkSize& tileSize = renderInfo.tileSize;
@@ -112,6 +112,10 @@ void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
     canvas.scale(renderInfo.scale, renderInfo.scale);
     renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas);
+    if (renderInfo.baseTile && renderInfo.baseTile->backTexture())
+        checkForPureColor(renderInfo, &canvas);
+    else
+        renderInfo.isPureColor = false;
 
     if (visualIndicator) {
         double after = currentTimeMS();

@@ -28,6 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "Color.h"
 #include "SkRect.h"
 #include <wtf/text/StringHash.h>
 
@@ -62,6 +63,9 @@ struct TileRenderInfo {
 
     // info about the texture that we are to render into
     TextureInfo* textureInfo;
+
+    bool isPureColor;
+    Color pureColor;
 };
 
 /**
@@ -73,7 +77,7 @@ public:
     BaseRenderer(RendererType type) : m_type(type) {}
     virtual ~BaseRenderer() {}
 
-    void renderTiledContent(const TileRenderInfo& renderInfo);
+    void renderTiledContent(TileRenderInfo& renderInfo);
 
     RendererType getType() { return m_type; }
 
@@ -87,6 +91,7 @@ protected:
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
     virtual void setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas) {}
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
+    virtual void checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
 
     void drawTileInfo(SkCanvas* canvas, const TileRenderInfo& renderInfo,
             int updateCount, double renderDuration);

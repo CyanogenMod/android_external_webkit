@@ -475,14 +475,14 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
     return true;
 }
 
-void TransferQueue::addItemInPureColorQueue(const TileRenderInfo* renderInfo, Color color)
+void TransferQueue::addItemInPureColorQueue(const TileRenderInfo* renderInfo)
 {
     // The pure color tiles' queue will be read from UI thread and written in
     // Tex Gen thread, thus we need to have a lock here.
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
     TileTransferData data;
     addItemCommon(renderInfo, GpuUpload, &data);
-    data.pureColor = color;
+    data.pureColor = renderInfo->pureColor;
     m_pureColorTileQueue.append(data);
 }
 

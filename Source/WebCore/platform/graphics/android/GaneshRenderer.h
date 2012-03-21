@@ -49,6 +49,9 @@ protected:
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas);
     virtual void setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas);
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas);
+    virtual void checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas) {
+        renderInfo.isPureColor = false;
+    }
 
 };
 

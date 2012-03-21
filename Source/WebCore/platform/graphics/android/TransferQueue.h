@@ -134,7 +134,7 @@ public:
     void lockQueue() { m_transferQueueItemLocks.lock(); }
     void unlockQueue() { m_transferQueueItemLocks.unlock(); }
 
-    void addItemInPureColorQueue(const TileRenderInfo* renderInfo, Color color);
+    void addItemInPureColorQueue(const TileRenderInfo* renderInfo);
 
     void setPendingDiscardWithLock();
     void emptyQueue();
