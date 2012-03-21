@@ -617,7 +617,25 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
         return -1;
     int layerId = selectText->caretLayerId(handleId);
     cursorRect = selectText->caretRect(handleId);
-    mapLayerRect(layerId, cursorRect);
+    if (layerId != -1) {
+        // We need to make sure the drawTransform is up to date as this is
+        // called before a draw() or drawGL()
+        m_baseLayer->updateLayerPositions(m_visibleRect);
+        LayerAndroid* root = compositeRoot();
+        LayerAndroid* layer = root ? root->findById(layerId) : 0;
+        if (layer && layer->drawTransform()) {
+            const TransformationMatrix* transform = layer->drawTransform();
+            // We're overloading the concept of Rect to be just the two
+            // points (bottom-left and top-right.
+            // TODO: Use FloatQuad instead.
+            IntPoint bottomLeft = transform->mapPoint(IntPoint(cursorRect.fLeft,
+                    cursorRect.fBottom));
+            IntPoint topRight = transform->mapPoint(IntPoint(cursorRect.fRight,
+                    cursorRect.fTop));
+            cursorRect.setLTRB(bottomLeft.x(), topRight.y(), topRight.x(),
+                    bottomLeft.y());
+        }
+    }
     return layerId;
 }
 
