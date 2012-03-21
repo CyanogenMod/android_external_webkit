@@ -1667,8 +1667,48 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
     selectTextContainer->setCaretRect(SelectText::EndHandle, endHandle);
 
     selectTextContainer->setText(range->text());
+    selectTextContainer->setTextRect(SelectText::StartHandle,
+            positionToTextRect(selection.start()));
+    selectTextContainer->setTextRect(SelectText::EndHandle,
+            positionToTextRect(selection.end()));
 
     return selectTextContainer;
+}
+
+IntRect WebViewCore::positionToTextRect(const Position& position)
+{
+    IntRect textRect;
+    InlineBox* inlineBox;
+    int offset;
+    position.getInlineBoxAndOffset(VP_DEFAULT_AFFINITY, inlineBox, offset);
+    if (inlineBox && inlineBox->isInlineTextBox()) {
+        InlineTextBox* box = static_cast<InlineTextBox*>(inlineBox);
+        RootInlineBox* root = box->root();
+        RenderText* renderText = box->textRenderer();
+        int left = root->logicalLeft();
+        int width = root->logicalWidth();
+        int top = root->selectionTop();
+        int height = root->selectionHeight();
+
+        Node* node = position.anchorNode();
+        LayerAndroid* layer = 0;
+        int layerId = platformLayerIdFromNode(node, &layer);
+        IntPoint layerOffset;
+        layerToAbsoluteOffset(layer, layerOffset);
+
+        if (!renderText->style()->isHorizontalWritingMode()) {
+            swap(left, top);
+            swap(width, height);
+        }
+        FloatPoint origin(left, top);
+        FloatPoint absoluteOrigin = renderText->localToAbsolute(origin);
+
+        textRect.setX(absoluteOrigin.x() - layerOffset.x());
+        textRect.setWidth(width);
+        textRect.setY(absoluteOrigin.y() - layerOffset.y());
+        textRect.setHeight(height);
+    }
+    return textRect;
 }
 
 IntPoint WebViewCore::convertGlobalContentToFrameContent(const IntPoint& point, WebCore::Frame* frame)

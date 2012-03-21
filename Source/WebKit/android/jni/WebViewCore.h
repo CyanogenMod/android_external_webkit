@@ -752,6 +752,7 @@ namespace android {
         static bool isAutoCompleteEnabled(WebCore::Node* node);
         WebCore::IntRect boundingRect(WebCore::Node* node,
                                       WebCore::LayerAndroid* layer);
+        static WebCore::IntRect positionToTextRect(const WebCore::Position& position);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);

@@ -125,6 +125,10 @@ struct JavaGlue {
     jfieldID    m_rectTop;
     jmethodID   m_rectWidth;
     jmethodID   m_rectHeight;
+    jfieldID    m_quadFP1;
+    jfieldID    m_quadFP2;
+    jfieldID    m_quadFP3;
+    jfieldID    m_quadFP4;
     AutoJObject object(JNIEnv* env) {
         return getRealObject(env, m_obj);
     }
@@ -155,6 +159,14 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_javaGlue.m_rectWidth = GetJMethod(env, rectClass, "width", "()I");
     m_javaGlue.m_rectHeight = GetJMethod(env, rectClass, "height", "()I");
     env->DeleteLocalRef(rectClass);
+
+    jclass quadFClass = env->FindClass("android/webkit/QuadF");
+    ALOG_ASSERT(quadFClass, "Could not find QuadF class");
+    m_javaGlue.m_quadFP1 = env->GetFieldID(quadFClass, "p1", "Landroid/graphics/PointF;");
+    m_javaGlue.m_quadFP2 = env->GetFieldID(quadFClass, "p2", "Landroid/graphics/PointF;");
+    m_javaGlue.m_quadFP3 = env->GetFieldID(quadFClass, "p3", "Landroid/graphics/PointF;");
+    m_javaGlue.m_quadFP4 = env->GetFieldID(quadFClass, "p4", "Landroid/graphics/PointF;");
+    env->DeleteLocalRef(quadFClass);
 
     env->SetIntField(javaWebView, gWebViewField, (jint)this);
     m_viewImpl = (WebViewCore*) viewImpl;
@@ -578,12 +590,20 @@ void setTextSelection(SelectText *selection) {
     setDrawExtra(selection, DrawExtrasSelection);
 }
 
-int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
+int getHandleLayerId(SelectText::HandleId handleId, SkIPoint& cursorPoint,
+        FloatQuad& textBounds) {
     SelectText* selectText = static_cast<SelectText*>(getDrawExtra(DrawExtrasSelection));
     if (!selectText || !m_baseLayer)
         return -1;
     int layerId = selectText->caretLayerId(handleId);
-    cursorRect = selectText->caretRect(handleId);
+    IntRect cursorRect = selectText->caretRect(handleId);
+    IntRect textRect = selectText->textRect(handleId);
+    // Rects exclude the last pixel on right/bottom. We want only included pixels.
+    cursorPoint.set(cursorRect.x(), cursorRect.maxY() - 1);
+    textRect.setHeight(textRect.height() - 1);
+    textRect.setWidth(textRect.width() - 1);
+    textBounds = FloatQuad(textRect);
+
     if (layerId != -1) {
         // We need to make sure the drawTransform is up to date as this is
         // called before a draw() or drawGL()
@@ -594,13 +614,8 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
             const TransformationMatrix* transform = layer->drawTransform();
             // We're overloading the concept of Rect to be just the two
             // points (bottom-left and top-right.
-            // TODO: Use FloatQuad instead.
-            IntPoint bottomLeft = transform->mapPoint(IntPoint(cursorRect.fLeft,
-                    cursorRect.fBottom));
-            IntPoint topRight = transform->mapPoint(IntPoint(cursorRect.fRight,
-                    cursorRect.fTop));
-            cursorRect.setLTRB(bottomLeft.x(), topRight.y(), topRight.x(),
-                    bottomLeft.y());
+            cursorPoint = transform->mapPoint(cursorPoint);
+            textBounds = transform->mapQuad(textBounds);
         }
     }
     return layerId;
@@ -615,6 +630,23 @@ void mapLayerRect(int layerId, SkIRect& rect) {
         if (layer && layer->drawTransform())
             rect = layer->drawTransform()->mapRect(rect);
     }
+}
+
+void floatQuadToQuadF(JNIEnv* env, const FloatQuad& nativeTextQuad,
+        jobject textQuad)
+{
+    jobject p1 = env->GetObjectField(textQuad, m_javaGlue.m_quadFP1);
+    jobject p2 = env->GetObjectField(textQuad, m_javaGlue.m_quadFP2);
+    jobject p3 = env->GetObjectField(textQuad, m_javaGlue.m_quadFP3);
+    jobject p4 = env->GetObjectField(textQuad, m_javaGlue.m_quadFP4);
+    GraphicsJNI::point_to_jpointf(nativeTextQuad.p1(), env, p1);
+    GraphicsJNI::point_to_jpointf(nativeTextQuad.p2(), env, p2);
+    GraphicsJNI::point_to_jpointf(nativeTextQuad.p3(), env, p3);
+    GraphicsJNI::point_to_jpointf(nativeTextQuad.p4(), env, p4);
+    env->DeleteLocalRef(p1);
+    env->DeleteLocalRef(p2);
+    env->DeleteLocalRef(p3);
+    env->DeleteLocalRef(p4);
 }
 
 // This is called when WebView switches rendering modes in a more permanent fashion
@@ -1140,13 +1172,18 @@ static void nativeSetTextSelection(JNIEnv *env, jobject obj, jint nativeView,
 }
 
 static jint nativeGetHandleLayerId(JNIEnv *env, jobject obj, jint nativeView,
-                                     jint handleIndex, jobject cursorRect)
+                                     jint handleIndex, jobject cursorPoint,
+                                     jobject textQuad)
 {
     WebView* webview = reinterpret_cast<WebView*>(nativeView);
-    SkIRect nativeRect;
-    int layerId = webview->getHandleLayerId((SelectText::HandleId) handleIndex, nativeRect);
-    if (cursorRect)
-        GraphicsJNI::irect_to_jrect(nativeRect, env, cursorRect);
+    SkIPoint nativePoint;
+    FloatQuad nativeTextQuad;
+    int layerId = webview->getHandleLayerId((SelectText::HandleId) handleIndex,
+            nativePoint, nativeTextQuad);
+    if (cursorPoint)
+        GraphicsJNI::ipoint_to_jpoint(nativePoint, env, cursorPoint);
+    if (textQuad)
+        webview->floatQuadToQuadF(env, nativeTextQuad, textQuad);
     return layerId;
 }
 
@@ -1247,7 +1284,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetPauseDrawing },
     { "nativeSetTextSelection", "(II)V",
         (void*) nativeSetTextSelection },
-    { "nativeGetHandleLayerId", "(IILandroid/graphics/Rect;)I",
+    { "nativeGetHandleLayerId", "(IILandroid/graphics/Point;Landroid/webkit/QuadF;)I",
         (void*) nativeGetHandleLayerId },
     { "nativeIsBaseFirst", "(I)Z",
         (void*) nativeIsBaseFirst },

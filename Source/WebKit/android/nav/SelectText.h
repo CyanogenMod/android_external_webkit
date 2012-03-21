@@ -43,6 +43,8 @@ public:
 
     IntRect& caretRect(HandleId id) { return m_caretRects[mapId(id)]; }
     void setCaretRect(HandleId id, const IntRect& rect) { m_caretRects[mapId(id)] = rect; }
+    IntRect& textRect(HandleId id) { return m_textRects[mapId(id)]; }
+    void setTextRect(HandleId id, const IntRect& rect) { m_textRects[mapId(id)] = rect; }
     int caretLayerId(HandleId id) { return m_caretLayerId[mapId(id)]; }
     void setCaretLayerId(HandleId id, int layerId) { m_caretLayerId[mapId(id)] = layerId; }
 
@@ -56,6 +58,7 @@ private:
     HandleId mapId(HandleId id);
 
     IntRect m_caretRects[2];
+    IntRect m_textRects[2];
     int m_caretLayerId[2];
     bool m_baseIsFirst;
     String m_text;
