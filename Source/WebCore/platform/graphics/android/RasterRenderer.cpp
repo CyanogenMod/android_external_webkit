@@ -37,16 +37,6 @@
 
 namespace WebCore {
 
-static const String TAG_CREATE_BITMAP = "create_bitmap";
-static const String TAG_DRAW_PICTURE = "draw_picture";
-static const String TAG_UPDATE_TEXTURE = "update_texture";
-#define TAG_COUNT 3
-static const String TAGS[] = {
-    TAG_CREATE_BITMAP,
-    TAG_DRAW_PICTURE,
-    TAG_UPDATE_TEXTURE,
-};
-
 SkBitmap* RasterRenderer::g_bitmap = 0;
 
 RasterRenderer::RasterRenderer() : BaseRenderer(BaseRenderer::Raster)
@@ -72,9 +62,6 @@ RasterRenderer::~RasterRenderer()
 
 void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    if (renderInfo.measurePerf)
-        m_perfMon.start(TAG_CREATE_BITMAP);
-
     if (renderInfo.baseTile->isLayerTile()) {
         g_bitmap->setIsOpaque(false);
         g_bitmap->eraseARGB(0, 0, 0, 0);
@@ -84,11 +71,6 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     }
 
     SkDevice* device = new SkDevice(*g_bitmap);
-
-    if (renderInfo.measurePerf) {
-        m_perfMon.stop(TAG_CREATE_BITMAP);
-        m_perfMon.start(TAG_DRAW_PICTURE);
-    }
 
     canvas->setDevice(device);
 
@@ -106,23 +88,8 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
 void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    if (renderInfo.measurePerf) {
-        m_perfMon.stop(TAG_DRAW_PICTURE);
-        m_perfMon.start(TAG_UPDATE_TEXTURE);
-    }
-
     const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
-
     GLUtils::paintTextureWithBitmap(&renderInfo, bitmap);
-
-    if (renderInfo.measurePerf)
-        m_perfMon.stop(TAG_UPDATE_TEXTURE);
-}
-
-const String* RasterRenderer::getPerformanceTags(int& tagCount)
-{
-    tagCount = TAG_COUNT;
-    return TAGS;
 }
 
 } // namespace WebCore

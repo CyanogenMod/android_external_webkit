@@ -40,12 +40,13 @@
 #include "SkCanvas.h"
 #include "SkDevice.h"
 #include "SkPicture.h"
+#include "SkTypeface.h"
 #include "TilesManager.h"
 
 #include <wtf/text/CString.h>
 
 #define UPDATE_COUNT_MASK 0xFF // displayed count wraps at 256
-#define UPDATE_COUNT_ALPHA_MASK 0x3F // alpha wraps at 64
+#define UPDATE_COUNT_ALPHA_MASK 0x1F // alpha wraps at 32
 
 namespace WebCore {
 
@@ -70,37 +71,21 @@ void BaseRenderer::swapRendererIfNeeded(BaseRenderer*& renderer)
 }
 
 void BaseRenderer::drawTileInfo(SkCanvas* canvas,
-        const TileRenderInfo& renderInfo, int updateCount)
+        const TileRenderInfo& renderInfo, int updateCount, double renderDuration)
 {
+    static SkTypeface* s_typeface = 0;
+    if (!s_typeface)
+        s_typeface = SkTypeface::CreateFromName("", SkTypeface::kBold);
     SkPaint paint;
+    paint.setTextSize(17);
     char str[256];
-    snprintf(str, 256, "(%d,%d) %.2f, tl%x p%x c%d", renderInfo.x, renderInfo.y,
-            renderInfo.scale, this, renderInfo.tilePainter, updateCount);
-    paint.setARGB(255, 0, 0, 0);
-    canvas->drawText(str, strlen(str), 0, 10, paint);
+    snprintf(str, 256, " (%d,%d)   %.2fx   %d   %.1fms", renderInfo.x, renderInfo.y,
+            renderInfo.scale, updateCount, renderDuration);
+    paint.setARGB(128, 255, 255, 255);
+    canvas->drawRectCoords(0, 0, renderInfo.tileSize.fWidth, 17, paint);
     paint.setARGB(255, 255, 0, 0);
-    canvas->drawText(str, strlen(str), 0, 11, paint);
-
-    int tagCount = 0;
-    const String* tags = getPerformanceTags(tagCount);
-
-    float total = 0;
-    for (int i = 0; i < tagCount; i++) {
-        float tagDuration = m_perfMon.getAverageDuration(tags[i]);
-        total += tagDuration;
-        snprintf(str, 256, "%s: %.2f", tags[i].utf8().data(), tagDuration);
-        paint.setARGB(255, 0, 0, 0);
-        int textY = (i * 12) + 25;
-        canvas->drawText(str, strlen(str), 0, textY, paint);
-        paint.setARGB(255, 255, 0, 0);
-        canvas->drawText(str, strlen(str), 0, textY + 1, paint);
-    }
-    snprintf(str, 256, "total: %.2f", total);
-    paint.setARGB(255, 0, 0, 0);
-    int textY = (tagCount * 12) + 30;
-    canvas->drawText(str, strlen(str), 0, textY, paint);
-    paint.setARGB(255, 255, 0, 0);
-    canvas->drawText(str, strlen(str), 0, textY + 1, paint);
+    paint.setTypeface(s_typeface);
+    canvas->drawText(str, strlen(str), 20, 15, paint);
 }
 
 void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
@@ -117,8 +102,11 @@ void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
         return;
     }
 
-    if (visualIndicator)
+    double before;
+    if (visualIndicator) {
         canvas.save();
+        before = currentTimeMS();
+    }
 
     setupPartialInval(renderInfo, &canvas);
     canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
@@ -126,31 +114,21 @@ void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
     renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas);
 
     if (visualIndicator) {
+        double after = currentTimeMS();
         canvas.restore();
         unsigned int updateCount = renderInfo.tilePainter->getUpdateCount() & UPDATE_COUNT_MASK;
         const int color = updateCount & UPDATE_COUNT_ALPHA_MASK;
 
         // only color the invalidated area
-        SkPaint invalPaint;
-        invalPaint.setARGB(color, 0, 255, 0);
+        SkPaint paint;
+        paint.setARGB(color, 0, 255, 0);
         if (renderInfo.invalRect)
-            canvas.drawIRect(*renderInfo.invalRect, invalPaint);
+            canvas.drawIRect(*renderInfo.invalRect, paint);
         else {
             SkIRect rect;
             rect.set(0, 0, tileSize.width(), tileSize.height());
-            canvas.drawIRect(rect, invalPaint);
+            canvas.drawIRect(rect, paint);
         }
-
-        // paint the tile boundaries
-        SkPaint paint;
-        paint.setARGB(128, 255, 0, 0);
-        paint.setStrokeWidth(3);
-        canvas.drawLine(0, 0, tileSize.width(), tileSize.height(), paint);
-        paint.setARGB(128, 0, 255, 0);
-        canvas.drawLine(0, tileSize.height(), tileSize.width(), 0, paint);
-        paint.setARGB(128, 0, 0, 255);
-        canvas.drawLine(0, 0, tileSize.width(), 0, paint);
-        canvas.drawLine(tileSize.width(), 0, tileSize.width(), tileSize.height(), paint);
 
         if (renderInfo.invalRect) {
             // if partial inval...
@@ -163,9 +141,16 @@ void BaseRenderer::renderTiledContent(const TileRenderInfo& renderInfo)
             canvas.drawLine(x, y, x + w, y + h, paint);
             canvas.drawLine(x, y + h, x + w, y, paint);
         }
+        drawTileInfo(&canvas, renderInfo, updateCount, after - before);
 
-        if (renderInfo.measurePerf)
-            drawTileInfo(&canvas, renderInfo, updateCount);
+        // paint the tile boundaries
+        paint.setARGB(64, 255, 0, 0);
+        paint.setStrokeWidth(3);
+        canvas.drawLine(0, 0, tileSize.width(), tileSize.height(), paint);
+        paint.setARGB(64, 0, 255, 0);
+        canvas.drawLine(0, tileSize.height(), tileSize.width(), 0, paint);
+        paint.setARGB(128, 0, 0, 255);
+        canvas.drawLine(tileSize.width(), 0, tileSize.width(), tileSize.height(), paint);
     }
     renderingComplete(renderInfo, &canvas);
 }
