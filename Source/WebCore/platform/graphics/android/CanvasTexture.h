@@ -31,8 +31,7 @@
 #include "CanvasLayer.h"
 
 #include <wtf/RefPtr.h>
-#include <utils/Mutex.h>
-#include <utils/StrongPointer.h>
+#include <utils/threads.h>
 
 namespace android {
 class SurfaceTexture;
