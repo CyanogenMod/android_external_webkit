@@ -39,16 +39,6 @@
 
 namespace WebCore {
 
-static const String TAG_CREATE_FBO = "create_fbo";
-static const String TAG_DRAW_PICTURE = "draw_picture";
-static const String TAG_UPDATE_TEXTURE = "update_texture";
-#define TAG_COUNT 3
-static const String TAGS[] = {
-    TAG_CREATE_FBO,
-    TAG_DRAW_PICTURE,
-    TAG_UPDATE_TEXTURE,
-};
-
 GaneshRenderer::GaneshRenderer() : BaseRenderer(BaseRenderer::Ganesh)
 {
 #ifdef DEBUG_COUNT
@@ -65,9 +55,6 @@ GaneshRenderer::~GaneshRenderer()
 
 void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    if (renderInfo.measurePerf)
-        m_perfMon.start(TAG_CREATE_FBO);
-
     GaneshContext* ganesh = GaneshContext::instance();
 
     TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
@@ -92,11 +79,6 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
               renderInfo.tileSize.width(), renderInfo.tileSize.height());
     }
 
-    if (renderInfo.measurePerf) {
-        m_perfMon.stop(TAG_CREATE_FBO);
-        m_perfMon.start(TAG_DRAW_PICTURE);
-    }
-
     // set the GPU device to the canvas
     canvas->setDevice(device);
 }
@@ -113,11 +95,6 @@ void GaneshRenderer::setupPartialInval(const TileRenderInfo& renderInfo, SkCanva
 
 void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    if (renderInfo.measurePerf) {
-        m_perfMon.stop(TAG_DRAW_PICTURE);
-        m_perfMon.start(TAG_UPDATE_TEXTURE);
-    }
-
     ALOGV("rendered to tile (%d,%d)", renderInfo.x, renderInfo.y);
 
     GaneshContext::instance()->flush();
@@ -128,15 +105,6 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
     eglSwapBuffers(eglGetCurrentDisplay(), tileQueue->m_eglSurface);
     tileQueue->addItemInTransferQueue(&renderInfo, GpuUpload, 0);
     tileQueue->unlockQueue();
-
-    if (renderInfo.measurePerf)
-        m_perfMon.stop(TAG_UPDATE_TEXTURE);
-}
-
-const String* GaneshRenderer::getPerformanceTags(int& tagCount)
-{
-    tagCount = TAG_COUNT;
-    return TAGS;
 }
 
 } // namespace WebCore

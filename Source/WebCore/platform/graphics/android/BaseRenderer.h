@@ -28,8 +28,8 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "PerformanceMonitor.h"
 #include "SkRect.h"
+#include <wtf/text/StringHash.h>
 
 class SkCanvas;
 class SkDevice;
@@ -62,9 +62,6 @@ struct TileRenderInfo {
 
     // info about the texture that we are to render into
     TextureInfo* textureInfo;
-
-    // specifies whether or not to measure the rendering performance
-    bool measurePerf;
 };
 
 /**
@@ -92,12 +89,7 @@ protected:
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
 
     void drawTileInfo(SkCanvas* canvas, const TileRenderInfo& renderInfo,
-            int updateCount);
-
-    virtual const String* getPerformanceTags(int& tagCount) = 0;
-
-    // Performance tracking
-    PerformanceMonitor m_perfMon;
+            int updateCount, double renderDuration);
 
 private:
     RendererType m_type;

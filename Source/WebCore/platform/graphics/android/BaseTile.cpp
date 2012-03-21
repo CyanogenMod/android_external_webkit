@@ -391,7 +391,6 @@ void BaseTile::paintBitmap(TilePainter* painter)
 
         if (!fullRepaint) {
             renderInfo.invalRect = &totalRect;
-            renderInfo.measurePerf = false;
             m_renderer->renderTiledContent(renderInfo);
         }
     }
@@ -399,7 +398,6 @@ void BaseTile::paintBitmap(TilePainter* painter)
     // Do a full repaint if needed
     if (fullRepaint) {
         renderInfo.invalRect = 0;
-        renderInfo.measurePerf = TilesManager::instance()->getShowVisualIndicator();
         m_renderer->renderTiledContent(renderInfo);
     }
 
