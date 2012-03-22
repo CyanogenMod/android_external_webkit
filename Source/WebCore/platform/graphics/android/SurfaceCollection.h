@@ -26,8 +26,9 @@
 #ifndef SurfaceCollection_h
 #define SurfaceCollection_h
 
-#include "SkRefCnt.h"
+#include "Color.h"
 #include "SkRect.h"
+#include "SkRefCnt.h"
 #include "Vector.h"
 
 class SkCanvas;
@@ -48,7 +49,7 @@ public:
     // Tiled painting methods (executed on groups)
     void prepareGL(const SkRect& visibleRect);
     bool drawGL(const SkRect& visibleRect);
-    void drawBackground();
+    Color getBackground();
     void swapTiles();
     bool isReady();
     void computeTexturesAmount(TexturesResult* result);

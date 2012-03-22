@@ -32,9 +32,9 @@
 #include "AndroidLog.h"
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
+#include "GLWebViewState.h"
 #include "LayerAndroid.h"
 #include "LayerGroup.h"
-#include "GLWebViewState.h"
 #include "ScrollableLayerAndroid.h"
 #include "TilesManager.h"
 
@@ -47,9 +47,7 @@ namespace WebCore {
 SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
         : m_compositedRoot(layer)
 {
-    if (!m_compositedRoot)
-        return;
-
+    // layer must be non-null.
     SkSafeRef(m_compositedRoot);
 
     // calculate draw transforms and z values
@@ -87,13 +85,11 @@ SurfaceCollection::~SurfaceCollection()
 
 void SurfaceCollection::prepareGL(const SkRect& visibleRect)
 {
-    if (m_compositedRoot) {
-        updateLayerPositions(visibleRect);
-        bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
-            > GLWebViewState::kClippedTextures;
-        for (unsigned int i = 0; i < m_layerGroups.size(); i++)
-            m_layerGroups[i]->prepareGL(layerTilesDisabled);
-    }
+    updateLayerPositions(visibleRect);
+    bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
+        > GLWebViewState::kClippedTextures;
+    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
+        m_layerGroups[i]->prepareGL(layerTilesDisabled);
 }
 
 bool SurfaceCollection::drawGL(const SkRect& visibleRect)
@@ -103,23 +99,18 @@ bool SurfaceCollection::drawGL(const SkRect& visibleRect)
 #endif
 
     bool needsRedraw = false;
-    if (m_compositedRoot) {
-        updateLayerPositions(visibleRect);
-        bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
-            > GLWebViewState::kClippedTextures;
-        for (unsigned int i = 0; i < m_layerGroups.size(); i++)
-            needsRedraw |= m_layerGroups[i]->drawGL(layerTilesDisabled);
-    }
+    updateLayerPositions(visibleRect);
+    bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
+        > GLWebViewState::kClippedTextures;
+    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
+        needsRedraw |= m_layerGroups[i]->drawGL(layerTilesDisabled);
 
     return needsRedraw;
 }
 
-void SurfaceCollection::drawBackground()
+Color SurfaceCollection::getBackground()
 {
-    Color background = Color::white;
-    if (m_compositedRoot)
-        background = static_cast<BaseLayerAndroid*>(m_compositedRoot)->getBackgroundColor();
-    GLUtils::drawBackground(background);
+    return static_cast<BaseLayerAndroid*>(m_compositedRoot)->getBackgroundColor();
 }
 
 void SurfaceCollection::swapTiles()
@@ -130,9 +121,6 @@ void SurfaceCollection::swapTiles()
 
 bool SurfaceCollection::isReady()
 {
-    if (!m_compositedRoot)
-        return true;
-
     // Override layer readiness check for single surface mode
     if (m_compositedRoot->state()->layersRenderingMode() > GLWebViewState::kClippedTextures) {
         // TODO: single surface mode should be properly double buffered
@@ -160,7 +148,7 @@ void SurfaceCollection::computeTexturesAmount(TexturesResult* result)
 
 void SurfaceCollection::setIsPainting(SurfaceCollection* drawingSurface)
 {
-    if (!m_compositedRoot || !drawingSurface)
+    if (!drawingSurface)
         return;
 
     for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
@@ -178,41 +166,31 @@ void SurfaceCollection::setIsPainting(SurfaceCollection* drawingSurface)
 
 void SurfaceCollection::setIsDrawing()
 {
-    if (!m_compositedRoot)
-        return;
-
     m_compositedRoot->initAnimations();
 }
 
 void SurfaceCollection::mergeInvalsInto(SurfaceCollection* replacementSurface)
 {
-    if (m_compositedRoot && replacementSurface->m_compositedRoot)
-        m_compositedRoot->mergeInvalsInto(replacementSurface->m_compositedRoot);
+    m_compositedRoot->mergeInvalsInto(replacementSurface->m_compositedRoot);
 }
 
 void SurfaceCollection::evaluateAnimations(double currentTime)
 {
-    if (!m_compositedRoot)
-        return;
-
     m_compositedRoot->evaluateAnimations(currentTime);
 }
 
 bool SurfaceCollection::hasCompositedLayers()
 {
-    return m_compositedRoot != 0;
+    return m_compositedRoot->countChildren();
 }
 
 bool SurfaceCollection::hasCompositedAnimations()
 {
-    return m_compositedRoot != 0 && m_compositedRoot->hasAnimations();
+    return m_compositedRoot->hasAnimations();
 }
 
 void SurfaceCollection::updateScrollableLayer(int layerId, int x, int y)
 {
-    if (!m_compositedRoot)
-        return;
-
     LayerAndroid* layer = m_compositedRoot->findById(layerId);
     if (layer && layer->contentIsScrollable())
         static_cast<ScrollableLayerAndroid*>(layer)->scrollTo(x, y);
@@ -220,9 +198,6 @@ void SurfaceCollection::updateScrollableLayer(int layerId, int x, int y)
 
 void SurfaceCollection::updateLayerPositions(const SkRect& visibleRect)
 {
-    if (!m_compositedRoot)
-        return;
-
     TransformationMatrix ident;
     m_compositedRoot->updateLayerPositions(visibleRect);
     FloatRect clip(0, 0, 1e10, 1e10);
@@ -236,6 +211,5 @@ void SurfaceCollection::updateLayerPositions(const SkRect& visibleRect)
           m_compositedRoot->nbTexturedLayers());
 #endif
 }
-
 
 } // namespace WebCore
