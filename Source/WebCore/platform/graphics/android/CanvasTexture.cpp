@@ -64,6 +64,18 @@ PassRefPtr<CanvasTexture> CanvasTexture::getCanvasTexture(CanvasLayer* layer)
     return adoptRef(new CanvasTexture(layer->uniqueId()));
 }
 
+bool CanvasTexture::setHwAccelerated(bool hwAccelerated)
+{
+    android::Mutex::Autolock lock(m_surfaceLock);
+    if (m_useHwAcceleration == hwAccelerated)
+        return false;
+    m_useHwAcceleration = hwAccelerated;
+    if (!m_ANW.get())
+        return false;
+    destroySurfaceTexture();
+    return true;
+}
+
 /********************************************
  * Called by WebKit thread
  ********************************************/
@@ -159,7 +171,7 @@ bool CanvasTexture::updateTexImage()
 }
 
 /********************************************
- * Called by UI thread (with or without GL context)
+ * Called by both threads
  ********************************************/
 
 void CanvasTexture::destroySurfaceTexture()
@@ -169,18 +181,6 @@ void CanvasTexture::destroySurfaceTexture()
         m_surfaceTexture->abandon();
         m_surfaceTexture.clear();
     }
-}
-
-bool CanvasTexture::setHwAccelerated(bool hwAccelerated)
-{
-    android::Mutex::Autolock lock(m_surfaceLock);
-    if (m_useHwAcceleration == hwAccelerated)
-        return false;
-    m_useHwAcceleration = hwAccelerated;
-    if (!m_ANW.get())
-        return false;
-    destroySurfaceTexture();
-    return true;
 }
 
 /********************************************

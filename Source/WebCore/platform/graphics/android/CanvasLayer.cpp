@@ -59,6 +59,14 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
     , m_bitmap(0)
 {
     init();
+    if (!layer.m_canvas) {
+        // The canvas has already been destroyed - this shouldn't happen
+        ALOGW("Creating a CanvasLayer for a destroyed canvas!");
+        m_contentRect = IntRect();
+        m_offsetFromRenderer = IntSize();
+        m_texture->setHwAccelerated(false);
+        return;
+    }
     // We are making a copy for the UI, sync the interesting bits
     m_contentRect = layer.contentRect();
     m_offsetFromRenderer = layer.offsetFromRenderer();
@@ -118,6 +126,7 @@ void CanvasLayer::canvasResized(HTMLCanvasElement*)
 
 void CanvasLayer::canvasDestroyed(HTMLCanvasElement*)
 {
+    m_canvas = 0;
 }
 
 void CanvasLayer::clearDirtyRegion()

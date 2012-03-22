@@ -47,6 +47,7 @@ public:
      * Called by both threads
      ********************************************/
     static PassRefPtr<CanvasTexture> getCanvasTexture(CanvasLayer* layer);
+    bool setHwAccelerated(bool hwAccelerated);
 
     /********************************************
      * Called by WebKit thread
@@ -64,13 +65,12 @@ public:
     GLuint texture() { requireTexture(); return m_texture; }
     bool updateTexImage();
 
+private:
     /********************************************
-     * Called by UI thread (with or without GL context)
+     * Called by both threads
      ********************************************/
     void destroySurfaceTexture();
-    bool setHwAccelerated(bool hwAccelerated);
 
-private:
     /********************************************
      * Called by WebKit thread
      ********************************************/
