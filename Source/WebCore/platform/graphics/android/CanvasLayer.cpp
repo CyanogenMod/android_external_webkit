@@ -130,7 +130,7 @@ void CanvasLayer::clearDirtyRegion()
 
 SkBitmapRef* CanvasLayer::bitmap() const
 {
-    if (!m_canvas)
+    if (!m_canvas || !m_canvas->buffer())
         return 0;
     return m_canvas->copiedImage()->nativeImageForCurrentFrame();
 }
