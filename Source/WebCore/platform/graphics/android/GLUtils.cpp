@@ -35,6 +35,7 @@
 #include "TilesManager.h"
 
 #include <AndroidLog.h>
+#include <android/native_window.h>
 #include <gui/SurfaceTexture.h>
 #include <wtf/CurrentTime.h>
 
