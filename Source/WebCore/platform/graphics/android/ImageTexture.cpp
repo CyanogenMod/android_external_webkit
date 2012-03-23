@@ -173,7 +173,8 @@ bool ImageTexture::prepareGL(GLWebViewState* state)
         return false;
 
     if (!m_texture && m_picture) {
-        m_texture = new TiledTexture();
+        bool isLayerTile = true;
+        m_texture = new TiledTexture(isLayerTile);
         SkRegion region;
         region.setRect(0, 0, m_image->width(), m_image->height());
         m_texture->markAsDirty(region);

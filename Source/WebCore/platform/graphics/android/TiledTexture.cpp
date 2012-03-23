@@ -130,7 +130,7 @@ void TiledTexture::prepareGL(GLWebViewState* state, float scale,
     m_prevTileY = m_area.y();
 
     if (scale != m_scale)
-        TilesManager::instance()->removeOperationsForFilter(new ScaleFilter(painter, scale));
+        TilesManager::instance()->removeOperationsForFilter(new ScaleFilter(painter, m_scale));
 
     m_scale = scale;
 
@@ -138,16 +138,26 @@ void TiledTexture::prepareGL(GLWebViewState* state, float scale,
     if (!m_dirtyRegion.isEmpty()) {
         for (unsigned int i = 0; i < m_tiles.size(); i++)
             m_tiles[i]->markAsDirty(m_dirtyRegion);
+
+        // log inval region for the base surface
+        if (m_isBaseSurface && TilesManager::instance()->getProfiler()->enabled()) {
+            SkRegion::Iterator iterator(m_dirtyRegion);
+            while (!iterator.done()) {
+                SkIRect r = iterator.rect();
+                TilesManager::instance()->getProfiler()->nextInval(r, scale);
+                iterator.next();
+            }
+        }
         m_dirtyRegion.setEmpty();
     }
 
     for (int i = 0; i < m_area.width(); i++) {
         if (goingDown) {
             for (int j = 0; j < m_area.height(); j++)
-                prepareTile(m_area.x() + i, m_area.y() + j, painter);
+                prepareTile(m_area.x() + i, m_area.y() + j, painter, state);
         } else {
             for (int j = m_area.height() - 1; j >= 0; j--)
-                prepareTile(m_area.x() + i, m_area.y() + j, painter);
+                prepareTile(m_area.x() + i, m_area.y() + j, painter, state);
         }
     }
 }
@@ -159,11 +169,12 @@ void TiledTexture::markAsDirty(const SkRegion& invalRegion)
     m_dirtyRegion.op(invalRegion, SkRegion::kUnion_Op);
 }
 
-void TiledTexture::prepareTile(int x, int y, TilePainter* painter)
+void TiledTexture::prepareTile(int x, int y, TilePainter* painter, GLWebViewState* state)
 {
     BaseTile* tile = getTile(x, y);
     if (!tile) {
-        tile = new BaseTile(true);
+        bool isLayerTile = !m_isBaseSurface;
+        tile = new BaseTile(isLayerTile);
         m_tiles.append(tile);
     }
 
@@ -178,7 +189,7 @@ void TiledTexture::prepareTile(int x, int y, TilePainter* painter)
 
     if (tile->backTexture() && tile->isDirty() && !tile->isRepaintPending()) {
         ALOGV("painting TT %p's tile %d %d for LG %p", this, x, y, painter);
-        PaintTileOperation *operation = new PaintTileOperation(tile, painter);
+        PaintTileOperation *operation = new PaintTileOperation(tile, painter, state);
         TilesManager::instance()->scheduleOperation(operation);
     }
 }
@@ -226,7 +237,8 @@ bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
 
-        if (tile->isTileVisible(m_area)) {
+        bool tileInView = tile->isTileVisible(m_area);
+        if (tileInView) {
             askRedraw |= !tile->isTileReady();
             SkRect rect;
             rect.fLeft = tile->x() * tileWidth;
@@ -240,6 +252,9 @@ bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
             if (tile->frontTexture())
                 drawn++;
         }
+
+        if (m_isBaseSurface)
+            TilesManager::instance()->getProfiler()->nextTile(tile, m_invScale, tileInView);
     }
     ALOGV("TT %p drew %d tiles, redraw due to notready %d, scale %f",
           this, drawn, askRedraw, m_scale);
@@ -275,10 +290,10 @@ bool TiledTexture::owns(BaseTileTexture* texture)
     return false;
 }
 
-DualTiledTexture::DualTiledTexture()
+DualTiledTexture::DualTiledTexture(bool isBaseSurface)
 {
-    m_textureA = new TiledTexture();
-    m_textureB = new TiledTexture();
+    m_textureA = new TiledTexture(isBaseSurface);
+    m_textureB = new TiledTexture(isBaseSurface);
     m_frontTexture = m_textureA;
     m_backTexture = m_textureB;
     m_scale = -1;
@@ -319,7 +334,7 @@ void DualTiledTexture::prepareGL(GLWebViewState* state, bool allowZoom,
           this, scale, m_scale, m_futureScale, m_zooming,
           m_frontTexture, m_backTexture);
 
-    if (m_scale > 0)
+    if (m_scale > 0 && !m_zooming)
         m_frontTexture->prepareGL(state, m_scale, m_preZoomPrepareArea, painter);
 
     // If we had a scheduled update

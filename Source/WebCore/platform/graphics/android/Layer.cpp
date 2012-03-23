@@ -1,5 +1,10 @@
+#define LOG_TAG "Layer"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "Layer.h"
+
+#include "AndroidLog.h"
 #include "SkCanvas.h"
 
 //#define DEBUG_DRAW_LAYER_BOUNDS

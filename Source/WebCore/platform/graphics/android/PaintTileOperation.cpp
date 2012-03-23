@@ -23,20 +23,24 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "PaintTileOperation"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "PaintTileOperation.h"
+
+#include "AndroidLog.h"
 #include "ImageTexture.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
-#include "TiledPage.h"
 #include "TilesManager.h"
 
 namespace WebCore {
 
-PaintTileOperation::PaintTileOperation(BaseTile* tile, TilePainter* painter)
-    : QueuedOperation(tile->page())
-    , m_tile(tile)
+PaintTileOperation::PaintTileOperation(BaseTile* tile, TilePainter* painter, GLWebViewState* state)
+    : m_tile(tile)
     , m_painter(painter)
+    , m_state(state)
 {
     if (m_tile)
         m_tile->setRepaintPending(true);
@@ -80,15 +84,6 @@ int PaintTileOperation::priority()
 
     int priority = 200000;
 
-    // if scrolling, prioritize the prefetch page, otherwise deprioritize
-    TiledPage* page = m_tile->page();
-    if (page && page->isPrefetchPage()) {
-        if (page->glWebViewState()->isScrolling())
-            priority = 0;
-        else
-            priority = 400000;
-    }
-
     // prioritize higher draw count
     unsigned long long currentDraw = TilesManager::instance()->getDrawGLCount();
     unsigned long long drawDelta = currentDraw - m_tile->drawCount();
@@ -100,7 +95,7 @@ int PaintTileOperation::priority()
 
     // for base tiles, prioritize based on position
     if (!m_tile->isLayerTile()) {
-        bool goingDown = m_tile->page()->scrollingDown();
+        bool goingDown = m_state->goingDown();
         priority += m_tile->x();
 
         if (goingDown)

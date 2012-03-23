@@ -71,7 +71,6 @@ class GLWebViewState;
 class IFrameLayerAndroid;
 class LayerMergeState;
 class RenderLayer;
-class TiledPage;
 class PaintedSurface;
 
 class TexturesResult {
@@ -91,10 +90,10 @@ public:
 
 class TEST_EXPORT LayerAndroid : public Layer {
 public:
-    typedef enum { UndefinedLayer, WebCoreLayer, UILayer, NavCacheLayer } LayerType;
+    typedef enum { UndefinedLayer, WebCoreLayer, UILayer } LayerType;
     typedef enum { StandardLayer, ScrollableLayer,
                    IFrameLayer, IFrameContentLayer,
-                   CanvasLayer } SubclassType;
+                   CanvasLayer, BaseLayer } SubclassType;
     typedef enum { InvalidateNone = 0, InvalidateLayers } InvalidateFlags;
 
     String subclassName()
@@ -110,16 +109,15 @@ public:
                 return "IFrameContentLayer";
             case LayerAndroid::CanvasLayer:
                 return "CanvasLayer";
+            case LayerAndroid::BaseLayer:
+                return "BaseLayer";
         }
         return "Undefined";
     }
 
     LayerAndroid(RenderLayer* owner);
     LayerAndroid(const LayerAndroid& layer);
-    LayerAndroid(SkPicture*);
     virtual ~LayerAndroid();
-
-    virtual TiledPage* page() { return 0; }
 
     void setBackfaceVisibility(bool value) { m_backfaceVisibility = value; }
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
@@ -160,7 +158,7 @@ public:
     void setAnchorPointZ(float z) { m_anchorPointZ = z; }
     float anchorPointZ() { return m_anchorPointZ; }
     void setDrawTransform(const TransformationMatrix& transform) { m_drawTransform = transform; }
-    const TransformationMatrix* drawTransform() const { return &m_drawTransform; }
+    virtual const TransformationMatrix* drawTransform() const { return &m_drawTransform; }
     void setChildrenTransform(const TransformationMatrix& t) { m_childrenTransform = t; }
     void setDrawClip(const FloatRect& rect) { m_clippingRect = rect; }
     const FloatRect& drawClip() { return m_clippingRect; }
@@ -288,6 +286,7 @@ protected:
     virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated) { return InvalidateNone; }
     IntPoint m_offset;
     TransformationMatrix m_drawTransform;
+    int m_uniqueId;
 
 private:
 #if DUMP_NAV_CACHE
@@ -330,8 +329,6 @@ private:
     float m_zValue;
 
     FloatRect m_clippingRect;
-
-    int m_uniqueId;
 
     // Note that m_content and m_imageCRC are mutually exclusive;
     // m_content is used when WebKit is asked to paint the layer's

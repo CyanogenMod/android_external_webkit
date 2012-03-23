@@ -29,16 +29,14 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "QueuedOperation.h"
-#include "TiledPage.h"
 #include "TilePainter.h"
+#include "Vector.h"
+
 #include <utils/threads.h>
 
 namespace WebCore {
 
 using namespace android;
-
-class BaseLayerAndroid;
-class LayerAndroid;
 
 class TexturesGenerator : public Thread {
 public:
@@ -48,10 +46,7 @@ public:
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
-    void removeOperationsForPage(TiledPage* page);
-    void removePaintOperationsForPage(TiledPage* page, bool waitForRunning);
-    void removeOperationsForFilter(OperationFilter* filter);
-    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning);
+    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning = true);
 
     void scheduleOperation(QueuedOperation* operation);
 

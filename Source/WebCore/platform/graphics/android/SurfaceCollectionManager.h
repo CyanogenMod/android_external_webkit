@@ -54,11 +54,6 @@ public:
                 bool enterFastSwapMode, bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                 TexturesResult* texturesResultPtr);
 
-    void drawCanvas(SkCanvas* canvas, bool drawLayers);
-
-    int baseContentWidth();
-    int baseContentHeight();
-
 private:
     void swap();
     void clearCollections();

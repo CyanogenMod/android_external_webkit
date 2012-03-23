@@ -54,6 +54,7 @@ private:
 ///////////////////////////////////////////////////////////////////////////////
 
 LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
+    m_uniqueId(++gUniqueId),
     m_haveClip(false),
     m_backfaceVisibility(true),
     m_visible(true),
@@ -62,7 +63,6 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_isPositionAbsolute(false),
     m_fixedPosition(0),
     m_zValue(0),
-    m_uniqueId(++gUniqueId),
     m_content(0),
     m_imageCRC(0),
     m_scale(1),
@@ -83,11 +83,11 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 }
 
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
+    m_uniqueId(layer.m_uniqueId),
     m_haveClip(layer.m_haveClip),
     m_isPositionAbsolute(layer.m_isPositionAbsolute),
     m_fixedPosition(0),
     m_zValue(layer.m_zValue),
-    m_uniqueId(layer.m_uniqueId),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
     m_intrinsicallyComposited(layer.m_intrinsicallyComposited),
@@ -169,28 +169,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 #endif
 }
 
-LayerAndroid::LayerAndroid(SkPicture* picture) : Layer(),
-    m_haveClip(false),
-    m_fixedPosition(0),
-    m_zValue(0),
-    m_uniqueId(++gUniqueId),
-    m_imageCRC(0),
-    m_scale(1),
-    m_lastComputeTextureSize(0),
-    m_owningLayer(0),
-    m_type(LayerAndroid::NavCacheLayer),
-    m_intrinsicallyComposited(true),
-    m_layerGroup(0)
-{
-    m_backgroundColor = 0;
-    m_content = new PictureLayerContent(picture);
-    m_dirtyRegion.setEmpty();
-#ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("LayerAndroid - from picture");
-    ClassTracker::instance()->add(this);
-#endif
-}
-
 LayerAndroid::~LayerAndroid()
 {
     if (m_imageCRC)
@@ -207,8 +185,6 @@ LayerAndroid::~LayerAndroid()
         ClassTracker::instance()->decrement("LayerAndroid");
     else if (m_type == LayerAndroid::UILayer)
         ClassTracker::instance()->decrement("LayerAndroid - recopy (UI)");
-    else if (m_type == LayerAndroid::NavCacheLayer)
-        ClassTracker::instance()->decrement("LayerAndroid - from picture");
 #endif
 }
 
@@ -483,6 +459,9 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     } else {
         setDrawClip(clipping);
     }
+    ALOGV("%s - %d %f %f %f %f",
+          subclassType() == BaseLayer ? "BASE" : "nonbase",
+          m_haveClip, m_clippingRect.x(), m_clippingRect.y(), m_clippingRect.width(), m_clippingRect.height());
 
     if (!m_backfaceVisibility
          && m_drawTransform.inverse().m33() < 0) {
@@ -681,7 +660,7 @@ static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
 
 bool LayerAndroid::canJoinGroup(LayerGroup* group)
 {
-#if DISABLE_LAYER_MERGE
+#ifdef DISABLE_LAYER_MERGE
     return false;
 #else
     // returns true if the layer can be merged onto the layergroup

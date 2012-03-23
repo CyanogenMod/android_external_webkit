@@ -37,6 +37,7 @@
 #include "IntPoint.h"
 #include "IntRect.h"
 #include "LayerAndroid.h"
+#include "LayerContent.h"
 #include "Node.h"
 #include "utils/Functor.h"
 #include "private/hwui/DrawGlInfo.h"
@@ -246,14 +247,7 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     if (!m_glWebViewState) {
         TilesManager::instance()->setHighEndGfx(m_isHighEndGfx);
         m_glWebViewState = new GLWebViewState();
-        if (m_baseLayer->content()) {
-            SkRegion region;
-            SkIRect rect;
-            rect.set(0, 0, m_baseLayer->content()->width(), m_baseLayer->content()->height());
-            region.setRect(rect);
-            m_baseLayer->markAsDirty(region);
-            m_glWebViewState->setBaseLayer(m_baseLayer, false, true);
-        }
+        m_glWebViewState->setBaseLayer(m_baseLayer, false, true);
     }
 
     DrawExtra* extra = getDrawExtra((DrawExtras) extras);
@@ -295,37 +289,24 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
 
     // draw the content of the base layer first
     LayerContent* content = m_baseLayer->content();
-
     int sc = canvas->save(SkCanvas::kClip_SaveFlag);
     canvas->clipRect(SkRect::MakeLTRB(0, 0, content->width(),
                 content->height()), SkRegion::kDifference_Op);
     canvas->drawColor(bgColor);
     canvas->restoreToCount(sc);
-    content->draw(canvas);
 
-    DrawExtra* extra = getDrawExtra(extras);
-    if (extra)
-        extra->draw(canvas, 0);
+    // call this to be sure we've adjusted for any scrolling or animations
+    // before we actually draw
+    m_baseLayer->updateLayerPositions(m_visibleRect);
+    m_baseLayer->updatePositions();
 
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* compositeLayer = compositeRoot();
-    if (compositeLayer) {
-        // call this to be sure we've adjusted for any scrolling or animations
-        // before we actually draw
-        compositeLayer->updateLayerPositions(m_visibleRect);
-        compositeLayer->updatePositions();
-        // We have to set the canvas' matrix on the base layer
-        // (to have fixed layers work as intended)
-        SkAutoCanvasRestore restore(canvas, true);
-        m_baseLayer->setMatrix(canvas->getTotalMatrix());
-        canvas->resetMatrix();
-        m_baseLayer->draw(canvas, extra);
-    }
-    if (extra) {
-        IntRect dummy; // inval area, unused for now
-        extra->drawLegacy(canvas, compositeLayer, &dummy);
-    }
-#endif
+    // We have to set the canvas' matrix on the base layer
+    // (to have fixed layers work as intended)
+    SkAutoCanvasRestore restore(canvas, true);
+    m_baseLayer->setMatrix(canvas->getTotalMatrix());
+    canvas->resetMatrix();
+    m_baseLayer->draw(canvas, getDrawExtra(extras));
+
     return ret;
 }
 
@@ -415,11 +396,9 @@ static const ScrollableLayerAndroid* findScrollableLayer(
 int scrollableLayer(int x, int y, SkIRect* layerRect, SkIRect* bounds)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    const LayerAndroid* layerRoot = compositeRoot();
-    if (!layerRoot)
+    if (!m_baseLayer)
         return 0;
-    const ScrollableLayerAndroid* result = findScrollableLayer(layerRoot, x, y,
-        bounds);
+    const ScrollableLayerAndroid* result = findScrollableLayer(m_baseLayer, x, y, bounds);
     if (result) {
         result->getScrollRect(layerRect);
         return result->uniqueId();
@@ -500,16 +479,6 @@ void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
     checkException(env);
 }
 
-LayerAndroid* compositeRoot() const
-{
-    ALOG_ASSERT(!m_baseLayer || m_baseLayer->countChildren() == 1,
-            "base layer can't have more than one child %s", __FUNCTION__);
-    if (m_baseLayer && m_baseLayer->countChildren() == 1)
-        return static_cast<LayerAndroid*>(m_baseLayer->getChild(0));
-    else
-        return 0;
-}
-
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
 static void copyScrollPositionRecursive(const LayerAndroid* from,
                                         LayerAndroid* root)
@@ -529,28 +498,30 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 }
 #endif
 
-bool setBaseLayer(BaseLayerAndroid* layer, SkRegion& inval, bool showVisualIndicator,
+BaseLayerAndroid* getBaseLayer() const { return m_baseLayer; }
+
+bool setBaseLayer(BaseLayerAndroid* newBaseLayer, SkRegion& inval, bool showVisualIndicator,
                   bool isPictureAfterFirstLayout)
 {
     bool queueFull = false;
 #if USE(ACCELERATED_COMPOSITING)
     if (m_glWebViewState) {
-        if (layer)
-            layer->markAsDirty(inval);
-        queueFull = m_glWebViewState->setBaseLayer(layer, showVisualIndicator,
+        // TODO: mark as inval on webkit side
+        if (newBaseLayer)
+            newBaseLayer->markAsDirty(inval);
+        queueFull = m_glWebViewState->setBaseLayer(newBaseLayer, showVisualIndicator,
                                                    isPictureAfterFirstLayout);
     }
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (layer) {
-        // TODO: the below tree copies are only necessary in software rendering
-        LayerAndroid* newCompositeRoot = static_cast<LayerAndroid*>(layer->getChild(0));
-        copyScrollPositionRecursive(compositeRoot(), newCompositeRoot);
+    if (newBaseLayer) {
+        // TODO: the below tree position copies are only necessary in software rendering
+        copyScrollPositionRecursive(m_baseLayer, newBaseLayer);
     }
 #endif
     SkSafeUnref(m_baseLayer);
-    m_baseLayer = layer;
+    m_baseLayer = newBaseLayer;
 
     return queueFull;
 }
@@ -568,8 +539,8 @@ void copyBaseContentToPicture(SkPicture* picture)
     if (!m_baseLayer)
         return;
     LayerContent* content = m_baseLayer->content();
-    m_baseLayer->drawCanvas(picture->beginRecording(content->width(), content->height(),
-            SkPicture::kUsePathBoundsForClip_RecordingFlag));
+    content->draw(picture->beginRecording(content->width(), content->height(),
+                                          SkPicture::kUsePathBoundsForClip_RecordingFlag));
     picture->endRecording();
 }
 
@@ -586,10 +557,6 @@ void setFunctor(Functor* functor) {
 
 Functor* getFunctor() {
     return m_glDrawFunctor;
-}
-
-BaseLayerAndroid* getBaseLayer() {
-    return m_baseLayer;
 }
 
 void setVisibleRect(SkRect& visibleRect) {
@@ -621,7 +588,7 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIRect& cursorRect) {
         // We need to make sure the drawTransform is up to date as this is
         // called before a draw() or drawGL()
         m_baseLayer->updateLayerPositions(m_visibleRect);
-        LayerAndroid* root = compositeRoot();
+        LayerAndroid* root = m_baseLayer;
         LayerAndroid* layer = root ? root->findById(layerId) : 0;
         if (layer && layer->drawTransform()) {
             const TransformationMatrix* transform = layer->drawTransform();
@@ -644,8 +611,7 @@ void mapLayerRect(int layerId, SkIRect& rect) {
         // We need to make sure the drawTransform is up to date as this is
         // called before a draw() or drawGL()
         m_baseLayer->updateLayerPositions(m_visibleRect);
-        LayerAndroid* root = compositeRoot();
-        LayerAndroid* layer = root ? root->findById(layerId) : 0;
+        LayerAndroid* layer = m_baseLayer ? m_baseLayer->findById(layerId) : 0;
         if (layer && layer->drawTransform())
             rect = layer->drawTransform()->mapRect(rect);
     }
@@ -656,7 +622,7 @@ void mapLayerRect(int layerId, SkIRect& rect) {
 int setHwAccelerated(bool hwAccelerated) {
     if (!m_glWebViewState)
         return 0;
-    LayerAndroid* root = compositeRoot();
+    LayerAndroid* root = m_baseLayer;
     if (root)
         return root->setHwAccelerated(hwAccelerated);
     return 0;
@@ -844,10 +810,10 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint native
 {
     // only call in software rendering, initialize and evaluate animations
 #if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* root = ((WebView*)nativeView)->compositeRoot();
-    if (root) {
-        root->initAnimations();
-        return root->evaluateAnimations();
+    BaseLayerAndroid* baseLayer = ((WebView*)nativeView)->getBaseLayer();
+    if (baseLayer) {
+        baseLayer->initAnimations();
+        return baseLayer->evaluateAnimations();
     }
 #endif
     return false;
@@ -1089,11 +1055,11 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
             fclose(file);
         }
 #if USE(ACCELERATED_COMPOSITING)
-        const LayerAndroid* rootLayer = view->compositeRoot();
-        if (rootLayer) {
+        const LayerAndroid* baseLayer = view->getBaseLayer();
+        if (baseLayer) {
           FILE* file = fopen(LAYERS_TREE_LOG_FILE,"w");
           if (file) {
-              rootLayer->dumpLayers(file, 0);
+              baseLayer->dumpLayers(file, 0);
               fclose(file);
           }
         }
@@ -1124,10 +1090,10 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
     view->scrollLayer(layerId, x, y);
 
     //TODO: the below only needed for the SW rendering path
-    LayerAndroid* root = view->compositeRoot();
-    if (!root)
+    LayerAndroid* baseLayer = view->getBaseLayer();
+    if (!baseLayer)
         return false;
-    LayerAndroid* layer = root->findById(layerId);
+    LayerAndroid* layer = baseLayer->findById(layerId);
     if (!layer || !layer->contentIsScrollable())
         return false;
     return static_cast<ScrollableLayerAndroid*>(layer)->scrollTo(x, y);

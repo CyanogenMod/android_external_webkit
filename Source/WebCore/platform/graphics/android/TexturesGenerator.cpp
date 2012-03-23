@@ -47,21 +47,6 @@ void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
     mRequestedOperationsCond.signal();
 }
 
-void TexturesGenerator::removeOperationsForPage(TiledPage* page)
-{
-    removeOperationsForFilter(new PageFilter(page));
-}
-
-void TexturesGenerator::removePaintOperationsForPage(TiledPage* page, bool waitForRunning)
-{
-    removeOperationsForFilter(new PageFilter(page), waitForRunning);
-}
-
-void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
-{
-    removeOperationsForFilter(filter, true);
-}
-
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter, bool waitForRunning)
 {
     if (!filter)

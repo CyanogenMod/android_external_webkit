@@ -44,34 +44,29 @@ namespace WebCore {
 //                         TILED PAINTING / GROUPS                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-SurfaceCollection::SurfaceCollection(BaseLayerAndroid* baseLayer)
-        : m_baseLayer(baseLayer)
-        , m_compositedRoot(0)
+SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
+        : m_compositedRoot(layer)
 {
-    if (!m_baseLayer)
+    if (!m_compositedRoot)
         return;
 
-    SkSafeRef(m_baseLayer);
-    if (m_baseLayer->countChildren()) {
-        m_compositedRoot = static_cast<LayerAndroid*>(m_baseLayer->getChild(0));
+    SkSafeRef(m_compositedRoot);
 
-        // calculate draw transforms and z values
-        SkRect visibleRect = SkRect::MakeLTRB(0, 0, 1, 1);
-        m_baseLayer->updateLayerPositions(visibleRect);
+    // calculate draw transforms and z values
+    SkRect visibleRect = SkRect::MakeLTRB(0, 0, 1, 1);
+    m_compositedRoot->updateLayerPositions(visibleRect);
+    // TODO: updateGLPositionsAndScale?
 
-        // allocate groups for layers, merging where possible
-        ALOGV("new tree, allocating groups for tree %p", m_baseLayer);
+    // allocate groups for layers, merging where possible
+    ALOGV("new tree, allocating groups for tree %p", m_baseLayer);
 
-        LayerMergeState layerMergeState(&m_layerGroups);
-        m_compositedRoot->assignGroups(&layerMergeState);
-    }
+    LayerMergeState layerMergeState(&m_layerGroups);
+    m_compositedRoot->assignGroups(&layerMergeState);
 
     // set the layergroups' and tiledpages' update count, to be drawn on painted tiles
     unsigned int updateCount = TilesManager::instance()->incWebkitContentUpdates();
     for (unsigned int i = 0; i < m_layerGroups.size(); i++)
         m_layerGroups[i]->setUpdateCount(updateCount);
-    m_baseLayer->state()->frontPage()->setUpdateCount(updateCount);
-    m_baseLayer->state()->backPage()->setUpdateCount(updateCount);
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("SurfaceCollection");
@@ -80,7 +75,7 @@ SurfaceCollection::SurfaceCollection(BaseLayerAndroid* baseLayer)
 
 SurfaceCollection::~SurfaceCollection()
 {
-    SkSafeUnref(m_baseLayer);
+    SkSafeUnref(m_compositedRoot);
     for (unsigned int i = 0; i < m_layerGroups.size(); i++)
         SkSafeUnref(m_layerGroups[i]);
     m_layerGroups.clear();
@@ -90,15 +85,10 @@ SurfaceCollection::~SurfaceCollection()
 #endif
 }
 
-void SurfaceCollection::prepareGL(const SkRect& visibleRect, float scale, double currentTime)
+void SurfaceCollection::prepareGL(const SkRect& visibleRect)
 {
-    if (!m_baseLayer)
-        return;
-
-    m_baseLayer->prepareGL(visibleRect, scale, currentTime);
-
     if (m_compositedRoot) {
-        m_baseLayer->updateLayerPositions(visibleRect);
+        updateLayerPositions(visibleRect);
         bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
             > GLWebViewState::kClippedTextures;
         for (unsigned int i = 0; i < m_layerGroups.size(); i++)
@@ -106,20 +96,15 @@ void SurfaceCollection::prepareGL(const SkRect& visibleRect, float scale, double
     }
 }
 
-bool SurfaceCollection::drawGL(const SkRect& visibleRect, float scale)
+bool SurfaceCollection::drawGL(const SkRect& visibleRect)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->show();
 #endif
 
-    if (!m_baseLayer)
-        return false;
-
-    m_baseLayer->drawGL(scale);
-
     bool needsRedraw = false;
     if (m_compositedRoot) {
-        m_baseLayer->updateLayerPositions(visibleRect);
+        updateLayerPositions(visibleRect);
         bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
             > GLWebViewState::kClippedTextures;
         for (unsigned int i = 0; i < m_layerGroups.size(); i++)
@@ -129,25 +114,22 @@ bool SurfaceCollection::drawGL(const SkRect& visibleRect, float scale)
     return needsRedraw;
 }
 
+void SurfaceCollection::drawBackground()
+{
+    Color background = Color::white;
+    if (m_compositedRoot)
+        background = static_cast<BaseLayerAndroid*>(m_compositedRoot)->getBackgroundColor();
+    GLUtils::drawBackground(background);
+}
+
 void SurfaceCollection::swapTiles()
 {
-    if (!m_baseLayer)
-        return;
-
-    m_baseLayer->swapTiles();
-
     for (unsigned int i = 0; i < m_layerGroups.size(); i++)
          m_layerGroups[i]->swapTiles();
 }
 
 bool SurfaceCollection::isReady()
 {
-    if (!m_baseLayer)
-        return true;
-
-    if (!m_baseLayer->isReady())
-        return false;
-
     if (!m_compositedRoot)
         return true;
 
@@ -172,32 +154,13 @@ void SurfaceCollection::computeTexturesAmount(TexturesResult* result)
         m_layerGroups[i]->computeTexturesAmount(result);
 }
 
-void SurfaceCollection::drawCanvas(SkCanvas* canvas, bool drawLayers)
-{
-    // TODO: move this functionality out!
-    if (!m_baseLayer)
-        return;
-
-    m_baseLayer->drawCanvas(canvas);
-
-    // draw the layers onto the same canvas (for single surface mode)
-    if (drawLayers && m_compositedRoot)
-        m_compositedRoot->drawCanvas(canvas, true, Layer::FlattenedLayers);
-}
-
-
 ////////////////////////////////////////////////////////////////////////////////
 //                  RECURSIVE ANIMATION / INVALS / LAYERS                     //
 ////////////////////////////////////////////////////////////////////////////////
 
 void SurfaceCollection::setIsPainting(SurfaceCollection* drawingSurface)
 {
-    if (!m_baseLayer)
-        return;
-
-    m_baseLayer->setIsPainting();
-
-    if (!drawingSurface)
+    if (!m_compositedRoot || !drawingSurface)
         return;
 
     for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
@@ -215,25 +178,24 @@ void SurfaceCollection::setIsPainting(SurfaceCollection* drawingSurface)
 
 void SurfaceCollection::setIsDrawing()
 {
-    if (m_compositedRoot)
-        m_compositedRoot->initAnimations();
+    if (!m_compositedRoot)
+        return;
+
+    m_compositedRoot->initAnimations();
 }
 
 void SurfaceCollection::mergeInvalsInto(SurfaceCollection* replacementSurface)
 {
-    if (!m_baseLayer)
-        return;
-
-    m_baseLayer->mergeInvalsInto(replacementSurface->m_baseLayer);
-
     if (m_compositedRoot && replacementSurface->m_compositedRoot)
         m_compositedRoot->mergeInvalsInto(replacementSurface->m_compositedRoot);
 }
 
 void SurfaceCollection::evaluateAnimations(double currentTime)
 {
-    if (m_compositedRoot)
-        m_compositedRoot->evaluateAnimations(currentTime);
+    if (!m_compositedRoot)
+        return;
+
+    m_compositedRoot->evaluateAnimations(currentTime);
 }
 
 bool SurfaceCollection::hasCompositedLayers()
@@ -246,25 +208,34 @@ bool SurfaceCollection::hasCompositedAnimations()
     return m_compositedRoot != 0 && m_compositedRoot->hasAnimations();
 }
 
-int SurfaceCollection::baseContentWidth()
-{
-    // TODO: move this functionality out!
-    return m_baseLayer ? m_baseLayer->content()->width() : 0;
-}
-
-int SurfaceCollection::baseContentHeight()
-{
-    // TODO: move this functionality out!
-    return m_baseLayer ? m_baseLayer->content()->height() : 0;
-}
-
 void SurfaceCollection::updateScrollableLayer(int layerId, int x, int y)
 {
-    if (m_compositedRoot) {
-        LayerAndroid* layer = m_compositedRoot->findById(layerId);
-        if (layer && layer->contentIsScrollable())
-            static_cast<ScrollableLayerAndroid*>(layer)->scrollTo(x, y);
-    }
+    if (!m_compositedRoot)
+        return;
+
+    LayerAndroid* layer = m_compositedRoot->findById(layerId);
+    if (layer && layer->contentIsScrollable())
+        static_cast<ScrollableLayerAndroid*>(layer)->scrollTo(x, y);
 }
+
+void SurfaceCollection::updateLayerPositions(const SkRect& visibleRect)
+{
+    if (!m_compositedRoot)
+        return;
+
+    TransformationMatrix ident;
+    m_compositedRoot->updateLayerPositions(visibleRect);
+    FloatRect clip(0, 0, 1e10, 1e10);
+    m_compositedRoot->updateGLPositionsAndScale(
+        ident, clip, 1, m_compositedRoot->state()->scale());
+
+#ifdef DEBUG
+    m_compositedRoot->showLayer(0);
+    ALOGV("We have %d layers, %d textured",
+          m_compositedRoot->nbLayers(),
+          m_compositedRoot->nbTexturedLayers());
+#endif
+}
+
 
 } // namespace WebCore

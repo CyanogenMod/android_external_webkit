@@ -90,6 +90,7 @@ void PictureLayerContent::draw(SkCanvas* canvas)
     if (!m_picture)
         return;
 
+    android::Mutex::Autolock lock(m_drawLock);
     canvas->drawPicture(*m_picture);
 }
 

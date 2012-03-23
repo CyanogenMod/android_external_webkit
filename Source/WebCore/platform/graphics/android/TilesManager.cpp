@@ -249,11 +249,6 @@ void TilesManager::gatherTextures()
 {
     android::Mutex::Autolock lock(m_texturesLock);
     m_availableTextures = m_textures;
-}
-
-void TilesManager::gatherLayerTextures()
-{
-    android::Mutex::Autolock lock(m_texturesLock);
     m_availableTilesTextures = m_tilesTextures;
     m_layerTexturesRemain = true;
 }

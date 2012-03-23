@@ -30,7 +30,6 @@
 #include "SurfaceCollectionManager.h"
 
 #include "AndroidLog.h"
-#include "BaseLayerAndroid.h"
 #include "LayerGroup.h"
 #include "TilesManager.h"
 #include "SurfaceCollection.h"
@@ -179,7 +178,7 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
 
         m_paintingCollection->evaluateAnimations(currentTime);
 
-        m_paintingCollection->prepareGL(visibleRect, scale, currentTime);
+        m_paintingCollection->prepareGL(visibleRect);
         m_paintingCollection->computeTexturesAmount(texturesResultPtr);
 
         if (!TilesManager::instance()->useDoubleBuffering() || m_paintingCollection->isReady()) {
@@ -194,7 +193,7 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         }
     } else if (m_drawingCollection) {
         ALOGV("preparing drawing collection %p", m_drawingCollection);
-        m_drawingCollection->prepareGL(visibleRect, scale, currentTime);
+        m_drawingCollection->prepareGL(visibleRect);
         m_drawingCollection->computeTexturesAmount(texturesResultPtr);
     }
 
@@ -217,12 +216,17 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         }
 
         m_drawingCollection->evaluateAnimations(currentTime);
+
         ALOGV("drawing collection %p", m_drawingCollection);
-        ret |= m_drawingCollection->drawGL(visibleRect, scale);
+        m_drawingCollection->drawBackground();
+        ret |= m_drawingCollection->drawGL(visibleRect);
+    } else if (m_paintingCollection) {
+        // Draw background color while tiles are being painted.
+        m_paintingCollection->drawBackground();
     } else {
         // Dont have a drawing collection, draw white background
         Color defaultBackground = Color::white;
-        m_state->drawBackground(defaultBackground);
+        GLUtils::drawBackground(defaultBackground);
     }
 
     if (m_paintingCollection) {
@@ -231,42 +235,6 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     }
 
     return ret;
-}
-
-// draw for base tile - called on TextureGeneration thread
-void SurfaceCollectionManager::drawCanvas(SkCanvas* canvas, bool drawLayers)
-{
-    SurfaceCollection* paintingCollection = 0;
-    m_paintSwapLock.lock();
-    paintingCollection = m_paintingCollection ? m_paintingCollection : m_drawingCollection;
-    SkSafeRef(paintingCollection);
-    m_paintSwapLock.unlock();
-
-    if (!paintingCollection)
-        return;
-
-    paintingCollection->drawCanvas(canvas, drawLayers);
-
-    SkSafeUnref(paintingCollection);
-}
-
-// TODO: refactor this functionality elsewhere
-int SurfaceCollectionManager::baseContentWidth()
-{
-    if (m_paintingCollection)
-        return m_paintingCollection->baseContentWidth();
-    else if (m_drawingCollection)
-        return m_drawingCollection->baseContentWidth();
-    return 0;
-}
-
-int SurfaceCollectionManager::baseContentHeight()
-{
-    if (m_paintingCollection)
-        return m_paintingCollection->baseContentHeight();
-    else if (m_drawingCollection)
-        return m_drawingCollection->baseContentHeight();
-    return 0;
 }
 
 } // namespace WebCore

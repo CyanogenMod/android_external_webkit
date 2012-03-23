@@ -559,6 +559,9 @@ void ShaderProgram::clip(const FloatRect& clip)
     if (clip == m_clipRect)
         return;
 
+    ALOGV("--clipping rect %f %f, %f x %f",
+          clip.x(), clip.y(), clip.width(), clip.height());
+
     // we should only call glScissor in this function, so that we can easily
     // track the current clipping rect.
 

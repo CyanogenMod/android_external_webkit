@@ -35,7 +35,6 @@ class SkRegion;
 
 namespace WebCore {
 
-class BaseLayerAndroid;
 class LayerAndroid;
 class LayerGroup;
 class TexturesResult;
@@ -43,16 +42,16 @@ class TexturesResult;
 class SurfaceCollection : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
-    SurfaceCollection(BaseLayerAndroid* baseLayer);
+    SurfaceCollection(LayerAndroid* compositedRoot);
     virtual ~SurfaceCollection();
 
     // Tiled painting methods (executed on groups)
-    void prepareGL(const SkRect& visibleRect, float scale, double currentTime);
-    bool drawGL(const SkRect& visibleRect, float scale);
+    void prepareGL(const SkRect& visibleRect);
+    bool drawGL(const SkRect& visibleRect);
+    void drawBackground();
     void swapTiles();
     bool isReady();
     void computeTexturesAmount(TexturesResult* result);
-    void drawCanvas(SkCanvas* canvas, bool drawLayers);
 
     // Recursive tree methods (animations, invals, etc)
     void setIsPainting(SurfaceCollection* drawingSurfaceCollection);
@@ -62,12 +61,10 @@ public:
 
     bool hasCompositedLayers();
     bool hasCompositedAnimations();
-    int baseContentWidth();
-    int baseContentHeight();
     void updateScrollableLayer(int layerId, int x, int y);
 
 private:
-    BaseLayerAndroid* m_baseLayer;
+    void updateLayerPositions(const SkRect& visibleRect);
     LayerAndroid* m_compositedRoot;
     Vector<LayerGroup*> m_layerGroups;
 };

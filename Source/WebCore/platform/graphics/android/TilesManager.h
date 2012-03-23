@@ -35,7 +35,6 @@
 #include "ShaderProgram.h"
 #include "SkBitmapRef.h"
 #include "TexturesGenerator.h"
-#include "TiledPage.h"
 #include "TilesProfiler.h"
 #include "TransferQueue.h"
 #include "VideoLayerManager.h"
@@ -60,16 +59,6 @@ public:
         m_pixmapsGenerationThread->removeOperationsForFilter(filter, waitForRunning);
     }
 
-    void removeOperationsForPage(TiledPage* page)
-    {
-        m_pixmapsGenerationThread->removeOperationsForPage(page);
-    }
-
-    void removePaintOperationsForPage(TiledPage* page, bool waitForCompletion)
-    {
-        m_pixmapsGenerationThread->removePaintOperationsForPage(page, waitForCompletion);
-    }
-
     void scheduleOperation(QueuedOperation* operation)
     {
         m_pixmapsGenerationThread->scheduleOperation(operation);
@@ -79,7 +68,6 @@ public:
     TransferQueue* transferQueue();
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
-    void gatherLayerTextures();
     void gatherTextures();
     bool layerTexturesRemain() { return m_layerTexturesRemain; }
     void gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
@@ -97,8 +85,6 @@ public:
     }
 
     void printTextures();
-
-    void resetTextureUsage(TiledPage* page);
 
     // m_highEndGfx is written/read only on UI thread, no need for a lock.
     void setHighEndGfx(bool highEnd);

@@ -685,7 +685,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/TexturesGenerator.cpp \
 	platform/graphics/android/TilesManager.cpp \
 	platform/graphics/android/TilesProfiler.cpp \
-	platform/graphics/android/TiledPage.cpp \
 	platform/graphics/android/TiledTexture.cpp \
 	platform/graphics/android/TransferQueue.cpp \
 	platform/graphics/android/SurfaceCollection.cpp \
@@ -693,7 +692,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/VerticalTextMap.cpp \
 	platform/graphics/android/VideoLayerAndroid.cpp \
 	platform/graphics/android/VideoLayerManager.cpp \
-	platform/graphics/android/ZoomManager.cpp \
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

@@ -39,7 +39,6 @@
 namespace WebCore {
 
 class TextureInfo;
-class TiledPage;
 class BaseTileTexture;
 class GLWebViewState;
 
@@ -95,7 +94,6 @@ public:
     bool isLayerTile() { return m_isLayerTile; }
 
     void setContents(int x, int y, float scale);
-    void setPage(TiledPage* page) { m_page = page; }
 
     void reserveTexture();
 
@@ -114,7 +112,7 @@ public:
 
     void markAsDirty(const SkRegion& dirtyArea);
     bool isDirty();
-    bool isRepaintPending();
+    virtual bool isRepaintPending();
     void setRepaintPending(bool pending);
     float scale() const { return m_scale; }
     TextureState textureState() const { return m_state; }
@@ -132,22 +130,14 @@ public:
     void backTextureTransfer();
     void backTextureTransferFail();
 
-    void setGLWebViewState(GLWebViewState* state) { m_glWebViewState = state; }
-
     // TextureOwner implementation
     virtual bool removeTexture(BaseTileTexture* texture);
-    virtual TiledPage* page() { return m_page; }
-    virtual GLWebViewState* state() { return m_glWebViewState; }
 
 private:
     void validatePaint();
 
-    GLWebViewState* m_glWebViewState;
-
     int m_x;
     int m_y;
-
-    TiledPage* m_page;
 
     // The remaining variables can be updated throughout the lifetime of the object
 

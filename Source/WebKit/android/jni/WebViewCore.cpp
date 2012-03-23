@@ -31,7 +31,6 @@
 #include "AccessibilityObject.h"
 #include "AndroidHitTestResult.h"
 #include "Attribute.h"
-#include "BaseLayerAndroid.h"
 #include "content/address_detector.h"
 #include "Chrome.h"
 #include "ChromeClientAndroid.h"
@@ -159,6 +158,8 @@
 FILE* gDomTreeFile = 0;
 FILE* gRenderTreeFile = 0;
 #endif
+
+#include "BaseLayerAndroid.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayerAndroid.h"
@@ -861,10 +862,8 @@ void WebViewCore::notifyAnimationStarted()
 
 BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
 {
-    BaseLayerAndroid* base = new BaseLayerAndroid();
-
     PictureSetLayerContent* content = new PictureSetLayerContent(m_content);
-    base->setContent(content);
+    BaseLayerAndroid* base = new BaseLayerAndroid(content);
     SkSafeUnref(content);
 
     m_skipContentDraw = true;

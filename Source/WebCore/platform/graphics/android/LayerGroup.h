@@ -37,8 +37,8 @@ namespace WebCore {
 
 class BaseTile;
 class DualTiledTexture;
-class TexturesResult;
 class LayerAndroid;
+class TexturesResult;
 
 class LayerGroup : public TilePainter {
 public:
@@ -46,7 +46,6 @@ public:
     virtual ~LayerGroup();
 
     bool tryUpdateLayerGroup(LayerGroup* oldLayerGroup);
-
 
     void addLayer(LayerAndroid* layer, const TransformationMatrix& transform);
     IntRect visibleArea();
@@ -62,6 +61,7 @@ public:
     bool singleLayer() { return m_layers.size() == 1; }
     bool needsTexture() { return m_needsTexture; }
     bool hasText() { return m_hasText; }
+    bool isBase();
 
     // TilePainter methods
     virtual bool paint(BaseTile* tile, SkCanvas* canvas);
