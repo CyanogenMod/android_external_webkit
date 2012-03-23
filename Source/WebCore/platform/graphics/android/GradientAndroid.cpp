@@ -26,7 +26,6 @@
 #include "config.h"
 #include "Gradient.h"
 
-#include "android_graphics.h"
 #include "CSSParser.h"
 #include "GraphicsContext.h"
 #include "NotImplemented.h"
@@ -34,16 +33,6 @@
 #include "SkColorShader.h"
 #include "SkGradientShader.h"
 #include "SkPaint.h"
-
-class PlatformGradientRec {
-public:
-    PlatformGradientRec() : m_shader(NULL) {}
-    ~PlatformGradientRec() { SkSafeUnref(m_shader); }
-
-    SkShader*           m_shader;
-    SkShader::TileMode  m_tileMode;
-    int                 m_colorCountWhenShaderWasBuilt;
-};
 
 namespace WebCore {
 
@@ -58,12 +47,10 @@ static U8CPU F2B(float x)
     return (int)(x * 255);
 }
 
-SkShader* Gradient::getShader(SkShader::TileMode mode)
+SkShader* Gradient::platformGradient()
 {
-    if (NULL == m_gradient)
-        m_gradient = new PlatformGradientRec;
-    else if (mode == m_gradient->m_tileMode)
-        return m_gradient->m_shader;
+    if (m_gradient)
+        return m_gradient;
 
     // need to ensure that the m_stops array is sorted. We call getColor()
     // which, as a side effect, does the sort.
@@ -71,6 +58,19 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
     {
         float r, g, b, a;
         this->getColor(0, &r, &g, &b, &a);
+    }
+
+    SkShader::TileMode mode = SkShader::kClamp_TileMode;
+    switch (m_spreadMethod) {
+    case SpreadMethodReflect:
+        mode = SkShader::kMirror_TileMode;
+        break;
+    case SpreadMethodRepeat:
+        mode = SkShader::kRepeat_TileMode;
+        break;
+    case SpreadMethodPad:
+        mode = SkShader::kClamp_TileMode;
+        break;
     }
 
     SkPoint pts[2] = { m_p0, m_p1 };    // convert to SkPoint
@@ -88,39 +88,28 @@ SkShader* Gradient::getShader(SkShader::TileMode mode)
         ++iter;
     }
 
-    SkShader* s;
-    if (m_radial)
-        s = SkGradientShader::CreateTwoPointRadial(pts[0],
+    if (m_radial) {
+        m_gradient = SkGradientShader::CreateTwoPointRadial(pts[0],
                                                    SkFloatToScalar(m_r0),
                                                    pts[1],
                                                    SkFloatToScalar(m_r1),
                                                    colors, pos, count, mode);
-    else
-        s = SkGradientShader::CreateLinear(pts, colors, pos, count, mode);
+    } else
+        m_gradient = SkGradientShader::CreateLinear(pts, colors, pos, count, mode);
 
-    if (NULL == s)
-        s = new SkColorShader(0);
+    if (!m_gradient)
+        m_gradient = new SkColorShader(0);
 
-    // zap our previous shader, if present
-    SkSafeUnref(m_gradient->m_shader);
-    m_gradient->m_shader = s;
-    m_gradient->m_tileMode = mode;
     SkMatrix matrix = m_gradientSpaceTransformation;
-    s->setLocalMatrix(matrix);
+    m_gradient->setLocalMatrix(matrix);
 
-    return s;
+    return m_gradient;
 }
 
 void Gradient::fill(GraphicsContext* context, const FloatRect& rect)
 {
-    SkPaint paint;
-    // we don't care about the mode, so try to use the existing one
-    SkShader::TileMode mode = m_gradient ? m_gradient->m_tileMode :
-                                            SkShader::kClamp_TileMode;
-
-    paint.setAntiAlias(true);
-    paint.setShader(this->getShader(mode));
-    android_gc2canvas(context)->drawRect(rect, paint);
+    context->setFillGradient(this);
+    context->fillRect(rect);
 }
 
 

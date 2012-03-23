@@ -58,14 +58,9 @@ typedef QGradient* PlatformGradient;
 typedef struct _cairo_pattern cairo_pattern_t;
 typedef cairo_pattern_t* PlatformGradient;
 #elif USE(SKIA)
-#if PLATFORM(ANDROID)
-#include "SkShader.h"
-typedef class PlatformGradientRec* PlatformGradient;
-#else
 class SkShader;
 typedef class SkShader* PlatformGradient;
 typedef class SkShader* PlatformPattern;
-#endif
 #elif PLATFORM(HAIKU)
 class BGradient;
 typedef BGradient* PlatformGradient;
@@ -116,9 +111,6 @@ namespace WebCore {
 #if OS(WINCE) && !PLATFORM(QT)
         const Vector<ColorStop, 2>& getStops() const;
 #else
-#if PLATFORM(ANDROID)
-        SkShader* getShader(SkShader::TileMode);
-#endif
         PlatformGradient platformGradient();
 #endif
 

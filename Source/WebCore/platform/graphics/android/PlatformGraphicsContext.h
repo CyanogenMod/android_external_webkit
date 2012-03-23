@@ -27,30 +27,123 @@
 #define platform_graphics_context_h
 
 #include "IntRect.h"
+#include "GraphicsContext.h"
 #include "RenderSkinAndroid.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
 #include "SkTDArray.h"
+#include <wtf/Vector.h>
 
 class SkCanvas;
 
 namespace WebCore {
-
-    class GraphicsContext;
     
 class PlatformGraphicsContext {
 public:
-    PlatformGraphicsContext();
-    // Pass in a recording canvas, and an array of button information to be 
-    // updated.
-    PlatformGraphicsContext(SkCanvas* canvas);
+    PlatformGraphicsContext(SkCanvas* canvas, bool takeCanvasOwnership = false);
     ~PlatformGraphicsContext();
-    
+
+    void setGraphicsContext(GraphicsContext* gc) { m_gc = gc; }
+
+    // FIXME: Make mCanvas private
     SkCanvas*                   mCanvas;
-    
+    // FIXME: This is used by ImageBufferAndroid, which should really be
+    //        managing the canvas lifecycle itself
     bool deleteUs() const { return m_deleteCanvas; }
+
+    // State management
+    void beginTransparencyLayer(float opacity);
+    void endTransparencyLayer();
+    void save();
+    void restore();
+
+    // State values
+    void setAlpha(float alpha);
+    void setCompositeOperation(CompositeOperator op);
+    void setFillColor(const Color& c);
+    void setFillShader(SkShader* fillShader);
+    void setLineCap(LineCap cap);
+    void setLineDash(const DashArray& dashes, float dashOffset);
+    void setLineJoin(LineJoin join);
+    void setMiterLimit(float limit);
+    void setShadow(int radius, int dx, int dy, SkColor c);
+    void setShouldAntialias(bool useAA);
+    void setStrokeColor(const Color& c);
+    void setStrokeShader(SkShader* strokeShader);
+    void setStrokeStyle(StrokeStyle style);
+    void setStrokeThickness(float f);
+
+    // FIXME: These setupPaint* should be private, but
+    //        they are used by FontAndroid currently
+    void setupPaintFill(SkPaint* paint) const;
+    bool setupPaintShadow(SkPaint* paint, SkPoint* offset) const;
+    // Sets up the paint for stroking. Returns true if the style is really
+    // just a dash of squares (the size of the paint's stroke-width.
+    bool setupPaintStroke(SkPaint* paint, SkRect* rect, bool isHLine = false);
+
+    // Matrix operations
+    void concatCTM(const AffineTransform& affine);
+    void rotate(float angleInRadians);
+    void scale(const FloatSize& size);
+    void translate(float x, float y);
+    const SkMatrix& getTotalMatrix() { return mCanvas->getTotalMatrix(); }
+
+    // Clipping
+    void addInnerRoundedRectClip(const IntRect& rect, int thickness);
+    void canvasClip(const Path& path);
+    void clip(const FloatRect& rect);
+    void clip(const Path& path);
+    void clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias);
+    void clipOut(const IntRect& r);
+    void clipOut(const Path& p);
+    void clipPath(const Path& pathToClip, WindRule clipRule);
+
+    // Drawing
+    void clearRect(const FloatRect& rect);
+    void drawBitmapPattern(const SkBitmap& bitmap, const SkMatrix& matrix,
+                           CompositeOperator compositeOp, const FloatRect& destRect);
+    void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
+                        const SkRect& dst, CompositeOperator op);
+    void drawConvexPolygon(size_t numPoints, const FloatPoint* points,
+                           bool shouldAntialias);
+    void drawEllipse(const IntRect& rect);
+    void drawFocusRing(const Vector<IntRect>& rects, int /* width */,
+                       int /* offset */, const Color& color);
+    void drawHighlightForText(const Font& font, const TextRun& run,
+                              const FloatPoint& point, int h,
+                              const Color& backgroundColor, ColorSpace colorSpace,
+                              int from, int to, bool isActive);
+    void drawLine(const IntPoint& point1, const IntPoint& point2);
+    void drawLineForText(const FloatPoint& pt, float width);
+    void drawLineForTextChecking(const FloatPoint& pt, float width,
+                                 GraphicsContext::TextCheckingLineStyle);
+    void drawRect(const IntRect& rect);
+    void fillPath(const Path& pathToFill, WindRule fillRule);
+    void fillRect(const FloatRect& rect);
+    void fillRect(const FloatRect& rect, const Color& color, ColorSpace);
+    void fillRoundedRect(const IntRect& rect, const IntSize& topLeft,
+                         const IntSize& topRight, const IntSize& bottomLeft,
+                         const IntSize& bottomRight, const Color& color,
+                         ColorSpace);
+    void strokeArc(const IntRect& r, int startAngle, int angleSpan);
+    void strokePath(const Path& pathToStroke);
+    void strokeRect(const FloatRect& rect, float lineWidth);
+
 private:
-    bool                     m_deleteCanvas;
+
+    // shadowsIgnoreTransforms is only true for canvas's ImageBuffer, which will
+    // have a GraphicsContext
+    bool shadowsIgnoreTransforms() const {
+        return m_gc && m_gc->shadowsIgnoreTransforms();
+    }
+
+    void setupPaintCommon(SkPaint* paint) const;
+
+    bool m_deleteCanvas;
+    struct State;
+    WTF::Vector<State> m_stateStack;
+    State* m_state;
+    GraphicsContext* m_gc; // Back-ptr to our parent
 };
 
 }
