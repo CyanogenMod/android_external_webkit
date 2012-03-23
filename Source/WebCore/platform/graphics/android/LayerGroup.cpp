@@ -297,7 +297,7 @@ bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas)
 float LayerGroup::opacity()
 {
     if (singleLayer())
-        return getFirstLayer()->getOpacity();
+        return getFirstLayer()->drawOpacity();
     return 1.0;
 }
 
