@@ -177,10 +177,11 @@ public:
 
     bool setLayersRenderingMode(TexturesResult&);
 
-    bool drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
-                IntRect& webViewRect, int titleBarHeight,
-                IntRect& clip, float scale,
-                bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr);
+    int drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
+               IntRect& webViewRect, int titleBarHeight,
+               IntRect& clip, float scale,
+               bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
+               bool shouldDraw);
 
 #ifdef MEASURES_PERF
     void dumpMeasures();

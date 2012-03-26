@@ -37,6 +37,7 @@
 #include "GLUtils.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
+#include "private/hwui/DrawGlInfo.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkPath.h"
 #include "TilesManager.h"
@@ -301,10 +302,11 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
     return (m_layersRenderingMode != layersRenderingMode && invalBase);
 }
 
-bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
-                            IntRect& webViewRect, int titleBarHeight,
-                            IntRect& clip, float scale,
-                            bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr)
+int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
+                           IntRect& webViewRect, int titleBarHeight,
+                           IntRect& clip, float scale,
+                           bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
+                           bool shouldDraw)
 {
     TilesManager* tilesManager = TilesManager::instance();
     tilesManager->getProfiler()->nextFrame(viewport.fLeft, viewport.fTop,
@@ -335,7 +337,9 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // Upload any pending ImageTexture
     // Return true if we still have some images to upload.
     // TODO: upload as many textures as possible within a certain time limit
-    bool ret = ImagesManager::instance()->prepareTextures(this);
+    int returnFlags = 0;
+    if (ImagesManager::instance()->prepareTextures(this))
+        returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING) {
         ALOGW("WARNING, scale seems corrupted after update: %e", scale);
@@ -347,14 +351,13 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
 
-
     TexturesResult nbTexturesNeeded;
     bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
     m_glExtras.setViewport(viewport);
-    ret |= m_surfaceCollectionManager.drawGL(currentTime, rect, viewport,
-                                             scale, fastSwap,
-                                             collectionsSwappedPtr, newCollectionHasAnimPtr,
-                                             &nbTexturesNeeded);
+    returnFlags |= m_surfaceCollectionManager.drawGL(currentTime, rect, viewport,
+                                                     scale, fastSwap,
+                                                     collectionsSwappedPtr, newCollectionHasAnimPtr,
+                                                     &nbTexturesNeeded, shouldDraw);
 
     int nbTexturesForImages = ImagesManager::instance()->nbTextures();
     ALOGV("*** We have %d textures for images, %d full, %d clipped, total %d / %d",
@@ -363,15 +366,17 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
           nbTexturesNeeded.clipped + nbTexturesForImages);
     nbTexturesNeeded.full += nbTexturesForImages;
     nbTexturesNeeded.clipped += nbTexturesForImages;
-    ret |= setLayersRenderingMode(nbTexturesNeeded);
+
+    if (setLayersRenderingMode(nbTexturesNeeded))
+        returnFlags |= uirenderer::DrawGlInfo::kStatusDraw | uirenderer::DrawGlInfo::kStatusInvoke;
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
     // Clean up GL textures for video layer.
     tilesManager->videoLayerManager()->deleteUnusedTextures();
 
-    if (ret) {
-        // ret==true && empty inval region means we've inval'd everything,
+    if (returnFlags & uirenderer::DrawGlInfo::kStatusDraw) {
+        // returnFlags & kStatusDraw && empty inval region means we've inval'd everything,
         // but don't have new content. Keep redrawing full view (0,0,0,0)
         // until tile generation catches up and we swap pages.
         bool fullScreenInval = m_frameworkLayersInval.isEmpty();
@@ -401,9 +406,10 @@ bool GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         }
     }
 
-    showFrameInfo(rect, *collectionsSwappedPtr);
+    if (shouldDraw)
+        showFrameInfo(rect, *collectionsSwappedPtr);
 
-    return ret;
+    return returnFlags;
 }
 
 void GLWebViewState::showFrameInfo(const IntRect& rect, bool collectionsSwapped)

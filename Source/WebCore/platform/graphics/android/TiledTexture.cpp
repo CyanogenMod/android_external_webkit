@@ -258,20 +258,19 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
     return numberTextures;
 }
 
-bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
+void TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
                           const TransformationMatrix* transform,
                           const Color* background)
 {
     m_area = computeTilesArea(visibleArea, m_scale);
     if (m_area.width() == 0 || m_area.height() == 0)
-        return false;
+        return;
 
     float invScale = 1 / m_scale;
     const float tileWidth = TilesManager::tileWidth() * invScale;
     const float tileHeight = TilesManager::tileHeight() * invScale;
 
     int drawn = 0;
-    bool askRedraw = false;
 
     SkRegion missingRegion;
     bool translucentBaseSurface =
@@ -287,7 +286,6 @@ bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
 
         bool tileInView = tile->isTileVisible(m_area);
         if (tileInView) {
-            askRedraw |= !tile->isTileReady();
             SkRect rect;
             rect.fLeft = tile->x() * tileWidth;
             rect.fTop = tile->y() * tileHeight;
@@ -315,11 +313,8 @@ bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
     if (translucentBaseSurface)
         drawMissingRegion(missingRegion, opacity, background);
 
-    ALOGV("TT %p drew %d tiles, redraw due to notready %d, scale %f",
-          this, drawn, askRedraw, m_scale);
-
-    // need to redraw if some visible tile wasn't ready
-    return askRedraw;
+    ALOGV("TT %p drew %d tiles, scale %f",
+          this, drawn, m_scale);
 }
 
 void TiledTexture::drawMissingRegion(const SkRegion& region, float opacity,
@@ -428,7 +423,7 @@ void DualTiledTexture::prepareGL(GLWebViewState* state, bool allowZoom,
     }
 }
 
-bool DualTiledTexture::drawGL(const IntRect& visibleArea, float opacity,
+void DualTiledTexture::drawGL(const IntRect& visibleArea, float opacity,
                               const TransformationMatrix* transform,
                               bool aggressiveRendering, const Color* background)
 {
@@ -436,10 +431,7 @@ bool DualTiledTexture::drawGL(const IntRect& visibleArea, float opacity,
     if (aggressiveRendering && !m_zooming && m_frontTexture->isMissingContent())
         m_backTexture->drawGL(visibleArea, opacity, transform);
 
-    bool needsRepaint = m_frontTexture->drawGL(visibleArea, opacity, transform, background);
-    needsRepaint |= m_zooming;
-    needsRepaint |= (m_scale <= 0);
-    return needsRepaint;
+    m_frontTexture->drawGL(visibleArea, opacity, transform, background);
 }
 
 void DualTiledTexture::markAsDirty(const SkRegion& dirtyArea)

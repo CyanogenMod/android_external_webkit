@@ -248,13 +248,13 @@ void scrollRectOnScreen(const IntRect& rect)
     viewInvalidate();
 }
 
-bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
+int drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
         WebCore::IntRect& webViewRect, int titleBarHeight,
-        WebCore::IntRect& clip, float scale, int extras)
+        WebCore::IntRect& clip, float scale, int extras, bool shouldDraw)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_baseLayer)
-        return false;
+        return 0;
 
     if (!m_glWebViewState) {
         TilesManager::instance()->setHighEndGfx(m_isHighEndGfx);
@@ -270,12 +270,12 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     // if the zoom manager is still initializing. We will be redrawn
     // once the correct scale is set
     if (!m_visibleRect.isFinite())
-        return false;
+        return 0;
     bool treesSwapped = false;
     bool newTreeHasAnim = false;
-    bool ret = m_glWebViewState->drawGL(viewRect, m_visibleRect, invalRect,
+    int ret = m_glWebViewState->drawGL(viewRect, m_visibleRect, invalRect,
                                         webViewRect, titleBarHeight, clip, scale,
-                                        &treesSwapped, &newTreeHasAnim);
+                                        &treesSwapped, &newTreeHasAnim, shouldDraw);
     if (treesSwapped) {
         ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
         JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -285,10 +285,9 @@ bool drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
             checkException(env);
         }
     }
-    if (ret)
-        return !m_isDrawingPaused;
+    return m_isDrawingPaused ? 0 : ret;
 #endif
-    return false;
+    return 0;
 }
 
 PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool split)
@@ -688,8 +687,8 @@ private: // local state for WebView
 class GLDrawFunctor : Functor {
     public:
     GLDrawFunctor(WebView* _wvInstance,
-            bool(WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
-                    WebCore::IntRect&, int, WebCore::IntRect&, jfloat, jint),
+            int (WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
+                    WebCore::IntRect&, int, WebCore::IntRect&, jfloat, jint, bool),
             WebCore::IntRect _viewRect, float _scale, int _extras) {
         wvInstance = _wvInstance;
         funcPtr = _funcPtr;
@@ -714,16 +713,15 @@ class GLDrawFunctor : Functor {
         WebCore::IntRect clip(info->clipLeft, info->clipTop,
                               info->clipRight - info->clipLeft,
                               info->clipBottom - info->clipTop);
+        bool shouldDraw = (messageId == uirenderer::DrawGlInfo::kModeDraw);
         TilesManager::instance()->shader()->setWebViewMatrix(info->transform, info->isLayer);
-
-        bool retVal = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect,
-                titlebarHeight, clip, scale, extras);
-        if (retVal) {
+        int returnFlags = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect,
+                titlebarHeight, clip, scale, extras, shouldDraw);
+        if ((returnFlags & uirenderer::DrawGlInfo::kStatusDraw) != 0) {
             IntRect finalInval;
-            if (inval.isEmpty()) {
+            if (inval.isEmpty())
                 finalInval = webViewRect;
-                retVal = true;
-            } else {
+            else {
                 finalInval.setX(webViewRect.x() + inval.x());
                 finalInval.setY(webViewRect.y() + titlebarHeight + inval.y());
                 finalInval.setWidth(inval.width());
@@ -734,8 +732,9 @@ class GLDrawFunctor : Functor {
             info->dirtyRight = finalInval.maxX();
             info->dirtyBottom = finalInval.maxY();
         }
-        // return 1 if invalidation needed, 0 otherwise
-        return retVal ? 1 : 0;
+        // return 1 if invalidation needed, 2 to request non-drawing functor callback, 0 otherwise
+        ALOGV("returnFlags are %d, shouldDraw %d", returnFlags, shouldDraw);
+        return returnFlags;
     }
     void updateRect(WebCore::IntRect& _viewRect) {
         viewRect = _viewRect;
@@ -748,8 +747,8 @@ class GLDrawFunctor : Functor {
     }
     private:
     WebView* wvInstance;
-    bool (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
-            WebCore::IntRect&, int, WebCore::IntRect&, float, int);
+    int (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
+            WebCore::IntRect&, int, WebCore::IntRect&, float, int, bool);
     WebCore::IntRect viewRect;
     WebCore::IntRect webViewRect;
     jfloat scale;
