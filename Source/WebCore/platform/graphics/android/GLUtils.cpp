@@ -639,17 +639,17 @@ void GLUtils::convertToTransformationMatrix(const float* matrix, TransformationM
         matrix[12], matrix[13], matrix[14], matrix[15]);
 }
 
-void GLUtils::drawBackground(Color& backgroundColor)
+void GLUtils::drawBackground(const Color* backgroundColor)
 {
     if (TilesManager::instance()->invertedScreen()) {
-        float color = 1.0 - ((((float) backgroundColor.red() / 255.0) +
-                      ((float) backgroundColor.green() / 255.0) +
-                      ((float) backgroundColor.blue() / 255.0)) / 3.0);
+        float color = 1.0 - ((((float) backgroundColor->red() / 255.0) +
+                      ((float) backgroundColor->green() / 255.0) +
+                      ((float) backgroundColor->blue() / 255.0)) / 3.0);
         glClearColor(color, color, color, 1);
     } else {
-        glClearColor((float)backgroundColor.red() / 255.0,
-                     (float)backgroundColor.green() / 255.0,
-                     (float)backgroundColor.blue() / 255.0, 1);
+        glClearColor((float)backgroundColor->red() / 255.0,
+                     (float)backgroundColor->green() / 255.0,
+                     (float)backgroundColor->blue() / 255.0, 1);
     }
     glClear(GL_COLOR_BUFFER_BIT);
 }

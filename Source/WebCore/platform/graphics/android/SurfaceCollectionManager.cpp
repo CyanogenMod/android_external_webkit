@@ -106,10 +106,6 @@ void SurfaceCollectionManager::clearCollections()
 bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* newCollection,
                                                            bool brandNew)
 {
-    ALOGV("updateWithSurfaceCollection - %p, has children %d, has animations %d",
-          newCollection, newCollection->hasCompositedLayers(),
-          newCollection->hasCompositedAnimations());
-
     // can't have a queued collection unless have a painting collection too
     ASSERT(m_paintingCollection || !m_queuedCollection);
 
@@ -123,6 +119,10 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
         }
         return false;
     }
+
+    ALOGV("updateWithSurfaceCollection - %p, has children %d, has animations %d",
+          newCollection, newCollection->hasCompositedLayers(),
+          newCollection->hasCompositedAnimations());
 
     if (m_queuedCollection || m_paintingCollection) {
         // currently painting, so defer this new collection
@@ -197,6 +197,8 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         m_drawingCollection->computeTexturesAmount(texturesResultPtr);
     }
 
+    // Don't have a drawing collection, draw white background
+    Color background = Color::white;
     if (m_drawingCollection) {
         bool drawingReady = didCollectionSwap || m_drawingCollection->isReady();
 
@@ -218,16 +220,16 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         m_drawingCollection->evaluateAnimations(currentTime);
 
         ALOGV("drawing collection %p", m_drawingCollection);
-        m_drawingCollection->drawBackground();
-        ret |= m_drawingCollection->drawGL(visibleRect);
+        background = m_drawingCollection->getBackground();
     } else if (m_paintingCollection) {
-        // Draw background color while tiles are being painted.
-        m_paintingCollection->drawBackground();
-    } else {
-        // Dont have a drawing collection, draw white background
-        Color defaultBackground = Color::white;
-        GLUtils::drawBackground(defaultBackground);
+        // Use paintingCollection background color while tiles are not done painting.
+        background = m_paintingCollection->getBackground();
     }
+
+    // Start doing the actual GL drawing.
+    GLUtils::drawBackground(&background);
+    if (m_drawingCollection)
+        ret |= m_drawingCollection->drawGL(visibleRect);
 
     if (m_paintingCollection) {
         ALOGV("still have painting collection %p", m_paintingCollection);

@@ -101,12 +101,14 @@ bool GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, bool showVisualIndica
     if (!layer || isPictureAfterFirstLayout)
         m_layersRenderingMode = kAllTextures;
 
+    SurfaceCollection* collection = 0;
     if (layer) {
         ALOGV("layer tree %p, with child %p", layer, layer->getChild(0));
         layer->setState(this);
+        collection = new SurfaceCollection(layer);
     }
     bool queueFull = m_surfaceCollectionManager.updateWithSurfaceCollection(
-        new SurfaceCollection(layer), isPictureAfterFirstLayout);
+        collection, isPictureAfterFirstLayout);
     m_glExtras.setDrawExtra(0);
 
 #ifdef MEASURES_PERF
