@@ -147,7 +147,7 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
         m_paintingCollection = newCollection;
         m_paintingCollection->setIsPainting(m_drawingCollection);
     }
-    return m_drawingCollection && TilesManager::instance()->useDoubleBuffering();
+    return m_paintingCollection && TilesManager::instance()->useDoubleBuffering();
 }
 
 void SurfaceCollectionManager::updateScrollableLayer(int layerId, int x, int y)
