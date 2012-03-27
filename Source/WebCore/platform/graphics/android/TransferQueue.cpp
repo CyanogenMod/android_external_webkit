@@ -35,6 +35,7 @@
 #include <gui/SurfaceTextureClient.h>
 
 #include <cutils/log.h>
+#include <cutils/properties.h>
 #include <wtf/text/CString.h>
 #define XLOGC(...) android_printLog(ANDROID_LOG_DEBUG, "TransferQueue", __VA_ARGS__)
 
@@ -73,6 +74,14 @@ TransferQueue::TransferQueue()
     m_emptyItemCount = ST_BUFFER_NUMBER;
 
     m_transferQueue = new TileTransferData[ST_BUFFER_NUMBER];
+
+    // Two bugs made the GPU upload path unreliable on the GPU-accelerated
+    // emulator. The bugs are being fixed in later branches, but the fixes are
+    // too risky for this branch. Default to the CpuUpload path for now.
+    char qemuProp[PROPERTY_VALUE_MAX + 1];
+    property_get("ro.kernel.qemu", qemuProp, "0");
+    if (atoi(qemuProp) == 1)
+        m_currentUploadType = CpuUpload;
 }
 
 TransferQueue::~TransferQueue()
