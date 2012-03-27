@@ -405,7 +405,10 @@ void HTMLAnchorElement::setPathname(const String& value)
 
 String HTMLAnchorElement::port() const
 {
-    return String::number(href().port());
+    if (href().hasPort())
+        return String::number(href().port());
+
+    return "";
 }
 
 void HTMLAnchorElement::setPort(const String& value)
