@@ -61,7 +61,7 @@ void WebFrameView::draw(WebCore::GraphicsContext* gc, const WebCore::IntRect& re
         mFrameView->paintContents(gc, rect);
     else {
         // FIXME: I'm not entirely sure this ever happens or is needed
-        gc->setFillColor(Color::white, ColorSpaceDeviceRGB);
+        gc->setFillColor(WebCore::Color::white, WebCore::ColorSpaceDeviceRGB);
         gc->fillRect(rect);
     }
 }

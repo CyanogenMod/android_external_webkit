@@ -85,9 +85,6 @@ class SkPicture;
 class SkIRect;
 
 namespace android {
-    // TODO: This file hasn't been good about namespace. Remove this temporary
-    // workaround to build
-    using namespace WebCore;
 
     enum Direction {
         DIRECTION_BACKWARD = 0,
@@ -174,7 +171,7 @@ namespace android {
         void layersDraw();
 
 #if USE(ACCELERATED_COMPOSITING)
-        GraphicsLayerAndroid* graphicsRootLayer() const;
+        WebCore::GraphicsLayerAndroid* graphicsRootLayer() const;
 #endif
 
         /** Invalidate the view/screen, NOT the content/DOM, but expressed in
@@ -214,7 +211,7 @@ namespace android {
          * Tell the java side to update the focused textfield
          * @param pointer   Pointer to the node for the input field.
          * @param   changeToPassword  If true, we are changing the textfield to
-         *          a password field, and ignore the String
+         *          a password field, and ignore the WTF::String
          * @param text  If changeToPassword is false, this is the new text that
          *              should go into the textfield.
          */
@@ -290,12 +287,13 @@ namespace android {
         jobject getDeviceMotionService();
         jobject getDeviceOrientationService();
 
-        void addMessageToConsole(const String& message, unsigned int lineNumber, const String& sourceID, int msgLevel);
+        void addMessageToConsole(const WTF::String& message, unsigned int lineNumber, const WTF::String& sourceID, int msgLevel);
 
         /**
          * Tell the Java side of the scrollbar mode
          */
-        void setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode verticalMode);
+        void setScrollbarModes(WebCore::ScrollbarMode horizontalMode,
+                               WebCore::ScrollbarMode verticalMode);
 
         //
         // Followings support calls from Java to native WebCore
@@ -310,7 +308,7 @@ namespace android {
         // scroll the selection on screen (if necessary).
         void revealSelection();
 
-        void moveMouse(int x, int y, HitTestResult* hoveredNode = 0);
+        void moveMouse(int x, int y, WebCore::HitTestResult* hoveredNode = 0);
 
         // set the scroll amount that webview.java is currently showing
         void setScrollOffset(bool sendScrollEvent, int dx, int dy);
@@ -326,8 +324,8 @@ namespace android {
          * @return Whether keyCode was handled by this class.
          */
         bool key(const WebCore::PlatformKeyboardEvent& event);
-        bool chromeCanTakeFocus(FocusDirection direction);
-        void chromeTakeFocus(FocusDirection direction);
+        bool chromeCanTakeFocus(WebCore::FocusDirection direction);
+        void chromeTakeFocus(WebCore::FocusDirection direction);
 
         /**
          * Handle (trackball) click event / dpad center press from Java.
@@ -339,7 +337,9 @@ namespace android {
         /**
          * Handle touch event
          */
-        bool handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int actionIndex, int metaState);
+        bool handleTouchEvent(int action, WTF::Vector<int>& ids,
+                              WTF::Vector<WebCore::IntPoint>& points,
+                              int actionIndex, int metaState);
 
         /**
          * Handle motionUp event from the UI thread (called touchUp in the
@@ -382,11 +382,11 @@ namespace android {
          * direction - The direction in which to alter the selection.
          * granularity - The granularity of the selection modification.
          *
-         * returns - The selected HTML as a string. This is not a well formed
+         * returns - The selected HTML as a WTF::String. This is not a well formed
          *           HTML, rather the selection annotated with the tags of all
          *           intermediary elements it crosses.
          */
-        String modifySelection(const int direction, const int granularity);
+        WTF::String modifySelection(const int direction, const int granularity);
 
         /**
          * Moves the selection to the given node in a given frame i.e. selects that node.
@@ -396,11 +396,11 @@ namespace android {
          * frame - The frame in which to select is the node to be selected.
          * node - The node to be selected.
          *
-         * returns - The selected HTML as a string. This is not a well formed
+         * returns - The selected HTML as a WTF::String. This is not a well formed
          *           HTML, rather the selection annotated with the tags of all
          *           intermediary elements it crosses.
          */
-        String moveSelection(WebCore::Frame* frame, WebCore::Node* node);
+        WTF::String moveSelection(WebCore::Frame* frame, WebCore::Node* node);
 
         /**
          *  In the currently focused textfield, replace the characters from oldStart to oldEnd
@@ -457,7 +457,7 @@ namespace android {
         void sendPluginSurfaceReady();
 
         // send onLoad event to plugins who are descendents of the given frame
-        void notifyPluginsOnFrameLoad(const Frame*);
+        void notifyPluginsOnFrameLoad(const WebCore::Frame*);
 
         // gets a rect representing the current on-screen portion of the document
         void getVisibleScreen(ANPRectI&);
@@ -515,11 +515,11 @@ namespace android {
         void centerFitRect(int x, int y, int width, int height);
 
         // return a list of rects matching the touch point (x, y) with the slop
-        Vector<IntRect> getTouchHighlightRects(int x, int y, int slop,
-                Node** node, HitTestResult* hitTestResult);
+        WTF::Vector<WebCore::IntRect> getTouchHighlightRects(int x, int y, int slop,
+                WebCore::Node** node, WebCore::HitTestResult* hitTestResult);
         // This does a sloppy hit test
         AndroidHitTestResult hitTestAtPoint(int x, int y, int slop, bool doMoveMouse = false);
-        static bool nodeIsClickableOrFocusable(Node* node);
+        static bool nodeIsClickableOrFocusable(WebCore::Node* node);
 
         // Open a file chooser for selecting a file to upload
         void openFileChooser(PassRefPtr<WebCore::FileChooser> );
@@ -530,13 +530,13 @@ namespace android {
         bool focusBoundsChanged();
 
         // record the inval area, and the picture size
-        BaseLayerAndroid* recordContent(SkRegion* , SkIPoint* );
+        WebCore::BaseLayerAndroid* recordContent(SkRegion* , SkIPoint* );
 
         // This creates a new BaseLayerAndroid by copying the current m_content
         // and doing a copy of the layers. The layers' content may be updated
         // as we are calling layersSync().
-        BaseLayerAndroid* createBaseLayer(SkRegion*);
-        bool updateLayers(LayerAndroid*);
+        WebCore::BaseLayerAndroid* createBaseLayer(SkRegion*);
+        bool updateLayers(WebCore::LayerAndroid*);
         void notifyAnimationStarted();
 
         int textWrapWidth() const { return m_textWrapWidth; }
@@ -600,14 +600,16 @@ namespace android {
          */
         Vector<WebCore::VisibleSelection> getTextRanges(
                 int startX, int startY, int endX, int endY);
-        static int platformLayerIdFromNode(Node* node, LayerAndroid** outLayer = 0);
+        static int platformLayerIdFromNode(WebCore::Node* node,
+                                           WebCore::LayerAndroid** outLayer = 0);
         void selectText(int startX, int startY, int endX, int endY);
         bool selectWordAt(int x, int y);
 
         // Converts from the global content coordinates that WebView sends
         // to frame-local content coordinates using the focused frame
-        IntPoint convertGlobalContentToFrameContent(const IntPoint& point, WebCore::Frame* frame = 0);
-        static void layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& offset);
+        WebCore::IntPoint convertGlobalContentToFrameContent(const WebCore::IntPoint& point, WebCore::Frame* frame = 0);
+        static void layerToAbsoluteOffset(const WebCore::LayerAndroid* layer,
+                                          WebCore::IntPoint& offset);
 
         /**
          * Returns a text position at a given coordinate.
@@ -615,7 +617,7 @@ namespace android {
         WebCore::VisiblePosition visiblePositionForWindowPoint(int x, int y);
 
         // Retrieves the current locale from system properties
-        void getLocale(String& language, String& region);
+        void getLocale(String& language, WTF::String& region);
 
         // Handles changes in system locale
         void updateLocale();
@@ -660,28 +662,38 @@ namespace android {
             const WebCore::QualifiedName& );
         WebCore::HTMLImageElement* retrieveImageElement(int x, int y);
         // below are members responsible for accessibility support
-        String modifySelectionTextNavigationAxis(DOMSelection* selection, int direction, int granularity);
-        String modifySelectionDomNavigationAxis(DOMSelection* selection, int direction, int granularity);
-        Text* traverseNextContentTextNode(Node* fromNode, Node* toNode ,int direction);
-        bool isVisible(Node* node);
-        bool isHeading(Node* node);
-        String formatMarkup(DOMSelection* selection);
+        WTF::String modifySelectionTextNavigationAxis(WebCore::DOMSelection* selection,
+                                                 int direction, int granularity);
+        WTF::String modifySelectionDomNavigationAxis(WebCore::DOMSelection* selection,
+                                                int direction, int granularity);
+        WebCore::Text* traverseNextContentTextNode(WebCore::Node* fromNode,
+                                                   WebCore::Node* toNode,
+                                                   int direction);
+        bool isVisible(WebCore::Node* node);
+        bool isHeading(WebCore::Node* node);
+        WTF::String formatMarkup(WebCore::DOMSelection* selection);
         void selectAt(int x, int y);
 
-        void scrollNodeIntoView(Frame* frame, Node* node);
-        bool isContentTextNode(Node* node);
-        Node* getIntermediaryInputElement(Node* fromNode, Node* toNode, int direction);
-        bool isContentInputElement(Node* node);
-        bool isDescendantOf(Node* parent, Node* node);
-        void advanceAnchorNode(DOMSelection* selection, int direction, String& markup, bool ignoreFirstNode, ExceptionCode& ec);
-        Node* getNextAnchorNode(Node* anchorNode, bool skipFirstHack, int direction);
-        Node* getImplicitBoundaryNode(Node* node, unsigned offset, int direction);
-        jobject createTextFieldInitData(Node* node);
+        void scrollNodeIntoView(WebCore::Frame* frame, WebCore::Node* node);
+        bool isContentTextNode(WebCore::Node* node);
+        WebCore::Node* getIntermediaryInputElement(WebCore::Node* fromNode,
+                                                   WebCore::Node* toNode,
+                                                   int direction);
+        bool isContentInputElement(WebCore::Node* node);
+        bool isDescendantOf(WebCore::Node* parent, WebCore::Node* node);
+        void advanceAnchorNode(WebCore::DOMSelection* selection, int direction,
+                               WTF::String& markup, bool ignoreFirstNode,
+                               WebCore::ExceptionCode& ec);
+        WebCore::Node* getNextAnchorNode(WebCore::Node* anchorNode,
+                                         bool skipFirstHack, int direction);
+        WebCore::Node* getImplicitBoundaryNode(WebCore::Node* node,
+                                               unsigned offset, int direction);
+        jobject createTextFieldInitData(WebCore::Node* node);
         /**
          * Calls into java to reset the text edit field with the
          * current contents and selection.
          */
-        void initEditField(Node* node);
+        void initEditField(WebCore::Node* node);
 
         /**
          * If node is not a text input field or if it explicitly requests
@@ -689,55 +701,57 @@ namespace android {
          * it is a text input field then initEditField is called and
          * auto-fill information is requested for HTML form input fields.
          */
-        void initializeTextInput(Node* node, bool fake = false);
+        void initializeTextInput(WebCore::Node* node, bool fake = false);
 
         /**
          * Gets the input type a Node. NONE is returned if it isn't an
          * input field.
          */
-        InputType getInputType(Node* node);
+        InputType getInputType(WebCore::Node* node);
 
         /**
          * If node is an input field, the spellcheck value for the
          * field is returned. Otherwise true is returned.
          */
-        static bool isSpellCheckEnabled(Node* node);
+        static bool isSpellCheckEnabled(WebCore::Node* node);
 
         /**
          * Returns the offsets of the selection area for both normal text
          * fields and content editable fields. start and end are modified
          * by this method.
          */
-        static void getSelectionOffsets(Node* node, int& start, int& end);
+        static void getSelectionOffsets(WebCore::Node* node, int& start, int& end);
         /**
          * Gets the plain text of the specified editable text field. node
          * may be content-editable or a plain text fields.
          */
-        static String getInputText(Node* node);
+        static WTF::String getInputText(WebCore::Node* node);
         /**
          * Gets the RenderTextControl for the given node if it has one.
          * If its renderer isn't a RenderTextControl, then NULL is returned.
          */
-        static RenderTextControl* toRenderTextControl(Node *node);
+        static WebCore::RenderTextControl* toRenderTextControl(WebCore::Node *node);
         /**
          * Sets the selection for node's editable field to the offsets
          * between start (inclusive) and end (exclusive).
          */
-        static void setSelection(Node* node, int start, int end);
+        static void setSelection(WebCore::Node* node, int start, int end);
         /**
          * Returns the Position for the given offset for an editable
          * field. The offset is relative to the node start.
          */
-        static WebCore::Position getPositionForOffset(Node* node, int offset);
+        static WebCore::Position getPositionForOffset(WebCore::Node* node, int offset);
 
-        VisiblePosition visiblePositionForContentPoint(int x, int y);
-        VisiblePosition visiblePositionForContentPoint(const IntPoint& point);
-        bool selectWordAroundPosition(Frame* frame, VisiblePosition pos);
-        SelectText* createSelectText(const VisibleSelection&);
-        static int getMaxLength(Node* node);
-        static String getFieldName(Node* node);
-        static bool isAutoCompleteEnabled(Node* node);
-        IntRect boundingRect(Node* node, LayerAndroid* layer);
+        WebCore::VisiblePosition visiblePositionForContentPoint(int x, int y);
+        WebCore::VisiblePosition visiblePositionForContentPoint(const WebCore::IntPoint& point);
+        bool selectWordAroundPosition(WebCore::Frame* frame,
+                                      WebCore::VisiblePosition pos);
+        SelectText* createSelectText(const WebCore::VisibleSelection&);
+        static int getMaxLength(WebCore::Node* node);
+        static WTF::String getFieldName(WebCore::Node* node);
+        static bool isAutoCompleteEnabled(WebCore::Node* node);
+        WebCore::IntRect boundingRect(WebCore::Node* node,
+                                      WebCore::LayerAndroid* layer);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);
@@ -773,7 +787,7 @@ namespace android {
         int m_screenHeight;// height of the visible rect in document coordinates
         int m_textWrapWidth;
         float m_scale;
-        PageGroup* m_groupForVisitedLinks;
+        WebCore::PageGroup* m_groupForVisitedLinks;
         bool m_isPaused;
         int m_cacheMode;
         bool m_fullscreenVideoMode;
@@ -791,7 +805,7 @@ namespace android {
         }
 
         int m_screenOnCounter;
-        Node* m_currentNodeDomNavigationAxis;
+        WebCore::Node* m_currentNodeDomNavigationAxis;
         DeviceMotionAndOrientationManager m_deviceMotionAndOrientationManager;
 
 #if ENABLE(TOUCH_EVENTS)
