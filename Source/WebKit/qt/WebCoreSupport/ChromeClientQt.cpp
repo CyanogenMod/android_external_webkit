@@ -497,7 +497,7 @@ void ChromeClientQt::mouseDidMoveOverElement(const HitTestResult& result, unsign
         lastHoverURL = result.absoluteLinkURL();
         lastHoverTitle = result.title(dir);
         lastHoverContent = result.textContent();
-        emit m_webPage->linkHovered(lastHoverURL.prettyURL(),
+        emit m_webPage->linkHovered(lastHoverURL.string(),
                 lastHoverTitle, lastHoverContent);
     }
 }
