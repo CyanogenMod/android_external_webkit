@@ -43,8 +43,7 @@ namespace WebCore {
 class TiledTexture {
 public:
     TiledTexture(bool isBaseSurface)
-        : m_prevTileX(0)
-        , m_prevTileY(0)
+        : m_prevTileY(0)
         , m_scale(1)
         , m_isBaseSurface(isBaseSurface)
     {
@@ -56,38 +55,36 @@ public:
 
     virtual ~TiledTexture();
 
-    IntRect computeTilesArea(const IntRect& contentArea, float scale);
+    static IntRect computeTilesArea(const IntRect& contentArea, float scale);
 
     void prepareGL(GLWebViewState* state, float scale,
-                   const IntRect& prepareArea, TilePainter* painter);
+                   const IntRect& prepareArea, const IntRect& unclippedArea,
+                   TilePainter* painter, bool isLowResPrefetch = false,
+                   bool useExpandPrefetch = false);
     void swapTiles();
     bool drawGL(const IntRect& visibleArea, float opacity, const TransformationMatrix* transform);
 
-    void prepareTile(int x, int y, TilePainter* painter, GLWebViewState* state);
+    void prepareTile(int x, int y, TilePainter* painter,
+                     GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch);
     void markAsDirty(const SkRegion& dirtyArea);
 
     BaseTile* getTile(int x, int y);
 
     void removeTiles();
     void discardTextures();
-    bool owns(BaseTileTexture* texture);
 
-    float scale() { return m_scale; }
     bool isReady();
+    bool isMissingContent();
 
     int nbTextures(IntRect& area, float scale);
 
 private:
-    bool tileIsVisible(BaseTile* tile);
-
     Vector<BaseTile*> m_tiles;
 
-    // tile coordinates in viewport, set in prepareGL()
     IntRect m_area;
 
     SkRegion m_dirtyRegion;
 
-    int m_prevTileX;
     int m_prevTileY;
     float m_scale;
 
@@ -97,20 +94,21 @@ private:
 class DualTiledTexture : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
+
     DualTiledTexture(bool isBaseSurface);
     ~DualTiledTexture();
     void prepareGL(GLWebViewState* state, bool allowZoom,
-                 const IntRect& prepareArea, TilePainter* painter);
+                   const IntRect& prepareArea, const IntRect& unclippedArea,
+                   TilePainter* painter, bool aggressiveRendering);
     void swapTiles();
-    void swap();
-    bool drawGL(const IntRect& visibleArea, float opacity, const TransformationMatrix* transform);
+    bool drawGL(const IntRect& visibleArea, float opacity,
+                const TransformationMatrix* transform, bool aggressiveRendering);
     void markAsDirty(const SkRegion& dirtyArea);
-    bool owns(BaseTileTexture* texture);
     void computeTexturesAmount(TexturesResult* result, LayerAndroid* layer);
     void discardTextures()
     {
-        m_textureA->discardTextures();
-        m_textureB->discardTextures();
+        m_frontTexture->discardTextures();
+        m_backTexture->discardTextures();
     }
     bool isReady()
     {
@@ -126,18 +124,17 @@ public:
     }
 
 private:
+    void swapTiledTextures();
+
     // Delay before we schedule a new tile at the new scale factor
     static const double s_zoomUpdateDelay = 0.2; // 200 ms
 
     TiledTexture* m_frontTexture;
     TiledTexture* m_backTexture;
-    TiledTexture* m_textureA;
-    TiledTexture* m_textureB;
     float m_scale;
     float m_futureScale;
     double m_zoomUpdateTime;
     bool m_zooming;
-    IntRect m_preZoomPrepareArea;
 };
 
 } // namespace WebCore

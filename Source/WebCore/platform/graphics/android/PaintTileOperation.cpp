@@ -37,10 +37,12 @@
 
 namespace WebCore {
 
-PaintTileOperation::PaintTileOperation(BaseTile* tile, TilePainter* painter, GLWebViewState* state)
+PaintTileOperation::PaintTileOperation(BaseTile* tile, TilePainter* painter,
+                                       GLWebViewState* state, bool isLowResPrefetch)
     : m_tile(tile)
     , m_painter(painter)
     , m_state(state)
+    , m_isLowResPrefetch(isLowResPrefetch)
 {
     if (m_tile)
         m_tile->setRepaintPending(true);
@@ -83,6 +85,10 @@ int PaintTileOperation::priority()
         return -1;
 
     int priority = 200000;
+
+    // prioritize low res while scrolling
+    if (m_isLowResPrefetch)
+        priority = m_state->isScrolling() ? 0 : 400000;
 
     // prioritize higher draw count
     unsigned long long currentDraw = TilesManager::instance()->getDrawGLCount();
