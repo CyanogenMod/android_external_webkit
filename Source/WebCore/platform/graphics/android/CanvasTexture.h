@@ -69,7 +69,7 @@ private:
     /********************************************
      * Called by both threads
      ********************************************/
-    void destroySurfaceTexture();
+    void destroySurfaceTextureLocked();
 
     /********************************************
      * Called by WebKit thread

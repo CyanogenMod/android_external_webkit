@@ -70,30 +70,36 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
     // We are making a copy for the UI, sync the interesting bits
     m_contentRect = layer.contentRect();
     m_offsetFromRenderer = layer.offsetFromRenderer();
-    m_texture->setSize(m_contentRect.size());
     bool previousState = m_texture->hasValidTexture();
-    // Attempt to upload to a surface texture
-    if (!m_texture->uploadImageBuffer(layer.m_canvas->buffer())) {
-        // Blargh, no surface texture - fall back to software
+    if (!previousState && layer.m_dirtyCanvas.isEmpty()) {
+        // We were previously in software and don't have anything new to draw,
+        // so stay in software
         m_bitmap = layer.bitmap();
         SkSafeRef(m_bitmap);
-        // Merge the canvas invals with the layer's invals to repaint the needed
-        // tiles.
-        SkRegion::Iterator iter(layer.m_dirtyCanvas);
-        const IntPoint& offset = m_contentRect.location();
-        for (; !iter.done(); iter.next()) {
-            SkIRect diff = iter.rect();
-            diff.fLeft += offset.x();
-            diff.fRight += offset.x();
-            diff.fTop += offset.y();
-            diff.fBottom += offset.y();
-            m_dirtyRegion.op(diff, SkRegion::kUnion_Op);
+    } else {
+        // Attempt to upload to a surface texture
+        if (!m_texture->uploadImageBuffer(layer.m_canvas->buffer())) {
+            // Blargh, no surface texture or ImageBuffer - fall back to software
+            m_bitmap = layer.bitmap();
+            SkSafeRef(m_bitmap);
+            // Merge the canvas invals with the layer's invals to repaint the needed
+            // tiles.
+            SkRegion::Iterator iter(layer.m_dirtyCanvas);
+            const IntPoint& offset = m_contentRect.location();
+            for (; !iter.done(); iter.next()) {
+                SkIRect diff = iter.rect();
+                diff.fLeft += offset.x();
+                diff.fRight += offset.x();
+                diff.fTop += offset.y();
+                diff.fBottom += offset.y();
+                m_dirtyRegion.op(diff, SkRegion::kUnion_Op);
+            }
         }
-    }
-    if (previousState != m_texture->hasValidTexture()) {
-        // Need to do a full inval of the canvas content as we are mode switching
-        m_dirtyRegion.op(m_contentRect.x(), m_contentRect.y(),
-                m_contentRect.maxX(), m_contentRect.maxY(), SkRegion::kUnion_Op);
+        if (previousState != m_texture->hasValidTexture()) {
+            // Need to do a full inval of the canvas content as we are mode switching
+            m_dirtyRegion.op(m_contentRect.x(), m_contentRect.y(),
+                    m_contentRect.maxX(), m_contentRect.maxY(), SkRegion::kUnion_Op);
+        }
     }
 }
 
@@ -111,17 +117,26 @@ void CanvasLayer::init()
 
 void CanvasLayer::canvasChanged(HTMLCanvasElement*, const FloatRect& changedRect)
 {
-    SkIRect irect = SkIRect::MakeXYWH(changedRect.x(), changedRect.y(),
-                                      changedRect.width(), changedRect.height());
-    m_dirtyCanvas.op(irect, SkRegion::kUnion_Op);
+    if (!m_texture->hasValidTexture()) {
+        // We only need to track invals if we aren't using a SurfaceTexture.
+        // If we drop out of hwa, we will do a full inval anyway
+        SkIRect irect = SkIRect::MakeXYWH(changedRect.x(), changedRect.y(),
+                                          changedRect.width(), changedRect.height());
+        m_dirtyCanvas.op(irect, SkRegion::kUnion_Op);
+    }
     owningLayer()->compositor()->scheduleLayerFlush();
 }
 
 void CanvasLayer::canvasResized(HTMLCanvasElement*)
 {
     const IntSize& size = m_canvas->size();
-    SkIRect irect = SkIRect::MakeWH(size.width(), size.height());
-    m_dirtyCanvas.op(irect, SkRegion::kUnion_Op);
+    m_dirtyCanvas.setRect(0, 0, size.width(), size.height());
+    // If we are smaller than one tile, don't bother using a surface texture
+    if (size.width() <= TilesManager::layerTileWidth()
+            && size.height() <= TilesManager::layerTileHeight())
+        m_texture->setSize(IntSize());
+    else
+        m_texture->setSize(size);
 }
 
 void CanvasLayer::canvasDestroyed(HTMLCanvasElement*)
@@ -146,6 +161,12 @@ SkBitmapRef* CanvasLayer::bitmap() const
 
 IntRect CanvasLayer::contentRect() const
 {
+    if (!m_canvas
+            || !m_canvas->renderer()
+            || !m_canvas->renderer()->style()
+            || !m_canvas->inDocument()
+            || m_canvas->renderer()->style()->visibility() != VISIBLE)
+        return IntRect();
     return m_canvas->renderBox()->contentBoxRect();
 }
 
