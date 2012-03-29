@@ -1,6 +1,7 @@
 #include "config.h"
 #include "PictureSetLayerContent.h"
 
+#include "SkCanvas.h"
 #include "SkPicture.h"
 
 namespace WebCore {
@@ -21,6 +22,8 @@ void PictureSetLayerContent::draw(SkCanvas* canvas)
         return;
 
     android::Mutex::Autolock lock(m_drawLock);
+    SkRect r = SkRect::MakeWH(width(), height());
+    canvas->clipRect(r);
     m_pictureSet.draw(canvas);
 }
 
