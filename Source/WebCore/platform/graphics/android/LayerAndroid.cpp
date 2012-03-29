@@ -909,10 +909,10 @@ void LayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
         canvas->drawLine(0, 0, w, h, paint);
         canvas->drawLine(0, h, w, 0, paint);
 
-        canvas->drawLine(0, 0, 0, h, paint);
-        canvas->drawLine(0, h, w, h, paint);
-        canvas->drawLine(w, h, w, 0, paint);
-        canvas->drawLine(w, 0, 0, 0, paint);
+        canvas->drawLine(0, 0, 0, h-1, paint);
+        canvas->drawLine(0, h-1, w-1, h-1, paint);
+        canvas->drawLine(w-1, h-1, w-1, 0, paint);
+        canvas->drawLine(w-1, 0, 0, 0, paint);
     }
 
     if (m_fixedPosition)

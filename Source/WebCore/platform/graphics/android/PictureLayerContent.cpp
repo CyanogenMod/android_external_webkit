@@ -91,6 +91,8 @@ void PictureLayerContent::draw(SkCanvas* canvas)
         return;
 
     android::Mutex::Autolock lock(m_drawLock);
+    SkRect r = SkRect::MakeWH(width(), height());
+    canvas->clipRect(r);
     canvas->drawPicture(*m_picture);
 }
 
