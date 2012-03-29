@@ -130,8 +130,10 @@ void GLWebViewState::setBaseLayer(BaseLayerAndroid* layer, const SkRegion& inval
 {
     if (!layer || isPictureAfterFirstLayout) {
         // TODO: move this into TreeManager
+        m_zoomManager.swapPages(); // reset zoom state
         m_tiledPageA->discardTextures();
         m_tiledPageB->discardTextures();
+        m_layersRenderingMode = kAllTextures;
     }
     if (layer) {
         XLOG("new base layer %p, (inval region empty %d) with child %p", layer, inval.isEmpty(), layer->getChild(0));
@@ -375,6 +377,12 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
 
     int maxTextures = TilesManager::instance()->maxLayerTextureCount();
     LayersRenderingMode layersRenderingMode = m_layersRenderingMode;
+
+    if (m_layersRenderingMode == kSingleSurfaceRendering) {
+        // only switch out of SingleSurface mode, if we have 2x needed textures
+        // to avoid changing too often
+        maxTextures /= 2;
+    }
 
     m_layersRenderingMode = kSingleSurfaceRendering;
     if (nbTexturesNeeded.fixed < maxTextures)
