@@ -72,7 +72,7 @@ bool CanvasTexture::setHwAccelerated(bool hwAccelerated)
     m_useHwAcceleration = hwAccelerated;
     if (!m_ANW.get())
         return false;
-    destroySurfaceTexture();
+    destroySurfaceTextureLocked();
     return true;
 }
 
@@ -87,15 +87,15 @@ void CanvasTexture::setSize(const IntSize& size)
         return;
     m_size = size;
     if (m_ANW.get()) {
-        if (!useSurfaceTexture()) {
-            m_ANW.clear();
-            m_surfaceTexture->abandon();
-            m_surfaceTexture.clear();
-        } else {
+        if (useSurfaceTexture()) {
             int result = native_window_set_buffers_dimensions(m_ANW.get(),
                     m_size.width(), m_size.height());
             GLUtils::checkSurfaceTextureError("native_window_set_buffers_dimensions", result);
+            if (result != NO_ERROR)
+                m_useHwAcceleration = false; // On error, drop out of HWA
         }
+        if (!useSurfaceTexture())
+            destroySurfaceTextureLocked();
     }
 }
 
@@ -112,9 +112,16 @@ SurfaceTextureClient* CanvasTexture::nativeWindow()
     m_ANW = new android::SurfaceTextureClient(m_surfaceTexture);
     int result = native_window_set_buffers_format(m_ANW.get(), HAL_PIXEL_FORMAT_RGBA_8888);
     GLUtils::checkSurfaceTextureError("native_window_set_buffers_format", result);
-    result = native_window_set_buffers_dimensions(m_ANW.get(),
-            m_size.width(), m_size.height());
-    GLUtils::checkSurfaceTextureError("native_window_set_buffers_dimensions", result);
+    if (result == NO_ERROR) {
+        result = native_window_set_buffers_dimensions(m_ANW.get(),
+                m_size.width(), m_size.height());
+        GLUtils::checkSurfaceTextureError("native_window_set_buffers_dimensions", result);
+    }
+    if (result != NO_ERROR) {
+        m_useHwAcceleration = false;
+        destroySurfaceTextureLocked();
+        return 0;
+    }
     return m_ANW.get();
 }
 
@@ -124,11 +131,15 @@ bool CanvasTexture::uploadImageBuffer(ImageBuffer* imageBuffer)
     SurfaceTextureClient* anw = nativeWindow();
     if (!anw)
         return false;
+    // Size mismatch, early abort (will fall back to software)
+    if (imageBuffer->size() != m_size)
+        return false;
     GraphicsContext* gc = imageBuffer ? imageBuffer->context() : 0;
     if (!gc)
         return false;
     const SkBitmap& bitmap = android_gc2canvas(gc)->getDevice()->accessBitmap(false);
-    GLUtils::updateSharedSurfaceTextureWithBitmap(anw, bitmap);
+    if (!GLUtils::updateSharedSurfaceTextureWithBitmap(anw, bitmap))
+        return false;
     m_hasValidTexture = true;
     return true;
 }
@@ -174,7 +185,7 @@ bool CanvasTexture::updateTexImage()
  * Called by both threads
  ********************************************/
 
-void CanvasTexture::destroySurfaceTexture()
+void CanvasTexture::destroySurfaceTextureLocked()
 {
     if (m_ANW.get()) {
         m_ANW.clear();

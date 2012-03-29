@@ -525,8 +525,13 @@ bool GLUtils::updateSharedSurfaceTextureWithBitmap(ANativeWindow* anw, const SkB
     ANativeWindow_Buffer buffer;
     if (ANativeWindow_lock(anw, &buffer, 0))
         return false;
-    if (buffer.width < bitmap.width() || buffer.height < bitmap.height())
+    if (buffer.width < bitmap.width() || buffer.height < bitmap.height()) {
+        ALOGW("bitmap (%dx%d) too large for buffer (%dx%d)!",
+                bitmap.width(), bitmap.height(),
+                buffer.width, buffer.height);
+        ANativeWindow_unlockAndPost(anw);
         return false;
+    }
     uint8_t* img = (uint8_t*)buffer.bits;
     int row;
     int bpp = 4; // Now we only deal with RGBA8888 format.
