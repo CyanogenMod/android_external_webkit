@@ -108,11 +108,15 @@ void GraphicsContext::platformDestroy()
 
 void GraphicsContext::savePlatformState()
 {
+    if (paintingDisabled())
+        return;
     platformContext()->save();
 }
 
 void GraphicsContext::restorePlatformState()
 {
+    if (paintingDisabled())
+        return;
     platformContext()->restore();
 }
 
@@ -301,36 +305,50 @@ void GraphicsContext::endTransparencyLayer()
 
 void GraphicsContext::setupFillPaint(SkPaint* paint)
 {
+    if (paintingDisabled())
+        return;
     platformContext()->setupPaintFill(paint);
 }
 
 void GraphicsContext::setupStrokePaint(SkPaint* paint)
 {
+    if (paintingDisabled())
+        return;
     platformContext()->setupPaintStroke(paint, 0);
 }
 
 bool GraphicsContext::setupShadowPaint(SkPaint* paint, SkPoint* offset)
 {
+    if (paintingDisabled())
+        return false;
     return platformContext()->setupPaintShadow(paint, offset);
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& c, ColorSpace)
 {
+    if (paintingDisabled())
+        return;
     platformContext()->setStrokeColor(c);
 }
 
 void GraphicsContext::setPlatformStrokeThickness(float f)
 {
+    if (paintingDisabled())
+        return;
     platformContext()->setStrokeThickness(f);
 }
 
 void GraphicsContext::setPlatformStrokeStyle(StrokeStyle style)
 {
+    if (paintingDisabled())
+        return;
     platformContext()->setStrokeStyle(style);
 }
 
 void GraphicsContext::setPlatformFillColor(const Color& c, ColorSpace)
 {
+    if (paintingDisabled())
+        return;
     platformContext()->setFillColor(c);
 }
 
@@ -501,30 +519,40 @@ void GraphicsContext::setPlatformShouldAntialias(bool useAA)
 
 void GraphicsContext::setPlatformFillGradient(Gradient* fillGradient)
 {
+    if (paintingDisabled())
+        return;
     SkShader* shader = extractShader(0, fillGradient);
     platformContext()->setFillShader(shader);
 }
 
 void GraphicsContext::setPlatformFillPattern(Pattern* fillPattern)
 {
+    if (paintingDisabled())
+        return;
     SkShader* shader = extractShader(fillPattern, 0);
     platformContext()->setFillShader(shader);
 }
 
 void GraphicsContext::setPlatformStrokeGradient(Gradient* strokeGradient)
 {
+    if (paintingDisabled())
+        return;
     SkShader* shader = extractShader(0, strokeGradient);
     platformContext()->setStrokeShader(shader);
 }
 
 void GraphicsContext::setPlatformStrokePattern(Pattern* strokePattern)
 {
+    if (paintingDisabled())
+        return;
     SkShader* shader = extractShader(strokePattern, 0);
     platformContext()->setStrokeShader(shader);
 }
 
 AffineTransform GraphicsContext::getCTM() const
 {
+    if (paintingDisabled())
+        return AffineTransform();
     const SkMatrix& m = platformContext()->getTotalMatrix();
     return AffineTransform(SkScalarToDouble(m.getScaleX()), // a
                            SkScalarToDouble(m.getSkewY()), // b
