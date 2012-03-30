@@ -56,8 +56,12 @@ void SimpleFontData::platformInit()
     m_fontMetrics.setAscent(a);
     m_fontMetrics.setDescent(d);
     m_fontMetrics.setXHeight(SkScalarToFloat(-skiaFontMetrics.fAscent) * 0.56f);   // hack I stole from the window's port
-    m_fontMetrics.setLineSpacing(a + d);
-    m_fontMetrics.setLineGap(SkScalarToFloat(skiaFontMetrics.fLeading));
+    float lineGap = SkScalarToFloat(skiaFontMetrics.fLeading);
+    if (platformData().orientation() == Vertical && lineGap == 0) {
+        lineGap = skiaFontMetrics.fAvgCharWidth * 0.56f;
+    }
+    m_fontMetrics.setLineGap(lineGap);
+    m_fontMetrics.setLineSpacing(a + d + lineGap);
 
     if (platformData().orientation() == Vertical && !isTextOrientationFallback()) {
         static const uint32_t vheaTag = SkSetFourByteTag('v', 'h', 'e', 'a');
