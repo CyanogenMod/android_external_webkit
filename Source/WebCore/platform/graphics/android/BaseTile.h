@@ -93,7 +93,7 @@ public:
 
     bool isLayerTile() { return m_isLayerTile; }
 
-    void setContents(int x, int y, float scale);
+    void setContents(int x, int y, float scale, bool isExpandedPrefetchTile);
 
     void reserveTexture();
 

@@ -82,7 +82,7 @@ BaseTile::~BaseTile()
 
 // All the following functions must be called from the main GL thread.
 
-void BaseTile::setContents(int x, int y, float scale)
+void BaseTile::setContents(int x, int y, float scale, bool isExpandedPrefetchTile)
 {
     // TODO: investigate whether below check/discard is necessary
     if ((m_x != x)
@@ -97,6 +97,8 @@ void BaseTile::setContents(int x, int y, float scale)
     m_y = y;
     m_scale = scale;
     m_drawCount = TilesManager::instance()->getDrawGLCount();
+    if (isExpandedPrefetchTile)
+        m_drawCount--; // deprioritize expanded painting region
 }
 
 void BaseTile::reserveTexture()
@@ -154,17 +156,11 @@ void BaseTile::markAsDirty(const SkRegion& dirtyArea)
     // Check if we actually intersect with the area
     bool intersect = false;
     SkRegion::Iterator cliperator(dirtyArea);
-    int tileWidth = TilesManager::instance()->tileWidth();
-    int tileHeight = TilesManager::instance()->tileHeight();
-    if (m_isLayerTile) {
-        tileWidth = TilesManager::instance()->layerTileWidth();
-        tileHeight = TilesManager::instance()->layerTileHeight();
-    }
     SkRect realTileRect;
     SkRect dirtyRect;
     while (!cliperator.done()) {
         dirtyRect.set(cliperator.rect());
-        if (intersectWithRect(m_x, m_y, tileWidth, tileHeight,
+        if (intersectWithRect(m_x, m_y, TilesManager::tileWidth(), TilesManager::tileHeight(),
                               m_scale, dirtyRect, realTileRect)) {
             intersect = true;
             break;

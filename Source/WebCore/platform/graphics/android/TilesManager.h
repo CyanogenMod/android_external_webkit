@@ -88,8 +88,6 @@ public:
     void setMaxLayerTextureCount(int max);
     static float tileWidth();
     static float tileHeight();
-    static float layerTileWidth();
-    static float layerTileHeight();
 
     void allocateTiles();
 

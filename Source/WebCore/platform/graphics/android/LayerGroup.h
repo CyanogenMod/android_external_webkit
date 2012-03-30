@@ -48,17 +48,14 @@ public:
     bool tryUpdateLayerGroup(LayerGroup* oldLayerGroup);
 
     void addLayer(LayerAndroid* layer, const TransformationMatrix& transform);
-    IntRect visibleArea();
     void prepareGL(bool layerTilesDisabled);
     bool drawGL(bool layerTilesDisabled);
     void swapTiles();
     bool isReady();
 
-    IntRect computePrepareArea();
     void computeTexturesAmount(TexturesResult* result);
 
     LayerAndroid* getFirstLayer() { return m_layers[0]; }
-    bool singleLayer() { return m_layers.size() == 1; }
     bool needsTexture() { return m_needsTexture; }
     bool hasText() { return m_hasText; }
     bool isBase();
@@ -67,6 +64,13 @@ public:
     virtual bool paint(BaseTile* tile, SkCanvas* canvas);
     virtual float opacity();
 private:
+    IntRect computePrepareArea();
+    IntRect visibleArea();
+    IntRect unclippedArea();
+    bool singleLayer() { return m_layers.size() == 1; }
+    bool useAggressiveRendering() { return isBase(); }
+
+
     const TransformationMatrix* drawTransform();
     IntRect m_unclippedArea;
     TransformationMatrix m_drawTransform;

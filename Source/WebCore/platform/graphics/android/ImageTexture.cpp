@@ -183,8 +183,8 @@ bool ImageTexture::prepareGL(GLWebViewState* state)
     if (!m_texture)
         return false;
 
-    IntRect visibleArea(0, 0, m_image->width(), m_image->height());
-    m_texture->prepareGL(state, 1.0, visibleArea, this);
+    IntRect unclippedArea(0, 0, m_image->width(), m_image->height());
+    m_texture->prepareGL(state, 1.0, unclippedArea, unclippedArea, this);
     if (m_texture->isReady()) {
         m_texture->swapTiles();
         return false;

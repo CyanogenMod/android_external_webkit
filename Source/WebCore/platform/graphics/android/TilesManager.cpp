@@ -56,8 +56,6 @@
 #define MAX_TEXTURE_ALLOCATION ((6+TILE_PREFETCH_DISTANCE*2)*(5+TILE_PREFETCH_DISTANCE*2)*4)
 #define TILE_WIDTH 256
 #define TILE_HEIGHT 256
-#define LAYER_TILE_WIDTH 256
-#define LAYER_TILE_HEIGHT 256
 
 #define BYTES_PER_PIXEL 4 // 8888 config
 
@@ -127,7 +125,7 @@ void TilesManager::allocateTiles()
     int nbLayersTexturesAllocated = 0;
     for (int i = 0; i < nbLayersTexturesToAllocate; i++) {
         BaseTileTexture* texture = new BaseTileTexture(
-            layerTileWidth(), layerTileHeight());
+            tileWidth(), tileHeight());
         // the atomic load ensures that the texture has been fully initialized
         // before we pass a pointer for other threads to operate on
         BaseTileTexture* loadedTexture =
@@ -140,7 +138,7 @@ void TilesManager::allocateTiles()
           nbTexturesAllocated, m_textures.size(),
           m_textures.size() * TILE_WIDTH * TILE_HEIGHT * 4 / 1024 / 1024,
           nbLayersTexturesAllocated, m_tilesTextures.size(),
-          m_tilesTextures.size() * LAYER_TILE_WIDTH * LAYER_TILE_HEIGHT * 4 / 1024 / 1024);
+          m_tilesTextures.size() * tileWidth() * tileHeight() * 4 / 1024 / 1024);
 }
 
 void TilesManager::discardTextures(bool allTextures, bool glTextures)
@@ -430,16 +428,6 @@ float TilesManager::tileWidth()
 float TilesManager::tileHeight()
 {
     return TILE_HEIGHT;
-}
-
-float TilesManager::layerTileWidth()
-{
-    return LAYER_TILE_WIDTH;
-}
-
-float TilesManager::layerTileHeight()
-{
-    return LAYER_TILE_HEIGHT;
 }
 
 TilesManager* TilesManager::instance()

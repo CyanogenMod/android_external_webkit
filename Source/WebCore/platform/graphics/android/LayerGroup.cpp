@@ -156,6 +156,13 @@ IntRect LayerGroup::visibleArea()
     return rect;
 }
 
+IntRect LayerGroup::unclippedArea()
+{
+    if (singleLayer())
+        return getFirstLayer()->unclippedArea();
+    return m_unclippedArea;
+}
+
 void LayerGroup::prepareGL(bool layerTilesDisabled)
 {
     bool tilesDisabled = layerTilesDisabled && !isBase();
@@ -174,11 +181,14 @@ void LayerGroup::prepareGL(bool layerTilesDisabled)
     } else {
         bool allowZoom = hasText(); // only allow for scale > 1 if painting vectors
         IntRect prepareArea = computePrepareArea();
+        IntRect fullArea = unclippedArea();
 
         ALOGV("prepareGL on LG %p with DTT %p, %d layers",
               this, m_dualTiledTexture, m_layers.size());
+
         m_dualTiledTexture->prepareGL(getFirstLayer()->state(), allowZoom,
-                                      prepareArea, this);
+                                      prepareArea, fullArea,
+                                      this, useAggressiveRendering());
     }
 }
 
@@ -200,7 +210,8 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
         ALOGV("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
 
         IntRect drawArea = visibleArea();
-        askRedraw |= m_dualTiledTexture->drawGL(drawArea, opacity(), drawTransform());
+        askRedraw |= m_dualTiledTexture->drawGL(drawArea, opacity(),
+                                                drawTransform(), useAggressiveRendering());
     }
 
     // draw member layers (draws image textures, glextras)
@@ -233,7 +244,7 @@ IntRect LayerGroup::computePrepareArea() {
         && !isBase()
         && getFirstLayer()->state()->layersRenderingMode() == GLWebViewState::kAllTextures) {
 
-        area = singleLayer() ? getFirstLayer()->unclippedArea() : m_unclippedArea;
+        area = unclippedArea();
 
         double total = ((double) area.width()) * ((double) area.height());
         if (total > MAX_UNCLIPPED_AREA)

@@ -49,9 +49,6 @@
 // HW limit or save further in the GPU memory consumption.
 #define TILE_PREFETCH_DISTANCE 1
 
-// ratio of content to view required for prefetching to enable
-#define TILE_PREFETCH_RATIO 1.2
-
 namespace WebCore {
 
 class BaseLayerAndroid;

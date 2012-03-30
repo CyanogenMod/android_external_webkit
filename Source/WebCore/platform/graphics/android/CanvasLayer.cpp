@@ -132,8 +132,8 @@ void CanvasLayer::canvasResized(HTMLCanvasElement*)
     const IntSize& size = m_canvas->size();
     m_dirtyCanvas.setRect(0, 0, size.width(), size.height());
     // If we are smaller than one tile, don't bother using a surface texture
-    if (size.width() <= TilesManager::layerTileWidth()
-            && size.height() <= TilesManager::layerTileHeight())
+    if (size.width() <= TilesManager::tileWidth()
+            && size.height() <= TilesManager::tileHeight())
         m_texture->setSize(IntSize());
     else
         m_texture->setSize(size);
