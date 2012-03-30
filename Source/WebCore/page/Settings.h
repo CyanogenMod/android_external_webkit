@@ -352,6 +352,11 @@ namespace WebCore {
         void setXSSAuditorEnabled(bool);
         bool xssAuditorEnabled() const { return m_xssAuditorEnabled; }
 
+#if ENABLE(LINK_PREFETCH)
+        void setLinkPrefetchEnabled(bool);
+        bool linkPrefetchEnabled() const { return m_linkPrefetchEnabled; }
+#endif
+
         void setCanvasUsesAcceleratedDrawing(bool);
         bool canvasUsesAcceleratedDrawing() const { return m_canvasUsesAcceleratedDrawing; }
 
@@ -567,6 +572,9 @@ namespace WebCore {
         bool m_acceleratedDrawingEnabled : 1;
         bool m_downloadableBinaryFontsEnabled : 1;
         bool m_xssAuditorEnabled : 1;
+#if ENABLE(LINK_PREFETCH)
+        bool m_linkPrefetchEnabled : 1;
+#endif
         bool m_acceleratedCompositingEnabled : 1;
         bool m_acceleratedCompositingFor3DTransformsEnabled : 1;
         bool m_acceleratedCompositingForVideoEnabled : 1;

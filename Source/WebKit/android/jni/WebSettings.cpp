@@ -118,6 +118,9 @@ struct FieldIds {
         mGeolocationEnabled = env->GetFieldID(clazz, "mGeolocationEnabled", "Z");
         mGeolocationDatabasePath = env->GetFieldID(clazz, "mGeolocationDatabasePath", "Ljava/lang/String;");
         mXSSAuditorEnabled = env->GetFieldID(clazz, "mXSSAuditorEnabled", "Z");
+#if ENABLE(LINK_PREFETCH)
+        mLinkPrefetchEnabled = env->GetFieldID(clazz, "mLinkPrefetchEnabled", "Z");
+#endif
         mJavaScriptCanOpenWindowsAutomatically = env->GetFieldID(clazz,
                 "mJavaScriptCanOpenWindowsAutomatically", "Z");
         mUseWideViewport = env->GetFieldID(clazz, "mUseWideViewport", "Z");
@@ -245,6 +248,9 @@ struct FieldIds {
     jfieldID mGeolocationEnabled;
     jfieldID mGeolocationDatabasePath;
     jfieldID mXSSAuditorEnabled;
+#if ENABLE(LINK_PREFETCH)
+    jfieldID mLinkPrefetchEnabled;
+#endif
 #if ENABLE(DATABASE) || ENABLE(DOM_STORAGE)
     jfieldID mDatabasePath;
     jfieldID mDatabasePathHasBeenSet;
@@ -544,6 +550,11 @@ public:
 
         flag = env->GetBooleanField(obj, gFieldIds->mXSSAuditorEnabled);
         s->setXSSAuditorEnabled(flag);
+
+#if ENABLE(LINK_PREFETCH)
+        flag = env->GetBooleanField(obj, gFieldIds->mLinkPrefetchEnabled);
+        s->setLinkPrefetchEnabled(flag);
+#endif
 
         size = env->GetIntField(obj, gFieldIds->mPageCacheCapacity);
         if (size > 0) {

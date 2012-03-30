@@ -293,6 +293,8 @@ bool CachedResourceLoader::canRequest(CachedResource::Type type, const KURL& url
     }
 #if ENABLE(LINK_PREFETCH)
     case CachedResource::LinkResource:
+        if (!m_document->settings()->linkPrefetchEnabled())
+            return false;
         break;
 #endif
     }

@@ -149,6 +149,9 @@ Settings::Settings(Page* page)
     // they can't use by. Leaving enabled for now to not change existing behavior.
     , m_downloadableBinaryFontsEnabled(true)
     , m_xssAuditorEnabled(false)
+#if ENABLE(LINK_PREFETCH)
+    , m_linkPrefetchEnabled(true)
+#endif
     , m_acceleratedCompositingEnabled(true)
     , m_acceleratedCompositingFor3DTransformsEnabled(true)
     , m_acceleratedCompositingForVideoEnabled(true)
@@ -822,6 +825,13 @@ void Settings::setXSSAuditorEnabled(bool xssAuditorEnabled)
 {
     m_xssAuditorEnabled = xssAuditorEnabled;
 }
+
+#if ENABLE(LINK_PREFETCH)
+void Settings::setLinkPrefetchEnabled(bool linkPrefetchEnabled)
+{
+    m_linkPrefetchEnabled = linkPrefetchEnabled;
+}
+#endif
 
 void Settings::setAcceleratedCompositingEnabled(bool enabled)
 {
