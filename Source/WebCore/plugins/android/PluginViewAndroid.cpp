@@ -690,7 +690,10 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
            notification of its global position change.
          */
         updatePluginWidget();
-        m_window->setSurfaceClip(context->platformContext()->mCanvas->getTotalClip().getBounds());
+        SkCanvas* canvas = context->platformContext()->getCanvas();
+        if (!canvas)
+           return;
+        m_window->setSurfaceClip(canvas->getTotalClip().getBounds());
     } else {
         m_window->inval(rect, false);
         context->save();

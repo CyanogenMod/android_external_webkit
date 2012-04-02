@@ -62,6 +62,7 @@
 #include "Geolocation.h"
 #include "GraphicsContext.h"
 #include "GraphicsJNI.h"
+#include "GraphicsOperationCollection.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAreaElement.h"
 #include "HTMLElement.h"
@@ -787,7 +788,7 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
     SkAutoMemoryUsageProbe mup(__FUNCTION__);
     SkCanvas* recordingCanvas = arp.getRecordingCanvas();
 
-    WebCore::PlatformGraphicsContext pgc(recordingCanvas);
+    WebCore::PlatformGraphicsContextSkia pgc(recordingCanvas);
     WebCore::GraphicsContext gc(&pgc);
     IntPoint origin = view->minimumScrollPosition();
     WebCore::IntRect drawArea(inval.fLeft + origin.x(), inval.fTop + origin.y(),
@@ -802,6 +803,27 @@ SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
 
     return picture;
 }
+
+#ifdef CONTEXT_RECORDING
+GraphicsOperationCollection* WebViewCore::rebuildGraphicsOperationCollection(const SkIRect& inval)
+{
+    WebCore::FrameView* view = m_mainFrame->view();
+    int width = view->contentsWidth();
+    int height = view->contentsHeight();
+
+    IntPoint origin = view->minimumScrollPosition();
+    WebCore::IntRect drawArea(inval.fLeft + origin.x(), inval.fTop + origin.y(),
+            inval.width(), inval.height());
+
+    AutoGraphicsOperationCollection autoPicture(drawArea);
+    view->platformWidget()->draw(autoPicture.context(), drawArea);
+
+    m_rebuildInval.op(inval, SkRegion::kUnion_Op);
+
+    SkSafeRef(autoPicture.picture());
+    return autoPicture.picture();
+}
+#endif
 
 void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 {
@@ -828,6 +850,10 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
         DBG_SET_LOGD("pictSet=%p [%d] {%d,%d,w=%d,h=%d}", pictureSet, index,
             inval.fLeft, inval.fTop, inval.width(), inval.height());
         pictureSet->setPicture(index, rebuildPicture(inval));
+#ifdef CONTEXT_RECORDING
+        pictureSet->setGraphicsOperationCollection(index,
+            rebuildGraphicsOperationCollection(inval));
+#endif
     }
 
     pictureSet->validate(__FUNCTION__);

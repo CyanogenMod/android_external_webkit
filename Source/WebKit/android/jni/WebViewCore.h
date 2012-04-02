@@ -53,6 +53,7 @@
 
 namespace WebCore {
     class Color;
+    class GraphicsOperationCollection;
     class FrameView;
     class HTMLAnchorElement;
     class HTMLElement;
@@ -641,6 +642,9 @@ namespace android {
         void recordPictureSet(PictureSet* master);
 
         SkPicture* rebuildPicture(const SkIRect& inval);
+#ifdef CONTEXT_RECORDING
+        WebCore::GraphicsOperationCollection* rebuildGraphicsOperationCollection(const SkIRect& inval);
+#endif
         void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
         /*

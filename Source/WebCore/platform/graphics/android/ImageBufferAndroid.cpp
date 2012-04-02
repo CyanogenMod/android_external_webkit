@@ -82,7 +82,10 @@ PassRefPtr<Image> ImageBuffer::copyImage() const
 {
     ASSERT(context());
 
-    SkCanvas* canvas = context()->platformContext()->mCanvas;
+    SkCanvas* canvas = context()->platformContext()->getCanvas();
+    if (!canvas)
+      return 0;
+
     SkDevice* device = canvas->getDevice();
     const SkBitmap& orig = device->accessBitmap(false);
 

@@ -127,6 +127,7 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_PATH)/platform/animation \
 	$(WEBCORE_PATH)/platform/graphics \
 	$(WEBCORE_PATH)/platform/graphics/android \
+	$(WEBCORE_PATH)/platform/graphics/android/context \
 	$(WEBCORE_PATH)/platform/graphics/filters \
 	$(WEBCORE_PATH)/platform/graphics/gpu \
 	$(WEBCORE_PATH)/platform/graphics/network \

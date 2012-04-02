@@ -45,7 +45,10 @@
 #include <wtf/Vector.h>
 #include <wtf/HashMap.h>
 
+#include "GraphicsOperationCollection.h"
+
 // #define FAST_PICTURESET // use a hierarchy of pictures
+// #define CONTEXT_RECORDING // use the new PlatformGraphicsContextRecording
 
 class SkCanvas;
 class SkPicture;
@@ -100,6 +103,9 @@ namespace android {
         const SkIRect& bounds(size_t i) const {
             return mPictures[i].mArea; }
         void setPicture(size_t i, SkPicture* p);
+#ifdef CONTEXT_RECORDING
+        void setGraphicsOperationCollection(size_t i, WebCore::GraphicsOperationCollection* p);
+#endif
         void setDrawTimes(const PictureSet& );
         size_t size() const { return mPictures.size(); }
         void split(PictureSet* result) const;
@@ -119,9 +125,13 @@ namespace android {
         int mBucketCountX;
         int mBucketCountY;
 #else
+
         struct Pictures {
             SkIRect mArea;
             SkPicture* mPicture;
+#ifdef CONTEXT_RECORDING
+            WebCore::GraphicsOperationCollection* mGraphicsOperationCollection;
+#endif
             SkIRect mUnsplit;
             uint32_t mElapsed;
             bool mSplit : 8;

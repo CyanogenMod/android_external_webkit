@@ -32,6 +32,7 @@
 #include "Path.h"
 #include "Pattern.h"
 #include "PlatformGraphicsContext.h"
+#include "PlatformGraphicsContextSkia.h"
 #include "SkBitmapRef.h"
 #include "SkBlurDrawLooper.h"
 #include "SkBlurMaskFilter.h"
@@ -78,14 +79,14 @@ static SkShader* extractShader(Pattern* pat, Gradient* grad)
 
 GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
 {
-    PlatformGraphicsContext* pgc = new PlatformGraphicsContext(new SkCanvas, true);
+    PlatformGraphicsContextSkia* pgc = new PlatformGraphicsContextSkia(new SkCanvas, true);
 
     SkBitmap bitmap;
 
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     bitmap.allocPixels();
     bitmap.eraseColor(0);
-    pgc->mCanvas->setBitmapDevice(bitmap);
+    pgc->getCanvas()->setBitmapDevice(bitmap);
 
     GraphicsContext* ctx = new GraphicsContext(pgc);
     return ctx;
@@ -98,7 +99,7 @@ void GraphicsContext::platformInit(PlatformGraphicsContext* gc)
     if (gc)
         gc->setGraphicsContext(this);
     m_data = new GraphicsContextPlatformPrivate(gc);
-    setPaintingDisabled(!gc || !gc->mCanvas);
+    setPaintingDisabled(!gc || gc->isPaintingDisabled());
 }
 
 void GraphicsContext::platformDestroy()
@@ -643,5 +644,5 @@ void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run,
 
 SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc)
 {
-    return gc->platformContext()->mCanvas;
+    return gc->platformContext()->getCanvas();
 }

@@ -264,7 +264,9 @@ public:
         if (!m_poster || (!m_poster->getPixels() && !m_poster->pixelRef()))
             return;
 
-        SkCanvas*   canvas = ctxt->platformContext()->mCanvas;
+        SkCanvas*   canvas = ctxt->platformContext()->getCanvas();
+        if (!canvas)
+            return;
         // We paint with the following rules in mind:
         // - only downscale the poster, never upscale
         // - maintain the natural aspect ratio of the poster

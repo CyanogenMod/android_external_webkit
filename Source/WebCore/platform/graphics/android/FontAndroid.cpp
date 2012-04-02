@@ -27,6 +27,8 @@
 #include "config.h"
 
 #include "EmojiFont.h"
+#include "GraphicsOperationCollection.h"
+#include "GraphicsOperation.h"
 #include "Font.h"
 #include "FontData.h"
 #include "FontFallbackList.h"
@@ -196,7 +198,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     SkAutoSTMalloc<32, SkPoint> storage(numGlyphs), storage2(numGlyphs), storage3(numGlyphs);
     SkPoint*                    pos = storage.get();
 
-    SkCanvas* canvas = gc->platformContext()->mCanvas;
+    SkCanvas* canvas = gc->platformContext()->recordingCanvas();
 
     /*  We need an array of [x,y,x,y,x,y,...], but webkit is giving us
         point.xy + [width, height, width, height, ...], so we have to convert
@@ -254,6 +256,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         if (font->platformData().orientation() == Vertical)
             canvas->restore();
     }
+    gc->platformContext()->endRecording();
 }
 
 void Font::drawEmphasisMarksForComplexText(WebCore::GraphicsContext*, WebCore::TextRun const&, WTF::AtomicString const&, WebCore::FloatPoint const&, int, int) const
@@ -1054,7 +1057,8 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
     if (stroke)
         setupStroke(&strokePaint, gc, primaryFont());
 
-    SkCanvas* canvas = gc->platformContext()->mCanvas;
+    SkCanvas* canvas = gc->platformContext()->recordingCanvas();
+
     bool haveMultipleLayers = isCanvasMultiLayered(canvas);
     TextRunWalker walker(run, point.x(), point.y(), this);
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
@@ -1074,6 +1078,8 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
                                 walker.positions(), strokePaint);
         }
     }
+
+    gc->platformContext()->endRecording();
 }
 
 float Font::floatWidthForComplexText(const TextRun& run,
