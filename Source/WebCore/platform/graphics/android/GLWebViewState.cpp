@@ -156,10 +156,9 @@ void GLWebViewState::setViewport(const SkRect& viewport, float scale)
     m_isViewportScrolling = m_viewport != viewport && SkRect::Intersects(m_viewport, viewport);
     m_viewport = viewport;
 
-    ALOGV("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f currentScale: %.2f futureScale: %.2f)",
+    ALOGV("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f )",
           m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
-          m_viewport.width(), m_viewport.height(), scale,
-          zoomManager()->currentScale(), zoomManager()->futureScale());
+          m_viewport.width(), m_viewport.height(), scale);
 }
 
 #ifdef MEASURES_PERF

@@ -874,16 +874,25 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
 
 #if USE(ACCELERATED_COMPOSITING)
     // We set the background color
+    Color background = Color::white;
     if (m_mainFrame && m_mainFrame->document()
         && m_mainFrame->document()->body()) {
+        bool hasCSSBackground = false;
+
         Document* document = m_mainFrame->document();
         RefPtr<RenderStyle> style = document->styleForElementIgnoringPendingStylesheets(document->body());
         if (style->hasBackground()) {
-            Color color = style->visitedDependentColor(CSSPropertyBackgroundColor);
-            if (color.isValid() && color.alpha() > 0)
-                base->setBackgroundColor(color);
+            background = style->visitedDependentColor(CSSPropertyBackgroundColor);
+            hasCSSBackground = true;
+        }
+
+        WebCore::FrameView* view = m_mainFrame->view();
+        if (view) {
+            Color viewBackground = view->baseBackgroundColor();
+            background = hasCSSBackground ? viewBackground.blend(background) : viewBackground;
         }
     }
+    base->setBackgroundColor(background);
 
     // We update the layers
     ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());

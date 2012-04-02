@@ -163,6 +163,16 @@ IntRect LayerGroup::unclippedArea()
     return m_unclippedArea;
 }
 
+bool LayerGroup::useAggressiveRendering()
+{
+    // When the background is translucent, 0 < alpha < 255, we had to turn off
+    // low res to avoid artifacts from double drawing.
+    // TODO: avoid double drawing for low res tiles.
+    return isBase()
+           && (!m_background.alpha()
+           || !m_background.hasAlpha());
+}
+
 void LayerGroup::prepareGL(bool layerTilesDisabled)
 {
     bool tilesDisabled = layerTilesDisabled && !isBase();
@@ -209,9 +219,11 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
     if (m_dualTiledTexture && !tilesDisabled) {
         ALOGV("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
 
+        // TODO: why this visibleArea is different from visibleRect at zooming for base?
         IntRect drawArea = visibleArea();
         askRedraw |= m_dualTiledTexture->drawGL(drawArea, opacity(),
-                                                drawTransform(), useAggressiveRendering());
+                                                drawTransform(), useAggressiveRendering(),
+                                                background());
     }
 
     // draw member layers (draws image textures, glextras)
@@ -310,6 +322,13 @@ float LayerGroup::opacity()
     if (singleLayer())
         return getFirstLayer()->drawOpacity();
     return 1.0;
+}
+
+Color* LayerGroup::background()
+{
+    if (!isBase() || !m_background.isValid())
+        return 0;
+    return &m_background;
 }
 
 const TransformationMatrix* LayerGroup::drawTransform()

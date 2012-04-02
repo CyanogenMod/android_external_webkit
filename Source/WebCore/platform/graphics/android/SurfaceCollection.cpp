@@ -63,8 +63,11 @@ SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
 
     // set the layergroups' and tiledpages' update count, to be drawn on painted tiles
     unsigned int updateCount = TilesManager::instance()->incWebkitContentUpdates();
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
+    for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
         m_layerGroups[i]->setUpdateCount(updateCount);
+        if (m_layerGroups[i]->isBase())
+            m_layerGroups[i]->setBackground(getBackground());
+    }
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("SurfaceCollection");

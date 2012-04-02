@@ -26,6 +26,7 @@
 #ifndef LayerGroup_h
 #define LayerGroup_h
 
+#include "Color.h"
 #include "IntRect.h"
 #include "TilePainter.h"
 #include "Vector.h"
@@ -59,17 +60,20 @@ public:
     bool needsTexture() { return m_needsTexture; }
     bool hasText() { return m_hasText; }
     bool isBase();
+    void setBackground(Color background) { m_background = background; }
 
     // TilePainter methods
     virtual bool paint(BaseTile* tile, SkCanvas* canvas);
     virtual float opacity();
+    virtual Color* background();
+
 private:
     IntRect computePrepareArea();
     IntRect visibleArea();
     IntRect unclippedArea();
     bool singleLayer() { return m_layers.size() == 1; }
-    bool useAggressiveRendering() { return isBase(); }
-
+    void updateBackground(const Color& background);
+    bool useAggressiveRendering();
 
     const TransformationMatrix* drawTransform();
     IntRect m_unclippedArea;
@@ -79,6 +83,8 @@ private:
     bool m_needsTexture;
     bool m_hasText;
     Vector<LayerAndroid*> m_layers;
+
+    Color m_background;
 };
 
 class LayerMergeState {

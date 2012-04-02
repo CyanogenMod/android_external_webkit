@@ -207,16 +207,16 @@ void BaseTile::setRepaintPending(bool pending)
     m_repaintPending = pending;
 }
 
-void BaseTile::drawGL(float opacity, const SkRect& rect, float scale,
+bool BaseTile::drawGL(float opacity, const SkRect& rect, float scale,
                       const TransformationMatrix* transform)
 {
     if (m_x < 0 || m_y < 0 || m_scale != scale)
-        return;
+        return false;
 
     // No need to mutex protect reads of m_backTexture as it is only written to by
     // the consumer thread.
     if (!m_frontTexture)
-        return;
+        return false;
 
     // Early return if set to un-usable in purpose!
     m_atomicSync.lock();
@@ -224,9 +224,10 @@ void BaseTile::drawGL(float opacity, const SkRect& rect, float scale,
     m_atomicSync.unlock();
 
     if (!isTexturePainted)
-        return;
+        return false;
 
     m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform);
+    return true;
 }
 
 bool BaseTile::isTileReady()
