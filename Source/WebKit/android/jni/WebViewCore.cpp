@@ -351,7 +351,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_getDeviceMotionService;
     jmethodID   m_getDeviceOrientationService;
     jmethodID   m_addMessageToConsole;
-    jmethodID   m_formDidBlur;
     jmethodID   m_focusNodeChanged;
     jmethodID   m_getPluginClass;
     jmethodID   m_showFullScreenPlugin;
@@ -421,7 +420,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_textFieldInitDataGlue(new TextFieldInitDataGlue)
     , m_mainFrame(mainframe)
     , m_popupReply(0)
-    , m_blurringNodePointer(0)
     , m_blockTextfieldUpdates(false)
     , m_focusBoundsChanged(false)
     , m_skipContentDraw(false)
@@ -487,7 +485,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_getDeviceMotionService = GetJMethod(env, clazz, "getDeviceMotionService", "()Landroid/webkit/DeviceMotionService;");
     m_javaGlue->m_getDeviceOrientationService = GetJMethod(env, clazz, "getDeviceOrientationService", "()Landroid/webkit/DeviceOrientationService;");
     m_javaGlue->m_addMessageToConsole = GetJMethod(env, clazz, "addMessageToConsole", "(Ljava/lang/String;ILjava/lang/String;I)V");
-    m_javaGlue->m_formDidBlur = GetJMethod(env, clazz, "formDidBlur", "(I)V");
     m_javaGlue->m_focusNodeChanged = GetJMethod(env, clazz, "focusNodeChanged", "(ILandroid/webkit/WebViewCore$WebKitHitTest;)V");
     m_javaGlue->m_getPluginClass = GetJMethod(env, clazz, "getPluginClass", "(Ljava/lang/String;Ljava/lang/String;)Ljava/lang/Class;");
     m_javaGlue->m_showFullScreenPlugin = GetJMethod(env, clazz, "showFullScreenPlugin", "(Landroid/webkit/ViewManager$ChildView;II)V");
@@ -3476,15 +3473,6 @@ void WebViewCore::popupReply(const int* array, int count)
     }
 }
 
-void WebViewCore::formDidBlur(const WebCore::Node* node)
-{
-    // If the blur is on a text input, keep track of the node so we can
-    // hide the soft keyboard when the new focus is set, if it is not a
-    // text input.
-    if (isTextInput(node))
-        m_blurringNodePointer = reinterpret_cast<int>(node);
-}
-
 // This is a slightly modified Node::nextNodeConsideringAtomicNodes() with the
 // extra constraint of limiting the search to inside a containing parent
 WebCore::Node* nextNodeWithinParent(WebCore::Node* parent, WebCore::Node* start)
@@ -3546,11 +3534,6 @@ void WebViewCore::focusNodeChanged(WebCore::Node* newFocus)
         return;
     if (isTextInput(newFocus))
         initializeTextInput(newFocus);
-    else if (m_blurringNodePointer) {
-        env->CallVoidMethod(javaObject.get(), m_javaGlue->m_formDidBlur, m_blurringNodePointer);
-        checkException(env);
-        m_blurringNodePointer = 0;
-    }
     HitTestResult focusHitResult;
     focusHitResult.setInnerNode(newFocus);
     focusHitResult.setInnerNonSharedNode(newFocus);
