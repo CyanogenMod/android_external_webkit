@@ -135,12 +135,6 @@ namespace android {
 
         // Followings are called from native WebCore to Java
 
-        /**
-         * Notification that a form was blurred.  Pass a message to hide the
-         * keyboard if it was showing for that Node.
-         * @param Node The Node that blurred.
-         */
-        void formDidBlur(const WebCore::Node*);
         void focusNodeChanged(WebCore::Node*);
 
         /**
@@ -766,7 +760,6 @@ namespace android {
         struct TextFieldInitDataGlue* m_textFieldInitDataGlue;
         WebCore::Frame*        m_mainFrame;
         WebCoreReply*          m_popupReply;
-        int m_blurringNodePointer;
         PictureSet m_content; // the set of pictures to draw
         SkRegion m_addInval; // the accumulated inval region (not yet drawn)
         SkRegion m_rebuildInval; // the accumulated region for rebuilt pictures
