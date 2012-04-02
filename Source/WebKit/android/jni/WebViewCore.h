@@ -695,7 +695,7 @@ namespace android {
          * it is a text input field then initEditField is called and
          * auto-fill information is requested for HTML form input fields.
          */
-        void initializeTextInput(WebCore::Node* node, bool fake = false);
+        void initializeTextInput(WebCore::Node* node, bool fake);
 
         /**
          * Gets the input type a Node. NONE is returned if it isn't an

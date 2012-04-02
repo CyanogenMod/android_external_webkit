@@ -3496,6 +3496,7 @@ void WebViewCore::initializeTextInput(WebCore::Node* node, bool fake)
 {
     if (node) {
         if (isTextInput(node)) {
+            bool showKeyboard = true;
             initEditField(node);
             WebCore::RenderTextControl* rtc = toRenderTextControl(node);
             if (rtc && node->hasTagName(HTMLNames::inputTag)) {
@@ -3512,10 +3513,11 @@ void WebViewCore::initializeTextInput(WebCore::Node* node, bool fake)
                         autoFill->formFieldFocused(inputElement);
                     }
 #endif
-                } else if (!fake) {
-                    requestKeyboard(false);
-                }
+                } else
+                    showKeyboard = false;
             }
+            if (!fake)
+                requestKeyboard(showKeyboard);
         } else if (!fake && !nodeIsPlugin(node)) {
             // not a text entry field, put away the keyboard.
             clearTextEntry();
@@ -3533,7 +3535,7 @@ void WebViewCore::focusNodeChanged(WebCore::Node* newFocus)
     if (!javaObject.get())
         return;
     if (isTextInput(newFocus))
-        initializeTextInput(newFocus);
+        initializeTextInput(newFocus, true);
     HitTestResult focusHitResult;
     focusHitResult.setInnerNode(newFocus);
     focusHitResult.setInnerNonSharedNode(newFocus);
