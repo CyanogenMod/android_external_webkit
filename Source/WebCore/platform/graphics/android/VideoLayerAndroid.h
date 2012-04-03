@@ -30,7 +30,6 @@
 
 #include "GLUtils.h"
 #include "LayerAndroid.h"
-#include "ShaderProgram.h"
 #include <jni.h>
 
 namespace android {

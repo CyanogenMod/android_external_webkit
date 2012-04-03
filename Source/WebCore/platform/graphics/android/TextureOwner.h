@@ -31,13 +31,13 @@ class Layer;
 
 namespace WebCore {
 
-class BaseTileTexture;
+class TileTexture;
 class GLWebViewState;
 
 class TextureOwner {
 public:
     virtual ~TextureOwner() { }
-    virtual bool removeTexture(BaseTileTexture* texture) = 0;
+    virtual bool removeTexture(TileTexture* texture) = 0;
     virtual bool samePageAs(Layer* root) { return false; }
     virtual bool isRepaintPending() = 0;
     virtual unsigned long long drawCount() = 0;

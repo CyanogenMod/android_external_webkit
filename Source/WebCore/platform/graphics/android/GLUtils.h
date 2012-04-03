@@ -31,8 +31,6 @@
 #include "Color.h"
 #include "SkBitmap.h"
 #include "SkMatrix.h"
-#include "SkSize.h"
-#include "TextureInfo.h"
 #include "TransformationMatrix.h"
 #include <EGL/egl.h>
 #include <EGL/eglext.h>
@@ -46,6 +44,8 @@ class SurfaceTexture;
 } // namespace android
 
 namespace WebCore {
+
+class TileRenderInfo;
 
 class GLUtils {
 
@@ -71,7 +71,7 @@ public:
     static void deleteTexture(GLuint* texture);
     static GLuint createSampleColorTexture(int r, int g, int b);
     static GLuint createSampleTexture();
-    static GLuint createBaseTileGLTexture(int width, int height);
+    static GLuint createTileGLTexture(int width, int height);
 
     static void createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter = GL_LINEAR);
     static void updateTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, const IntRect&, GLint filter = GL_LINEAR);

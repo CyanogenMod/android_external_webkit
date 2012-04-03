@@ -35,7 +35,6 @@
 
 namespace WebCore {
 
-
 // Note: this must match the use of ID 0 specifying the base layer in DrawExtra
 #define BASE_UNIQUE_ID 0
 

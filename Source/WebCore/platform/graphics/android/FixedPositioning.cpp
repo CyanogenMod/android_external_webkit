@@ -8,6 +8,7 @@
 #include "DumpLayer.h"
 #include "IFrameLayerAndroid.h"
 #include "TilesManager.h"
+#include "SkCanvas.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 

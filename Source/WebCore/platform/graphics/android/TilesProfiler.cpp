@@ -32,6 +32,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
+#include "Tile.h"
 #include "TilesManager.h"
 #include <wtf/CurrentTime.h>
 
@@ -92,7 +93,7 @@ void TilesProfiler::nextFrame(int left, int top, int right, int bottom, float sc
                                 scale, true, (int)(timeDelta * 1000)));
 }
 
-void TilesProfiler::nextTile(BaseTile* tile, float scale, bool inView)
+void TilesProfiler::nextTile(Tile* tile, float scale, bool inView)
 {
     if (!m_enabled || (m_records.size() > MAX_PROF_FRAMES) || (m_records.size() == 0))
         return;

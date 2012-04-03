@@ -26,7 +26,7 @@
 #ifndef PaintTileSetOperation_h
 #define PaintTileSetOperation_h
 
-#include "BaseTile.h"
+#include "Tile.h"
 #include "QueuedOperation.h"
 #include "SkRefCnt.h"
 
@@ -38,7 +38,7 @@ class ImageTexture;
 
 class PaintTileOperation : public QueuedOperation {
 public:
-    PaintTileOperation(BaseTile* tile, TilePainter* painter,
+    PaintTileOperation(Tile* tile, TilePainter* painter,
                        GLWebViewState* state, bool isLowResPrefetch);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
@@ -49,7 +49,7 @@ public:
     float scale() { return m_tile->scale(); }
 
 private:
-    BaseTile* m_tile;
+    Tile* m_tile;
     TilePainter* m_painter;
     GLWebViewState* m_state;
     bool m_isLowResPrefetch;

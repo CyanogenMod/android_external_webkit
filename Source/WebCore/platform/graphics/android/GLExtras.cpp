@@ -32,6 +32,7 @@
 #include "DrawExtra.h"
 #include "GLExtras.h"
 #include "IntRect.h"
+#include "SkPath.h"
 #include "TilesManager.h"
 #include "android_graphics.h"
 

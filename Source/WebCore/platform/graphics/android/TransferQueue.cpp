@@ -32,8 +32,9 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
-#include "BaseTile.h"
+#include "Tile.h"
 #include "GLUtils.h"
+#include "TileTexture.h"
 #include "TilesManager.h"
 #include <android/native_window.h>
 #include <gui/SurfaceTexture.h>
@@ -124,28 +125,28 @@ void TransferQueue::initGLResources(int width, int height)
 }
 
 // When bliting, if the item from the transfer queue is mismatching b/t the
-// BaseTile and the content, then the item is considered as obsolete, and
+// Tile and the content, then the item is considered as obsolete, and
 // the content is discarded.
 bool TransferQueue::checkObsolete(const TileTransferData* data)
 {
-    BaseTile* baseTilePtr = data->savedBaseTilePtr;
+    Tile* baseTilePtr = data->savedTilePtr;
     if (!baseTilePtr) {
-        ALOGV("Invalid savedBaseTilePtr , such that the tile is obsolete");
+        ALOGV("Invalid savedTilePtr , such that the tile is obsolete");
         return true;
     }
 
-    BaseTileTexture* baseTileTexture = baseTilePtr->backTexture();
-    if (!baseTileTexture || baseTileTexture != data->savedBaseTileTexturePtr) {
+    TileTexture* baseTileTexture = baseTilePtr->backTexture();
+    if (!baseTileTexture || baseTileTexture != data->savedTileTexturePtr) {
         ALOGV("Invalid baseTileTexture %p (vs expected %p), such that the tile is obsolete",
-              baseTileTexture, data->savedBaseTileTexturePtr);
+              baseTileTexture, data->savedTileTexturePtr);
         return true;
     }
 
     return false;
 }
 
-void TransferQueue::blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
-                                      BaseTileTexture* frontTex,
+void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
+                                      TileTexture* frontTex,
                                       GLuint srcTexId, GLenum srcTexTarget,
                                       int index)
 {
@@ -327,10 +328,10 @@ void TransferQueue::updatePureColorTiles()
     for (unsigned int i = 0 ; i < m_pureColorTileQueue.size(); i++) {
         TileTransferData* data = &m_pureColorTileQueue[i];
         if (data->status == pendingBlit) {
-            BaseTileTexture* destTexture = 0;
-            bool obsoleteBaseTile = checkObsolete(data);
-            if (!obsoleteBaseTile) {
-                destTexture = data->savedBaseTilePtr->backTexture();
+            TileTexture* destTexture = 0;
+            bool obsoleteTile = checkObsolete(data);
+            if (!obsoleteTile) {
+                destTexture = data->savedTilePtr->backTexture();
                 destTexture->setPureColor(data->pureColor);
                 destTexture->transferComplete();
             }
@@ -342,8 +343,8 @@ void TransferQueue::updatePureColorTiles()
     m_pureColorTileQueue.clear();
 }
 
-// Call on UI thread to copy from the shared Surface Texture to the BaseTile's texture.
-void TransferQueue::updateDirtyBaseTiles()
+// Call on UI thread to copy from the shared Surface Texture to the Tile's texture.
+void TransferQueue::updateDirtyTiles()
 {
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
 
@@ -355,22 +356,22 @@ void TransferQueue::updateDirtyBaseTiles()
     updatePureColorTiles();
 
     // Start from the oldest item, we call the updateTexImage to retrive
-    // the texture and blit that into each BaseTile's texture.
+    // the texture and blit that into each Tile's texture.
     const int nextItemIndex = getNextTransferQueueIndex();
     int index = nextItemIndex;
     bool usedFboForUpload = false;
     for (int k = 0; k < m_transferQueueSize ; k++) {
         if (m_transferQueue[index].status == pendingBlit) {
-            bool obsoleteBaseTile = checkObsolete(&m_transferQueue[index]);
+            bool obsoleteTile = checkObsolete(&m_transferQueue[index]);
             // Save the needed info, update the Surf Tex, clean up the item in
             // the queue. Then either move on to next item or copy the content.
-            BaseTileTexture* destTexture = 0;
-            BaseTileTexture* frontTexture = 0;
-            if (!obsoleteBaseTile) {
-                destTexture = m_transferQueue[index].savedBaseTilePtr->backTexture();
+            TileTexture* destTexture = 0;
+            TileTexture* frontTexture = 0;
+            if (!obsoleteTile) {
+                destTexture = m_transferQueue[index].savedTilePtr->backTexture();
                 // while destTexture is guaranteed to not be null, frontTexture
                 // might be (first transfer)
-                frontTexture = m_transferQueue[index].savedBaseTilePtr->frontTexture();
+                frontTexture = m_transferQueue[index].savedTilePtr->frontTexture();
             }
 
             if (m_transferQueue[index].uploadType == GpuUpload) {
@@ -378,9 +379,9 @@ void TransferQueue::updateDirtyBaseTiles()
                 if (result != OK)
                     ALOGE("unexpected error: updateTexImage return %d", result);
             }
-            m_transferQueue[index].savedBaseTilePtr = 0;
+            m_transferQueue[index].savedTilePtr = 0;
             m_transferQueue[index].status = emptyItem;
-            if (obsoleteBaseTile) {
+            if (obsoleteTile) {
                 ALOGV("Warning: the texture is obsolete for this baseTile");
                 index = (index + 1) % m_transferQueueSize;
                 continue;
@@ -409,7 +410,7 @@ void TransferQueue::updateDirtyBaseTiles()
             destTexture->transferComplete();
 
             ALOGV("Blit tile x, y %d %d with dest texture %p to destTexture->m_ownTextureId %d",
-                  m_transferQueue[index].savedBaseTilePtr,
+                  m_transferQueue[index].savedTilePtr,
                   destTexture,
                   destTexture->m_ownTextureId);
         }
@@ -422,7 +423,7 @@ void TransferQueue::updateDirtyBaseTiles()
     if (usedFboForUpload) {
         glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
         restoreGLState();
-        GLUtils::checkGlError("updateDirtyBaseTiles");
+        GLUtils::checkGlError("updateDirtyTiles");
     }
 
     m_emptyItemCount = m_transferQueueSize;
@@ -435,7 +436,7 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
     if (!tryUpdateQueueWithBitmap(renderInfo, bitmap)) {
         // failed placing bitmap in queue, discard tile's texture so it will be
         // re-enqueued (and repainted)
-        BaseTile* tile = renderInfo->baseTile;
+        Tile* tile = renderInfo->baseTile;
         if (tile)
             tile->backTextureTransferFail();
     }
@@ -492,8 +493,8 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
                                   TextureUploadType type,
                                   TileTransferData* data)
 {
-    data->savedBaseTileTexturePtr = renderInfo->baseTile->backTexture();
-    data->savedBaseTilePtr = renderInfo->baseTile;
+    data->savedTileTexturePtr = renderInfo->baseTile->backTexture();
+    data->savedTilePtr = renderInfo->baseTile;
     data->status = pendingBlit;
     data->uploadType = type;
 
@@ -516,7 +517,7 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
     m_transferQueueIndex = (m_transferQueueIndex + 1) % m_transferQueueSize;
 
     int index = m_transferQueueIndex;
-    if (m_transferQueue[index].savedBaseTilePtr
+    if (m_transferQueue[index].savedTilePtr
         || m_transferQueue[index].status != emptyItem) {
         ALOGV("ERROR update a tile which is dirty already @ index %d", index);
     }
@@ -550,7 +551,7 @@ void TransferQueue::setTextureUploadType(TextureUploadType type)
 }
 
 // Note: this need to be called within the lock and on the UI thread.
-// Only called by updateDirtyBaseTiles() and emptyQueue() for now
+// Only called by updateDirtyTiles() and emptyQueue() for now
 void TransferQueue::cleanupPendingDiscard()
 {
     int index = getNextTransferQueueIndex();
@@ -568,8 +569,8 @@ void TransferQueue::cleanupPendingDiscard()
 
             // since tiles in the queue may be from another webview, remove
             // their textures so that they will be repainted / retransferred
-            BaseTile* tile = m_transferQueue[index].savedBaseTilePtr;
-            BaseTileTexture* texture = m_transferQueue[index].savedBaseTileTexturePtr;
+            Tile* tile = m_transferQueue[index].savedTilePtr;
+            TileTexture* texture = m_transferQueue[index].savedTileTexturePtr;
             if (tile && texture && texture->owner() == tile) {
                 // since tile destruction removes textures on the UI thread, the
                 // texture->owner ptr guarantees the tile is valid
@@ -577,8 +578,8 @@ void TransferQueue::cleanupPendingDiscard()
                 ALOGV("transfer queue discarded tile %p, removed texture", tile);
             }
 
-            m_transferQueue[index].savedBaseTilePtr = 0;
-            m_transferQueue[index].savedBaseTileTexturePtr = 0;
+            m_transferQueue[index].savedTilePtr = 0;
+            m_transferQueue[index].savedTileTexturePtr = 0;
             m_transferQueue[index].status = emptyItem;
         }
         index = (index + 1) % m_transferQueueSize;

@@ -25,6 +25,7 @@
 #include "GraphicsLayerClient.h"
 #include "ImageTexture.h"
 #include "Layer.h"
+#include "PlatformString.h"
 #include "RefPtr.h"
 #include "SkBitmap.h"
 #include "SkColor.h"
@@ -32,6 +33,7 @@
 #include "SkStream.h"
 #include "TransformationMatrix.h"
 
+#include <utils/threads.h>
 #include <wtf/HashMap.h>
 
 #ifndef BZERO_DEFINED
@@ -49,8 +51,8 @@ class SkPicture;
 namespace WebCore {
 class LayerAndroid;
 class LayerContent;
-class LayerGroup;
 class ImageTexture;
+class Surface;
 }
 
 namespace android {
@@ -65,7 +67,6 @@ using namespace android;
 namespace WebCore {
 
 class AndroidAnimation;
-class BaseTileTexture;
 class FixedPositioning;
 class GLWebViewState;
 class IFrameLayerAndroid;
@@ -273,9 +274,9 @@ public:
     SkRegion* getInvalRegion() { return &m_dirtyRegion; }
     void mergeInvalsInto(LayerAndroid* replacementTree);
 
-    bool canJoinGroup(LayerGroup* group);
-    void assignGroups(LayerMergeState* mergeState);
-    LayerGroup* group() { return m_layerGroup; }
+    bool canJoinSurface(Surface* surface);
+    void assignSurfaces(LayerMergeState* mergeState);
+    Surface* surface() { return m_surface; }
 
     void setIntrinsicallyComposited(bool intCom) { m_intrinsicallyComposited = intCom; }
 
@@ -360,7 +361,7 @@ private:
 
     bool m_intrinsicallyComposited;
 
-    LayerGroup* m_layerGroup;
+    Surface* m_surface;
 
     typedef Layer INHERITED;
 };

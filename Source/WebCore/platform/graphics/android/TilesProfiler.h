@@ -28,11 +28,13 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseTile.h"
 #include "IntRect.h"
-#include "Vector.h"
+#include "SkRect.h"
+#include <wtf/Vector.h>
 
 namespace WebCore {
+
+class Tile;
 
 struct TileProfileRecord {
     TileProfileRecord(int left, int top, int right, int bottom, float scale, int isReady, int level) {
@@ -58,7 +60,7 @@ public:
     float stop();
     void clear();
     void nextFrame(int left, int top, int right, int bottom, float scale);
-    void nextTile(BaseTile* tile, float scale, bool inView);
+    void nextTile(Tile* tile, float scale, bool inView);
     void nextInval(const SkIRect& rect, float scale);
     int numFrames() {
         return m_records.size();
@@ -78,7 +80,7 @@ private:
     bool m_enabled;
     unsigned int m_goodTiles;
     unsigned int m_badTiles;
-    Vector<Vector<TileProfileRecord> > m_records;
+    WTF::Vector<WTF::Vector<TileProfileRecord> > m_records;
     double m_time;
 };
 

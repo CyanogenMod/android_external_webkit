@@ -47,7 +47,7 @@ static struct ANPSurfaceInterfaceJavaGlue {
     jfieldID    surfacePointer;
 } gSurfaceJavaGlue;
 
-static inline sp<Surface> getSurface(JNIEnv* env, jobject view) {
+static inline sp<android::Surface> getSurface(JNIEnv* env, jobject view) {
     if (!env || !view) {
         return NULL;
     }
@@ -80,7 +80,7 @@ static inline sp<Surface> getSurface(JNIEnv* env, jobject view) {
     env->DeleteLocalRef(holder);
     env->DeleteLocalRef(surface);
 
-    return sp<Surface>((Surface*) surfacePointer);
+    return sp<android::Surface>((android::Surface*) surfacePointer);
 }
 
 static inline ANPBitmapFormat convertPixelFormat(PixelFormat format) {
@@ -96,9 +96,9 @@ static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRec
         return false;
     }
 
-    sp<Surface> surface = getSurface(env, surfaceView);
+    sp<android::Surface> surface = getSurface(env, surfaceView);
 
-    if (!bitmap || !Surface::isValid(surface)) {
+    if (!bitmap || !android::Surface::isValid(surface)) {
             return false;
     }
 
@@ -112,7 +112,7 @@ static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRec
         dirtyRegion.set(Rect(0x3FFF, 0x3FFF));
     }
 
-    Surface::SurfaceInfo info;
+    android::Surface::SurfaceInfo info;
     status_t err = surface->lock(&info, &dirtyRegion);
     if (err < 0) {
         return false;
@@ -150,9 +150,9 @@ static void anp_unlock(JNIEnv* env, jobject surfaceView) {
         return;
     }
 
-    sp<Surface> surface = getSurface(env, surfaceView);
+    sp<android::Surface> surface = getSurface(env, surfaceView);
 
-    if (!Surface::isValid(surface)) {
+    if (!android::Surface::isValid(surface)) {
         return;
     }
 

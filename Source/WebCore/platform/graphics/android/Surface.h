@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LayerGroup_h
-#define LayerGroup_h
+#ifndef Surface_h
+#define Surface_h
 
 #include "Color.h"
 #include "IntRect.h"
@@ -36,17 +36,17 @@ class SkRegion;
 
 namespace WebCore {
 
-class BaseTile;
-class DualTiledTexture;
+class Tile;
+class SurfaceBacking;
 class LayerAndroid;
 class TexturesResult;
 
-class LayerGroup : public TilePainter {
+class Surface : public TilePainter {
 public:
-    LayerGroup();
-    virtual ~LayerGroup();
+    Surface();
+    virtual ~Surface();
 
-    bool tryUpdateLayerGroup(LayerGroup* oldLayerGroup);
+    bool tryUpdateSurface(Surface* oldSurface);
 
     void addLayer(LayerAndroid* layer, const TransformationMatrix& transform);
     void prepareGL(bool layerTilesDisabled);
@@ -63,7 +63,7 @@ public:
     void setBackground(Color background) { m_background = background; }
 
     // TilePainter methods
-    virtual bool paint(BaseTile* tile, SkCanvas* canvas);
+    virtual bool paint(Tile* tile, SkCanvas* canvas);
     virtual float opacity();
     virtual Color* background();
 
@@ -79,7 +79,7 @@ private:
     IntRect m_unclippedArea;
     TransformationMatrix m_drawTransform;
 
-    DualTiledTexture* m_dualTiledTexture;
+    SurfaceBacking* m_surfaceBacking;
     bool m_needsTexture;
     bool m_hasText;
     Vector<LayerAndroid*> m_layers;
@@ -89,18 +89,18 @@ private:
 
 class LayerMergeState {
 public:
-    LayerMergeState(Vector<LayerGroup*>* const allGroups)
-        : groupList(allGroups)
-        , currentLayerGroup(0)
+    LayerMergeState(Vector<Surface*>* const allGroups)
+        : surfaceList(allGroups)
+        , currentSurface(0)
         , nonMergeNestedLevel(-1) // start at -1 to ignore first LayerAndroid's clipping
         , depth(0)
         {}
 
     // vector storing all generated layer groups
-    Vector<LayerGroup*>* const groupList;
+    Vector<Surface*>* const surfaceList;
 
     // currently merging group. if cleared, no more layers may join
-    LayerGroup* currentLayerGroup;
+    Surface* currentSurface;
 
     // records depth within non-mergeable parents (clipping, fixed, scrolling)
     // and disable merging therein.
@@ -112,4 +112,4 @@ public:
 
 } // namespace WebCore
 
-#endif //#define LayerGroup_h
+#endif //#define Surface_h

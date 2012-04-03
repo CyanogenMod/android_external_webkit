@@ -23,41 +23,65 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GaneshContext_h
-#define GaneshContext_h
+#ifndef TileGrid_h
+#define TileGrid_h
 
-#if USE(ACCELERATED_COMPOSITING)
+#include "IntRect.h"
+#include "SkRegion.h"
 
-#include "BaseRenderer.h"
-#include "GrContext.h"
-#include "SkGpuDevice.h"
-#include <EGL/egl.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-class GaneshContext {
+class Color;
+class GLWebViewState;
+class Tile;
+class TilePainter;
+class TransformationMatrix;
+
+class TileGrid {
 public:
-    static GaneshContext* instance();
+    TileGrid(bool isBaseSurface);
+    virtual ~TileGrid();
 
-    SkDevice* getDeviceForTile(const TileRenderInfo& renderInfo);
+    static IntRect computeTilesArea(const IntRect& contentArea, float scale);
 
-    void flush();
+    void prepareGL(GLWebViewState* state, float scale,
+                   const IntRect& prepareArea, const IntRect& unclippedArea,
+                   TilePainter* painter, bool isLowResPrefetch = false,
+                   bool useExpandPrefetch = false);
+    void swapTiles();
+    void drawGL(const IntRect& visibleArea, float opacity,
+                const TransformationMatrix* transform, const Color* background = 0);
+
+    void prepareTile(int x, int y, TilePainter* painter,
+                     GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch);
+    void markAsDirty(const SkRegion& dirtyArea);
+
+    Tile* getTile(int x, int y);
+
+    void removeTiles();
+    void discardTextures();
+
+    bool isReady();
+    bool isMissingContent();
+
+    int nbTextures(IntRect& area, float scale);
 
 private:
+    void drawMissingRegion(const SkRegion& region, float opacity, const Color* tileBackground);
+    WTF::Vector<Tile*> m_tiles;
 
-    GaneshContext();
+    IntRect m_area;
 
-    GrContext* getGrContext();
-    GrContext* m_grContext;
+    SkRegion m_dirtyRegion;
 
-    SkGpuDevice* m_tileDeviceSurface;
-    EGLConfig  m_surfaceConfig;
-    EGLContext m_surfaceContext;
+    int m_prevTileY;
+    float m_scale;
 
-    static GaneshContext* gInstance;
+    bool m_isBaseSurface;
 };
 
 } // namespace WebCore
 
-#endif // USE(ACCELERATED_COMPOSITING)
-#endif // GaneshContext_h
+#endif // TileGrid_h

@@ -23,80 +23,82 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "LayerGroup"
+#define LOG_TAG "Surface"
 #define LOG_NDEBUG 1
 
 #include "config.h"
-#include "LayerGroup.h"
+#include "Surface.h"
 
 #include "AndroidLog.h"
 #include "ClassTracker.h"
 #include "LayerAndroid.h"
-#include "TiledTexture.h"
+#include "GLWebViewState.h"
+#include "SkCanvas.h"
+#include "SurfaceBacking.h"
 #include "TilesManager.h"
 
-// LayerGroups with an area larger than 2048*2048 should never be unclipped
+// Surfaces with an area larger than 2048*2048 should never be unclipped
 #define MAX_UNCLIPPED_AREA 4194304
 
 namespace WebCore {
 
-LayerGroup::LayerGroup()
-    : m_dualTiledTexture(0)
+Surface::Surface()
+    : m_surfaceBacking(0)
     , m_needsTexture(false)
     , m_hasText(false)
 {
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("LayerGroup");
+    ClassTracker::instance()->increment("Surface");
 #endif
 }
 
-LayerGroup::~LayerGroup()
+Surface::~Surface()
 {
     for (unsigned int i = 0; i < m_layers.size(); i++)
         SkSafeUnref(m_layers[i]);
-    if (m_dualTiledTexture)
-        SkSafeUnref(m_dualTiledTexture);
+    if (m_surfaceBacking)
+        SkSafeUnref(m_surfaceBacking);
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->decrement("LayerGroup");
+    ClassTracker::instance()->decrement("Surface");
 #endif
 }
 
-bool LayerGroup::tryUpdateLayerGroup(LayerGroup* oldLayerGroup)
+bool Surface::tryUpdateSurface(Surface* oldSurface)
 {
-    if (!needsTexture() || !oldLayerGroup->needsTexture())
+    if (!needsTexture() || !oldSurface->needsTexture())
         return false;
 
-    // merge layer group based on first layer ID
-    if (getFirstLayer()->uniqueId() != oldLayerGroup->getFirstLayer()->uniqueId())
+    // merge surfaces based on first layer ID
+    if (getFirstLayer()->uniqueId() != oldSurface->getFirstLayer()->uniqueId())
         return false;
 
-    m_dualTiledTexture = oldLayerGroup->m_dualTiledTexture;
-    SkSafeRef(m_dualTiledTexture);
+    m_surfaceBacking = oldSurface->m_surfaceBacking;
+    SkSafeRef(m_surfaceBacking);
 
-    ALOGV("%p taking old DTT %p from group %p, nt %d",
-          this, m_dualTiledTexture, oldLayerGroup, oldLayerGroup->needsTexture());
+    ALOGV("%p taking old SurfBack %p from surface %p, nt %d",
+          this, m_surfaceBacking, oldSurface, oldSurface->needsTexture());
 
-    if (!m_dualTiledTexture) {
-        // no DTT to inval, so don't worry about it.
+    if (!m_surfaceBacking) {
+        // no SurfBack to inval, so don't worry about it.
         return true;
     }
 
-    if (singleLayer() && oldLayerGroup->singleLayer()) {
+    if (singleLayer() && oldSurface->singleLayer()) {
         // both are single matching layers, simply apply inval
         SkRegion* layerInval = getFirstLayer()->getInvalRegion();
-        m_dualTiledTexture->markAsDirty(*layerInval);
+        m_surfaceBacking->markAsDirty(*layerInval);
     } else {
         SkRegion invalRegion;
-        bool fullInval = m_layers.size() != oldLayerGroup->m_layers.size();
+        bool fullInval = m_layers.size() != oldSurface->m_layers.size();
         if (!fullInval) {
             for (unsigned int i = 0; i < m_layers.size(); i++) {
-                if (m_layers[i]->uniqueId() != oldLayerGroup->m_layers[i]->uniqueId()) {
+                if (m_layers[i]->uniqueId() != oldSurface->m_layers[i]->uniqueId()) {
                     // layer list has changed, fully invalidate
                     // TODO: partially invalidate based on layer size/position
                     fullInval = true;
                     break;
                 } else if (!m_layers[i]->getInvalRegion()->isEmpty()) {
-                    // merge layer inval - translate the layer's inval region into group coordinates
+                    // merge layer inval - translate the layer's inval region into surface coordinates
                     SkPoint pos = m_layers[i]->getPosition();
                     m_layers[i]->getInvalRegion()->translate(pos.fX, pos.fY);
                     invalRegion.op(*(m_layers[i]->getInvalRegion()), SkRegion::kUnion_Op);
@@ -108,12 +110,12 @@ bool LayerGroup::tryUpdateLayerGroup(LayerGroup* oldLayerGroup)
         if (fullInval)
             invalRegion.setRect(-1e8, -1e8, 2e8, 2e8);
 
-        m_dualTiledTexture->markAsDirty(invalRegion);
+        m_surfaceBacking->markAsDirty(invalRegion);
     }
     return true;
 }
 
-void LayerGroup::addLayer(LayerAndroid* layer, const TransformationMatrix& transform)
+void Surface::addLayer(LayerAndroid* layer, const TransformationMatrix& transform)
 {
     m_layers.append(layer);
     SkSafeRef(layer);
@@ -133,14 +135,14 @@ void LayerGroup::addLayer(LayerAndroid* layer, const TransformationMatrix& trans
             m_unclippedArea = rect;
         } else
             m_unclippedArea.unite(rect);
-        ALOGV("LG %p adding LA %p, size  %d, %d  %dx%d, now LG size %d,%d  %dx%d",
+        ALOGV("Surf %p adding LA %p, size  %d, %d  %dx%d, now Surf size %d,%d  %dx%d",
               this, layer, rect.x(), rect.y(), rect.width(), rect.height(),
               m_unclippedArea.x(), m_unclippedArea.y(),
               m_unclippedArea.width(), m_unclippedArea.height());
     }
 }
 
-IntRect LayerGroup::visibleArea()
+IntRect Surface::visibleArea()
 {
     if (singleLayer())
         return getFirstLayer()->visibleArea();
@@ -156,14 +158,14 @@ IntRect LayerGroup::visibleArea()
     return rect;
 }
 
-IntRect LayerGroup::unclippedArea()
+IntRect Surface::unclippedArea()
 {
     if (singleLayer())
         return getFirstLayer()->unclippedArea();
     return m_unclippedArea;
 }
 
-bool LayerGroup::useAggressiveRendering()
+bool Surface::useAggressiveRendering()
 {
     // When the background is translucent, 0 < alpha < 255, we had to turn off
     // low res to avoid artifacts from double drawing.
@@ -173,36 +175,36 @@ bool LayerGroup::useAggressiveRendering()
            || !m_background.hasAlpha());
 }
 
-void LayerGroup::prepareGL(bool layerTilesDisabled)
+void Surface::prepareGL(bool layerTilesDisabled)
 {
     bool tilesDisabled = layerTilesDisabled && !isBase();
-    if (!m_dualTiledTexture) {
-        ALOGV("prepareGL on LG %p, no DTT, needsTexture? %d",
-              this, m_dualTiledTexture, needsTexture());
+    if (!m_surfaceBacking) {
+        ALOGV("prepareGL on Surf %p, no SurfBack, needsTexture? %d",
+              this, m_surfaceBacking, needsTexture());
 
         if (!needsTexture())
             return;
 
-        m_dualTiledTexture = new DualTiledTexture(isBase());
+        m_surfaceBacking = new SurfaceBacking(isBase());
     }
 
     if (tilesDisabled) {
-        m_dualTiledTexture->discardTextures();
+        m_surfaceBacking->discardTextures();
     } else {
         bool allowZoom = hasText(); // only allow for scale > 1 if painting vectors
         IntRect prepareArea = computePrepareArea();
         IntRect fullArea = unclippedArea();
 
-        ALOGV("prepareGL on LG %p with DTT %p, %d layers",
-              this, m_dualTiledTexture, m_layers.size());
+        ALOGV("prepareGL on Surf %p with SurfBack %p, %d layers",
+              this, m_surfaceBacking, m_layers.size());
 
-        m_dualTiledTexture->prepareGL(getFirstLayer()->state(), allowZoom,
+        m_surfaceBacking->prepareGL(getFirstLayer()->state(), allowZoom,
                                       prepareArea, fullArea,
                                       this, useAggressiveRendering());
     }
 }
 
-bool LayerGroup::drawGL(bool layerTilesDisabled)
+bool Surface::drawGL(bool layerTilesDisabled)
 {
     bool tilesDisabled = layerTilesDisabled && !isBase();
     if (!getFirstLayer()->visible())
@@ -216,12 +218,12 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
     }
 
     bool askRedraw = false;
-    if (m_dualTiledTexture && !tilesDisabled) {
-        ALOGV("drawGL on LG %p with DTT %p", this, m_dualTiledTexture);
+    if (m_surfaceBacking && !tilesDisabled) {
+        ALOGV("drawGL on Surf %p with SurfBack %p", this, m_surfaceBacking);
 
         // TODO: why this visibleArea is different from visibleRect at zooming for base?
         IntRect drawArea = visibleArea();
-        m_dualTiledTexture->drawGL(drawArea, opacity(), drawTransform(),
+        m_surfaceBacking->drawGL(drawArea, opacity(), drawTransform(),
                                    useAggressiveRendering(), background());
     }
 
@@ -232,23 +234,23 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
     return askRedraw;
 }
 
-void LayerGroup::swapTiles()
+void Surface::swapTiles()
 {
-    if (!m_dualTiledTexture)
+    if (!m_surfaceBacking)
         return;
 
-    m_dualTiledTexture->swapTiles();
+    m_surfaceBacking->swapTiles();
 }
 
-bool LayerGroup::isReady()
+bool Surface::isReady()
 {
-    if (!m_dualTiledTexture)
+    if (!m_surfaceBacking)
         return true;
 
-    return m_dualTiledTexture->isReady();
+    return m_surfaceBacking->isReady();
 }
 
-IntRect LayerGroup::computePrepareArea() {
+IntRect Surface::computePrepareArea() {
     IntRect area;
 
     if (!getFirstLayer()->contentIsScrollable()
@@ -267,24 +269,24 @@ IntRect LayerGroup::computePrepareArea() {
     return area;
 }
 
-void LayerGroup::computeTexturesAmount(TexturesResult* result)
+void Surface::computeTexturesAmount(TexturesResult* result)
 {
-    if (!m_dualTiledTexture || isBase())
+    if (!m_surfaceBacking || isBase())
         return;
 
-    m_dualTiledTexture->computeTexturesAmount(result, getFirstLayer());
+    m_surfaceBacking->computeTexturesAmount(result, getFirstLayer());
 }
 
-bool LayerGroup::isBase()
+bool Surface::isBase()
 {
-    // base layer group
+    // base layer surface
     // - doesn't use layer tiles (disables blending, doesn't compute textures amount)
     // - ignores clip rects
     // - only prepares clippedArea
     return getFirstLayer()->subclassType() == LayerAndroid::BaseLayer;
 }
 
-bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas)
+bool Surface::paint(Tile* tile, SkCanvas* canvas)
 {
     if (singleLayer()) {
         getFirstLayer()->contentDraw(canvas, Layer::UnmergedLayers);
@@ -316,25 +318,25 @@ bool LayerGroup::paint(BaseTile* tile, SkCanvas* canvas)
     return true;
 }
 
-float LayerGroup::opacity()
+float Surface::opacity()
 {
     if (singleLayer())
         return getFirstLayer()->drawOpacity();
     return 1.0;
 }
 
-Color* LayerGroup::background()
+Color* Surface::background()
 {
     if (!isBase() || !m_background.isValid())
         return 0;
     return &m_background;
 }
 
-const TransformationMatrix* LayerGroup::drawTransform()
+const TransformationMatrix* Surface::drawTransform()
 {
-    // single layer groups query the layer's draw transform, while multi-layer
-    // groups copy the draw transform once, during initialization
-    // TODO: support fixed multi-layer groups by querying the changing drawTransform
+    // single layer surfaces query the layer's draw transform, while multi-layer
+    // surfaces copy the draw transform once, during initialization
+    // TODO: support fixed multi-layer surfaces by querying the changing drawTransform
     if (singleLayer())
         return getFirstLayer()->drawTransform();
 

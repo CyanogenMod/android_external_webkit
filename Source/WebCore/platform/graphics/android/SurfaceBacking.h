@@ -23,81 +23,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TiledTexture_h
-#define TiledTexture_h
+#ifndef SurfaceBacking_h
+#define SurfaceBacking_h
 
-#include "BaseTile.h"
-#include "BaseTileTexture.h"
-#include "ClassTracker.h"
-#include "IntRect.h"
-#include "LayerAndroid.h"
 #include "SkRefCnt.h"
-#include "SkRegion.h"
-#include "TextureOwner.h"
-#include "TilePainter.h"
-
-class SkCanvas;
+#include "TileGrid.h"
 
 namespace WebCore {
 
-class TiledTexture {
-public:
-    TiledTexture(bool isBaseSurface)
-        : m_prevTileY(0)
-        , m_scale(1)
-        , m_isBaseSurface(isBaseSurface)
-    {
-        m_dirtyRegion.setEmpty();
-#ifdef DEBUG_COUNT
-        ClassTracker::instance()->increment("TiledTexture");
-#endif
-    }
+class LayerAndroid;
+class TexturesResult;
+class TilePainter;
 
-    virtual ~TiledTexture();
-
-    static IntRect computeTilesArea(const IntRect& contentArea, float scale);
-
-    void prepareGL(GLWebViewState* state, float scale,
-                   const IntRect& prepareArea, const IntRect& unclippedArea,
-                   TilePainter* painter, bool isLowResPrefetch = false,
-                   bool useExpandPrefetch = false);
-    void swapTiles();
-    void drawGL(const IntRect& visibleArea, float opacity,
-                const TransformationMatrix* transform, const Color* background = 0);
-
-    void prepareTile(int x, int y, TilePainter* painter,
-                     GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch);
-    void markAsDirty(const SkRegion& dirtyArea);
-
-    BaseTile* getTile(int x, int y);
-
-    void removeTiles();
-    void discardTextures();
-
-    bool isReady();
-    bool isMissingContent();
-
-    int nbTextures(IntRect& area, float scale);
-
-private:
-    void drawMissingRegion(const SkRegion& region, float opacity, const Color* tileBackground);
-    Vector<BaseTile*> m_tiles;
-
-    IntRect m_area;
-
-    SkRegion m_dirtyRegion;
-
-    int m_prevTileY;
-    float m_scale;
-
-    bool m_isBaseSurface;
-};
-
-class DualTiledTexture : public SkRefCnt {
+class SurfaceBacking : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
-    DualTiledTexture(bool isBaseSurface);
-    ~DualTiledTexture();
+    SurfaceBacking(bool isBaseSurface);
+    ~SurfaceBacking();
     void prepareGL(GLWebViewState* state, bool allowZoom,
                    const IntRect& prepareArea, const IntRect& unclippedArea,
                    TilePainter* painter, bool aggressiveRendering);
@@ -126,13 +68,13 @@ public:
     }
 
 private:
-    void swapTiledTextures();
+    void swapTileGrids();
 
     // Delay before we schedule a new tile at the new scale factor
     static const double s_zoomUpdateDelay = 0.2; // 200 ms
 
-    TiledTexture* m_frontTexture;
-    TiledTexture* m_backTexture;
+    TileGrid* m_frontTexture;
+    TileGrid* m_backTexture;
     float m_scale;
     float m_futureScale;
     double m_zoomUpdateTime;
@@ -141,4 +83,4 @@ private:
 
 } // namespace WebCore
 
-#endif // TiledTexture_h
+#endif // SurfaceBacking_h

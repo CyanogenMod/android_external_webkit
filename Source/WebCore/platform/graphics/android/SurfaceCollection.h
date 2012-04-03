@@ -29,7 +29,8 @@
 #include "Color.h"
 #include "SkRect.h"
 #include "SkRefCnt.h"
-#include "Vector.h"
+
+#include <wtf/Vector.h>
 
 class SkCanvas;
 class SkRegion;
@@ -37,7 +38,7 @@ class SkRegion;
 namespace WebCore {
 
 class LayerAndroid;
-class LayerGroup;
+class Surface;
 class TexturesResult;
 
 class SurfaceCollection : public SkRefCnt {
@@ -67,7 +68,7 @@ public:
 private:
     void updateLayerPositions(const SkRect& visibleRect);
     LayerAndroid* m_compositedRoot;
-    Vector<LayerGroup*> m_layerGroups;
+    WTF::Vector<Surface*> m_surfaces;
 };
 
 } // namespace WebCore

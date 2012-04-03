@@ -636,8 +636,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/AndroidAnimation.cpp \
 	platform/graphics/android/BaseLayerAndroid.cpp \
 	platform/graphics/android/BaseRenderer.cpp \
-	platform/graphics/android/BaseTile.cpp \
-	platform/graphics/android/BaseTileTexture.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
 	platform/graphics/android/CanvasLayer.cpp \
 	platform/graphics/android/CanvasTexture.cpp \
@@ -668,7 +666,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/InspectorCanvas.cpp \
 	platform/graphics/android/Layer.cpp \
 	platform/graphics/android/LayerAndroid.cpp \
-	platform/graphics/android/LayerGroup.cpp \
 	platform/graphics/android/MediaLayer.cpp \
 	platform/graphics/android/MediaTexture.cpp \
 	platform/graphics/android/PaintTileOperation.cpp \
@@ -681,11 +678,15 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/ScrollableLayerAndroid.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
 	platform/graphics/android/ShaderProgram.cpp \
+	platform/graphics/android/Surface.cpp \
+	platform/graphics/android/SurfaceBacking.cpp \
 	platform/graphics/android/TextureInfo.cpp \
 	platform/graphics/android/TexturesGenerator.cpp \
+	platform/graphics/android/Tile.cpp \
+	platform/graphics/android/TileGrid.cpp \
+	platform/graphics/android/TileTexture.cpp \
 	platform/graphics/android/TilesManager.cpp \
 	platform/graphics/android/TilesProfiler.cpp \
-	platform/graphics/android/TiledTexture.cpp \
 	platform/graphics/android/TransferQueue.cpp \
 	platform/graphics/android/SurfaceCollection.cpp \
 	platform/graphics/android/SurfaceCollectionManager.cpp \

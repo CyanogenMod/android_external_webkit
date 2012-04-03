@@ -30,7 +30,6 @@
 #include "SurfaceCollectionManager.h"
 
 #include "AndroidLog.h"
-#include "LayerGroup.h"
 #include "private/hwui/DrawGlInfo.h"
 #include "TilesManager.h"
 #include "SurfaceCollection.h"

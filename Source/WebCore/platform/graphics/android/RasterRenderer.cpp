@@ -37,6 +37,7 @@
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
+#include "Tile.h"
 #include "TilesManager.h"
 
 namespace WebCore {

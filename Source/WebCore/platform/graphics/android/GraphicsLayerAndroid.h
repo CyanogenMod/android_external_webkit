@@ -23,7 +23,6 @@
 #include "Frame.h"
 #include "GraphicsLayer.h"
 #include "GraphicsLayerClient.h"
-#include "LayerAndroid.h"
 #include "LayerContent.h"
 #include "RefPtr.h"
 #include "ScrollableLayerAndroid.h"
@@ -37,6 +36,7 @@ class SkRegion;
 
 namespace WebCore {
 
+class LayerAndroid;
 class ScrollableLayerAndroid;
 
 class GraphicsLayerAndroid : public GraphicsLayer {

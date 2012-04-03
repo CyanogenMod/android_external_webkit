@@ -30,6 +30,7 @@
 #include "IntRect.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <utils/threads.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 

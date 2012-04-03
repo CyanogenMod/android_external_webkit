@@ -30,6 +30,7 @@
 #include "VideoLayerAndroid.h"
 
 #include "AndroidLog.h"
+#include "ShaderProgram.h"
 #include "TilesManager.h"
 #include <GLES2/gl2.h>
 #include <gui/SurfaceTexture.h>

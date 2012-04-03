@@ -30,6 +30,7 @@
 #include "PaintTileOperation.h"
 
 #include "AndroidLog.h"
+#include "GLWebViewState.h"
 #include "ImageTexture.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
@@ -37,7 +38,7 @@
 
 namespace WebCore {
 
-PaintTileOperation::PaintTileOperation(BaseTile* tile, TilePainter* painter,
+PaintTileOperation::PaintTileOperation(Tile* tile, TilePainter* painter,
                                        GLWebViewState* state, bool isLowResPrefetch)
     : m_tile(tile)
     , m_painter(painter)

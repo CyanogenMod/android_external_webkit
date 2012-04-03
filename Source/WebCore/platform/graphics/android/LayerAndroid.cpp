@@ -13,10 +13,10 @@
 #include "DumpLayer.h"
 #include "FixedPositioning.h"
 #include "GLUtils.h"
+#include "GLWebViewState.h"
 #include "ImagesManager.h"
 #include "InspectorCanvas.h"
 #include "LayerContent.h"
-#include "LayerGroup.h"
 #include "MediaLayer.h"
 #include "ParseCanvas.h"
 #include "PictureLayerContent.h"
@@ -24,6 +24,7 @@
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
 #include "SkPicture.h"
+#include "Surface.h"
 #include "TilesManager.h"
 
 #include <wtf/CurrentTime.h>
@@ -33,8 +34,8 @@
 #define DISABLE_LAYER_MERGE
 #undef DISABLE_LAYER_MERGE
 
-#define LAYER_GROUPING_DEBUG
-#undef LAYER_GROUPING_DEBUG
+#define LAYER_MERGING_DEBUG
+#undef LAYER_MERGING_DEBUG
 
 namespace WebCore {
 
@@ -70,7 +71,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_owningLayer(owner),
     m_type(LayerAndroid::WebCoreLayer),
     m_intrinsicallyComposited(true),
-    m_layerGroup(0)
+    m_surface(0)
 {
     m_backgroundColor = 0;
 
@@ -91,7 +92,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
     m_intrinsicallyComposited(layer.m_intrinsicallyComposited),
-    m_layerGroup(0)
+    m_surface(0)
 {
     m_imageCRC = layer.m_imageCRC;
     if (m_imageCRC)
@@ -177,7 +178,7 @@ LayerAndroid::~LayerAndroid()
         delete m_fixedPosition;
 
     SkSafeUnref(m_content);
-    // Don't unref m_layerGroup, owned by BaseLayerAndroid
+    // Don't unref m_surface, owned by BaseLayerAndroid
     m_animations.clear();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->remove(this);
@@ -658,16 +659,16 @@ static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
     return a->zValue() > b->zValue();
 }
 
-bool LayerAndroid::canJoinGroup(LayerGroup* group)
+bool LayerAndroid::canJoinSurface(Surface* surface)
 {
 #ifdef DISABLE_LAYER_MERGE
     return false;
 #else
-    // returns true if the layer can be merged onto the layergroup
-    if (!group)
+    // returns true if the layer can be merged onto the surface (group of layers)
+    if (!surface)
         return false;
 
-    LayerAndroid* lastLayer = group->getFirstLayer();
+    LayerAndroid* lastLayer = surface->getFirstLayer();
 
     // isolate non-tiled layers
     // TODO: remove this check so that multiple tiled layers with a invisible
@@ -689,9 +690,9 @@ bool LayerAndroid::canJoinGroup(LayerGroup* group)
         || !lastLayer->m_drawTransform.isIdentityOrTranslation())
         return false;
 
-    // currently, we don't group zoomable with non-zoomable layers (unless the
-    // group or the layer doesn't need a texture)
-    if (group->needsTexture() && needsTexture() && m_content->hasText() != group->hasText())
+    // currently, we don't surface zoomable with non-zoomable layers (unless the
+    // surface or the layer doesn't need a texture)
+    if (surface->needsTexture() && needsTexture() && m_content->hasText() != surface->hasText())
         return false;
 
     // TODO: compare other layer properties - fixed? overscroll? transformed?
@@ -699,31 +700,31 @@ bool LayerAndroid::canJoinGroup(LayerGroup* group)
 #endif
 }
 
-void LayerAndroid::assignGroups(LayerMergeState* mergeState)
+void LayerAndroid::assignSurfaces(LayerMergeState* mergeState)
 {
     // recurse through layers in draw order, and merge layers when able
 
-    bool needNewGroup = !mergeState->currentLayerGroup
+    bool needNewSurface = !mergeState->currentSurface
         || mergeState->nonMergeNestedLevel > 0
-        || !canJoinGroup(mergeState->currentLayerGroup);
+        || !canJoinSurface(mergeState->currentSurface);
 
-    if (needNewGroup) {
-        mergeState->currentLayerGroup = new LayerGroup();
-        mergeState->groupList->append(mergeState->currentLayerGroup);
+    if (needNewSurface) {
+        mergeState->currentSurface = new Surface();
+        mergeState->surfaceList->append(mergeState->currentSurface);
     }
 
-#ifdef LAYER_GROUPING_DEBUG
-    ALOGD("%*slayer %p(%d) rl %p %s group %p, fixed %d, anim %d, intCom %d, haveClip %d scroll %d",
+#ifdef LAYER_MERGING_DEBUG
+    ALOGD("%*slayer %p(%d) rl %p %s surface %p, fixed %d, anim %d, intCom %d, haveClip %d scroll %d",
           4*mergeState->depth, "", this, m_uniqueId, m_owningLayer,
-          needNewGroup ? "NEW" : "joins", mergeState->currentLayerGroup,
+          needNewSurface ? "NEW" : "joins", mergeState->currentSurface,
           isPositionFixed(), m_animations.size() != 0,
           m_intrinsicallyComposited,
           m_haveClip,
           contentIsScrollable());
 #endif
 
-    mergeState->currentLayerGroup->addLayer(this, m_drawTransform);
-    m_layerGroup = mergeState->currentLayerGroup;
+    mergeState->currentSurface->addLayer(this, m_drawTransform);
+    m_surface = mergeState->currentSurface;
 
     if (m_haveClip || contentIsScrollable() || isPositionFixed()) {
         // disable layer merging within the children of these layer types
@@ -731,7 +732,7 @@ void LayerAndroid::assignGroups(LayerMergeState* mergeState)
     }
 
 
-    // pass the layergroup through children in drawing order, so that they may
+    // pass the surface through children in drawing order, so that they may
     // attach themselves (and paint on it) if possible, or ignore it and create
     // a new one if not
     int count = this->countChildren();
@@ -744,7 +745,7 @@ void LayerAndroid::assignGroups(LayerMergeState* mergeState)
         // sort for the transparency
         std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
         for (int i = 0; i < count; i++)
-            sublayers[i]->assignGroups(mergeState);
+            sublayers[i]->assignSurfaces(mergeState);
         mergeState->depth--;
     }
 
@@ -752,8 +753,8 @@ void LayerAndroid::assignGroups(LayerMergeState* mergeState)
         // re-enable joining
         mergeState->nonMergeNestedLevel--;
 
-        // disallow layers painting after to join with this group
-        mergeState->currentLayerGroup = 0;
+        // disallow layers painting after to join with this surface
+        mergeState->currentSurface = 0;
     }
 }
 

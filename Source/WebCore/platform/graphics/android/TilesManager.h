@@ -28,20 +28,25 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseTile.h"
-#include "BaseTileTexture.h"
-#include "ImageTexture.h"
+/* #include "Tile.h" */
+/* #include "TileTexture.h" */
+/* #include "ImageTexture.h" */
 #include "LayerAndroid.h"
 #include "ShaderProgram.h"
-#include "SkBitmapRef.h"
+/* #include "SkBitmapRef.h" */
 #include "TexturesGenerator.h"
 #include "TilesProfiler.h"
-#include "TransferQueue.h"
+/* #include "TransferQueue.h" */
 #include "VideoLayerManager.h"
 #include <utils/threads.h>
 #include <wtf/HashMap.h>
 
 namespace WebCore {
+
+class OperationFilter;
+class Tile;
+class TileTexture;
+class TransferQueue;
 
 class TilesManager {
 public:
@@ -74,7 +79,7 @@ public:
     void gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
                                int* nbLayerTextures, int* nbAllocatedLayerTextures);
 
-    BaseTileTexture* getAvailableTexture(BaseTile* owner);
+    TileTexture* getAvailableTexture(Tile* owner);
 
     void printTextures();
 
@@ -161,14 +166,14 @@ private:
     TilesManager();
 
     void discardTexturesVector(unsigned long long sparedDrawCount,
-                               WTF::Vector<BaseTileTexture*>& textures,
+                               WTF::Vector<TileTexture*>& textures,
                                bool deallocateGLTextures);
 
-    Vector<BaseTileTexture*> m_textures;
-    Vector<BaseTileTexture*> m_availableTextures;
+    WTF::Vector<TileTexture*> m_textures;
+    WTF::Vector<TileTexture*> m_availableTextures;
 
-    Vector<BaseTileTexture*> m_tilesTextures;
-    Vector<BaseTileTexture*> m_availableTilesTextures;
+    WTF::Vector<TileTexture*> m_tilesTextures;
+    WTF::Vector<TileTexture*> m_availableTilesTextures;
     bool m_layerTexturesRemain;
 
     bool m_highEndGfx;

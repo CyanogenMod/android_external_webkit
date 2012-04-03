@@ -35,6 +35,7 @@
 #include "GLUtils.h"
 #include "PaintTileOperation.h"
 #include "TilesManager.h"
+#include "TransferQueue.h"
 
 namespace WebCore {
 

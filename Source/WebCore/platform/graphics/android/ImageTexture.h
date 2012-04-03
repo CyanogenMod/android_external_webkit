@@ -31,13 +31,14 @@
 #include "SkBitmapRef.h"
 #include "SkPicture.h"
 #include "SkRefCnt.h"
-#include "LayerAndroid.h"
+#include "TilePainter.h"
 
 namespace WebCore {
 
+class GLWebViewState;
 class LayerAndroid;
 class TexturesResult;
-class TiledTexture;
+class TileGrid;
 
 /////////////////////////////////////////////////////////////////////////////////
 // Image sharing codepath for layers
@@ -63,7 +64,7 @@ class TiledTexture;
 // ImageTexture at draw time.
 //
 // ImageTexture recopy the original SkBitmap so that they can safely be used
-// on a different thread; it uses TiledTexture to allocate and paint the image,
+// on a different thread; it uses TileGrid to allocate and paint the image,
 // so that we can share the same textures and limits as the rest of the layers.
 //
 /////////////////////////////////////////////////////////////////////////////////
@@ -84,8 +85,8 @@ public:
     static unsigned computeCRC(const SkBitmap* bitmap);
     bool equalsCRC(unsigned crc);
 
-    // methods used by TiledTexture
-    virtual bool paint(BaseTile* tile, SkCanvas* canvas);
+    // methods used by TileGrid
+    virtual bool paint(Tile* tile, SkCanvas* canvas);
     virtual float opacity();
 
     int nbTextures();
@@ -97,7 +98,7 @@ private:
 
     SkBitmapRef* m_imageRef;
     SkBitmap* m_image;
-    TiledTexture* m_texture;
+    TileGrid* m_texture;
     LayerAndroid* m_layer;
     SkPicture* m_picture;
     TransformationMatrix m_layerMatrix;
