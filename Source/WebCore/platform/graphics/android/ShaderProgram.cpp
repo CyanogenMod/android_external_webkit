@@ -502,7 +502,7 @@ void ShaderProgram::drawQuad(const SkRect& geometry, int textureId, float opacit
             setProjectionMatrix(geometry, projectionMatrix);
             finalMatrix = projectionMatrix;
         }
-        setBlendingState(opacity < 1.0);
+        setBlendingState(opacity < 1.0 || pureColor.hasAlpha());
         drawQuadInternal(type, finalMatrix, textureId, opacity, textureTarget,
                         texFilter, pureColor);
     }

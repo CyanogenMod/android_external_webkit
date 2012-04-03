@@ -227,7 +227,10 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     }
 
     // Start doing the actual GL drawing.
-    GLUtils::drawBackground(&background);
+    ALOGV("background is %x", background.rgb());
+    // If background is opaque, we can safely and efficiently clear it here.
+    // Otherwise, we have to calculate all the missing tiles and blend the background.
+    GLUtils::clearBackgroundIfOpaque(&background);
     if (m_drawingCollection)
         ret |= m_drawingCollection->drawGL(visibleRect);
 

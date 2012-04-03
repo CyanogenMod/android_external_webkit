@@ -23,11 +23,15 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "RasterRenderer"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "RasterRenderer.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
 #include "GLUtils.h"
 #include "SkBitmap.h"
 #include "SkBitmapRef.h"
@@ -66,8 +70,16 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
         g_bitmap->setIsOpaque(false);
         g_bitmap->eraseARGB(0, 0, 0, 0);
     } else {
-        g_bitmap->setIsOpaque(true);
-        g_bitmap->eraseARGB(255, 255, 255, 255);
+        Color defaultBackground = Color::white;
+        Color* background = renderInfo.tilePainter->background();
+        if (!background) {
+            ALOGV("No background color for base layer!");
+            background = &defaultBackground;
+        }
+        ALOGV("setupCanvas use background on Base Layer %x", background->rgb());
+        g_bitmap->setIsOpaque(!background->hasAlpha());
+        g_bitmap->eraseARGB(background->alpha(), background->red(),
+                            background->green(), background->blue());
     }
 
     SkDevice* device = new SkDevice(*g_bitmap);

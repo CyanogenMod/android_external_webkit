@@ -62,7 +62,8 @@ public:
                    TilePainter* painter, bool isLowResPrefetch = false,
                    bool useExpandPrefetch = false);
     void swapTiles();
-    bool drawGL(const IntRect& visibleArea, float opacity, const TransformationMatrix* transform);
+    bool drawGL(const IntRect& visibleArea, float opacity,
+                const TransformationMatrix* transform, const Color* background = 0);
 
     void prepareTile(int x, int y, TilePainter* painter,
                      GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch);
@@ -79,6 +80,7 @@ public:
     int nbTextures(IntRect& area, float scale);
 
 private:
+    void drawMissingRegion(const SkRegion& region, float opacity, const Color* tileBackground);
     Vector<BaseTile*> m_tiles;
 
     IntRect m_area;
@@ -94,7 +96,6 @@ private:
 class DualTiledTexture : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
-
     DualTiledTexture(bool isBaseSurface);
     ~DualTiledTexture();
     void prepareGL(GLWebViewState* state, bool allowZoom,
@@ -102,7 +103,8 @@ public:
                    TilePainter* painter, bool aggressiveRendering);
     void swapTiles();
     bool drawGL(const IntRect& visibleArea, float opacity,
-                const TransformationMatrix* transform, bool aggressiveRendering);
+                const TransformationMatrix* transform, bool aggressiveRendering,
+                const Color* background);
     void markAsDirty(const SkRegion& dirtyArea);
     void computeTexturesAmount(TexturesResult* result, LayerAndroid* layer);
     void discardTextures()

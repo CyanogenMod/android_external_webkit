@@ -259,18 +259,29 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
 }
 
 bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
-                          const TransformationMatrix* transform)
+                          const TransformationMatrix* transform,
+                          const Color* background)
 {
     m_area = computeTilesArea(visibleArea, m_scale);
     if (m_area.width() == 0 || m_area.height() == 0)
         return false;
 
-    float m_invScale = 1 / m_scale;
-    const float tileWidth = TilesManager::tileWidth() * m_invScale;
-    const float tileHeight = TilesManager::tileHeight() * m_invScale;
+    float invScale = 1 / m_scale;
+    const float tileWidth = TilesManager::tileWidth() * invScale;
+    const float tileHeight = TilesManager::tileHeight() * invScale;
 
     int drawn = 0;
     bool askRedraw = false;
+
+    SkRegion missingRegion;
+    bool translucentBaseSurface =
+        background ? (background->hasAlpha() && background->alpha() > 0) : false;
+    if (translucentBaseSurface) {
+        SkIRect totalArea = SkIRect::MakeXYWH(m_area.x(), m_area.y(),
+                                              m_area.width(), m_area.height());
+        missingRegion = SkRegion(totalArea);
+    }
+
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         BaseTile* tile = m_tiles[i];
 
@@ -285,19 +296,56 @@ bool TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
             ALOGV("tile %p (layer tile: %d) %d,%d at scale %.2f vs %.2f [ready: %d] dirty: %d",
                   tile, tile->isLayerTile(), tile->x(), tile->y(),
                   tile->scale(), m_scale, tile->isTileReady(), tile->isDirty());
-            tile->drawGL(opacity, rect, m_scale, transform);
+
+            bool success = tile->drawGL(opacity, rect, m_scale, transform);
+            if (translucentBaseSurface && success) {
+                // Cut the successful drawn tile area from the missing region.
+                missingRegion.op(SkIRect::MakeXYWH(tile->x(), tile->y(), 1, 1),
+                                 SkRegion::kDifference_Op);
+            }
             if (tile->frontTexture())
                 drawn++;
         }
 
-        if (m_isBaseSurface)
-            TilesManager::instance()->getProfiler()->nextTile(tile, m_invScale, tileInView);
+        if (translucentBaseSurface)
+            TilesManager::instance()->getProfiler()->nextTile(tile, invScale, tileInView);
     }
+
+    // Draw missing Regions with blend turned on
+    if (translucentBaseSurface)
+        drawMissingRegion(missingRegion, opacity, background);
+
     ALOGV("TT %p drew %d tiles, redraw due to notready %d, scale %f",
           this, drawn, askRedraw, m_scale);
 
     // need to redraw if some visible tile wasn't ready
     return askRedraw;
+}
+
+void TiledTexture::drawMissingRegion(const SkRegion& region, float opacity,
+                                     const Color* background)
+{
+    SkRegion::Iterator iterator(region);
+    const float tileWidth = TilesManager::tileWidth() / m_scale;
+    const float tileHeight = TilesManager::tileHeight() / m_scale;
+    ShaderProgram* shader = TilesManager::instance()->shader();
+    while (!iterator.done()) {
+        SkIRect r = iterator.rect();
+        SkRect rect;
+        rect.fLeft = r.x() * tileWidth;
+        rect.fTop =  r.y() * tileHeight;
+        rect.fRight = rect.fLeft + tileWidth * r.width();
+        rect.fBottom = rect.fTop + tileHeight * r.height();
+        ALOGV("draw tile x y, %d %d (%d %d) opacity %f", r.x(), r.y(),
+              r.width(), r.height(), opacity);
+        // Skia is using pre-multiplied color.
+        Color postAlpha = Color(background->red() * background->alpha() / 255,
+                                background->green() * background->alpha() / 255,
+                                background->blue() * background->alpha() / 255,
+                                background->alpha() );
+        shader->drawQuad(rect, 0, opacity, postAlpha);
+        iterator.next();
+    }
 }
 
 void TiledTexture::removeTiles()
@@ -382,13 +430,13 @@ void DualTiledTexture::prepareGL(GLWebViewState* state, bool allowZoom,
 
 bool DualTiledTexture::drawGL(const IntRect& visibleArea, float opacity,
                               const TransformationMatrix* transform,
-                              bool aggressiveRendering)
+                              bool aggressiveRendering, const Color* background)
 {
     // draw low res prefetch page, if needed
     if (aggressiveRendering && !m_zooming && m_frontTexture->isMissingContent())
         m_backTexture->drawGL(visibleArea, opacity, transform);
 
-    bool needsRepaint = m_frontTexture->drawGL(visibleArea, opacity, transform);
+    bool needsRepaint = m_frontTexture->drawGL(visibleArea, opacity, transform, background);
     needsRepaint |= m_zooming;
     needsRepaint |= (m_scale <= 0);
     return needsRepaint;

@@ -86,7 +86,7 @@ public:
     static bool isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor);
     static bool skipTransferForPureColor(const TileRenderInfo* renderInfo,
                                          const SkBitmap& bitmap);
-    static void drawBackground(const Color* backgroundColor);
+    static void clearBackgroundIfOpaque(const Color* backgroundColor);
     static bool allowGLLog();
     static double m_previousLogTime;
     static int m_currentLogCounter;
