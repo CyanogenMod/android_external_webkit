@@ -49,10 +49,10 @@ public:
 
     void updateScrollableLayer(int layerId, int x, int y);
 
-    bool drawGL(double currentTime, IntRect& viewRect,
+    int drawGL(double currentTime, IntRect& viewRect,
                 SkRect& visibleRect, float scale,
                 bool enterFastSwapMode, bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
-                TexturesResult* texturesResultPtr);
+                TexturesResult* texturesResultPtr, bool shouldDraw);
 
 private:
     void swap();

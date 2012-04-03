@@ -62,7 +62,7 @@ public:
                    TilePainter* painter, bool isLowResPrefetch = false,
                    bool useExpandPrefetch = false);
     void swapTiles();
-    bool drawGL(const IntRect& visibleArea, float opacity,
+    void drawGL(const IntRect& visibleArea, float opacity,
                 const TransformationMatrix* transform, const Color* background = 0);
 
     void prepareTile(int x, int y, TilePainter* painter,
@@ -102,7 +102,7 @@ public:
                    const IntRect& prepareArea, const IntRect& unclippedArea,
                    TilePainter* painter, bool aggressiveRendering);
     void swapTiles();
-    bool drawGL(const IntRect& visibleArea, float opacity,
+    void drawGL(const IntRect& visibleArea, float opacity,
                 const TransformationMatrix* transform, bool aggressiveRendering,
                 const Color* background);
     void markAsDirty(const SkRegion& dirtyArea);
@@ -114,7 +114,7 @@ public:
     }
     bool isReady()
     {
-        return !m_zooming && m_frontTexture->isReady();
+        return !m_zooming && m_frontTexture->isReady() && m_scale > 0;
     }
 
     int nbTextures(IntRect& area, float scale)

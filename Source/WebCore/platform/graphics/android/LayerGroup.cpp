@@ -221,9 +221,8 @@ bool LayerGroup::drawGL(bool layerTilesDisabled)
 
         // TODO: why this visibleArea is different from visibleRect at zooming for base?
         IntRect drawArea = visibleArea();
-        askRedraw |= m_dualTiledTexture->drawGL(drawArea, opacity(),
-                                                drawTransform(), useAggressiveRendering(),
-                                                background());
+        m_dualTiledTexture->drawGL(drawArea, opacity(), drawTransform(),
+                                   useAggressiveRendering(), background());
     }
 
     // draw member layers (draws image textures, glextras)

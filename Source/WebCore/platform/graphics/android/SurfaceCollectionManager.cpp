@@ -31,6 +31,7 @@
 
 #include "AndroidLog.h"
 #include "LayerGroup.h"
+#include "private/hwui/DrawGlInfo.h"
 #include "TilesManager.h"
 #include "SurfaceCollection.h"
 
@@ -147,7 +148,7 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
         m_paintingCollection = newCollection;
         m_paintingCollection->setIsPainting(m_drawingCollection);
     }
-    return m_paintingCollection && TilesManager::instance()->useDoubleBuffering();
+    return m_drawingCollection && TilesManager::instance()->useDoubleBuffering();
 }
 
 void SurfaceCollectionManager::updateScrollableLayer(int layerId, int x, int y)
@@ -160,18 +161,18 @@ void SurfaceCollectionManager::updateScrollableLayer(int layerId, int x, int y)
         m_drawingCollection->updateScrollableLayer(layerId, x, y);
 }
 
-bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
+int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
                             SkRect& visibleRect, float scale,
                             bool enterFastSwapMode,
                             bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
-                            TexturesResult* texturesResultPtr)
+                            TexturesResult* texturesResultPtr, bool shouldDraw)
 {
     m_fastSwapMode |= enterFastSwapMode;
 
-    ALOGV("drawGL, D %p, P %p, Q %p, fastSwap %d",
-          m_drawingCollection, m_paintingCollection, m_queuedCollection, m_fastSwapMode);
+    ALOGV("drawGL, D %p, P %p, Q %p, fastSwap %d shouldDraw %d",
+          m_drawingCollection, m_paintingCollection,
+          m_queuedCollection, m_fastSwapMode, shouldDraw);
 
-    bool ret = false;
     bool didCollectionSwap = false;
     if (m_paintingCollection) {
         ALOGV("preparing painting collection %p", m_paintingCollection);
@@ -197,6 +198,23 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         m_drawingCollection->computeTexturesAmount(texturesResultPtr);
     }
 
+    // ask for kStatusInvoke while painting, kStatusDraw if we have content to be redrawn next frame
+    // returning 0 indicates all painting complete, no framework inval needed.
+    int returnFlags = 0;
+
+    if (m_paintingCollection)
+        returnFlags |= uirenderer::DrawGlInfo::kStatusInvoke;
+
+    if (!shouldDraw) {
+        if (didCollectionSwap) {
+            m_drawingCollection->swapTiles();
+            returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
+        }
+
+        return returnFlags;
+    }
+
+    // ===========================================================================
     // Don't have a drawing collection, draw white background
     Color background = Color::white;
     if (m_drawingCollection) {
@@ -214,7 +232,7 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
             m_fastSwapMode = false;
         } else {
             // drawing isn't ready, must redraw
-            ret = true;
+            returnFlags |= uirenderer::DrawGlInfo::kStatusInvoke;
         }
 
         m_drawingCollection->evaluateAnimations(currentTime);
@@ -231,15 +249,11 @@ bool SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     // If background is opaque, we can safely and efficiently clear it here.
     // Otherwise, we have to calculate all the missing tiles and blend the background.
     GLUtils::clearBackgroundIfOpaque(&background);
-    if (m_drawingCollection)
-        ret |= m_drawingCollection->drawGL(visibleRect);
+    if (m_drawingCollection && m_drawingCollection->drawGL(visibleRect))
+        returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
 
-    if (m_paintingCollection) {
-        ALOGV("still have painting collection %p", m_paintingCollection);
-        return true;
-    }
-
-    return ret;
+    ALOGV("returnFlags %d,  m_paintingCollection %d ", returnFlags, m_paintingCollection);
+    return returnFlags;
 }
 
 } // namespace WebCore
