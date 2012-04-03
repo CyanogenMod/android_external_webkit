@@ -32,8 +32,9 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
-#include "Tile.h"
+#include "DrawQuadData.h"
 #include "GLUtils.h"
+#include "Tile.h"
 #include "TileTexture.h"
 #include "TilesManager.h"
 #include <android/native_window.h>
@@ -205,8 +206,9 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
 
     // Use empty rect to set up the special matrix to draw.
     SkRect rect  = SkRect::MakeEmpty();
-    TilesManager::instance()->shader()->drawQuad(rect, srcTexId, 1.0,
-                       srcTexTarget, GL_NEAREST);
+
+    TextureQuadData data(srcTexId, GL_NEAREST, srcTexTarget, Blit, 0, 0, 1.0, false);
+    TilesManager::instance()->shader()->drawQuad(&data);
 
     // To workaround a sync issue on some platforms, we should insert the sync
     // here while in the current FBO.

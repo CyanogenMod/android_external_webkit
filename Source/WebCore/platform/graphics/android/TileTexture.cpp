@@ -32,6 +32,7 @@
 #include "AndroidLog.h"
 #include "Tile.h"
 #include "ClassTracker.h"
+#include "DrawQuadData.h"
 #include "GLUtils.h"
 #include "GLWebViewState.h"
 #include "TextureOwner.h"
@@ -118,22 +119,28 @@ void TileTexture::transferComplete()
 }
 
 void TileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
-                         const TransformationMatrix* transform)
+                         const TransformationMatrix* transform,
+                         bool forceBlending)
 {
     ShaderProgram* shader = TilesManager::instance()->shader();
-    if (isLayer && transform) {
-        if (isPureColor()) {
-            shader->drawLayerQuad(*transform, rect, 0, opacity,
-                                  true, GL_TEXTURE_2D, pureColor());
-        } else {
-            shader->drawLayerQuad(*transform, rect, m_ownTextureId,
-                                  opacity, true);
-        }
+
+    if (isLayer && !transform) {
+        ALOGE("ERROR: Missing tranform for layers!");
+        return;
+    }
+
+    // For base layer, we just follow the forceBlending, otherwise, blending is
+    // always turned on.
+    // TODO: Don't blend tiles if they are fully opaque.
+    forceBlending |= isLayer;
+    DrawQuadData commonData(isLayer ? LayerQuad : BaseQuad, transform, &rect,
+                            opacity, forceBlending);
+    if (isPureColor()) {
+        PureColorQuadData data(commonData, pureColor());
+        shader->drawQuad(&data);
     } else {
-         if (isPureColor())
-             shader->drawQuad(rect, 0, opacity, pureColor());
-         else
-             shader->drawQuad(rect, m_ownTextureId, opacity);
+        TextureQuadData data(commonData, m_ownTextureId, GL_TEXTURE_2D, GL_LINEAR);
+        shader->drawQuad(&data);
     }
 }
 

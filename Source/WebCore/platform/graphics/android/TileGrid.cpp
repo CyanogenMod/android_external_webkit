@@ -30,6 +30,7 @@
 #include "TileGrid.h"
 
 #include "AndroidLog.h"
+#include "DrawQuadData.h"
 #include "GLWebViewState.h"
 #include "PaintTileOperation.h"
 #include "Tile.h"
@@ -283,9 +284,9 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
     int drawn = 0;
 
     SkRegion missingRegion;
-    bool translucentBaseSurface =
+    bool semiOpaqueBaseSurface =
         background ? (background->hasAlpha() && background->alpha() > 0) : false;
-    if (translucentBaseSurface) {
+    if (semiOpaqueBaseSurface) {
         SkIRect totalArea = SkIRect::MakeXYWH(m_area.x(), m_area.y(),
                                               m_area.width(), m_area.height());
         missingRegion = SkRegion(totalArea);
@@ -305,8 +306,10 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
                   tile, tile->isLayerTile(), tile->x(), tile->y(),
                   tile->scale(), m_scale, tile->isTileReady(), tile->isDirty());
 
-            bool success = tile->drawGL(opacity, rect, m_scale, transform);
-            if (translucentBaseSurface && success) {
+            bool forceBaseBlending = background ? background->hasAlpha() : false;
+            bool success = tile->drawGL(opacity, rect, m_scale, transform,
+                                        forceBaseBlending);
+            if (semiOpaqueBaseSurface && success) {
                 // Cut the successful drawn tile area from the missing region.
                 missingRegion.op(SkIRect::MakeXYWH(tile->x(), tile->y(), 1, 1),
                                  SkRegion::kDifference_Op);
@@ -315,12 +318,12 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
                 drawn++;
         }
 
-        if (translucentBaseSurface)
+        if (semiOpaqueBaseSurface)
             TilesManager::instance()->getProfiler()->nextTile(tile, invScale, tileInView);
     }
 
     // Draw missing Regions with blend turned on
-    if (translucentBaseSurface)
+    if (semiOpaqueBaseSurface)
         drawMissingRegion(missingRegion, opacity, background);
 
     ALOGV("TT %p drew %d tiles, scale %f",
@@ -348,7 +351,9 @@ void TileGrid::drawMissingRegion(const SkRegion& region, float opacity,
                                 background->green() * background->alpha() / 255,
                                 background->blue() * background->alpha() / 255,
                                 background->alpha() );
-        shader->drawQuad(rect, 0, opacity, postAlpha);
+
+        PureColorQuadData backGroundData(postAlpha, BaseQuad, 0, &rect, opacity);
+        TilesManager::instance()->shader()->drawQuad(&backGroundData);
         iterator.next();
     }
 }

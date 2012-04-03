@@ -33,7 +33,6 @@
 
 #include "AndroidLog.h"
 #include "BaseRenderer.h"
-#include "ShaderProgram.h"
 #include "TextureInfo.h"
 #include "Tile.h"
 #include "TilesManager.h"

@@ -30,6 +30,7 @@
 
 #include "AndroidLog.h"
 #include "DrawExtra.h"
+#include "DrawQuadData.h"
 #include "GLExtras.h"
 #include "IntRect.h"
 #include "SkPath.h"
@@ -62,11 +63,10 @@ void GLExtras::drawRing(SkRect& srcRect, Color color, const TransformationMatrix
     // double applied
     Color colorWithoutAlpha(0xFF000000 | color.rgb());
     float alpha = color.alpha() / (float) 255;
-    if (drawMat) {
-        TilesManager::instance()->shader()->drawLayerQuad(*drawMat, srcRect, 0,
-                alpha, false, 0, colorWithoutAlpha);
-    } else
-        TilesManager::instance()->shader()->drawQuad(srcRect, 0, alpha, colorWithoutAlpha);
+
+    PureColorQuadData data(colorWithoutAlpha, drawMat ? LayerQuad : BaseQuad,
+                           drawMat, &srcRect, alpha, false);
+    TilesManager::instance()->shader()->drawQuad(&data);
 }
 
 void GLExtras::drawRegion(const SkRegion& region, bool fill, bool drawBorder,

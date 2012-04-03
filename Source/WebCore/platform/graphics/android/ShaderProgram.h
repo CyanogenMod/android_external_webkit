@@ -30,6 +30,10 @@
 
 namespace WebCore {
 
+class DrawQuadData;
+class PureColorQuadData;
+class TextureQuadData;
+
 enum ShaderType {
     UndefinedShader = -1,
     PureColor,
@@ -45,14 +49,14 @@ enum ShaderType {
 
 struct ShaderHandles {
     ShaderHandles()
-    : alphaHandle(-1)
-    , contrastHandle(-1)
-    , positionHandle(-1)
-    , programHandle(-1)
-    , projMtxHandle(-1)
-    , pureColorHandle(-1)
-    , texSamplerHandle(-1)
-    , videoMtxHandle(-1)
+        : alphaHandle(-1)
+        , contrastHandle(-1)
+        , positionHandle(-1)
+        , programHandle(-1)
+        , projMtxHandle(-1)
+        , pureColorHandle(-1)
+        , texSamplerHandle(-1)
+        , videoMtxHandle(-1)
     {
     }
 
@@ -82,16 +86,16 @@ struct ShaderHandles {
 
 struct ShaderResource {
     ShaderResource()
-    : program(-1)
-    , vertexShader(-1)
-    , fragmentShader(-1)
+        : program(-1)
+        , vertexShader(-1)
+        , fragmentShader(-1)
     {
     };
 
     ShaderResource(GLuint prog, GLuint vertex, GLuint fragment)
-    : program(prog)
-    , vertexShader(vertex)
-    , fragmentShader(fragment)
+        : program(prog)
+        , vertexShader(vertex)
+        , fragmentShader(fragment)
     {
     };
 
@@ -118,14 +122,7 @@ public:
     // Surface texture in GL_TEXTURE_EXTERNAL_OES target.
     // 3) textureId == 0
     // No texture needed, just a pureColor quad.
-    void drawQuad(const SkRect& geometry, int textureId, float opacity, Color pureColor = Color(),
-                  GLenum textureTarget = GL_TEXTURE_2D,
-                  GLint texFilter = GL_LINEAR);
-    void drawLayerQuad(const TransformationMatrix& drawMatrix,
-                       const SkRect& geometry, int textureId, float opacity,
-                       bool forceBlending = false,
-                       GLenum textureTarget = GL_TEXTURE_2D,
-                       Color pureColor = Color());
+    void drawQuad(const DrawQuadData* data);
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                      float* textureMatrix, SkRect& geometry, int textureId);
     FloatRect rectInScreenCoord(const TransformationMatrix& drawMatrix,
@@ -170,7 +167,7 @@ public:
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLint createProgram(const char* vertexSource, const char* fragmentSource);
-    void setProjectionMatrix(const SkRect& geometry, GLfloat* mtxPtr);
+    GLfloat* getProjectionMatrix(const DrawQuadData* data);
     void setBlendingState(bool enableBlending);
     void drawQuadInternal(ShaderType type, const GLfloat* matrix, int textureId,
                          float opacity, GLenum textureTarget, GLenum filter,
@@ -225,6 +222,8 @@ private:
     // For transfer queue blitting, we need a special matrix map from (0,1) to
     // (-1,1)
     GLfloat m_transferProjMtx[16];
+
+    GLfloat m_tileProjMatrix[16];
 
     Vector<ShaderResource> m_resources;
 };

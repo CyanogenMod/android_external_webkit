@@ -32,6 +32,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
+#include "DrawQuadData.h"
 #include "FloatPoint3D.h"
 #include "GLUtils.h"
 #include "TilesManager.h"
@@ -423,24 +424,6 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     resetBlending();
 }
 
-// Calculate the matrix given the geometry.
-void ShaderProgram::setProjectionMatrix(const SkRect& geometry, GLfloat* mtxPtr)
-{
-    TransformationMatrix translate;
-    translate.translate3d(geometry.fLeft, geometry.fTop, 0.0);
-    TransformationMatrix scale;
-    scale.scale3d(geometry.width(), geometry.height(), 1.0);
-
-    TransformationMatrix total;
-    if (!m_alphaLayer)
-        total = m_projectionMatrix * m_repositionMatrix * m_webViewMatrix
-                * translate * scale;
-    else
-        total = m_projectionMatrix * translate * scale;
-
-    GLUtils::toGLMatrix(mtxPtr, total);
-}
-
 // Calculate the right color value sent into the shader considering the (0,1)
 // clamp and alpha blending.
 Color ShaderProgram::shaderColor(Color pureColor, float opacity)
@@ -480,33 +463,6 @@ ShaderType ShaderProgram::getTextureShaderType(GLenum textureTarget)
             type = TexOESInv;
     }
     return type;
-}
-
-void ShaderProgram::drawQuad(const SkRect& geometry, int textureId, float opacity,
-                             Color pureColor, GLenum textureTarget, GLint texFilter)
-{
-    ShaderType type = UndefinedShader;
-    if (!textureId) {
-        pureColor = shaderColor(pureColor, opacity);
-        if (pureColor.rgb() == Color::transparent && opacity < 1.0)
-            return;
-        type = PureColor;
-    } else
-        type = getTextureShaderType(textureTarget);
-
-    if (type != UndefinedShader) {
-        // The matrix is either for the transfer queue or the tiles
-        GLfloat* finalMatrix = m_transferProjMtx;
-        GLfloat projectionMatrix[16];
-        if (!geometry.isEmpty()) {
-            setProjectionMatrix(geometry, projectionMatrix);
-            finalMatrix = projectionMatrix;
-        }
-        setBlendingState(opacity < 1.0 || pureColor.hasAlpha());
-        drawQuadInternal(type, finalMatrix, textureId, opacity, textureTarget,
-                        texFilter, pureColor);
-    }
-    GLUtils::checkGlError("drawQuad");
 }
 
 // This function transform a clip rect extracted from the current layer
@@ -642,16 +598,20 @@ void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
-                                  const SkRect& geometry, int textureId,
-                                  float opacity, bool forceBlending,
-                                  GLenum textureTarget,
-                                  Color pureColor)
+// Calculate the matrix given the geometry.
+GLfloat* ShaderProgram::getProjectionMatrix(const DrawQuadData* data)
 {
-    TransformationMatrix modifiedDrawMatrix = drawMatrix;
+    DrawQuadType type = data->type();
+    const TransformationMatrix* matrix = data->drawMatrix();
+    const SkRect* geometry = data->geometry();
+    if (type == Blit)
+        return m_transferProjMtx;
+    TransformationMatrix modifiedDrawMatrix;
+    if (type == LayerQuad)
+        modifiedDrawMatrix = *matrix;
     // move the drawing depending on where the texture is on the layer
-    modifiedDrawMatrix.translate(geometry.fLeft, geometry.fTop);
-    modifiedDrawMatrix.scale3d(geometry.width(), geometry.height(), 1);
+    modifiedDrawMatrix.translate(geometry->fLeft, geometry->fTop);
+    modifiedDrawMatrix.scale3d(geometry->width(), geometry->height(), 1);
 
     TransformationMatrix renderMatrix;
     if (!m_alphaLayer)
@@ -660,26 +620,39 @@ void ShaderProgram::drawLayerQuad(const TransformationMatrix& drawMatrix,
     else
         renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
 
-    GLfloat projectionMatrix[16];
-    GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
+    GLUtils::toGLMatrix(m_tileProjMatrix, renderMatrix);
+    return m_tileProjMatrix;
+}
+
+void ShaderProgram::drawQuad(const DrawQuadData* data)
+{
+    GLfloat* matrix = getProjectionMatrix(data);
+
+    float opacity = data->opacity();
+    bool forceBlending = data->forceBlending();
     bool enableBlending = forceBlending || opacity < 1.0;
 
-    ShaderType type = UndefinedShader;
-    if (!textureId) {
-        pureColor = shaderColor(pureColor, opacity);
-        if (pureColor.rgb() == Color::transparent && enableBlending)
+    ShaderType shaderType = UndefinedShader;
+    int textureId = 0;
+    GLint textureFilter = 0;
+    GLenum textureTarget = 0;
+
+    Color quadColor = data->quadColor();
+    if (data->pureColor()) {
+        shaderType = PureColor;
+        quadColor = shaderColor(quadColor, opacity);
+        enableBlending = enableBlending || quadColor.hasAlpha();
+        if (!quadColor.alpha() && enableBlending)
             return;
-        type = PureColor;
-    } else
-        type = getTextureShaderType(textureTarget);
-
-    if (type != UndefinedShader) {
-        setBlendingState(enableBlending);
-        drawQuadInternal(type, projectionMatrix, textureId, opacity,
-                        textureTarget, GL_LINEAR, pureColor);
+    } else {
+        textureId = data->textureId();
+        textureFilter = data->textureFilter();
+        textureTarget = data->textureTarget();
+        shaderType = getTextureShaderType(textureTarget);
     }
-
-    GLUtils::checkGlError("drawLayerQuad");
+    setBlendingState(enableBlending);
+    drawQuadInternal(shaderType, matrix, textureId, opacity,
+                     textureTarget, textureFilter, quadColor);
 }
 
 void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
