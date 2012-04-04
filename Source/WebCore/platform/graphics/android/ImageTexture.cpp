@@ -30,12 +30,13 @@
 #include "ImageTexture.h"
 
 #include "AndroidLog.h"
+#include "ClassTracker.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
 #include "SkDevice.h"
 #include "SkPicture.h"
+#include "TileGrid.h"
 #include "TilesManager.h"
-#include "TiledTexture.h"
 
 namespace WebCore {
 
@@ -84,7 +85,7 @@ ImageTexture::ImageTexture(SkBitmap* bmp, unsigned crc)
 
     // NOTE: This constructor is called on the webcore thread
 
-    // Create a picture containing the image (needed for TiledTexture)
+    // Create a picture containing the image (needed for TileGrid)
     m_picture = new SkPicture();
     SkCanvas* pcanvas = m_picture->beginRecording(m_image->width(), m_image->height());
     pcanvas->clear(SkColorSetARGBInline(0, 0, 0, 0));
@@ -174,7 +175,7 @@ bool ImageTexture::prepareGL(GLWebViewState* state)
 
     if (!m_texture && m_picture) {
         bool isLayerTile = true;
-        m_texture = new TiledTexture(isLayerTile);
+        m_texture = new TileGrid(isLayerTile);
         SkRegion region;
         region.setRect(0, 0, m_image->width(), m_image->height());
         m_texture->markAsDirty(region);
@@ -216,7 +217,7 @@ float ImageTexture::opacity()
     return m_layer->drawOpacity();
 }
 
-bool ImageTexture::paint(BaseTile* tile, SkCanvas* canvas)
+bool ImageTexture::paint(Tile* tile, SkCanvas* canvas)
 {
     if (!m_picture) {
         ALOGV("IT %p COULDNT PAINT, NO PICTURE", this);
@@ -236,7 +237,7 @@ void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
     if (!hasContentToShow())
         return;
 
-    // TiledTexture::draw() will call us back to know the
+    // TileGrid::draw() will call us back to know the
     // transform and opacity, so we need to set m_layer
     m_layer = layer;
     if (m_texture) {

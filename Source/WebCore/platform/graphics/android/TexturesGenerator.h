@@ -30,7 +30,7 @@
 
 #include "QueuedOperation.h"
 #include "TilePainter.h"
-#include "Vector.h"
+#include <wtf/Vector.h>
 
 #include <utils/threads.h>
 
@@ -56,7 +56,7 @@ public:
 private:
     QueuedOperation* popNext();
     virtual bool threadLoop();
-    Vector<QueuedOperation*> mRequestedOperations;
+    WTF::Vector<QueuedOperation*> mRequestedOperations;
     android::Mutex mRequestedOperationsLock;
     android::Condition mRequestedOperationsCond;
     bool m_waitForCompletion;

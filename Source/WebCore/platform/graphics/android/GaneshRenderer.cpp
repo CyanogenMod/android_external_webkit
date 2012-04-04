@@ -36,6 +36,7 @@
 #include "SkCanvas.h"
 #include "SkGpuDevice.h"
 #include "TilesManager.h"
+#include "TransferQueue.h"
 
 namespace WebCore {
 
@@ -71,7 +72,7 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     SkDevice* device = NULL;
     if (renderInfo.tileSize.width() == TilesManager::tileWidth()
             && renderInfo.tileSize.height() == TilesManager::tileHeight()) {
-        device = ganesh->getDeviceForBaseTile(renderInfo);
+        device = ganesh->getDeviceForTile(renderInfo);
     } else {
         // TODO support arbitrary sizes for layers
         ALOGV("ERROR: expected (%d,%d) actual (%d,%d)",

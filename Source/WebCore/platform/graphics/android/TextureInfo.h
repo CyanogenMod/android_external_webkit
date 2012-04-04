@@ -31,7 +31,6 @@
 #include <jni.h>
 #include <ui/GraphicBuffer.h>
 #include <utils/RefBase.h>
-#include "BaseTile.h"
 using android::sp;
 
 namespace android {

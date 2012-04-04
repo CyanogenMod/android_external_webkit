@@ -41,15 +41,11 @@
 #include "ScrollableLayerAndroid.h"
 #include "SkPath.h"
 #include "TilesManager.h"
+#include "TransferQueue.h"
 #include "SurfaceCollection.h"
 #include "SurfaceCollectionManager.h"
 #include <pthread.h>
 #include <wtf/CurrentTime.h>
-
-#define FIRST_TILED_PAGE_ID 1
-#define SECOND_TILED_PAGE_ID 2
-
-#define FRAMERATE_CAP 0.01666 // We cap at 60 fps
 
 // log warnings if scale goes outside this range
 #define MIN_SCALE_WARNING 0.1
@@ -329,10 +325,10 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         ALOGW("WARNING, scale seems corrupted before update: %e", scale);
 
-    // Here before we draw, update the BaseTile which has updated content.
+    // Here before we draw, update the Tile which has updated content.
     // Inside this function, just do GPU blits from the transfer queue into
-    // the BaseTiles' texture.
-    tilesManager->transferQueue()->updateDirtyBaseTiles();
+    // the Tiles' texture.
+    tilesManager->transferQueue()->updateDirtyTiles();
 
     // Upload any pending ImageTexture
     // Return true if we still have some images to upload.

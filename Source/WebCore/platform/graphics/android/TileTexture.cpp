@@ -23,21 +23,23 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "BaseTileTexture"
+#define LOG_TAG "TileTexture"
 #define LOG_NDEBUG 1
 
 #include "config.h"
-#include "BaseTileTexture.h"
+#include "TileTexture.h"
 
 #include "AndroidLog.h"
-#include "BaseTile.h"
+#include "Tile.h"
 #include "ClassTracker.h"
 #include "GLUtils.h"
+#include "GLWebViewState.h"
+#include "TextureOwner.h"
 #include "TilesManager.h"
 
 namespace WebCore {
 
-BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
+TileTexture::TileTexture(uint32_t w, uint32_t h)
     : m_owner(0)
     , m_isPureColor(false)
 {
@@ -45,24 +47,24 @@ BaseTileTexture::BaseTileTexture(uint32_t w, uint32_t h)
     m_ownTextureId = 0;
 
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("BaseTileTexture");
+    ClassTracker::instance()->increment("TileTexture");
 #endif
 }
 
-BaseTileTexture::~BaseTileTexture()
+TileTexture::~TileTexture()
 {
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->decrement("BaseTileTexture");
+    ClassTracker::instance()->decrement("TileTexture");
 #endif
 }
 
-void BaseTileTexture::requireGLTexture()
+void TileTexture::requireGLTexture()
 {
     if (!m_ownTextureId)
-        m_ownTextureId = GLUtils::createBaseTileGLTexture(m_size.width(), m_size.height());
+        m_ownTextureId = GLUtils::createTileGLTexture(m_size.width(), m_size.height());
 }
 
-void BaseTileTexture::discardGLTexture()
+void TileTexture::discardGLTexture()
 {
     if (m_ownTextureId)
         GLUtils::deleteTexture(&m_ownTextureId);
@@ -74,7 +76,7 @@ void BaseTileTexture::discardGLTexture()
     }
 }
 
-bool BaseTileTexture::acquire(TextureOwner* owner, bool force)
+bool TileTexture::acquire(TextureOwner* owner, bool force)
 {
     if (m_owner == owner)
         return true;
@@ -82,7 +84,7 @@ bool BaseTileTexture::acquire(TextureOwner* owner, bool force)
     return setOwner(owner, force);
 }
 
-bool BaseTileTexture::setOwner(TextureOwner* owner, bool force)
+bool TileTexture::setOwner(TextureOwner* owner, bool force)
 {
     bool proceed = true;
     if (m_owner && m_owner != owner)
@@ -96,7 +98,7 @@ bool BaseTileTexture::setOwner(TextureOwner* owner, bool force)
     return false;
 }
 
-bool BaseTileTexture::release(TextureOwner* owner)
+bool TileTexture::release(TextureOwner* owner)
 {
     ALOGV("texture %p releasing tile %p, m_owner %p", this, owner, m_owner);
     if (m_owner != owner)
@@ -106,17 +108,17 @@ bool BaseTileTexture::release(TextureOwner* owner)
     return true;
 }
 
-void BaseTileTexture::transferComplete()
+void TileTexture::transferComplete()
 {
     if (m_owner) {
-        BaseTile* owner = static_cast<BaseTile*>(m_owner);
+        Tile* owner = static_cast<Tile*>(m_owner);
         owner->backTextureTransfer();
     } else
         ALOGE("ERROR: owner missing after transfer of texture %p", this);
 }
 
-void BaseTileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
-                             const TransformationMatrix* transform)
+void TileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
+                         const TransformationMatrix* transform)
 {
     ShaderProgram* shader = TilesManager::instance()->shader();
     if (isLayer && transform) {

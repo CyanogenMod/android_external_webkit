@@ -39,7 +39,7 @@ namespace WebCore {
 
 class TextureInfo;
 class TilePainter;
-class BaseTile;
+class Tile;
 
 struct TileRenderInfo {
     // coordinates of the tile
@@ -59,7 +59,7 @@ struct TileRenderInfo {
     TilePainter* tilePainter;
 
     // the base tile calling us
-    BaseTile* baseTile;
+    Tile* baseTile;
 
     // info about the texture that we are to render into
     TextureInfo* textureInfo;

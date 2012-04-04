@@ -28,12 +28,16 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseTile.h"
-#include "BaseTileTexture.h"
+#include "GLUtils.h"
 #include "ShaderProgram.h"
-#include <EGL/eglext.h>
+#include "SkBitmap.h"
+#include <utils/StrongPointer.h>
+#include <utils/threads.h>
 
 namespace WebCore {
+
+class Tile;
+class TileTexture;
 
 struct GLState {
     GLint viewport[4];
@@ -43,7 +47,7 @@ struct GLState {
 };
 
 
-// While in the queue, the BaseTile can be re-used, the updated bitmap
+// While in the queue, the Tile can be re-used, the updated bitmap
 // can be discarded. In order to track this obsolete base tiles, we save
 // the Tile's Info to make the comparison.
 // At the time of base tile's dtor or webview destroy, we want to discard
@@ -69,8 +73,8 @@ class TileTransferData {
 public:
     TileTransferData()
     : status(emptyItem)
-    , savedBaseTilePtr(0)
-    , savedBaseTileTexturePtr(0)
+    , savedTilePtr(0)
+    , savedTileTexturePtr(0)
     , uploadType(DEFAULT_UPLOAD_TYPE)
     , bitmap(0)
     , m_syncKHR(EGL_NO_SYNC_KHR)
@@ -84,8 +88,8 @@ public:
     }
 
     TransferItemStatus status;
-    BaseTile* savedBaseTilePtr;
-    BaseTileTexture* savedBaseTileTexturePtr;
+    Tile* savedTilePtr;
+    TileTexture* savedTileTexturePtr;
     IntRect invalRect;
     TextureUploadType uploadType;
     // This is only useful in Cpu upload code path, so it will be dynamically
@@ -113,7 +117,7 @@ public:
     // This will be called by the browser through nativeSetProperty
     void setTextureUploadType(TextureUploadType type);
     void cleanupGLResources();
-    void updateDirtyBaseTiles();
+    void updateDirtyTiles();
 
     void initGLResources(int width, int height);
 
@@ -143,7 +147,7 @@ public:
     // a lock to protect its access
     TileTransferData* m_transferQueue;
 
-    sp<ANativeWindow> m_ANW;
+    android::sp<ANativeWindow> m_ANW;
 
     // EGL wrapper around m_ANW for use by the GaneshRenderer
     EGLSurface m_eglSurface;
@@ -170,8 +174,8 @@ private:
     // pendingDiscard items.
     void cleanupPendingDiscard();
 
-    void blitTileFromQueue(GLuint fboID, BaseTileTexture* destTex,
-                           BaseTileTexture* frontTex,
+    void blitTileFromQueue(GLuint fboID, TileTexture* destTex,
+                           TileTexture* frontTex,
                            GLuint srcTexId, GLenum srcTexTarget,
                            int index);
 
@@ -191,7 +195,7 @@ private:
     bool m_hasGLContext;
 
     GLState m_GLStateBeforeBlit;
-    sp<android::SurfaceTexture> m_sharedSurfaceTexture;
+    android::sp<android::SurfaceTexture> m_sharedSurfaceTexture;
 
     int m_emptyItemCount;
 

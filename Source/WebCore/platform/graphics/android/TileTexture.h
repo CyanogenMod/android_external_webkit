@@ -23,28 +23,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BaseTileTexture_h
-#define BaseTileTexture_h
+#ifndef TileTexture_h
+#define TileTexture_h
 
-#include "GLWebViewState.h"
 #include "TextureInfo.h"
-#include "TextureOwner.h"
-#include "TilePainter.h"
+#include "Color.h"
+#include "SkBitmap.h"
+#include "SkRect.h"
+#include "SkSize.h"
+
 #include <GLES2/gl2.h>
-#include <SkBitmap.h>
 
 class SkCanvas;
 
 namespace WebCore {
 
-class BaseTile;
+class TextureOwner;
+class Tile;
+class TransformationMatrix;
 
-class BaseTileTexture {
+class TileTexture {
 public:
     // This object is to be constructed on the consumer's thread and must have
     // a width and height greater than 0.
-    BaseTileTexture(uint32_t w, uint32_t h);
-    virtual ~BaseTileTexture();
+    TileTexture(uint32_t w, uint32_t h);
+    virtual ~TileTexture();
 
     // allows consumer thread to assign ownership of the texture to the tile. It
     // returns false if ownership cannot be transferred because the tile is busy
@@ -83,7 +86,7 @@ private:
     SkSize m_size;
     SkBitmap::Config m_config;
 
-    // BaseTile owning the texture, only modified by UI thread
+    // Tile owning the texture, only modified by UI thread
     TextureOwner* m_owner;
 
     // When the whole tile is single color, skip the transfer queue and draw
@@ -94,4 +97,4 @@ private:
 
 } // namespace WebCore
 
-#endif // BaseTileTexture_h
+#endif // TileTexture_h

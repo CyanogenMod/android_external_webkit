@@ -41,6 +41,7 @@
 #include "SkDevice.h"
 #include "SkPicture.h"
 #include "SkTypeface.h"
+#include "Tile.h"
 #include "TilesManager.h"
 
 #include <wtf/text/CString.h>

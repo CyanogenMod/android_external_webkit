@@ -23,40 +23,50 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "TiledTexture"
+#define LOG_TAG "TileGrid"
 #define LOG_NDEBUG 1
 
 #include "config.h"
-#include "TiledTexture.h"
+#include "TileGrid.h"
 
 #include "AndroidLog.h"
+#include "GLWebViewState.h"
 #include "PaintTileOperation.h"
-#include "SkCanvas.h"
-#include "SkPicture.h"
+#include "Tile.h"
 #include "TilesManager.h"
 
 #include <wtf/CurrentTime.h>
 
-#define LOW_RES_PREFETCH_SCALE_MODIFIER 0.3f
 #define EXPANDED_BOUNDS_INFLATE 1
 #define EXPANDED_PREFETCH_BOUNDS_Y_INFLATE 1
 
 namespace WebCore {
 
-TiledTexture::~TiledTexture()
+TileGrid::TileGrid(bool isBaseSurface)
+    : m_prevTileY(0)
+    , m_scale(1)
+    , m_isBaseSurface(isBaseSurface)
+{
+    m_dirtyRegion.setEmpty();
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("TileGrid");
+#endif
+}
+
+TileGrid::~TileGrid()
 {
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->decrement("TiledTexture");
+    ClassTracker::instance()->decrement("TileGrid");
 #endif
     removeTiles();
 }
 
-bool TiledTexture::isReady()
+bool TileGrid::isReady()
 {
     bool tilesAllReady = true;
     bool tilesVisible = false;
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
-        BaseTile* tile = m_tiles[i];
+        Tile* tile = m_tiles[i];
         if (tile->isTileVisible(m_area)) {
             tilesVisible = true;
             if (!tile->isTileReady()) {
@@ -77,7 +87,7 @@ bool TiledTexture::isReady()
             || !tilesVisible || tilesAllReady;
 }
 
-bool TiledTexture::isMissingContent()
+bool TileGrid::isMissingContent()
 {
     for (unsigned int i = 0; i < m_tiles.size(); i++)
         if (m_tiles[i]->isTileVisible(m_area) && !m_tiles[i]->frontTexture())
@@ -85,7 +95,7 @@ bool TiledTexture::isMissingContent()
     return false;
 }
 
-void TiledTexture::swapTiles()
+void TileGrid::swapTiles()
 {
     int swaps = 0;
     for (unsigned int i = 0; i < m_tiles.size(); i++)
@@ -94,7 +104,7 @@ void TiledTexture::swapTiles()
     ALOGV("TT %p swapping, swaps = %d", this, swaps);
 }
 
-IntRect TiledTexture::computeTilesArea(const IntRect& contentArea, float scale)
+IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)
 {
     IntRect computedArea;
     IntRect area(contentArea.x() * scale,
@@ -122,7 +132,7 @@ IntRect TiledTexture::computeTilesArea(const IntRect& contentArea, float scale)
     return computedArea;
 }
 
-void TiledTexture::prepareGL(GLWebViewState* state, float scale,
+void TileGrid::prepareGL(GLWebViewState* state, float scale,
                              const IntRect& prepareArea, const IntRect& unclippedArea,
                              TilePainter* painter, bool isLowResPrefetch, bool useExpandPrefetch)
 {
@@ -131,7 +141,7 @@ void TiledTexture::prepareGL(GLWebViewState* state, float scale,
     if (m_area.isEmpty())
         return;
 
-    ALOGV("prepare TiledTexture %p with scale %.2f, prepareArea "
+    ALOGV("prepare TileGrid %p with scale %.2f, prepareArea "
           " %d, %d - %d x %d, corresponding to %d, %d x - %d x %d tiles",
           this, scale,
           prepareArea.x(), prepareArea.y(),
@@ -196,20 +206,20 @@ void TiledTexture::prepareGL(GLWebViewState* state, float scale,
     }
 }
 
-void TiledTexture::markAsDirty(const SkRegion& invalRegion)
+void TileGrid::markAsDirty(const SkRegion& invalRegion)
 {
     ALOGV("TT %p markAsDirty, current region empty %d, new empty %d",
           this, m_dirtyRegion.isEmpty(), invalRegion.isEmpty());
     m_dirtyRegion.op(invalRegion, SkRegion::kUnion_Op);
 }
 
-void TiledTexture::prepareTile(int x, int y, TilePainter* painter,
+void TileGrid::prepareTile(int x, int y, TilePainter* painter,
                                GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch)
 {
-    BaseTile* tile = getTile(x, y);
+    Tile* tile = getTile(x, y);
     if (!tile) {
         bool isLayerTile = !m_isBaseSurface;
-        tile = new BaseTile(isLayerTile);
+        tile = new Tile(isLayerTile);
         m_tiles.append(tile);
     }
 
@@ -231,17 +241,17 @@ void TiledTexture::prepareTile(int x, int y, TilePainter* painter,
     }
 }
 
-BaseTile* TiledTexture::getTile(int x, int y)
+Tile* TileGrid::getTile(int x, int y)
 {
     for (unsigned int i = 0; i <m_tiles.size(); i++) {
-        BaseTile* tile = m_tiles[i];
+        Tile* tile = m_tiles[i];
         if (tile->x() == x && tile->y() == y)
             return tile;
     }
     return 0;
 }
 
-int TiledTexture::nbTextures(IntRect& area, float scale)
+int TileGrid::nbTextures(IntRect& area, float scale)
 {
     IntRect tileBounds = computeTilesArea(area, scale);
     int numberTextures = tileBounds.width() * tileBounds.height();
@@ -249,7 +259,7 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
     // add the number of dirty tiles in the bounds, as they take up double
     // textures for double buffering
     for (unsigned int i = 0; i <m_tiles.size(); i++) {
-        BaseTile* tile = m_tiles[i];
+        Tile* tile = m_tiles[i];
         if (tile->isDirty()
                 && tile->x() >= tileBounds.x() && tile->x() <= tileBounds.maxX()
                 && tile->y() >= tileBounds.y() && tile->y() <= tileBounds.maxY())
@@ -258,7 +268,7 @@ int TiledTexture::nbTextures(IntRect& area, float scale)
     return numberTextures;
 }
 
-void TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
+void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
                           const TransformationMatrix* transform,
                           const Color* background)
 {
@@ -282,7 +292,7 @@ void TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
     }
 
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
-        BaseTile* tile = m_tiles[i];
+        Tile* tile = m_tiles[i];
 
         bool tileInView = tile->isTileVisible(m_area);
         if (tileInView) {
@@ -317,7 +327,7 @@ void TiledTexture::drawGL(const IntRect& visibleArea, float opacity,
           this, drawn, m_scale);
 }
 
-void TiledTexture::drawMissingRegion(const SkRegion& region, float opacity,
+void TileGrid::drawMissingRegion(const SkRegion& region, float opacity,
                                      const Color* background)
 {
     SkRegion::Iterator iterator(region);
@@ -343,7 +353,7 @@ void TiledTexture::drawMissingRegion(const SkRegion& region, float opacity,
     }
 }
 
-void TiledTexture::removeTiles()
+void TileGrid::removeTiles()
 {
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         delete m_tiles[i];
@@ -351,141 +361,11 @@ void TiledTexture::removeTiles()
     m_tiles.clear();
 }
 
-void TiledTexture::discardTextures()
+void TileGrid::discardTextures()
 {
     ALOGV("TT %p discarding textures", this);
     for (unsigned int i = 0; i < m_tiles.size(); i++)
         m_tiles[i]->discardTextures();
-}
-
-DualTiledTexture::DualTiledTexture(bool isBaseSurface)
-{
-    m_frontTexture = new TiledTexture(isBaseSurface);
-    m_backTexture = new TiledTexture(isBaseSurface);
-    m_scale = -1;
-    m_futureScale = -1;
-    m_zooming = false;
-}
-
-DualTiledTexture::~DualTiledTexture()
-{
-    delete m_frontTexture;
-    delete m_backTexture;
-}
-
-void DualTiledTexture::prepareGL(GLWebViewState* state, bool allowZoom,
-                                 const IntRect& prepareArea, const IntRect& unclippedArea,
-                                 TilePainter* painter, bool aggressiveRendering)
-{
-    float scale = state->scale();
-    if (scale > 1 && !allowZoom)
-        scale = 1;
-
-    if (m_scale == -1) {
-        m_scale = scale;
-        m_futureScale = scale;
-    }
-
-    if (m_futureScale != scale) {
-        m_futureScale = scale;
-        m_zoomUpdateTime = WTF::currentTime() + DualTiledTexture::s_zoomUpdateDelay;
-        m_zooming = true;
-    }
-
-    bool useExpandPrefetch = aggressiveRendering;
-    ALOGV("Prepare DTT %p with scale %.2f, m_scale %.2f, futureScale: %.2f, zooming: %d, f %p, b %p",
-          this, scale, m_scale, m_futureScale, m_zooming,
-          m_frontTexture, m_backTexture);
-
-    if (!m_zooming) {
-        m_frontTexture->prepareGL(state, m_scale,
-                                  prepareArea, unclippedArea, painter, false, useExpandPrefetch);
-        if (aggressiveRendering) {
-            // prepare the back tiled texture to render content in low res
-            float lowResPrefetchScale = m_scale * LOW_RES_PREFETCH_SCALE_MODIFIER;
-            m_backTexture->prepareGL(state, lowResPrefetchScale,
-                                     prepareArea, unclippedArea, painter, true, useExpandPrefetch);
-            m_backTexture->swapTiles();
-        }
-    } else if (m_zoomUpdateTime < WTF::currentTime()) {
-        m_backTexture->prepareGL(state, m_futureScale,
-                                 prepareArea, unclippedArea, painter, false, useExpandPrefetch);
-        if (m_backTexture->isReady()) {
-            // zooming completed, swap the textures and new front tiles
-            swapTiledTextures();
-
-            m_frontTexture->swapTiles();
-            m_backTexture->discardTextures();
-
-            m_scale = m_futureScale;
-            m_zooming = false;
-        }
-    }
-}
-
-void DualTiledTexture::drawGL(const IntRect& visibleArea, float opacity,
-                              const TransformationMatrix* transform,
-                              bool aggressiveRendering, const Color* background)
-{
-    // draw low res prefetch page, if needed
-    if (aggressiveRendering && !m_zooming && m_frontTexture->isMissingContent())
-        m_backTexture->drawGL(visibleArea, opacity, transform);
-
-    m_frontTexture->drawGL(visibleArea, opacity, transform, background);
-}
-
-void DualTiledTexture::markAsDirty(const SkRegion& dirtyArea)
-{
-    m_backTexture->markAsDirty(dirtyArea);
-    m_frontTexture->markAsDirty(dirtyArea);
-}
-
-void DualTiledTexture::swapTiles()
-{
-    m_backTexture->swapTiles();
-    m_frontTexture->swapTiles();
-}
-
-void DualTiledTexture::computeTexturesAmount(TexturesResult* result, LayerAndroid* layer)
-{
-    // TODO: shouldn't use layer, as this DTT may paint multiple layers
-    if (!layer)
-        return;
-
-    IntRect unclippedArea = layer->unclippedArea();
-    IntRect clippedVisibleArea = layer->visibleArea();
-
-    // get two numbers here:
-    // - textures needed for a clipped area
-    // - textures needed for an un-clipped area
-    TiledTexture* tiledTexture = m_zooming ? m_backTexture : m_frontTexture;
-    int nbTexturesUnclipped = tiledTexture->nbTextures(unclippedArea, m_scale);
-    int nbTexturesClipped = tiledTexture->nbTextures(clippedVisibleArea, m_scale);
-
-    // Set kFixedLayers level
-    if (layer->isPositionFixed())
-        result->fixed += nbTexturesClipped;
-
-    // Set kScrollableAndFixedLayers level
-    if (layer->contentIsScrollable()
-        || layer->isPositionFixed())
-        result->scrollable += nbTexturesClipped;
-
-    // Set kClippedTextures level
-    result->clipped += nbTexturesClipped;
-
-    // Set kAllTextures level
-    if (layer->contentIsScrollable())
-        result->full += nbTexturesClipped;
-    else
-        result->full += nbTexturesUnclipped;
-}
-
-void DualTiledTexture::swapTiledTextures()
-{
-    TiledTexture* temp = m_frontTexture;
-    m_frontTexture = m_backTexture;
-    m_backTexture = temp;
 }
 
 } // namespace WebCore

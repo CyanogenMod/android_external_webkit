@@ -31,6 +31,9 @@
 
 #include "AndroidLog.h"
 #include "GLUtils.h"
+#include "TextureInfo.h"
+#include "TilesManager.h"
+#include "TransferQueue.h"
 
 #include "android/native_window.h"
 
@@ -40,7 +43,7 @@ namespace WebCore {
 
 GaneshContext::GaneshContext()
     : m_grContext(0)
-    , m_baseTileDeviceSurface(0)
+    , m_tileDeviceSurface(0)
     , m_surfaceConfig(0)
     , m_surfaceContext(EGL_NO_CONTEXT)
 {
@@ -69,7 +72,7 @@ void GaneshContext::flush()
         m_grContext->flush();
 }
 
-SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
+SkDevice* GaneshContext::getDeviceForTile(const TileRenderInfo& renderInfo)
 {
     // Ganesh should be the only code in the rendering thread that is using GL
     // and setting the EGLContext.  If this is not the case then we need to
@@ -146,7 +149,7 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
     GLUtils::checkEglError("eglMakeCurrent", returnValue);
     ALOGV("eglMakeCurrent");
 
-    if (!m_baseTileDeviceSurface) {
+    if (!m_tileDeviceSurface) {
 
         GrPlatformRenderTargetDesc renderTargetDesc;
         renderTargetDesc.fWidth = TilesManager::tileWidth();
@@ -159,19 +162,19 @@ SkDevice* GaneshContext::getDeviceForBaseTile(const TileRenderInfo& renderInfo)
         GrContext* grContext = getGrContext();
         GrRenderTarget* renderTarget = grContext->createPlatformRenderTarget(renderTargetDesc);
 
-        m_baseTileDeviceSurface = new SkGpuDevice(grContext, renderTarget);
+        m_tileDeviceSurface = new SkGpuDevice(grContext, renderTarget);
         renderTarget->unref();
-        ALOGV("generated device %p", m_baseTileDeviceSurface);
+        ALOGV("generated device %p", m_tileDeviceSurface);
     }
 
-    GLUtils::checkGlError("getDeviceForBaseTile");
+    GLUtils::checkGlError("getDeviceForTile");
 
     // We must reset the Ganesh context only after we are sure we have
     // re-established our EGLContext as the current context.
-    if (m_baseTileDeviceSurface && contextNeedsReset)
+    if (m_tileDeviceSurface && contextNeedsReset)
         getGrContext()->resetContext();
 
-    return m_baseTileDeviceSurface;
+    return m_tileDeviceSurface;
 }
 
 

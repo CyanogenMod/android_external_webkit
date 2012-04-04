@@ -32,10 +32,14 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
-#include "BaseTile.h"
+#include "GLWebViewState.h"
 #include "SkCanvas.h"
 #include "SkDevice.h"
 #include "SkPaint.h"
+#include "Tile.h"
+#include "TileTexture.h"
+#include "TransferQueue.h"
+
 #include <android/native_window.h>
 #include <cutils/atomic.h>
 #include <gui/SurfaceTexture.h>
@@ -108,12 +112,12 @@ void TilesManager::allocateTiles()
     ALOGV("%d tiles to allocate (%d textures planned)", nbTexturesToAllocate, m_maxTextureCount);
     int nbTexturesAllocated = 0;
     for (int i = 0; i < nbTexturesToAllocate; i++) {
-        BaseTileTexture* texture = new BaseTileTexture(
+        TileTexture* texture = new TileTexture(
             tileWidth(), tileHeight());
         // the atomic load ensures that the texture has been fully initialized
         // before we pass a pointer for other threads to operate on
-        BaseTileTexture* loadedTexture =
-            reinterpret_cast<BaseTileTexture*>(
+        TileTexture* loadedTexture =
+            reinterpret_cast<TileTexture*>(
             android_atomic_acquire_load(reinterpret_cast<int32_t*>(&texture)));
         m_textures.append(loadedTexture);
         nbTexturesAllocated++;
@@ -124,12 +128,12 @@ void TilesManager::allocateTiles()
           nbLayersTexturesToAllocate, m_maxLayerTextureCount);
     int nbLayersTexturesAllocated = 0;
     for (int i = 0; i < nbLayersTexturesToAllocate; i++) {
-        BaseTileTexture* texture = new BaseTileTexture(
+        TileTexture* texture = new TileTexture(
             tileWidth(), tileHeight());
         // the atomic load ensures that the texture has been fully initialized
         // before we pass a pointer for other threads to operate on
-        BaseTileTexture* loadedTexture =
-            reinterpret_cast<BaseTileTexture*>(
+        TileTexture* loadedTexture =
+            reinterpret_cast<TileTexture*>(
             android_atomic_acquire_load(reinterpret_cast<int32_t*>(&texture)));
         m_tilesTextures.append(loadedTexture);
         nbLayersTexturesAllocated++;
@@ -160,7 +164,7 @@ void TilesManager::discardTextures(bool allTextures, bool glTextures)
 }
 
 void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
-                                         WTF::Vector<BaseTileTexture*>& textures,
+                                         WTF::Vector<TileTexture*>& textures,
                                          bool deallocateGLTextures)
 {
     const unsigned int max = textures.size();
@@ -175,14 +179,14 @@ void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
                 discardedIndex.append(i);
             } else if (owner) {
                 // simply detach textures from owner
-                static_cast<BaseTile*>(owner)->discardTextures();
+                static_cast<Tile*>(owner)->discardTextures();
             }
             dealloc++;
         }
     }
 
     bool base = textures == m_textures;
-    // Clean up the vector of BaseTileTextures and reset the max texture count.
+    // Clean up the vector of TileTextures and reset the max texture count.
     if (discardedIndex.size()) {
         android::Mutex::Autolock lock(m_texturesLock);
         for (int i = discardedIndex.size() - 1; i >= 0; i--)
@@ -208,13 +212,13 @@ void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextur
 {
     *nbTextures = m_textures.size();
     for (unsigned int i = 0; i < m_textures.size(); i++) {
-        BaseTileTexture* texture = m_textures[i];
+        TileTexture* texture = m_textures[i];
         if (texture->m_ownTextureId)
             *nbAllocatedTextures += 1;
     }
     *nbLayerTextures = m_tilesTextures.size();
     for (unsigned int i = 0; i < m_tilesTextures.size(); i++) {
-        BaseTileTexture* texture = m_tilesTextures[i];
+        TileTexture* texture = m_tilesTextures[i];
         if (texture->m_ownTextureId)
             *nbAllocatedLayerTextures += 1;
     }
@@ -225,10 +229,10 @@ void TilesManager::printTextures()
 #ifdef DEBUG
     ALOGV("++++++");
     for (unsigned int i = 0; i < m_textures.size(); i++) {
-        BaseTileTexture* texture = m_textures[i];
-        BaseTile* o = 0;
+        TileTexture* texture = m_textures[i];
+        Tile* o = 0;
         if (texture->owner())
-            o = (BaseTile*) texture->owner();
+            o = (Tile*) texture->owner();
         int x = -1;
         int y = -1;
         if (o) {
@@ -251,7 +255,7 @@ void TilesManager::gatherTextures()
     m_layerTexturesRemain = true;
 }
 
-BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
+TileTexture* TilesManager::getAvailableTexture(Tile* owner)
 {
     android::Mutex::Autolock lock(m_texturesLock);
 
@@ -266,7 +270,7 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
         return owner->backTexture();
     }
 
-    WTF::Vector<BaseTileTexture*>* availableTexturePool;
+    WTF::Vector<TileTexture*>* availableTexturePool;
     if (owner->isLayerTile()) {
         availableTexturePool = &m_availableTilesTextures;
     } else {
@@ -281,12 +285,12 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     //  4. Otherwise, use the least recently prepared tile, but ignoring tiles
     //         drawn in the last frame to avoid flickering
 
-    BaseTileTexture* farthestTexture = 0;
+    TileTexture* farthestTexture = 0;
     unsigned long long oldestDrawCount = getDrawGLCount() - 1;
     const unsigned int max = availableTexturePool->size();
     for (unsigned int i = 0; i < max; i++) {
-        BaseTileTexture* texture = (*availableTexturePool)[i];
-        BaseTile* currentOwner = static_cast<BaseTile*>(texture->owner());
+        TileTexture* texture = (*availableTexturePool)[i];
+        Tile* currentOwner = static_cast<Tile*>(texture->owner());
         if (!currentOwner) {
             // unused texture! take it!
             farthestTexture = texture;
@@ -307,7 +311,7 @@ BaseTileTexture* TilesManager::getAvailableTexture(BaseTile* owner)
     }
 
     if (farthestTexture) {
-        BaseTile* previousOwner = static_cast<BaseTile*>(farthestTexture->owner());
+        Tile* previousOwner = static_cast<Tile*>(farthestTexture->owner());
         if (farthestTexture->acquire(owner)) {
             if (previousOwner) {
                 previousOwner->removeTexture(farthestTexture);

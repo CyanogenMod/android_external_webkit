@@ -34,14 +34,14 @@
 #include "ClassTracker.h"
 #include "GLWebViewState.h"
 #include "LayerAndroid.h"
-#include "LayerGroup.h"
+#include "Surface.h"
 #include "ScrollableLayerAndroid.h"
 #include "TilesManager.h"
 
 namespace WebCore {
 
 ////////////////////////////////////////////////////////////////////////////////
-//                         TILED PAINTING / GROUPS                            //
+//                        TILED PAINTING / SURFACES                           //
 ////////////////////////////////////////////////////////////////////////////////
 
 SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
@@ -55,18 +55,18 @@ SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
     m_compositedRoot->updateLayerPositions(visibleRect);
     // TODO: updateGLPositionsAndScale?
 
-    // allocate groups for layers, merging where possible
-    ALOGV("new tree, allocating groups for tree %p", m_baseLayer);
+    // allocate surfaces for layers, merging where possible
+    ALOGV("new tree, allocating surfaces for tree %p", m_baseLayer);
 
-    LayerMergeState layerMergeState(&m_layerGroups);
-    m_compositedRoot->assignGroups(&layerMergeState);
+    LayerMergeState layerMergeState(&m_surfaces);
+    m_compositedRoot->assignSurfaces(&layerMergeState);
 
-    // set the layergroups' and tiledpages' update count, to be drawn on painted tiles
+    // set the layersurfaces' update count, to be drawn on painted tiles
     unsigned int updateCount = TilesManager::instance()->incWebkitContentUpdates();
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
-        m_layerGroups[i]->setUpdateCount(updateCount);
-        if (m_layerGroups[i]->isBase())
-            m_layerGroups[i]->setBackground(getBackground());
+    for (unsigned int i = 0; i < m_surfaces.size(); i++) {
+        m_surfaces[i]->setUpdateCount(updateCount);
+        if (m_surfaces[i]->isBase())
+            m_surfaces[i]->setBackground(getBackground());
     }
 
 #ifdef DEBUG_COUNT
@@ -77,9 +77,9 @@ SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
 SurfaceCollection::~SurfaceCollection()
 {
     SkSafeUnref(m_compositedRoot);
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
-        SkSafeUnref(m_layerGroups[i]);
-    m_layerGroups.clear();
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+        SkSafeUnref(m_surfaces[i]);
+    m_surfaces.clear();
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("SurfaceCollection");
@@ -91,8 +91,8 @@ void SurfaceCollection::prepareGL(const SkRect& visibleRect)
     updateLayerPositions(visibleRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
-        m_layerGroups[i]->prepareGL(layerTilesDisabled);
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+        m_surfaces[i]->prepareGL(layerTilesDisabled);
 }
 
 bool SurfaceCollection::drawGL(const SkRect& visibleRect)
@@ -105,8 +105,8 @@ bool SurfaceCollection::drawGL(const SkRect& visibleRect)
     updateLayerPositions(visibleRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
-        needsRedraw |= m_layerGroups[i]->drawGL(layerTilesDisabled);
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+        needsRedraw |= m_surfaces[i]->drawGL(layerTilesDisabled);
 
     return needsRedraw;
 }
@@ -118,8 +118,8 @@ Color SurfaceCollection::getBackground()
 
 void SurfaceCollection::swapTiles()
 {
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
-         m_layerGroups[i]->swapTiles();
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+         m_surfaces[i]->swapTiles();
 }
 
 bool SurfaceCollection::isReady()
@@ -130,9 +130,9 @@ bool SurfaceCollection::isReady()
         return true;
     }
 
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
-        if (!m_layerGroups[i]->isReady()) {
-            ALOGV("layer group %p isn't ready", m_layerGroups[i]);
+    for (unsigned int i = 0; i < m_surfaces.size(); i++) {
+        if (!m_surfaces[i]->isReady()) {
+            ALOGV("layer surface %p isn't ready", m_surfaces[i]);
             return false;
         }
     }
@@ -141,8 +141,8 @@ bool SurfaceCollection::isReady()
 
 void SurfaceCollection::computeTexturesAmount(TexturesResult* result)
 {
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++)
-        m_layerGroups[i]->computeTexturesAmount(result);
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+        m_surfaces[i]->computeTexturesAmount(result);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -154,14 +154,14 @@ void SurfaceCollection::setIsPainting(SurfaceCollection* drawingSurface)
     if (!drawingSurface)
         return;
 
-    for (unsigned int i = 0; i < m_layerGroups.size(); i++) {
-        LayerGroup* newLayerGroup = m_layerGroups[i];
-        if (!newLayerGroup->needsTexture())
+    for (unsigned int i = 0; i < m_surfaces.size(); i++) {
+        Surface* newSurface = m_surfaces[i];
+        if (!newSurface->needsTexture())
             continue;
 
-        for (unsigned int j = 0; j < drawingSurface->m_layerGroups.size(); j++) {
-            LayerGroup* oldLayerGroup = drawingSurface->m_layerGroups[j];
-            if (newLayerGroup->tryUpdateLayerGroup(oldLayerGroup))
+        for (unsigned int j = 0; j < drawingSurface->m_surfaces.size(); j++) {
+            Surface* oldSurface = drawingSurface->m_surfaces[j];
+            if (newSurface->tryUpdateSurface(oldSurface))
                 break;
         }
     }

@@ -93,7 +93,7 @@ class TexturesResult;
 // there is a need to be called again (i.e. if we do not have up to date
 // textures or a transition is going on).
 //
-// Tiles are implemented as a BaseTile. It knows how to paint itself with the
+// Tiles are implemented as a Tile. It knows how to paint itself with the
 // PictureSet, and to display itself. A GL texture is usually associated to it.
 //
 // We also works with two TiledPages -- one to display the page at the
@@ -107,13 +107,13 @@ class TexturesResult;
 // Texture allocation
 // ------------------
 //
-// Obviously we cannot have every BaseTile having a GL texture -- we need to
+// Obviously we cannot have every Tile having a GL texture -- we need to
 // get the GL textures from an existing pool, and reuse them.
 //
 // The way we do it is that when we call TiledPage::prepare(), we group the
 // tiles we need (i.e. in the viewport and dirty) into a TilesSet and call
-// BaseTile::reserveTexture() for each tile (which ensures there is a specific
-// GL textures backing the BaseTiles).
+// Tile::reserveTexture() for each tile (which ensures there is a specific
+// GL textures backing the Tiles).
 //
 // reserveTexture() will ask the TilesManager for a texture. The allocation
 // mechanism goal is to (in order):
@@ -125,7 +125,7 @@ class TexturesResult;
 // we prepare() a TiledPage. Also during each prepare() we compute which tiles
 // are dirty based on the info we have received from webkit.
 //
-// BaseTile Invalidation
+// Tile Invalidation
 // ------------------
 //
 // We do not want to redraw a tile if the tile is up-to-date. A tile is
@@ -149,9 +149,9 @@ class TexturesResult;
 //
 // The next operation is to schedule this TilesSet to be painted
 // (TilesManager::schedulePaintForTilesSet()). TexturesGenerator
-// will get the TilesSet and ask the BaseTiles in it to be painted.
+// will get the TilesSet and ask the Tiles in it to be painted.
 //
-// BaseTile::paintBitmap() will paint the texture using the BaseLayer's
+// Tile::paintBitmap() will paint the texture using the BaseLayer's
 // PictureSet (calling TiledPage::paintBaseLayerContent() which in turns
 // calls GLWebViewState::paintBaseLayerContent()).
 //

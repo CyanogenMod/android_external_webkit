@@ -23,11 +23,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#define LOG_TAG "BaseTile"
+#define LOG_TAG "Tile"
 #define LOG_NDEBUG 1
 
 #include "config.h"
-#include "BaseTile.h"
+#include "Tile.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -35,6 +35,7 @@
 #include "GLUtils.h"
 #include "RasterRenderer.h"
 #include "TextureInfo.h"
+#include "TileTexture.h"
 #include "TilesManager.h"
 
 // If the dirty portion of a tile exceeds this ratio, fully repaint.
@@ -46,7 +47,7 @@
 
 namespace WebCore {
 
-BaseTile::BaseTile(bool isLayerTile)
+Tile::Tile(bool isLayerTile)
     : m_x(-1)
     , m_y(-1)
     , m_frontTexture(0)
@@ -61,12 +62,12 @@ BaseTile::BaseTile(bool isLayerTile)
     , m_state(Unpainted)
 {
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->increment("BaseTile");
+    ClassTracker::instance()->increment("Tile");
 #endif
     m_renderer = BaseRenderer::createRenderer();
 }
 
-BaseTile::~BaseTile()
+Tile::~Tile()
 {
     if (m_backTexture)
         m_backTexture->release(this);
@@ -76,13 +77,13 @@ BaseTile::~BaseTile()
     delete m_renderer;
 
 #ifdef DEBUG_COUNT
-    ClassTracker::instance()->decrement("BaseTile");
+    ClassTracker::instance()->decrement("Tile");
 #endif
 }
 
 // All the following functions must be called from the main GL thread.
 
-void BaseTile::setContents(int x, int y, float scale, bool isExpandedPrefetchTile)
+void Tile::setContents(int x, int y, float scale, bool isExpandedPrefetchTile)
 {
     // TODO: investigate whether below check/discard is necessary
     if ((m_x != x)
@@ -101,9 +102,9 @@ void BaseTile::setContents(int x, int y, float scale, bool isExpandedPrefetchTil
         m_drawCount--; // deprioritize expanded painting region
 }
 
-void BaseTile::reserveTexture()
+void Tile::reserveTexture()
 {
-    BaseTileTexture* texture = TilesManager::instance()->getAvailableTexture(this);
+    TileTexture* texture = TilesManager::instance()->getAvailableTexture(this);
 
     android::AutoMutex lock(m_atomicSync);
     if (texture && m_backTexture != texture) {
@@ -120,7 +121,7 @@ void BaseTile::reserveTexture()
     }
 }
 
-bool BaseTile::removeTexture(BaseTileTexture* texture)
+bool Tile::removeTexture(TileTexture* texture)
 {
     ALOGV("%p removeTexture %p, back %p front %p... page %p",
           this, texture, m_backTexture, m_frontTexture, m_page);
@@ -146,7 +147,7 @@ bool BaseTile::removeTexture(BaseTileTexture* texture)
     return true;
 }
 
-void BaseTile::markAsDirty(const SkRegion& dirtyArea)
+void Tile::markAsDirty(const SkRegion& dirtyArea)
 {
     if (dirtyArea.isEmpty())
         return;
@@ -189,26 +190,26 @@ void BaseTile::markAsDirty(const SkRegion& dirtyArea)
     }
 }
 
-bool BaseTile::isDirty()
+bool Tile::isDirty()
 {
     android::AutoMutex lock(m_atomicSync);
     return m_dirty;
 }
 
-bool BaseTile::isRepaintPending()
+bool Tile::isRepaintPending()
 {
     android::AutoMutex lock(m_atomicSync);
     return m_repaintPending;
 }
 
-void BaseTile::setRepaintPending(bool pending)
+void Tile::setRepaintPending(bool pending)
 {
     android::AutoMutex lock(m_atomicSync);
     m_repaintPending = pending;
 }
 
-bool BaseTile::drawGL(float opacity, const SkRect& rect, float scale,
-                      const TransformationMatrix* transform)
+bool Tile::drawGL(float opacity, const SkRect& rect, float scale,
+                  const TransformationMatrix* transform)
 {
     if (m_x < 0 || m_y < 0 || m_scale != scale)
         return false;
@@ -230,11 +231,11 @@ bool BaseTile::drawGL(float opacity, const SkRect& rect, float scale,
     return true;
 }
 
-bool BaseTile::isTileReady()
+bool Tile::isTileReady()
 {
     // Return true if the tile's most recently drawn texture is up to date
     android::AutoMutex lock(m_atomicSync);
-    BaseTileTexture * texture = (m_state == ReadyToSwap) ? m_backTexture : m_frontTexture;
+    TileTexture * texture = (m_state == ReadyToSwap) ? m_backTexture : m_frontTexture;
 
     if (!texture)
         return false;
@@ -251,9 +252,9 @@ bool BaseTile::isTileReady()
     return true;
 }
 
-bool BaseTile::intersectWithRect(int x, int y, int tileWidth, int tileHeight,
-                                 float scale, const SkRect& dirtyRect,
-                                 SkRect& realTileRect)
+bool Tile::intersectWithRect(int x, int y, int tileWidth, int tileHeight,
+                             float scale, const SkRect& dirtyRect,
+                             SkRect& realTileRect)
 {
     // compute the rect to corresponds to pixels
     realTileRect.fLeft = x * tileWidth;
@@ -271,7 +272,7 @@ bool BaseTile::intersectWithRect(int x, int y, int tileWidth, int tileHeight,
     return true;
 }
 
-bool BaseTile::isTileVisible(const IntRect& viewTileBounds)
+bool Tile::isTileVisible(const IntRect& viewTileBounds)
 {
     return (m_x >= viewTileBounds.x()
             && m_x < viewTileBounds.x() + viewTileBounds.width()
@@ -280,14 +281,14 @@ bool BaseTile::isTileVisible(const IntRect& viewTileBounds)
 }
 
 // This is called from the texture generation thread
-void BaseTile::paintBitmap(TilePainter* painter)
+void Tile::paintBitmap(TilePainter* painter)
 {
     // We acquire the values below atomically. This ensures that we are reading
     // values correctly across cores. Further, once we have these values they
     // can be updated by other threads without consequence.
     m_atomicSync.lock();
     bool dirty = m_dirty;
-    BaseTileTexture* texture = m_backTexture;
+    TileTexture* texture = m_backTexture;
     SkRegion dirtyArea = m_dirtyArea;
     float scale = m_scale;
     const int x = m_x;
@@ -306,7 +307,7 @@ void BaseTile::paintBitmap(TilePainter* painter)
     m_atomicSync.unlock();
 
     // at this point we can safely check the ownership (if the texture got
-    // transferred to another BaseTile under us)
+    // transferred to another Tile under us)
     if (texture->owner() != this) {
         return;
     }
@@ -430,7 +431,7 @@ void BaseTile::paintBitmap(TilePainter* painter)
     m_atomicSync.unlock();
 }
 
-void BaseTile::discardTextures() {
+void Tile::discardTextures() {
     android::AutoMutex lock(m_atomicSync);
     ALOGV("%p discarding bt %p, ft %p",
           this, m_backTexture, m_frontTexture);
@@ -449,7 +450,7 @@ void BaseTile::discardTextures() {
     m_state = Unpainted;
 }
 
-void BaseTile::discardBackTexture() {
+void Tile::discardBackTexture() {
     android::AutoMutex lock(m_atomicSync);
     if (m_backTexture) {
         m_backTexture->release(this);
@@ -459,7 +460,7 @@ void BaseTile::discardBackTexture() {
     m_dirty = true;
 }
 
-bool BaseTile::swapTexturesIfNeeded() {
+bool Tile::swapTexturesIfNeeded() {
     android::AutoMutex lock(m_atomicSync);
     if (m_state == ReadyToSwap) {
         // discard old texture and swap the new one in its place
@@ -477,7 +478,7 @@ bool BaseTile::swapTexturesIfNeeded() {
     return false;
 }
 
-void BaseTile::backTextureTransfer() {
+void Tile::backTextureTransfer() {
     android::AutoMutex lock(m_atomicSync);
     if (m_state == PaintingStarted)
         m_state = TransferredUnvalidated;
@@ -490,7 +491,7 @@ void BaseTile::backTextureTransfer() {
     }
 }
 
-void BaseTile::backTextureTransferFail() {
+void Tile::backTextureTransferFail() {
     // transfer failed for some reason, mark dirty so it will (repaint and) be
     // retransferred.
     android::AutoMutex lock(m_atomicSync);
@@ -499,7 +500,7 @@ void BaseTile::backTextureTransferFail() {
     // whether validatePaint is called before or after, it won't do anything
 }
 
-void BaseTile::validatePaint() {
+void Tile::validatePaint() {
     // ONLY CALL while m_atomicSync is locked (at the end of paintBitmap())
 
     if (!m_dirty) {

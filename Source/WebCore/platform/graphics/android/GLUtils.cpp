@@ -31,10 +31,14 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
+#include "AndroidLog.h"
+#include "BaseRenderer.h"
 #include "ShaderProgram.h"
+#include "TextureInfo.h"
+#include "Tile.h"
 #include "TilesManager.h"
+#include "TransferQueue.h"
 
-#include <AndroidLog.h>
 #include <android/native_window.h>
 #include <gui/SurfaceTexture.h>
 #include <wtf/CurrentTime.h>
@@ -385,7 +389,7 @@ GLuint GLUtils::createSampleTexture()
     return texture;
 }
 
-GLuint GLUtils::createBaseTileGLTexture(int width, int height)
+GLuint GLUtils::createTileGLTexture(int width, int height)
 {
     GLuint texture;
     glGenTextures(1, &texture);
@@ -413,7 +417,7 @@ GLuint GLUtils::createBaseTileGLTexture(int width, int height)
 
 bool GLUtils::isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor)
 {
-    // If the bitmap is the pure color, skip the transfer step, and update the BaseTile Info.
+    // If the bitmap is the pure color, skip the transfer step, and update the Tile Info.
     // This check is taking < 1ms if we do full bitmap check per tile.
     // TODO: use the SkPicture to determine whether or not a tile is single color.
     pureColor = Color(Color::transparent);
@@ -456,14 +460,14 @@ bool GLUtils::skipTransferForPureColor(const TileRenderInfo* renderInfo,
                                        const SkBitmap& bitmap)
 {
     bool skipTransfer = false;
-    BaseTile* tilePtr = renderInfo->baseTile;
+    Tile* tilePtr = renderInfo->baseTile;
 
     // TODO: use pure color for partial invals as well
     if (renderInfo->invalRect)
         return false;
 
     if (tilePtr) {
-        BaseTileTexture* tileTexture = tilePtr->backTexture();
+        TileTexture* tileTexture = tilePtr->backTexture();
         // Check the bitmap, and make everything ready here.
         if (tileTexture && renderInfo->isPureColor) {
             // update basetile's info

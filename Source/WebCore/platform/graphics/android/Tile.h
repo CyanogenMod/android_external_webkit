@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef BaseTile_h
-#define BaseTile_h
+#ifndef Tile_h
+#define Tile_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -39,7 +39,7 @@
 namespace WebCore {
 
 class TextureInfo;
-class BaseTileTexture;
+class TileTexture;
 class GLWebViewState;
 
 /**
@@ -58,7 +58,7 @@ class GLWebViewState;
  * 5. The tile is destroyed when the user navigates to a new page.
  *
  */
-class BaseTile : public TextureOwner {
+class Tile : public TextureOwner {
 public:
 
     // eventually, m_dirty might be rolled into the state machine, but note
@@ -88,8 +88,8 @@ public:
         UpToDate = 5,
     };
 
-    BaseTile(bool isLayerTile = false);
-    ~BaseTile();
+    Tile(bool isLayerTile = false);
+    ~Tile();
 
     bool isLayerTile() { return m_isLayerTile; }
 
@@ -120,8 +120,8 @@ public:
 
     int x() const { return m_x; }
     int y() const { return m_y; }
-    BaseTileTexture* frontTexture() { return m_frontTexture; }
-    BaseTileTexture* backTexture() { return m_backTexture; }
+    TileTexture* frontTexture() { return m_frontTexture; }
+    TileTexture* backTexture() { return m_backTexture; }
 
     // only used for prioritization - the higher, the more relevant the tile is
     unsigned long long drawCount() { return m_drawCount; }
@@ -132,7 +132,7 @@ public:
     void backTextureTransferFail();
 
     // TextureOwner implementation
-    virtual bool removeTexture(BaseTileTexture* texture);
+    virtual bool removeTexture(TileTexture* texture);
 
 private:
     void validatePaint();
@@ -142,8 +142,8 @@ private:
 
     // The remaining variables can be updated throughout the lifetime of the object
 
-    BaseTileTexture* m_frontTexture;
-    BaseTileTexture* m_backTexture;
+    TileTexture* m_frontTexture;
+    TileTexture* m_backTexture;
     float m_scale;
 
     // used to signal that the that the tile is out-of-date and needs to be
@@ -190,4 +190,4 @@ private:
 } // namespace WebCore
 
 #endif // USE(ACCELERATED_COMPOSITING)
-#endif // BaseTile_h
+#endif // Tile_h

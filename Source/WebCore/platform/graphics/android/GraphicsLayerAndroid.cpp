@@ -34,6 +34,7 @@
 #include "Image.h"
 #include "ImagesManager.h"
 #include "Layer.h"
+#include "LayerAndroid.h"
 #include "Length.h"
 #include "MediaLayer.h"
 #include "PictureLayerContent.h"
