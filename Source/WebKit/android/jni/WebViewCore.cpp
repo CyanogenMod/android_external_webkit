@@ -371,7 +371,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_setWebTextViewAutoFillable;
     jmethodID   m_selectAt;
     jmethodID   m_initEditField;
-    jmethodID   m_updateMatchCount;
     jmethodID   m_chromeCanTakeFocus;
     jmethodID   m_chromeTakeFocus;
     AutoJObject object(JNIEnv* env) {
@@ -509,7 +508,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
     m_javaGlue->m_selectAt = GetJMethod(env, clazz, "selectAt", "(II)V");
     m_javaGlue->m_initEditField = GetJMethod(env, clazz, "initEditField", "(IIILandroid/webkit/WebViewCore$TextFieldInitData;)V");
-    m_javaGlue->m_updateMatchCount = GetJMethod(env, clazz, "updateMatchCount", "(IILjava/lang/String;)V");
     m_javaGlue->m_chromeCanTakeFocus = GetJMethod(env, clazz, "chromeCanTakeFocus", "(I)Z");
     m_javaGlue->m_chromeTakeFocus = GetJMethod(env, clazz, "chromeTakeFocus", "(I)V");
     env->DeleteLocalRef(clazz);
@@ -4282,19 +4280,15 @@ int WebViewCore::findTextOnPage(const WTF::String &text)
         frame = frame->tree()->traverseNextWithWrap(false);
     } while (frame);
     m_activeMatchIndex = m_matchCount - 1; // prime first findNext
-    if (!m_matchCount) // send at least one update, even if no hits
-        updateMatchCount();
-    else
-        findNextOnPage(true);
     return m_matchCount;
 }
 
-void WebViewCore::findNextOnPage(bool forward)
+int WebViewCore::findNextOnPage(bool forward)
 {
     if (!m_mainFrame)
-        return;
+        return -1;
     if (!m_matchCount)
-        return;
+        return -1;
 
     EditorClientAndroid* client = static_cast<EditorClientAndroid*>(
         m_mainFrame->editor()->client());
@@ -4341,24 +4335,12 @@ void WebViewCore::findNextOnPage(bool forward)
             m_mainFrame->selection()->revealSelection(
                 ScrollAlignment::alignCenterIfNeeded, true);
         }
-        updateMatchCount();
     }
 
     // Clear selection so it doesn't display.
     m_mainFrame->selection()->clear();
     client->setUiGeneratedSelectionChange(false);
-}
-
-void WebViewCore::updateMatchCount() const
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue->object(env);
-    if (!javaObject.get())
-        return;
-    jstring javaText = wtfStringToJstring(env, m_searchText, true);
-    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_updateMatchCount,
-        m_activeMatchIndex, m_matchCount, javaText);
-    checkException(env);
+    return m_activeMatchIndex;
 }
 
 String WebViewCore::getText(int startX, int startY, int endX, int endY)
@@ -5050,11 +5032,11 @@ static int FindAll(JNIEnv* env, jobject obj, jint nativeClass,
     return viewImpl->findTextOnPage(wtfText);
 }
 
-static void FindNext(JNIEnv* env, jobject obj, jint nativeClass,
+static int FindNext(JNIEnv* env, jobject obj, jint nativeClass,
         jboolean forward)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    viewImpl->findNextOnPage(forward);
+    return viewImpl->findNextOnPage(forward);
 }
 
 // ----------------------------------------------------------------------------
@@ -5177,7 +5159,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) nativeCertTrustChanged },
     { "nativeFindAll", "(ILjava/lang/String;)I",
         (void*) FindAll },
-    { "nativeFindNext", "(IZ)V",
+    { "nativeFindNext", "(IZ)I",
         (void*) FindNext },
 };
 
