@@ -28,15 +28,10 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-/* #include "Tile.h" */
-/* #include "TileTexture.h" */
-/* #include "ImageTexture.h" */
 #include "LayerAndroid.h"
 #include "ShaderProgram.h"
-/* #include "SkBitmapRef.h" */
 #include "TexturesGenerator.h"
 #include "TilesProfiler.h"
-/* #include "TransferQueue.h" */
 #include "VideoLayerManager.h"
 #include <utils/threads.h>
 #include <wtf/HashMap.h>
