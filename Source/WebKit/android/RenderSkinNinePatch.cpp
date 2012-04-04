@@ -73,7 +73,7 @@ bool RenderSkinNinePatch::decodeAsset(AssetManager* am, const char* filename, Ni
     }
 
     asset->close();
-    if (!peeker.fPatchIsValid) {
+    if (!peeker.fPatch != NULL) {
         ALOGE("RenderSkinNinePatch::Patch data not valid");
         return false;
     }
