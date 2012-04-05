@@ -30,6 +30,7 @@
 #include "UrlInterceptResponse.h"
 #include "WebCoreJni.h"
 
+#include <ScopedLocalRef.h>
 #include <utils/Log.h>
 
 namespace android {
@@ -38,15 +39,14 @@ class JavaInputStreamWrapper {
 public:
     JavaInputStreamWrapper(JNIEnv* env, jobject inputStream)
             : m_inputStream(env->NewGlobalRef(inputStream))
-            , m_buffer(0) {
-        LOG_ALWAYS_FATAL_IF(!inputStream);
-        jclass inputStreamClass = env->FindClass("java/io/InputStream");
-        LOG_ALWAYS_FATAL_IF(!inputStreamClass);
-        m_read = env->GetMethodID(inputStreamClass, "read", "([B)I");
+            , m_buffer(NULL) {
+        LOG_ALWAYS_FATAL_IF(!m_inputStream);
+        ScopedLocalRef<jclass> inputStreamClass(env, env->FindClass("java/io/InputStream"));
+        LOG_ALWAYS_FATAL_IF(!inputStreamClass.get());
+        m_read = env->GetMethodID(inputStreamClass.get(), "read", "([B)I");
         LOG_ALWAYS_FATAL_IF(!m_read);
-        m_close = env->GetMethodID(inputStreamClass, "close", "()V");
+        m_close = env->GetMethodID(inputStreamClass.get(), "close", "()V");
         LOG_ALWAYS_FATAL_IF(!m_close);
-        env->DeleteLocalRef(inputStreamClass);
     }
 
     ~JavaInputStreamWrapper() {
@@ -63,10 +63,10 @@ public:
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         // Initialize our read buffer to the capacity of out.
         if (!m_buffer) {
-            m_buffer = env->NewByteArray(out->capacity());
-            m_buffer = (jbyteArray) env->NewGlobalRef(m_buffer);
+            ScopedLocalRef<jbyteArray> buffer_local(env, env->NewByteArray(out->capacity()));
+            m_buffer = static_cast<jbyteArray>(env->NewGlobalRef(buffer_local.get()));
         }
-        int size = (int) env->CallIntMethod(m_inputStream, m_read, m_buffer);
+        int size = env->CallIntMethod(m_inputStream, m_read, m_buffer);
         if (checkException(env) || size < 0)
             return;
         // Copy from m_buffer to out.
@@ -82,40 +82,32 @@ private:
 };
 
 UrlInterceptResponse::UrlInterceptResponse(JNIEnv* env, jobject response) {
-    jclass javaResponse = env->FindClass("android/webkit/WebResourceResponse");
-    LOG_ALWAYS_FATAL_IF(!javaResponse);
-    jfieldID mimeType = env->GetFieldID(javaResponse, "mMimeType",
-                                        "Ljava/lang/String;");
+    ScopedLocalRef<jclass> javaResponse(env, env->FindClass("android/webkit/WebResourceResponse"));
+    LOG_ALWAYS_FATAL_IF(!javaResponse.get());
+    jfieldID mimeType = env->GetFieldID(javaResponse.get(), "mMimeType", "Ljava/lang/String;");
     LOG_ALWAYS_FATAL_IF(!mimeType);
-    jfieldID encoding = env->GetFieldID(javaResponse, "mEncoding",
-                                        "Ljava/lang/String;");
+    jfieldID encoding = env->GetFieldID(javaResponse.get(), "mEncoding", "Ljava/lang/String;");
     LOG_ALWAYS_FATAL_IF(!encoding);
-    jfieldID inputStream = env->GetFieldID(javaResponse, "mInputStream",
-                                           "Ljava/io/InputStream;");
+    jfieldID inputStream = env->GetFieldID(javaResponse.get(), "mInputStream", "Ljava/io/InputStream;");
     LOG_ALWAYS_FATAL_IF(!inputStream);
 
-    jobject stream = env->GetObjectField(response, inputStream);
-    if (stream)
-        m_inputStream.set(new JavaInputStreamWrapper(env, stream));
+    ScopedLocalRef<jobject> stream(env, env->GetObjectField(response, inputStream));
+    if (stream.get())
+        m_inputStream.set(new JavaInputStreamWrapper(env, stream.get()));
 
-    jstring mimeStr = (jstring) env->GetObjectField(response, mimeType);
-    jstring encodingStr = (jstring) env->GetObjectField(response, encoding);
+    ScopedLocalRef<jstring> mimeStr(env, static_cast<jstring>(env->GetObjectField(response, mimeType)));
+    ScopedLocalRef<jstring> encodingStr(env, static_cast<jstring>(env->GetObjectField(response, encoding)));
 
-    if (mimeStr) {
-        const char* s = env->GetStringUTFChars(mimeStr, NULL);
-        m_mimeType.assign(s, env->GetStringUTFLength(mimeStr));
-        env->ReleaseStringUTFChars(mimeStr, s);
+    if (mimeStr.get()) {
+        const char* s = env->GetStringUTFChars(mimeStr.get(), NULL);
+        m_mimeType.assign(s, env->GetStringUTFLength(mimeStr.get()));
+        env->ReleaseStringUTFChars(mimeStr.get(), s);
     }
-    if (encodingStr) {
-        const char* s = env->GetStringUTFChars(encodingStr, NULL);
-        m_encoding.assign(s, env->GetStringUTFLength(encodingStr));
-        env->ReleaseStringUTFChars(encodingStr, s);
+    if (encodingStr.get()) {
+        const char* s = env->GetStringUTFChars(encodingStr.get(), NULL);
+        m_encoding.assign(s, env->GetStringUTFLength(encodingStr.get()));
+        env->ReleaseStringUTFChars(encodingStr.get(), s);
     }
-
-    env->DeleteLocalRef(javaResponse);
-    env->DeleteLocalRef(stream);
-    env->DeleteLocalRef(mimeStr);
-    env->DeleteLocalRef(encodingStr);
 }
 
 UrlInterceptResponse::~UrlInterceptResponse() {
