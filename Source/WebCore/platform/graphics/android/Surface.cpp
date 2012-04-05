@@ -167,7 +167,7 @@ IntRect Surface::unclippedArea()
 
 bool Surface::useAggressiveRendering()
 {
-    // When the background is translucent, 0 < alpha < 255, we had to turn off
+    // When the background is semi-opaque, 0 < alpha < 255, we had to turn off
     // low res to avoid artifacts from double drawing.
     // TODO: avoid double drawing for low res tiles.
     return isBase()

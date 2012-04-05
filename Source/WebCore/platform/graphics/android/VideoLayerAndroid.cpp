@@ -30,6 +30,7 @@
 #include "VideoLayerAndroid.h"
 
 #include "AndroidLog.h"
+#include "DrawQuadData.h"
 #include "ShaderProgram.h"
 #include "TilesManager.h"
 #include <GLES2/gl2.h>
@@ -75,8 +76,9 @@ void VideoLayerAndroid::showPreparingAnimation(const SkRect& rect,
     ShaderProgram* shader = TilesManager::instance()->shader();
     VideoLayerManager* manager = TilesManager::instance()->videoLayerManager();
     // Paint the video content's background.
-    shader->drawLayerQuad(m_drawTransform, rect, 0, 1, true, GL_TEXTURE_2D,
-                          Color(128, 128, 128, 255));
+    PureColorQuadData backGroundQuadData(Color(128, 128, 128, 255), LayerQuad,
+                                         &m_drawTransform, &rect);
+    shader->drawQuad(&backGroundQuadData);
 
     TransformationMatrix addReverseRotation;
     TransformationMatrix addRotation = m_drawTransform;
@@ -88,14 +90,18 @@ void VideoLayerAndroid::showPreparingAnimation(const SkRect& rect,
     addRotation.translate(-halfButtonSize, -halfButtonSize);
 
     SkRect size = SkRect::MakeWH(innerRect.width(), innerRect.height());
-    shader->drawLayerQuad(addRotation, size,
-                          manager->getSpinnerOuterTextureId(), 1, true);
+
+    TextureQuadData spinnerQuadData(manager->getSpinnerOuterTextureId(),
+                                    GL_TEXTURE_2D, GL_LINEAR,
+                                    LayerQuad, &addRotation, &size);
+    shader->drawQuad(&spinnerQuadData);
 
     addReverseRotation.rotate(-m_rotateDegree);
     addReverseRotation.translate(-halfButtonSize, -halfButtonSize);
 
-    shader->drawLayerQuad(addReverseRotation, size,
-                          manager->getSpinnerInnerTextureId(), 1, true);
+    spinnerQuadData.updateTextureId(manager->getSpinnerInnerTextureId());
+    spinnerQuadData.updateDrawMatrix(&addReverseRotation);
+    shader->drawQuad(&spinnerQuadData);
 
     m_rotateDegree += ROTATESTEP;
 }
@@ -130,11 +136,13 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
 
     // Calculate the video rect based on the aspect ratio and the element rect.
     SkRect videoRect = calVideoRect(rect);
+    PureColorQuadData pureColorQuadData(Color(0, 0, 0, 255), LayerQuad,
+                                        &m_drawTransform, &rect);
+
     if (videoRect != rect) {
         // Paint the whole video element with black color when video content
         // can't cover the whole area.
-        shader->drawLayerQuad(m_drawTransform, rect, 0, 1, true, GL_TEXTURE_2D,
-                              Color(0, 0, 0, 255));
+        shader->drawQuad(&pureColorQuadData);
     }
 
     // Inner rect is for the progressing / play / pause animation.
@@ -149,7 +157,8 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
     // When we are drawing the animation of the play/pause button in the
     // middle of the video, we need to ask for redraw.
     bool needRedraw = false;
-
+    TextureQuadData iconQuadData(0, GL_TEXTURE_2D, GL_LINEAR, LayerQuad,
+                                 &m_drawTransform, &innerRect);
     // Draw the poster image, the progressing image or the Video depending
     // on the player's state.
     if (m_playerState == PREPARING) {
@@ -170,11 +179,11 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
         if (scale) {
             innerRect.inset(manager->getButtonSize() / 4 * scale,
                             manager->getButtonSize() / 4 * scale);
-            shader->drawLayerQuad(m_drawTransform, innerRect,
-                                  manager->getPlayTextureId(), scale, true);
+            iconQuadData.updateTextureId(manager->getPlayTextureId());
+            iconQuadData.updateOpacity(scale);
+            shader->drawQuad(&iconQuadData);
             needRedraw = true;
         }
-
     } else {
         GLuint textureId = manager->getTextureId(uniqueId());
         GLfloat* matrix = manager->getMatrix(uniqueId());
@@ -184,10 +193,12 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
                                        videoRect, textureId);
         } else {
             // Show the static poster b/c there is no screen shot available.
-            shader->drawLayerQuad(m_drawTransform, rect, 0, 1, true, GL_TEXTURE_2D,
-                              Color(128, 128, 128, 255));
-            shader->drawLayerQuad(m_drawTransform, innerRect,
-                                  manager->getPosterTextureId(), 1, true);
+            pureColorQuadData.updateColor(Color(128, 128, 128, 255));
+            shader->drawQuad(&pureColorQuadData);
+
+            iconQuadData.updateTextureId(manager->getPosterTextureId());
+            iconQuadData.updateOpacity(1.0);
+            shader->drawQuad(&iconQuadData);
         }
 
         // Use the scale to control the fading and the sizing during animation.
@@ -195,8 +206,9 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
         if (scale) {
             innerRect.inset(manager->getButtonSize() / 4 * scale,
                             manager->getButtonSize() / 4 * scale);
-            shader->drawLayerQuad(m_drawTransform, innerRect,
-                                  manager->getPauseTextureId(), scale, true);
+            iconQuadData.updateTextureId(manager->getPauseTextureId());
+            iconQuadData.updateOpacity(scale);
+            shader->drawQuad(&iconQuadData);
             needRedraw = true;
         }
 

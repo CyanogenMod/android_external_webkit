@@ -33,6 +33,7 @@
 
 #include "AndroidLog.h"
 #include "CanvasTexture.h"
+#include "DrawQuadData.h"
 #include "Image.h"
 #include "ImageBuffer.h"
 #include "RenderLayerCompositor.h"
@@ -200,8 +201,9 @@ bool CanvasLayer::drawGL(bool layerTilesDisabled)
         SkRect rect = SkRect::MakeXYWH(m_contentRect.x() - m_offsetFromRenderer.width(),
                                        m_contentRect.y() - m_offsetFromRenderer.height(),
                                        m_contentRect.width(), m_contentRect.height());
-        TilesManager::instance()->shader()->drawLayerQuad(m_drawTransform, rect,
-                m_texture->texture(), 1, true, GL_TEXTURE_EXTERNAL_OES);
+        TextureQuadData data(m_texture->texture(), GL_TEXTURE_EXTERNAL_OES,
+                             GL_LINEAR, LayerQuad, &m_drawTransform, &rect);
+        TilesManager::instance()->shader()->drawQuad(&data);
     }
     return ret;
 }

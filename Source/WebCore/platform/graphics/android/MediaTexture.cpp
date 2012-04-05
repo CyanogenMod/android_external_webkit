@@ -21,6 +21,7 @@
 #include "MediaTexture.h"
 
 #include "AndroidLog.h"
+#include "DrawQuadData.h"
 #include "TilesManager.h"
 #include "GLUtils.h"
 #include "MediaListener.h"
@@ -176,11 +177,10 @@ void MediaTexture::draw(const TransformationMatrix& contentMatrix,
         PIXEL_FORMAT_RGB_888 == f ||
         PIXEL_FORMAT_RGB_565 == f);
 
-    TilesManager::instance()->shader()->drawLayerQuad(contentMatrix,
-                                                      mediaBounds,
-                                                      m_contentTexture->textureId,
-                                                      1.0f, forceAlphaBlending,
-                                                      GL_TEXTURE_EXTERNAL_OES);
+    TextureQuadData data(m_contentTexture->textureId, GL_TEXTURE_EXTERNAL_OES,
+                         GL_LINEAR, LayerQuad, &contentMatrix, &mediaBounds,
+                         1.0f, forceAlphaBlending);
+    TilesManager::instance()->shader()->drawQuad(&data);
 }
 
 ANativeWindow* MediaTexture::requestNativeWindowForVideo()

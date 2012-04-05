@@ -208,7 +208,8 @@ void Tile::setRepaintPending(bool pending)
 }
 
 bool Tile::drawGL(float opacity, const SkRect& rect, float scale,
-                  const TransformationMatrix* transform)
+                  const TransformationMatrix* transform,
+                  bool forceBlending)
 {
     if (m_x < 0 || m_y < 0 || m_scale != scale)
         return false;
@@ -218,7 +219,7 @@ bool Tile::drawGL(float opacity, const SkRect& rect, float scale,
     if (!m_frontTexture)
         return false;
 
-    m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform);
+    m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform, forceBlending);
     return true;
 }
 

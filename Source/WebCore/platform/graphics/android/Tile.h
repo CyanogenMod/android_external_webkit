@@ -101,7 +101,8 @@ public:
 
     // Return false when real draw didn't happen for any reason.
     bool drawGL(float opacity, const SkRect& rect, float scale,
-                const TransformationMatrix* transform);
+                const TransformationMatrix* transform,
+                bool forceBlending = false);
 
     // the only thread-safe function called by the background thread
     void paintBitmap(TilePainter* painter);
