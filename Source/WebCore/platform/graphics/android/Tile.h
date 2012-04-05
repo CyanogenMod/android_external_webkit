@@ -160,9 +160,6 @@ private:
     SkRegion m_dirtyArea;
     bool m_fullRepaint;
 
-    // flag used to know if we have a texture that was painted at least once
-    bool m_isTexturePainted;
-
     // This mutex serves two purposes. (1) It ensures that certain operations
     // happen atomically and (2) it makes sure those operations are synchronized
     // across all threads and cores.

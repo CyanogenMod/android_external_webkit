@@ -296,11 +296,10 @@ void GraphicsLayerAndroid::setPosition(const FloatPoint& point)
 
     GraphicsLayer::setPosition(point);
 
-#ifdef LAYER_DEBUG_2
     ALOGV("(%x) setPosition(%.2f,%.2f) pos(%.2f, %.2f) anchor(%.2f,%.2f) size(%.2f, %.2f)",
         this, point.x(), point.y(), m_position.x(), m_position.y(),
         m_anchorPoint.x(), m_anchorPoint.y(), m_size.width(), m_size.height());
-#endif
+
     m_contentLayer->setPosition(point.x(), point.y());
     askForSync();
 }

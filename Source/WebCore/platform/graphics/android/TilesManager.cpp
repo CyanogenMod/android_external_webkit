@@ -239,9 +239,8 @@ void TilesManager::printTextures()
             x = o->x();
             y = o->y();
         }
-        ALOGV("[%d] texture %x owner: %x (%d, %d) page: %x scale: %.2f",
-              i, texture,
-              o, x, y, o ? o->page() : 0, o ? o->scale() : 0);
+        ALOGV("[%d] texture %x owner: %x (%d, %d) scale: %.2f",
+              i, texture, o, x, y, o ? o->scale() : 0);
     }
     ALOGV("------");
 #endif // DEBUG
