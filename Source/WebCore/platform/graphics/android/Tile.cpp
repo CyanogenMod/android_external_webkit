@@ -56,7 +56,6 @@ Tile::Tile(bool isLayerTile)
     , m_dirty(true)
     , m_repaintPending(false)
     , m_fullRepaint(true)
-    , m_isTexturePainted(false)
     , m_isLayerTile(isLayerTile)
     , m_drawCount(0)
     , m_state(Unpainted)
@@ -123,8 +122,8 @@ void Tile::reserveTexture()
 
 bool Tile::removeTexture(TileTexture* texture)
 {
-    ALOGV("%p removeTexture %p, back %p front %p... page %p",
-          this, texture, m_backTexture, m_frontTexture, m_page);
+    ALOGV("%p removeTexture %p, back %p front %p",
+          this, texture, m_backTexture, m_frontTexture);
     // We update atomically, so paintBitmap() can see the correct value
     android::AutoMutex lock(m_atomicSync);
     if (m_frontTexture == texture) {
@@ -181,8 +180,8 @@ void Tile::markAsDirty(const SkRegion& dirtyArea)
     } else if (m_state != Unpainted) {
         // TODO: fix it so that they can paint while deferring the markAsDirty
         // call (or block updates)
-        ALOGV("Warning: tried to mark tile %p at %d, %d islayertile %d as dirty, state %d, page %p",
-              this, m_x, m_y, isLayerTile(), m_state, m_page);
+        ALOGV("Warning: tried to mark tile %p at %d, %d islayertile %d as dirty, state %d",
+              this, m_x, m_y, isLayerTile(), m_state);
 
         // prefetch tiles can be marked dirty while in the process of painting,
         // due to not using an update lock. force them to fail validate step.
@@ -217,14 +216,6 @@ bool Tile::drawGL(float opacity, const SkRect& rect, float scale,
     // No need to mutex protect reads of m_backTexture as it is only written to by
     // the consumer thread.
     if (!m_frontTexture)
-        return false;
-
-    // Early return if set to un-usable in purpose!
-    m_atomicSync.lock();
-    bool isTexturePainted = m_isTexturePainted;
-    m_atomicSync.unlock();
-
-    if (!isTexturePainted)
         return false;
 
     m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform);
@@ -400,8 +391,6 @@ void Tile::paintBitmap(TilePainter* painter)
     m_atomicSync.lock();
 
     if (texture == m_backTexture) {
-        m_isTexturePainted = true;
-
         // set the fullrepaint flags
         m_fullRepaint = false;
 

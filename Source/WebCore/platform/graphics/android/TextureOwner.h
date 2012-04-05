@@ -38,7 +38,6 @@ class TextureOwner {
 public:
     virtual ~TextureOwner() { }
     virtual bool removeTexture(TileTexture* texture) = 0;
-    virtual bool samePageAs(Layer* root) { return false; }
     virtual bool isRepaintPending() = 0;
     virtual unsigned long long drawCount() = 0;
 };

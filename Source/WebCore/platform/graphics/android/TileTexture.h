@@ -84,7 +84,6 @@ public:
 private:
     TextureInfo m_ownTextureInfo;
     SkSize m_size;
-    SkBitmap::Config m_config;
 
     // Tile owning the texture, only modified by UI thread
     TextureOwner* m_owner;
