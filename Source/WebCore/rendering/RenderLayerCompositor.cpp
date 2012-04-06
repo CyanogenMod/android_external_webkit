@@ -628,6 +628,7 @@ bool RenderLayerCompositor::checkForPositionedElements(Vector<RenderLayer*>* lis
     bool fixedSibling = false;
     bool positionedSibling = false;
 
+#if 0
     // For absolute positioned elements, we need to check if they are followed
     // by a composited element; if so, they also need to be composited, as the
     // layer display rendering might be incorrect (absolute elements being
@@ -650,6 +651,7 @@ bool RenderLayerCompositor::checkForPositionedElements(Vector<RenderLayer*>* lis
             break;
         }
     }
+#endif
 
     // If we find a fixed layer, let's mark all the following layers as being
     // composited. The layers' surfaces will be merged if needed UI-side.
@@ -737,7 +739,7 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 
     bool willBeComposited = needsToBeComposited(layer);
 
-#if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+#if 0 && ENABLE(COMPOSITED_FIXED_ELEMENTS)
     willBeComposited |= layer->shouldComposite();
     layer->setMustOverlapCompositedLayers(layer->shouldComposite());
 #endif
