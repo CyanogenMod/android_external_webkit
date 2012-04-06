@@ -39,6 +39,10 @@ namespace WebCore {
 
 enum PaintPhase {
     PaintPhaseBlockBackground,
+#if PLATFORM(ANDROID)
+    // Used for fixed background support in layers
+    PaintPhaseBlockBackgroundDecorations,
+#endif
     PaintPhaseChildBlockBackground,
     PaintPhaseChildBlockBackgrounds,
     PaintPhaseFloat,

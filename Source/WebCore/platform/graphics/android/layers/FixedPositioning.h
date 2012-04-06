@@ -50,6 +50,15 @@ struct SkLength {
             return false;
         return true;
     }
+    void setFixedValue(float v)
+    {
+        type = Fixed;
+        value = v;
+    }
+    void setAuto()
+    {
+        type = Auto;
+    }
     float calcFloatValue(float max) const
     {
         switch (type) {

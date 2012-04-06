@@ -28,8 +28,8 @@ void GraphicsOperationCollection::apply(PlatformGraphicsContext* context)
 {
     ALOGD("\nApply GraphicsOperationCollection %x, %d operations", this, m_operations.size());
     for (unsigned int i = 0; i < m_operations.size(); i++) {
-        ALOGD("[%d] (%x) %s %s", i, this, m_operations[i]->name().latin1().data(),
-              m_operations[i]->parameters().latin1().data());
+        ALOGD("[%d] (%x) %s %s", i, this, m_operations[i]->name().ascii().data(),
+              m_operations[i]->parameters().ascii().data());
         m_operations[i]->apply(context);
     }
 }

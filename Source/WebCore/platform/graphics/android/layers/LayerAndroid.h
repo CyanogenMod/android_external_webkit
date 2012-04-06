@@ -94,6 +94,9 @@ public:
     typedef enum { UndefinedLayer, WebCoreLayer, UILayer } LayerType;
     typedef enum { StandardLayer, ScrollableLayer,
                    IFrameLayer, IFrameContentLayer,
+                   FixedBackgroundLayer,
+                   FixedBackgroundBaseLayer,
+                   ForegroundBaseLayer,
                    CanvasLayer, BaseLayer } SubclassType;
     typedef enum { InvalidateNone = 0, InvalidateLayers } InvalidateFlags;
 
@@ -108,6 +111,12 @@ public:
                 return "IFrameLayer";
             case LayerAndroid::IFrameContentLayer:
                 return "IFrameContentLayer";
+            case LayerAndroid::FixedBackgroundLayer:
+                return "FixedBackgroundLayer";
+            case LayerAndroid::FixedBackgroundBaseLayer:
+                return "FixedBackgroundBaseLayer";
+            case LayerAndroid::ForegroundBaseLayer:
+                return "ForegroundBaseLayer";
             case LayerAndroid::CanvasLayer:
                 return "CanvasLayer";
             case LayerAndroid::BaseLayer:
@@ -241,6 +250,7 @@ public:
     virtual bool isVideo() const { return false; }
     virtual bool isIFrame() const { return false; }
     virtual bool isIFrameContent() const { return false; }
+    virtual bool isFixedBackground() const { return false; }
 
     bool isPositionFixed() const { return m_fixedPosition; }
     void setAbsolutePosition(bool isAbsolute) { m_isPositionAbsolute = isAbsolute; }

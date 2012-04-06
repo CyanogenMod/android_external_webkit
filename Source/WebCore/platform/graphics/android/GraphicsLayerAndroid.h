@@ -124,7 +124,7 @@ public:
     void notifyClientAnimationStarted();
 
     LayerAndroid* contentLayer() { return m_contentLayer; }
-    ScrollableLayerAndroid* foregroundLayer() { return m_foregroundLayer; }
+    LayerAndroid* foregroundLayer() { return m_foregroundLayer; }
 
     static int instancesCount();
 
@@ -139,6 +139,7 @@ private:
 
     void updatePositionedLayers();
     void updateScrollingLayers();
+    void updateFixedBackgroundLayers();
 
     // with SkPicture, we always repaint the entire layer's content.
     bool repaint();
@@ -158,7 +159,9 @@ private:
     SkRegion m_dirtyRegion;
 
     LayerAndroid* m_contentLayer;
-    ScrollableLayerAndroid* m_foregroundLayer;
+    LayerAndroid* m_backgroundDecorationsLayer;
+    LayerAndroid* m_fixedBackgroundLayer;
+    LayerAndroid* m_foregroundLayer;
     LayerAndroid* m_foregroundClipLayer;
 };
 

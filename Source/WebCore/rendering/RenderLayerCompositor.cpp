@@ -1432,6 +1432,9 @@ bool RenderLayerCompositor::requiresCompositingForAndroidLayers(const RenderLaye
     if (layer->renderer()->isCanvas())
         return true;
 
+    if (layer->renderer()->style()->hasFixedBackgroundImage())
+        return true;
+
     return false;
 }
 #endif

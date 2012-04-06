@@ -34,26 +34,35 @@ namespace WebCore {
 class RenderLayerCompositor;
 
 class BaseLayerAndroid : public LayerAndroid {
-
 public:
     BaseLayerAndroid(LayerContent* content);
-
-    virtual ~BaseLayerAndroid() {};
-
     virtual SubclassType subclassType() { return LayerAndroid::BaseLayer; }
-    virtual bool needsTexture() { return true; }
-
+    virtual void getLocalTransform(SkMatrix* matrix) const;
+    virtual const TransformationMatrix* drawTransform() const { return 0; }
+    virtual bool needsTexture() { return content(); }
+    virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
+                                               IFrameLayerAndroid* parentIframeLayer);
     void setBackgroundColor(Color& color) { m_color = color; }
     Color getBackgroundColor() { return m_color; }
 
-    virtual void getLocalTransform(SkMatrix* matrix) const;
-    virtual const TransformationMatrix* drawTransform() const { return 0; }
-
-    virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
-                                               IFrameLayerAndroid* parentIframeLayer);
 private:
     // TODO: move to SurfaceCollection.
     Color m_color;
+};
+
+class ForegroundBaseLayerAndroid : public LayerAndroid {
+public:
+    ForegroundBaseLayerAndroid(LayerContent* content);
+    virtual SubclassType subclassType() { return LayerAndroid::ForegroundBaseLayer; }
+
+    virtual bool needsTexture() { return false; }
+};
+
+class FixedBackgroundBaseLayerAndroid : public LayerAndroid {
+public:
+    FixedBackgroundBaseLayerAndroid(LayerContent* content);
+    virtual bool needsTexture() { return true; }
+    virtual SubclassType subclassType() { return LayerAndroid::FixedBackgroundBaseLayer; }
 };
 
 } // namespace WebCore

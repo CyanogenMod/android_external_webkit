@@ -843,6 +843,11 @@ void RenderBox::paintBoxDecorationsWithSize(PaintInfo& paintInfo, int tx, int ty
         else if (!isBody() || document()->documentElement()->renderer()->hasBackground()) {
             // The <body> only paints its background if the root element has defined a background
             // independent of the body.
+#if PLATFORM(ANDROID)
+            // If we only want to draw the decorations, don't draw
+            // the background
+            if (paintInfo.phase != PaintPhaseBlockBackgroundDecorations)
+#endif
             paintFillLayers(paintInfo, style()->visitedDependentColor(CSSPropertyBackgroundColor), style()->backgroundLayers(), tx, ty, width, height);
         }
         if (style()->hasAppearance())
