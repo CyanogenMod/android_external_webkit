@@ -633,70 +633,74 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/StringTruncator.cpp \
 	platform/graphics/WidthIterator.cpp \
 	\
-	platform/graphics/android/AndroidAnimation.cpp \
-	platform/graphics/android/BaseLayerAndroid.cpp \
-	platform/graphics/android/BaseRenderer.cpp \
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
-	platform/graphics/android/CanvasLayer.cpp \
-	platform/graphics/android/CanvasTexture.cpp \
-	platform/graphics/android/ClassTracker.cpp \
-	platform/graphics/android/DumpLayer.cpp \
-	platform/graphics/android/FixedPositioning.cpp \
-	platform/graphics/android/FontAndroid.cpp \
-	platform/graphics/android/FontCacheAndroid.cpp \
-	platform/graphics/android/FontCustomPlatformData.cpp \
-	platform/graphics/android/FontDataAndroid.cpp \
-	platform/graphics/android/FontPlatformDataAndroid.cpp \
-	platform/graphics/android/GaneshContext.cpp \
-	platform/graphics/android/GaneshRenderer.cpp \
-	platform/graphics/android/GLExtras.cpp \
-	platform/graphics/android/GLUtils.cpp \
-	platform/graphics/android/GLWebViewState.cpp \
-	platform/graphics/android/GlyphMapAndroid.cpp \
 	platform/graphics/android/GradientAndroid.cpp \
 	platform/graphics/android/GraphicsLayerAndroid.cpp \
-	platform/graphics/android/IFrameContentLayerAndroid.cpp \
-	platform/graphics/android/IFrameLayerAndroid.cpp \
+	platform/graphics/android/GLWebViewState.cpp \
 	platform/graphics/android/ImageAndroid.cpp \
 	platform/graphics/android/ImageBufferAndroid.cpp \
 	platform/graphics/android/ImageSourceAndroid.cpp \
-	platform/graphics/android/ImagesManager.cpp \
-	platform/graphics/android/ImageTexture.cpp \
-	platform/graphics/android/InspectorCanvas.cpp \
-	platform/graphics/android/Layer.cpp \
-	platform/graphics/android/LayerAndroid.cpp \
-	platform/graphics/android/MediaLayer.cpp \
-	platform/graphics/android/MediaTexture.cpp \
-	platform/graphics/android/PaintTileOperation.cpp \
 	platform/graphics/android/PathAndroid.cpp \
 	platform/graphics/android/PatternAndroid.cpp \
-	platform/graphics/android/PictureLayerContent.cpp \
-	platform/graphics/android/PictureSetLayerContent.cpp \
-	platform/graphics/android/RasterRenderer.cpp \
-	platform/graphics/android/ScrollableLayerAndroid.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
-	platform/graphics/android/ShaderProgram.cpp \
-	platform/graphics/android/Surface.cpp \
-	platform/graphics/android/SurfaceBacking.cpp \
-	platform/graphics/android/TextureInfo.cpp \
-	platform/graphics/android/TexturesGenerator.cpp \
-	platform/graphics/android/Tile.cpp \
-	platform/graphics/android/TileGrid.cpp \
-	platform/graphics/android/TileTexture.cpp \
-	platform/graphics/android/TilesManager.cpp \
-	platform/graphics/android/TilesProfiler.cpp \
-	platform/graphics/android/TransferQueue.cpp \
-	platform/graphics/android/SurfaceCollection.cpp \
-	platform/graphics/android/SurfaceCollectionManager.cpp \
-	platform/graphics/android/VerticalTextMap.cpp \
-	platform/graphics/android/VideoLayerAndroid.cpp \
-	platform/graphics/android/VideoLayerManager.cpp \
 	\
 	platform/graphics/android/context/GraphicsContextAndroid.cpp \
 	platform/graphics/android/context/GraphicsOperationCollection.cpp \
 	platform/graphics/android/context/PlatformGraphicsContext.cpp \
 	platform/graphics/android/context/PlatformGraphicsContextRecording.cpp \
-	platform/graphics/android/context/PlatformGraphicsContextSkia.cpp
+	platform/graphics/android/context/PlatformGraphicsContextSkia.cpp \
+	\
+	platform/graphics/android/fonts/FontAndroid.cpp \
+	platform/graphics/android/fonts/FontCacheAndroid.cpp \
+	platform/graphics/android/fonts/FontCustomPlatformData.cpp \
+	platform/graphics/android/fonts/FontDataAndroid.cpp \
+	platform/graphics/android/fonts/FontPlatformDataAndroid.cpp \
+	platform/graphics/android/fonts/GlyphMapAndroid.cpp \
+	platform/graphics/android/fonts/VerticalTextMap.cpp \
+	\
+	platform/graphics/android/layers/AndroidAnimation.cpp \
+	platform/graphics/android/layers/BaseLayerAndroid.cpp \
+	platform/graphics/android/layers/CanvasLayer.cpp \
+	platform/graphics/android/layers/CanvasTexture.cpp \
+	platform/graphics/android/layers/DumpLayer.cpp \
+	platform/graphics/android/layers/FixedPositioning.cpp \
+	platform/graphics/android/layers/IFrameContentLayerAndroid.cpp \
+	platform/graphics/android/layers/IFrameLayerAndroid.cpp \
+	platform/graphics/android/layers/Layer.cpp \
+	platform/graphics/android/layers/LayerAndroid.cpp \
+	platform/graphics/android/layers/MediaLayer.cpp \
+	platform/graphics/android/layers/MediaTexture.cpp \
+	platform/graphics/android/layers/PictureLayerContent.cpp \
+	platform/graphics/android/layers/PictureSetLayerContent.cpp \
+	platform/graphics/android/layers/ScrollableLayerAndroid.cpp \
+	platform/graphics/android/layers/VideoLayerAndroid.cpp \
+	platform/graphics/android/layers/VideoLayerManager.cpp \
+	\
+	platform/graphics/android/rendering/BaseRenderer.cpp \
+	platform/graphics/android/rendering/GaneshContext.cpp \
+	platform/graphics/android/rendering/GaneshRenderer.cpp \
+	platform/graphics/android/rendering/GLExtras.cpp \
+	platform/graphics/android/rendering/GLUtils.cpp \
+	platform/graphics/android/rendering/ImagesManager.cpp \
+	platform/graphics/android/rendering/ImageTexture.cpp \
+	platform/graphics/android/rendering/InspectorCanvas.cpp \
+	platform/graphics/android/rendering/PaintTileOperation.cpp \
+	platform/graphics/android/rendering/RasterRenderer.cpp \
+	platform/graphics/android/rendering/ShaderProgram.cpp \
+	platform/graphics/android/rendering/Surface.cpp \
+	platform/graphics/android/rendering/SurfaceBacking.cpp \
+	platform/graphics/android/rendering/SurfaceCollection.cpp \
+	platform/graphics/android/rendering/SurfaceCollectionManager.cpp \
+	platform/graphics/android/rendering/TextureInfo.cpp \
+	platform/graphics/android/rendering/TexturesGenerator.cpp \
+	platform/graphics/android/rendering/Tile.cpp \
+	platform/graphics/android/rendering/TileGrid.cpp \
+	platform/graphics/android/rendering/TileTexture.cpp \
+	platform/graphics/android/rendering/TilesManager.cpp \
+	platform/graphics/android/rendering/TilesProfiler.cpp \
+	platform/graphics/android/rendering/TransferQueue.cpp \
+	\
+	platform/graphics/android/utils/ClassTracker.cpp
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
@@ -1268,5 +1272,5 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 # For complex scripts(Arabic, Thai, Hindi...).
 ifeq ($(SUPPORT_COMPLEX_SCRIPTS),true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	platform/graphics/android/HarfbuzzSkia.cpp
+	platform/graphics/android/fonts/HarfbuzzSkia.cpp
 endif

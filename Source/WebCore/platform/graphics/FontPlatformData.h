@@ -36,7 +36,7 @@
 #elif (PLATFORM(EFL) || PLATFORM(GTK)) && USE(PANGO)
 #include "pango/FontPlatformData.h"
 #elif PLATFORM(ANDROID)
-#include "android/FontPlatformData.h"
+#include "android/fonts/FontPlatformData.h"
 #else
 
 #ifndef FontPlatformData_h
