@@ -95,6 +95,9 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
         Decode();
     }
 
+    if (!canvas)
+        return;
+
     // If we failed to decode, do nothing.  This way the browser still works,
     // and webkit will still draw the label and layout space for us.
     if (gDecodingFailed)

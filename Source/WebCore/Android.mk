@@ -654,7 +654,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/GLWebViewState.cpp \
 	platform/graphics/android/GlyphMapAndroid.cpp \
 	platform/graphics/android/GradientAndroid.cpp \
-	platform/graphics/android/GraphicsContextAndroid.cpp \
 	platform/graphics/android/GraphicsLayerAndroid.cpp \
 	platform/graphics/android/IFrameContentLayerAndroid.cpp \
 	platform/graphics/android/IFrameLayerAndroid.cpp \
@@ -673,7 +672,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/PatternAndroid.cpp \
 	platform/graphics/android/PictureLayerContent.cpp \
 	platform/graphics/android/PictureSetLayerContent.cpp \
-	platform/graphics/android/PlatformGraphicsContext.cpp \
 	platform/graphics/android/RasterRenderer.cpp \
 	platform/graphics/android/ScrollableLayerAndroid.cpp \
 	platform/graphics/android/SharedBufferStream.cpp \
@@ -693,6 +691,12 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/VerticalTextMap.cpp \
 	platform/graphics/android/VideoLayerAndroid.cpp \
 	platform/graphics/android/VideoLayerManager.cpp \
+	\
+	platform/graphics/android/context/GraphicsContextAndroid.cpp \
+	platform/graphics/android/context/GraphicsOperationCollection.cpp \
+	platform/graphics/android/context/PlatformGraphicsContext.cpp \
+	platform/graphics/android/context/PlatformGraphicsContextRecording.cpp \
+	platform/graphics/android/context/PlatformGraphicsContextSkia.cpp
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

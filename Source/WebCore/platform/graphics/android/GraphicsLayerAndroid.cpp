@@ -39,7 +39,7 @@
 #include "MediaLayer.h"
 #include "PictureLayerContent.h"
 #include "PlatformBridge.h"
-#include "PlatformGraphicsContext.h"
+#include "PlatformGraphicsContextSkia.h"
 #include "RenderLayerBacking.h"
 #include "RenderView.h"
 #include "RotateTransformOperation.h"
@@ -714,7 +714,7 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
         return false;
     }
 
-    PlatformGraphicsContext platformContext(canvas);
+    PlatformGraphicsContextSkia platformContext(canvas);
     GraphicsContext graphicsContext(&platformContext);
 
     paintGraphicsLayerContents(graphicsContext, rect);

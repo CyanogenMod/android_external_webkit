@@ -38,6 +38,8 @@
 #include "SkRegion.h"
 #include "SkStream.h"
 
+#include "PlatformGraphicsContext.h"
+
 #define MAX_DRAW_TIME 100
 #define MIN_SPLITTABLE 400
 #define MAX_ADDITIONAL_AREA 0.65
@@ -133,6 +135,9 @@ void PictureSet::add(const Pictures* temp)
 {
     Pictures pictureAndBounds = *temp;
     SkSafeRef(pictureAndBounds.mPicture);
+#ifdef CONTEXT_RECORDING
+    SkSafeRef(pictureAndBounds.mGraphicsOperationCollection);
+#endif
     pictureAndBounds.mWroteElapsed = false;
     mPictures.append(pictureAndBounds);
 }
@@ -478,13 +483,20 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
             working->mArea.setEmpty();
             SkSafeUnref(working->mPicture);
             working->mPicture = 0;
+#ifdef CONTEXT_RECORDING
+            SkSafeUnref(working->mGraphicsOperationCollection);
+            working->mGraphicsOperationCollection = 0;
+#endif
         }
     }
 
     // Now we can add the new Picture to the list, with the correct area
     // that need to be repainted
-    Pictures pictureAndBounds = {totalArea, 0, totalArea,
-        elapsed, split, false, false, empty};
+    Pictures pictureAndBounds = {totalArea, 0,
+#ifdef CONTEXT_RECORDING
+    0,
+#endif
+        totalArea, elapsed, split, false, false, empty};
 
 #ifdef FAST_PICTURESET
     if (mPictures.size() == 0)
@@ -525,6 +537,10 @@ void PictureSet::add(const SkIRect& area, uint32_t elapsed, bool split, bool emp
                 working->mArea.setEmpty();
             SkSafeUnref(working->mPicture);
             working->mPicture = 0;
+#ifdef CONTEXT_RECORDING
+            SkSafeUnref(working->mGraphicsOperationCollection);
+            working->mGraphicsOperationCollection = 0;
+#endif
         }
     }
 
@@ -677,6 +693,9 @@ void PictureSet::clear()
     for (Pictures* working = mPictures.begin(); working != last; working++) {
         working->mArea.setEmpty();
         SkSafeUnref(working->mPicture);
+#ifdef CONTEXT_RECORDING
+        SkSafeUnref(working->mGraphicsOperationCollection);
+#endif
     }
     mPictures.clear();
 #endif // FAST_PICTURESET
@@ -797,7 +816,14 @@ bool PictureSet::draw(SkCanvas* canvas)
         canvas->translate(pathBounds.fLeft, pathBounds.fTop);
         canvas->save();
         uint32_t startTime = getThreadMsec();
+
+#ifdef CONTEXT_RECORDING
+        WebCore::PlatformGraphicsContextSkia context(canvas);
+        working->mGraphicsOperationCollection->apply(&context);
+#else
         canvas->drawPicture(*working->mPicture);
+#endif
+
         size_t elapsed = working->mElapsed = getThreadMsec() - startTime;
         working->mWroteElapsed = true;
         if (maxElapsed < elapsed && (pathBounds.width() >= MIN_SPLITTABLE ||
@@ -1059,6 +1085,14 @@ void PictureSet::setPicture(size_t i, SkPicture* p)
     mPictures[i].mPicture = p;
     mPictures[i].mEmpty = emptyPicture(p);
 }
+
+#ifdef CONTEXT_RECORDING
+void PictureSet::setGraphicsOperationCollection(size_t i, WebCore::GraphicsOperationCollection* p)
+{
+    SkSafeUnref(mPictures[i].mGraphicsOperationCollection);
+    mPictures[i].mGraphicsOperationCollection = p;
+}
+#endif
 
 void PictureSet::split(PictureSet* out) const
 {
