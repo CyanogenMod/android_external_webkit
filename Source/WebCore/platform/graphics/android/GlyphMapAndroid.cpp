@@ -44,12 +44,12 @@ namespace WebCore {
 
 #define NO_BREAK_SPACE_UNICHAR 0xA0
 
-static int substituteWithVerticalGlyphs(const FontPlatformData& platformData, uint16_t* glyphs, unsigned bufferLength)
+static HB_Error substituteWithVerticalGlyphs(const FontPlatformData& platformData, uint16_t* glyphs, unsigned bufferLength)
 {
     HB_FaceRec_* hbFace = platformData.harfbuzzFace();
     if (!hbFace->gsub) {
         // if there is no GSUB table, treat it as not covered
-        return 0Xffff;
+        return static_cast<HB_Error>(0Xffff);
     }
 
     HB_Buffer buffer;
@@ -60,18 +60,32 @@ static int substituteWithVerticalGlyphs(const FontPlatformData& platformData, ui
     HB_UShort scriptIndex;
     HB_UShort featureIndex;
 
-    HB_GSUB_Select_Script(hbFace->gsub, HB_MAKE_TAG('D', 'F', 'L', 'T'), &scriptIndex);
+    HB_Error error = HB_GSUB_Select_Script(hbFace->gsub, HB_MAKE_TAG('D', 'F', 'L', 'T'), &scriptIndex);
+    if (error) {
+        if (error != HB_Err_Not_Covered)
+            return error;
+        scriptIndex = HB_Script_Common;  // Set script to common script.
+    }
+
     HB_GSUB_Select_Feature(hbFace->gsub, HB_MAKE_TAG('v', 'e', 'r', 't'), scriptIndex, 0xffff, &featureIndex);
     HB_GSUB_Add_Feature(hbFace->gsub, featureIndex, 1);
     HB_GSUB_Select_Feature(hbFace->gsub, HB_MAKE_TAG('v', 'r', 't', '2'), scriptIndex, 0xffff, &featureIndex);
     HB_GSUB_Add_Feature(hbFace->gsub, featureIndex, 1);
 
-    int error = HB_GSUB_Apply_String(hbFace->gsub, buffer);
+    error = HB_GSUB_Apply_String(hbFace->gsub, buffer);
     if (!error) {
         for (unsigned i = 0; i < bufferLength; ++i)
             glyphs[i] = static_cast<Glyph>(buffer->out_string[i].gindex);
     }
     return error;
+}
+
+static void convertToVerticalForms(UChar* src, UChar* dest, unsigned bufferLength) {
+    for (unsigned i = 0; i < bufferLength; ++i) {
+        dest[i] = VerticalTextMap::getVerticalForm(src[i]);
+        if (!dest[i])
+            dest[i] = src[i];
+    }
 }
 
 bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned bufferLength, const SimpleFontData* fontData)
@@ -92,11 +106,7 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
 
     if (fontData->platformData().orientation() == Vertical && !fontData->hasVerticalGlyphs()) {
         // Convert to vertical form if there is no vertical glyphs.
-        for (unsigned i = 0; i < bufferLength; ++i) {
-            vTextBuffer[i] = VerticalTextMap::getVerticalForm(buffer[i]);
-            if (!vTextBuffer[i])
-                vTextBuffer[i] = buffer[i];
-        }
+        convertToVerticalForms(buffer, vTextBuffer, bufferLength);
         textBuffer = vTextBuffer;
     }
 
@@ -111,11 +121,22 @@ bool GlyphPage::fill(unsigned offset, unsigned length, UChar* buffer, unsigned b
         for (unsigned i = 0; i < bufferLength; ++i) {
             if (!Font::isCJKIdeograph(textBuffer[i])) {
                 lookVariants = true;
-                continue;
+                break;
             }
         }
-        if (lookVariants)
-            substituteWithVerticalGlyphs(fontData->platformData(), glyphs, bufferLength);
+        if (lookVariants) {
+            if (substituteWithVerticalGlyphs(fontData->platformData(), glyphs, bufferLength)) {
+                // Convert text to vertical forms if substituteWithVerticalGlyphs() fails to access vert tables.
+                convertToVerticalForms(buffer, vTextBuffer, bufferLength);
+                textBuffer = vTextBuffer;
+
+                unsigned count = paint.textToGlyphs(textBuffer, bufferLength << 1, glyphs);
+                if (count != length) {
+                    SkDebugf("%s count != length\n", __FUNCTION__);
+                    return false;
+                }
+            }
+        }
     }
 
     unsigned allGlyphs = 0; // track if any of the glyphIDs are non-zero
