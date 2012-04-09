@@ -192,10 +192,13 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
     if (useExpandPrefetch) {
         IntRect fullArea = computeTilesArea(unclippedArea, scale);
         IntRect expandedArea = m_area;
-        expandedArea.inflate(EXPANDED_BOUNDS_INFLATE);
+
+        // on systems reporting highEndGfx=true, use expanded high res bounds
+        if (TilesManager::instance()->highEndGfx())
+            expandedArea.inflate(EXPANDED_BOUNDS_INFLATE);
 
         if (isLowResPrefetch)
-            expandedArea.inflate(EXPANDED_PREFETCH_BOUNDS_Y_INFLATE);
+            expandedArea.inflateY(EXPANDED_PREFETCH_BOUNDS_Y_INFLATE);
 
         // clip painting area to content
         expandedArea.intersect(fullArea);
