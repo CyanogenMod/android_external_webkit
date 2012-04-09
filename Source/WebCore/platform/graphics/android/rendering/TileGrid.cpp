@@ -153,8 +153,9 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
     bool goingDown = m_prevTileY < m_area.y();
     m_prevTileY = m_area.y();
 
+    TilesManager* tilesManager = TilesManager::instance();
     if (scale != m_scale)
-        TilesManager::instance()->removeOperationsForFilter(new ScaleFilter(painter, m_scale));
+        tilesManager->removeOperationsForFilter(new ScaleFilter(painter, m_scale));
 
     m_scale = scale;
 
@@ -164,11 +165,11 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
             m_tiles[i]->markAsDirty(m_dirtyRegion);
 
         // log inval region for the base surface
-        if (m_isBaseSurface && TilesManager::instance()->getProfiler()->enabled()) {
+        if (m_isBaseSurface && tilesManager->getProfiler()->enabled()) {
             SkRegion::Iterator iterator(m_dirtyRegion);
             while (!iterator.done()) {
                 SkIRect r = iterator.rect();
-                TilesManager::instance()->getProfiler()->nextInval(r, scale);
+                tilesManager->getProfiler()->nextInval(r, scale);
                 iterator.next();
             }
         }
@@ -193,8 +194,8 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
         IntRect fullArea = computeTilesArea(unclippedArea, scale);
         IntRect expandedArea = m_area;
 
-        // on systems reporting highEndGfx=true, use expanded high res bounds
-        if (TilesManager::instance()->highEndGfx())
+        // on systems reporting highEndGfx=true and useMinimalMemory not set, use expanded bounds
+        if (tilesManager->highEndGfx() && !tilesManager->useMinimalMemory())
             expandedArea.inflate(EXPANDED_BOUNDS_INFLATE);
 
         if (isLowResPrefetch)
