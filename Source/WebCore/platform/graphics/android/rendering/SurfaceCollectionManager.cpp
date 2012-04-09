@@ -205,9 +205,17 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         returnFlags |= uirenderer::DrawGlInfo::kStatusInvoke;
 
     if (!shouldDraw) {
-        if (didCollectionSwap) {
+        if (didCollectionSwap
+            || (!m_paintingCollection
+                && m_drawingCollection
+                && m_drawingCollection->isReady())) {
+            // either a swap just occurred, or there is no more work to be done: do a full draw
             m_drawingCollection->swapTiles();
             returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
+        } else {
+            // current collection not ready - invoke functor in process mode
+            // until either drawing or painting collection is ready
+            returnFlags |= uirenderer::DrawGlInfo::kStatusInvoke;
         }
 
         return returnFlags;
