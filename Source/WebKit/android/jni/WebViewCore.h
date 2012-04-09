@@ -552,7 +552,7 @@ namespace android {
         // find on page
         void resetFindOnPage();
         int findTextOnPage(const WTF::String &text);
-        void findNextOnPage(bool forward);
+        int findNextOnPage(bool forward);
         void updateMatchCount() const;
 
 #if ENABLE(VIDEO)
