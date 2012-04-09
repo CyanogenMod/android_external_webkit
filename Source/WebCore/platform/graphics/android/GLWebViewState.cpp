@@ -132,10 +132,10 @@ void GLWebViewState::setViewport(const SkRect& viewport, float scale)
     int viewMaxTileX = static_cast<int>(ceilf((viewport.width()-1) * invTileContentWidth)) + 1;
     int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
 
-    TilesManager* manager = TilesManager::instance();
-    int maxTextureCount = viewMaxTileX * viewMaxTileY * (manager->highEndGfx() ? 4 : 2);
+    TilesManager* tilesManager = TilesManager::instance();
+    int maxTextureCount = viewMaxTileX * viewMaxTileY * (tilesManager->highEndGfx() ? 4 : 2);
 
-    manager->setMaxTextureCount(maxTextureCount);
+    tilesManager->setMaxTextureCount(maxTextureCount);
 
     // TODO: investigate whether we can move this return earlier.
     if ((m_viewport == viewport)
