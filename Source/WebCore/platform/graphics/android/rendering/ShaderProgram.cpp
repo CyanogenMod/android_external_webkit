@@ -385,7 +385,22 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     TransformationMatrix orthoScale;
     orthoScale.scale3d(orthoScaleX, orthoScaleY, 1.0);
 
-    m_projectionMatrix = ortho * orthoScale;
+    m_visibleRectProjectionMatrix = ortho * orthoScale;
+
+    ALOGV("set m_clipProjectionMatrix, %d, %d, %d, %d",
+          screenClip.x(), screenClip.y(), screenClip.x() + screenClip.width(),
+          screenClip.y() + screenClip.height());
+
+    // In order to incorporate the animation delta X and Y, using the clip as
+    // the GL viewport can save all the trouble of re-position from webViewRect
+    // to final position.
+    GLUtils::setOrthographicMatrix(m_clipProjectionMatrix, screenClip.x(), screenClip.y(),
+                                   screenClip.x() + screenClip.width(),
+                                   screenClip.y() + screenClip.height(), -1000, 1000);
+
+    glViewport(screenClip.x(), m_targetHeight - screenClip.y() - screenClip.height() ,
+               screenClip.width(), screenClip.height());
+
     m_viewport = visibleRect;
     m_currentScale = scale;
 
@@ -402,10 +417,10 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     TransformationMatrix viewScale;
     viewScale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
 
-    m_documentToScreenMatrix = viewScale * viewTranslate * m_projectionMatrix;
+    m_documentToScreenMatrix = viewScale * viewTranslate * m_visibleRectProjectionMatrix;
 
     viewTranslate.scale3d(1, -1, 1);
-    m_documentToInvScreenMatrix = viewScale * viewTranslate * m_projectionMatrix;
+    m_documentToInvScreenMatrix = viewScale * viewTranslate * m_visibleRectProjectionMatrix;
 
     IntRect rect(0, 0, m_webViewRect.width(), m_webViewRect.height());
     m_documentViewport = m_documentToScreenMatrix.inverse().mapRect(rect);
@@ -559,7 +574,7 @@ float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, flo
 {
     TransformationMatrix modifiedDrawMatrix = drawMatrix;
     modifiedDrawMatrix.scale3d(w, h, 1);
-    TransformationMatrix renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
+    TransformationMatrix renderMatrix = m_visibleRectProjectionMatrix * modifiedDrawMatrix;
     FloatPoint3D point(0.5, 0.5, 0.0);
     FloatPoint3D result = renderMatrix.mapPoint(point);
     return result.z();
@@ -602,23 +617,36 @@ void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
 GLfloat* ShaderProgram::getProjectionMatrix(const DrawQuadData* data)
 {
     DrawQuadType type = data->type();
-    const TransformationMatrix* matrix = data->drawMatrix();
-    const SkRect* geometry = data->geometry();
     if (type == Blit)
         return m_transferProjMtx;
+
+    const TransformationMatrix* matrix = data->drawMatrix();
+    const SkRect* geometry = data->geometry();
+
+    // This modifiedDrawMatrix tranform (0,0)(1x1) to the final rect in screen
+    // coordinate, before applying the m_webViewMatrix.
+    // It first scale and translate the vertex array from (0,0)(1x1) to real
+    // tile position and size. Then apply the transform from the layer's.
+    // Finally scale to the currentScale to support zooming.
+    // Note the geometry contains the tile zoom scale, so visually we will see
+    // the tiles scale at a ratio as (m_currentScale/tile's scale).
     TransformationMatrix modifiedDrawMatrix;
+    modifiedDrawMatrix.scale3d(m_currentScale, m_currentScale, 1);
     if (type == LayerQuad)
-        modifiedDrawMatrix = *matrix;
-    // move the drawing depending on where the texture is on the layer
+        modifiedDrawMatrix = modifiedDrawMatrix.multiply(*matrix);
     modifiedDrawMatrix.translate(geometry->fLeft, geometry->fTop);
     modifiedDrawMatrix.scale3d(geometry->width(), geometry->height(), 1);
 
+    // Even when we are on a alpha layer or not, we need to respect the
+    // m_webViewMatrix, it may contain the layout offset. Normally it is
+    // identity.
     TransformationMatrix renderMatrix;
-    if (!m_alphaLayer)
-        renderMatrix = m_projectionMatrix * m_repositionMatrix
-                       * m_webViewMatrix * modifiedDrawMatrix;
-    else
-        renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
+    renderMatrix = m_clipProjectionMatrix * m_webViewMatrix * modifiedDrawMatrix;
+
+#if DEBUG_MATRIX
+    debugMatrixInfo(m_currentScale, m_clipProjectionMatrix, m_webViewMatrix,
+                    modifiedDrawMatrix, matrix);
+#endif
 
     GLUtils::toGLMatrix(m_tileProjMatrix, renderMatrix);
     return m_tileProjMatrix;
@@ -661,11 +689,14 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
 {
     // switch to our custom yuv video rendering program
     glUseProgram(m_handleArray[Video].programHandle);
-
-    TransformationMatrix modifiedDrawMatrix = drawMatrix;
+    // TODO: Merge drawVideoLayerQuad into drawQuad.
+    TransformationMatrix modifiedDrawMatrix;
+    modifiedDrawMatrix.scale3d(m_currentScale, m_currentScale, 1);
+    modifiedDrawMatrix.multiply(drawMatrix);
     modifiedDrawMatrix.translate(geometry.fLeft, geometry.fTop);
     modifiedDrawMatrix.scale3d(geometry.width(), geometry.height(), 1);
-    TransformationMatrix renderMatrix = m_projectionMatrix * modifiedDrawMatrix;
+    TransformationMatrix renderMatrix =
+        m_clipProjectionMatrix * m_webViewMatrix * modifiedDrawMatrix;
 
     GLfloat projectionMatrix[16];
     GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
@@ -687,44 +718,57 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
-void ShaderProgram::setWebViewMatrix(const float* matrix, bool alphaLayer)
+void ShaderProgram::setGLDrawInfo(const android::uirenderer::DrawGlInfo* info)
 {
-    GLUtils::convertToTransformationMatrix(matrix, m_webViewMatrix);
-    m_alphaLayer = alphaLayer;
-}
-
-void ShaderProgram::calculateAnimationDelta()
-{
-    // The matrix contains the scrolling info, so this rect is starting from
-    // the m_viewport.
-    // So we just need to map the webview's visible rect using the matrix,
-    // calculate the difference b/t transformed rect and the webViewRect,
-    // then we can get the delta x , y caused by the animation.
-    // Note that the Y is for reporting back to GL viewport, so it is inverted.
-    // When it is alpha animation, then we rely on the framework implementation
-    // such that there is no matrix applied in native webkit.
-    if (!m_alphaLayer) {
-        FloatRect rect(m_viewport.fLeft * m_currentScale,
-                       m_viewport.fTop * m_currentScale,
-                       m_webViewRect.width(),
-                       m_webViewRect.height());
-        rect = m_webViewMatrix.mapRect(rect);
-        m_animationDelta.setX(rect.x() - m_webViewRect.x() );
-        m_animationDelta.setY(rect.y() + rect.height() - m_webViewRect.y()
-                              - m_webViewRect.height() - m_titleBarHeight);
-
-        m_repositionMatrix.makeIdentity();
-        m_repositionMatrix.translate3d(-m_webViewRect.x(), -m_webViewRect.y() - m_titleBarHeight, 0);
-        m_repositionMatrix.translate3d(m_viewport.fLeft * m_currentScale, m_viewport.fTop * m_currentScale, 0);
-        m_repositionMatrix.translate3d(-m_animationDelta.x(), -m_animationDelta.y(), 0);
-    } else {
-        m_animationDelta.setX(0);
-        m_animationDelta.setY(0);
-        m_repositionMatrix.makeIdentity();
-    }
-
+    GLUtils::convertToTransformationMatrix(info->transform, m_webViewMatrix);
+    m_alphaLayer = info->isLayer;
+    m_targetHeight = info->height;
 }
 
 } // namespace WebCore
+
+#if DEBUG_MATRIX
+FloatRect ShaderProgram::debugMatrixTransform(const TransformationMatrix& matrix,
+                                              const char* matrixName)
+{
+    FloatRect rect(0.0, 0.0, 1.0, 1.0);
+    rect = matrix.mapRect(rect);
+    ALOGV("After %s matrix:\n %f, %f rect.width() %f rect.height() %f",
+          matrixName, rect.x(), rect.y(), rect.width(), rect.height());
+    return rect;
+
+}
+
+void ShaderProgram::debugMatrixInfo(float currentScale,
+                                    const TransformationMatrix& clipProjectionMatrix,
+                                    const TransformationMatrix& webViewMatrix,
+                                    const TransformationMatrix& modifiedDrawMatrix,
+                                    const TransformationMatrix* layerMatrix)
+{
+    int viewport[4];
+    glGetIntegerv(GL_VIEWPORT, viewport);
+    ALOGV("viewport %d, %d, %d, %d , m_currentScale %f",
+          viewport[0], viewport[1], viewport[2], viewport[3], m_currentScale);
+    IntRect currentGLViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+
+    if (layerMatrix)
+        debugMatrixTransform(*layerMatrix, "layerMatrix");
+
+    debugMatrixTransform(modifiedDrawMatrix, "modifiedDrawMatrix");
+    debugMatrixTransform(webViewMatrix * modifiedDrawMatrix,
+                         "webViewMatrix * modifiedDrawMatrix");
+
+    FloatRect finalRect =
+        debugMatrixTransform(clipProjectionMatrix * webViewMatrix * modifiedDrawMatrix,
+                             "clipProjectionMatrix * webViewMatrix * modifiedDrawMatrix;,");
+    // After projection, we will be in a (-1, 1) range and now we can map it back
+    // to the (x,y) -> (x+width, y+height)
+    ALOGV("final convert to screen coord x, y %f, %f width %f height %f , ",
+          (finalRect.x() + 1) / 2 * currentGLViewport.width() + currentGLViewport.x(),
+          (finalRect.y() + 1) / 2 * currentGLViewport.height() + currentGLViewport.y(),
+          finalRect.width() * currentGLViewport.width() / 2,
+          finalRect.height() * currentGLViewport.height() / 2);
+}
+#endif // DEBUG_MATRIX
 
 #endif // USE(ACCELERATED_COMPOSITING)
