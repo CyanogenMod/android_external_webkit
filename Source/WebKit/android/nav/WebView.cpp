@@ -602,8 +602,8 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIPoint& cursorPoint,
     IntRect textRect = selectText->textRect(handleId);
     // Rects exclude the last pixel on right/bottom. We want only included pixels.
     cursorPoint.set(cursorRect.x(), cursorRect.maxY() - 1);
-    textRect.setHeight(std::max(1, textRect.height() - 1));
-    textRect.setWidth(std::max(1, textRect.width() - 1));
+    textRect.setHeight(textRect.height() - 1);
+    textRect.setWidth(textRect.width() - 1);
     textBounds = FloatQuad(textRect);
 
     if (layerId != -1) {
