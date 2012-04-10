@@ -157,6 +157,9 @@ protected:
 
     bool m_hasOverflowChildren;
 
+    // invalidation region
+    SkRegion m_dirtyRegion;
+private:
     bool isAncestor(const Layer*) const;
 
     Layer* fParent;
@@ -172,9 +175,6 @@ protected:
     bool m_shouldInheritFromRootTransform;
 
     SkTDArray<Layer*> m_children;
-
-    // invalidation region
-    SkRegion m_dirtyRegion;
 
     WebCore::GLWebViewState* m_state;
 

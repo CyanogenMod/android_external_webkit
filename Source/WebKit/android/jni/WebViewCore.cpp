@@ -323,7 +323,6 @@ struct WebViewCore::JavaGlue {
     jweak       m_obj;
     jmethodID   m_scrollTo;
     jmethodID   m_contentDraw;
-    jmethodID   m_layersDraw;
     jmethodID   m_requestListBox;
     jmethodID   m_openFileChooser;
     jmethodID   m_requestSingleListBox;
@@ -456,7 +455,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_obj = env->NewWeakGlobalRef(javaWebViewCore);
     m_javaGlue->m_scrollTo = GetJMethod(env, clazz, "contentScrollTo", "(IIZZ)V");
     m_javaGlue->m_contentDraw = GetJMethod(env, clazz, "contentDraw", "()V");
-    m_javaGlue->m_layersDraw = GetJMethod(env, clazz, "layersDraw", "()V");
     m_javaGlue->m_requestListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[I[I)V");
     m_javaGlue->m_openFileChooser = GetJMethod(env, clazz, "openFileChooser", "(Ljava/lang/String;)Ljava/lang/String;");
     m_javaGlue->m_requestSingleListBox = GetJMethod(env, clazz, "requestListBox", "([Ljava/lang/String;[II)V");
@@ -858,18 +856,6 @@ void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
 #endif
 }
 
-bool WebViewCore::updateLayers(LayerAndroid* layers)
-{
-    // We update the layers
-    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
-    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
-    if (root) {
-        LayerAndroid* updatedLayer = root->contentLayer();
-        return layers->updateWithTree(updatedLayer);
-    }
-    return true;
-}
-
 void WebViewCore::notifyAnimationStarted()
 {
     // We notify webkit that the animations have begun
@@ -1017,16 +1003,6 @@ void WebViewCore::contentDraw()
     if (!javaObject.get())
         return;
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_contentDraw);
-    checkException(env);
-}
-
-void WebViewCore::layersDraw()
-{
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue->object(env);
-    if (!javaObject.get())
-        return;
-    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_layersDraw);
     checkException(env);
 }
 
@@ -4567,19 +4543,6 @@ void WebViewCore::addVisitedLink(const UChar* string, int length)
         m_groupForVisitedLinks->addVisitedLink(string, length);
 }
 
-static bool UpdateLayers(JNIEnv* env, jobject obj, jint nativeClass,
-        jint jbaseLayer)
-{
-    WebViewCore* viewImpl = (WebViewCore*) nativeClass;
-    BaseLayerAndroid* baseLayer = (BaseLayerAndroid*)  jbaseLayer;
-    if (baseLayer) {
-        LayerAndroid* root = static_cast<LayerAndroid*>(baseLayer->getChild(0));
-        if (root)
-            return viewImpl->updateLayers(root);
-    }
-    return true;
-}
-
 static void NotifyAnimationStarted(JNIEnv* env, jobject obj, jint nativeClass)
 {
     WebViewCore* viewImpl = (WebViewCore*) nativeClass;
@@ -5117,8 +5080,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RetrieveImageSource },
     { "nativeGetContentMinPrefWidth", "(I)I",
         (void*) GetContentMinPrefWidth },
-    { "nativeUpdateLayers", "(II)Z",
-        (void*) UpdateLayers },
     { "nativeNotifyAnimationStarted", "(I)V",
         (void*) NotifyAnimationStarted },
     { "nativeRecordContent", "(ILandroid/graphics/Region;Landroid/graphics/Point;)I",

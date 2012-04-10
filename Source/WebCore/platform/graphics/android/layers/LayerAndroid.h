@@ -257,12 +257,6 @@ public:
     friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
-    // Update layers using another tree. Only works for basic properties
-    // such as the position, the transform. Return true if anything more
-    // complex is needed.
-    bool updateWithTree(LayerAndroid*);
-    virtual bool updateWithLayer(LayerAndroid*);
-
     LayerType type() { return m_type; }
     virtual SubclassType subclassType() { return LayerAndroid::StandardLayer; }
 
