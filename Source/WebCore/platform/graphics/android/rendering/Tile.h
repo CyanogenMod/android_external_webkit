@@ -151,9 +151,6 @@ private:
     // redrawn in the backTexture
     bool m_dirty;
 
-    // currently only for debugging, to be used for tracking down dropped repaints
-    bool m_deferredDirty;
-
     // used to signal that a repaint is pending
     bool m_repaintPending;
 

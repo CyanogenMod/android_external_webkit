@@ -511,11 +511,6 @@ void Tile::validatePaint() {
             // paintBitmap() may have cleared m_dirty)
             m_dirty = true;
         }
-
-        if (m_deferredDirty) {
-            ALOGV("Note: deferred dirty flag set, possibly a missed paint on tile %p", this);
-            m_deferredDirty = false;
-        }
     } else {
         ALOGV("Note: paint was unsuccessful.");
         m_state = Unpainted;
