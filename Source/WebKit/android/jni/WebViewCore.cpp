@@ -397,7 +397,7 @@ struct WebViewCore::TextFieldInitDataGlue {
     jfieldID   m_name;
     jfieldID   m_label;
     jfieldID   m_maxLength;
-    jfieldID   m_nodeBounds;
+    jfieldID   m_contentBounds;
     jfieldID   m_nodeLayerId;
     jfieldID   m_contentRect;
 };
@@ -523,7 +523,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_textFieldInitDataGlue->m_name = env->GetFieldID(tfidClazz, "mName", "Ljava/lang/String;");
     m_textFieldInitDataGlue->m_label = env->GetFieldID(tfidClazz, "mLabel", "Ljava/lang/String;");
     m_textFieldInitDataGlue->m_maxLength = env->GetFieldID(tfidClazz, "mMaxLength", "I");
-    m_textFieldInitDataGlue->m_nodeBounds = env->GetFieldID(tfidClazz, "mNodeBounds", "Landroid/graphics/Rect;");
+    m_textFieldInitDataGlue->m_contentBounds = env->GetFieldID(tfidClazz, "mContentBounds", "Landroid/graphics/Rect;");
     m_textFieldInitDataGlue->m_nodeLayerId = env->GetFieldID(tfidClazz, "mNodeLayerId", "I");
     m_textFieldInitDataGlue->m_contentRect = env->GetFieldID(tfidClazz, "mContentRect", "Landroid/graphics/Rect;");
     m_textFieldInitDataGlue->m_constructor = GetJMethod(env, tfidClazz, "<init>", "()V");
@@ -1649,7 +1649,7 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
         RenderText* renderText = toRenderText(r);
         int caretOffset;
         InlineBox* inlineBox;
-        start.getInlineBoxAndOffset(DOWNSTREAM, inlineBox, caretOffset);
+        start.getInlineBoxAndOffset(selection.affinity(), inlineBox, caretOffset);
         startHandle = renderText->localCaretRect(inlineBox, caretOffset);
         FloatPoint absoluteOffset = renderText->localToAbsolute(startHandle.location());
         startHandle.setX(absoluteOffset.x() - layerOffset.x());
@@ -1698,19 +1698,19 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 
     selectTextContainer->setText(range->text());
     selectTextContainer->setTextRect(SelectText::StartHandle,
-            positionToTextRect(selection.start()));
+            positionToTextRect(selection.start(), selection.affinity()));
     selectTextContainer->setTextRect(SelectText::EndHandle,
-            positionToTextRect(selection.end()));
+            positionToTextRect(selection.end(), selection.affinity()));
 
     return selectTextContainer;
 }
 
-IntRect WebViewCore::positionToTextRect(const Position& position)
+IntRect WebViewCore::positionToTextRect(const Position& position, EAffinity affinity)
 {
     IntRect textRect;
     InlineBox* inlineBox;
     int offset;
-    position.getInlineBoxAndOffset(VP_DEFAULT_AFFINITY, inlineBox, offset);
+    position.getInlineBoxAndOffset(affinity, inlineBox, offset);
     if (inlineBox && inlineBox->isInlineTextBox()) {
         InlineTextBox* box = static_cast<InlineTextBox*>(inlineBox);
         RootInlineBox* root = box->root();
@@ -2960,17 +2960,17 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     updateTextSelection();
 }
 
-void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
+WebCore::IntRect WebViewCore::scrollFocusedTextInput(float xPercent, int y)
 {
     WebCore::Node* focus = currentFocus();
     if (!focus) {
         clearTextEntry();
-        return;
+        return WebCore::IntRect();
     }
     WebCore::RenderTextControl* renderText = toRenderTextControl(focus);
     if (!renderText) {
         clearTextEntry();
-        return;
+        return WebCore::IntRect();
     }
 
     int x = (int) (xPercent * (renderText->scrollWidth() -
@@ -2978,6 +2978,9 @@ void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
     renderText->setScrollLeft(x);
     renderText->setScrollTop(y);
     focus->document()->frame()->selection()->recomputeCaretRect();
+    LayerAndroid* layer = 0;
+    platformLayerIdFromNode(focus, &layer);
+    return absoluteContentRect(focus, layer);
 }
 
 void WebViewCore::setFocusControllerActive(bool active)
@@ -3407,22 +3410,23 @@ bool WebViewCore::isAutoCompleteEnabled(Node* node)
     return isEnabled;
 }
 
-WebCore::IntRect WebViewCore::boundingRect(WebCore::Node* node,
+WebCore::IntRect WebViewCore::absoluteContentRect(WebCore::Node* node,
         LayerAndroid* layer)
 {
-    // Caret selection
-    IntRect boundingRect;
+    IntRect contentRect;
     if (node) {
         RenderObject* render = node->renderer();
-        if (render && !render->isBody()) {
+        if (render && render->isBox() && !render->isBody()) {
             IntPoint offset = convertGlobalContentToFrameContent(IntPoint(),
                     node->document()->frame());
             WebViewCore::layerToAbsoluteOffset(layer, offset);
-            boundingRect = render->absoluteBoundingBoxRect(true);
-            boundingRect.move(-offset.x(), -offset.y());
+
+            RenderBox* renderBox = toRenderBox(render);
+            contentRect = renderBox->absoluteContentBox();
+            contentRect.move(-offset.x(), -offset.y());
         }
     }
-    return boundingRect;
+    return contentRect;
 }
 
 jobject WebViewCore::createTextFieldInitData(Node* node)
@@ -3455,8 +3459,8 @@ jobject WebViewCore::createTextFieldInitData(Node* node)
     env->SetIntField(initData, classDef->m_maxLength, getMaxLength(node));
     LayerAndroid* layer = 0;
     int layerId = platformLayerIdFromNode(node, &layer);
-    IntRect bounds = boundingRect(node, layer);
-    env->SetObjectField(initData, classDef->m_nodeBounds,
+    IntRect bounds = absoluteContentRect(node, layer);
+    env->SetObjectField(initData, classDef->m_contentBounds,
             intRectToRect(env, bounds));
     env->SetIntField(initData, classDef->m_nodeLayerId, layerId);
     IntRect contentRect;
@@ -4538,10 +4542,12 @@ static void PassToJs(JNIEnv* env, jobject obj, jint nativeClass,
 }
 
 static void ScrollFocusedTextInput(JNIEnv* env, jobject obj, jint nativeClass,
-        jfloat xPercent, jint y)
+        jfloat xPercent, jint y, jobject contentBounds)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    viewImpl->scrollFocusedTextInput(xPercent, y);
+    IntRect bounds = viewImpl->scrollFocusedTextInput(xPercent, y);
+    if (contentBounds)
+        GraphicsJNI::irect_to_jrect(bounds, env, contentBounds);
 }
 
 static void SetFocusControllerActive(JNIEnv* env, jobject obj, jint nativeClass,
@@ -5097,7 +5103,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) MoveMouse },
     { "passToJs", "(IILjava/lang/String;IIZZZZ)V",
         (void*) PassToJs },
-    { "nativeScrollFocusedTextInput", "(IFI)V",
+    { "nativeScrollFocusedTextInput", "(IFILandroid/graphics/Rect;)V",
         (void*) ScrollFocusedTextInput },
     { "nativeSetFocusControllerActive", "(IZ)V",
         (void*) SetFocusControllerActive },
