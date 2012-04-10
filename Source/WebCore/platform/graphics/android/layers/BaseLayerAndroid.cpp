@@ -53,4 +53,17 @@ void BaseLayerAndroid::getLocalTransform(SkMatrix* matrix) const
     matrix->preConcat(getMatrix());
 }
 
+IFrameLayerAndroid* BaseLayerAndroid::updatePosition(SkRect viewport,
+                                                     IFrameLayerAndroid* parentIframeLayer)
+{
+    if (viewport.fRight > getWidth() || viewport.fBottom > getHeight()) {
+        // To handle the viewport expanding past the layer's size with HW accel,
+        // expand the size of the layer, so that tiles will cover the viewport.
+        setSize(std::max(viewport.fRight, getWidth()),
+                std::max(viewport.fBottom, getHeight()));
+    }
+
+    return LayerAndroid::updatePosition(viewport, parentIframeLayer);
+}
+
 } // namespace WebCore

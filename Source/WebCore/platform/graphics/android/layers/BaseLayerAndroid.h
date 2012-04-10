@@ -49,6 +49,8 @@ public:
     virtual void getLocalTransform(SkMatrix* matrix) const;
     virtual const TransformationMatrix* drawTransform() const { return 0; }
 
+    virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
+                                               IFrameLayerAndroid* parentIframeLayer);
 private:
     // TODO: move to SurfaceCollection.
     Color m_color;

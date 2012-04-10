@@ -306,7 +306,8 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
     int sc = canvas->save(SkCanvas::kClip_SaveFlag);
     canvas->clipRect(SkRect::MakeLTRB(0, 0, content->width(),
                 content->height()), SkRegion::kDifference_Op);
-    canvas->drawColor(bgColor);
+    Color c = m_baseLayer->getBackgroundColor();
+    canvas->drawColor(SkColorSetARGBInline(c.alpha(), c.red(), c.green(), c.blue()));
     canvas->restoreToCount(sc);
 
     // call this to be sure we've adjusted for any scrolling or animations
