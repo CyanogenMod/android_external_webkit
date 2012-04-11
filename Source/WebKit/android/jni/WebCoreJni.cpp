@@ -118,8 +118,10 @@ jobject intRectToRect(JNIEnv* env, const WebCore::IntRect& rect)
     ALOG_ASSERT(rectClass, "Could not find android/graphics/Rect");
     jmethodID rectInit = env->GetMethodID(rectClass, "<init>", "(IIII)V");
     ALOG_ASSERT(rectInit, "Could not find init method on Rect");
-    return env->NewObject(rectClass, rectInit, rect.x(), rect.y(),
+    jobject jrect = env->NewObject(rectClass, rectInit, rect.x(), rect.y(),
             rect.maxX(), rect.maxY());
+    env->DeleteLocalRef(rectClass);
+    return jrect;
 }
 
 jobjectArray intRectVectorToRectArray(JNIEnv* env, Vector<WebCore::IntRect>& rects)
