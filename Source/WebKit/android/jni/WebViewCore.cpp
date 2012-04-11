@@ -108,6 +108,7 @@
 #include "ResourceRequest.h"
 #include "RuntimeEnabledFeatures.h"
 #include "SchemeRegistry.h"
+#include "ScopedLocalRef.h"
 #include "ScriptController.h"
 #include "SelectionController.h"
 #include "SelectText.h"
@@ -3433,12 +3434,14 @@ jobject WebViewCore::createTextFieldInitData(Node* node)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     TextFieldInitDataGlue* classDef = m_textFieldInitDataGlue;
-    jclass clazz = env->FindClass("android/webkit/WebViewCore$TextFieldInitData");
-    jobject initData = env->NewObject(clazz, classDef->m_constructor);
+    ScopedLocalRef<jclass> clazz(env,
+            env->FindClass("android/webkit/WebViewCore$TextFieldInitData"));
+    jobject initData = env->NewObject(clazz.get(), classDef->m_constructor);
     env->SetIntField(initData, classDef->m_fieldPointer,
             reinterpret_cast<int>(node));
-    env->SetObjectField(initData, classDef->m_text,
+    ScopedLocalRef<jstring> inputText(env,
             wtfStringToJstring(env, getInputText(node), true));
+    env->SetObjectField(initData, classDef->m_text, inputText.get());
     env->SetIntField(initData, classDef->m_type, getInputType(node));
     env->SetBooleanField(initData, classDef->m_isSpellCheckEnabled,
             isSpellCheckEnabled(node));
@@ -3452,16 +3455,18 @@ jobject WebViewCore::createTextFieldInitData(Node* node)
             isTextInput(document->previousFocusableNode(node, tabEvent.get())));
     env->SetBooleanField(initData, classDef->m_isAutoCompleteEnabled,
             isAutoCompleteEnabled(node));
-    env->SetObjectField(initData, classDef->m_name,
+    ScopedLocalRef<jstring> fieldName(env,
             wtfStringToJstring(env, getFieldName(node), false));
-    env->SetObjectField(initData, classDef->m_name,
+    env->SetObjectField(initData, classDef->m_name, fieldName.get());
+    ScopedLocalRef<jstring> label(env,
             wtfStringToJstring(env, requestLabel(document->frame(), node), false));
+    env->SetObjectField(initData, classDef->m_name, label.get());
     env->SetIntField(initData, classDef->m_maxLength, getMaxLength(node));
     LayerAndroid* layer = 0;
     int layerId = platformLayerIdFromNode(node, &layer);
     IntRect bounds = absoluteContentRect(node, layer);
-    env->SetObjectField(initData, classDef->m_contentBounds,
-            intRectToRect(env, bounds));
+    ScopedLocalRef<jobject> jbounds(env, intRectToRect(env, bounds));
+    env->SetObjectField(initData, classDef->m_contentBounds, jbounds.get());
     env->SetIntField(initData, classDef->m_nodeLayerId, layerId);
     IntRect contentRect;
     RenderTextControl* rtc = toRenderTextControl(node);
@@ -3470,8 +3475,8 @@ jobject WebViewCore::createTextFieldInitData(Node* node)
         contentRect.setHeight(rtc->scrollHeight());
         contentRect.move(-rtc->scrollLeft(), -rtc->scrollTop());
     }
-    env->SetObjectField(initData, classDef->m_contentRect,
-            intRectToRect(env, contentRect));
+    ScopedLocalRef<jobject> jcontentRect(env, intRectToRect(env, contentRect));
+    env->SetObjectField(initData, classDef->m_contentRect, jcontentRect.get());
     return initData;
 }
 
@@ -3486,9 +3491,9 @@ void WebViewCore::initEditField(Node* node)
     int end = 0;
     getSelectionOffsets(node, start, end);
     SelectText* selectText = createSelectText(focusedFrame()->selection()->selection());
+    ScopedLocalRef<jobject> initData(env, createTextFieldInitData(node));
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_initEditField,
-            start, end, reinterpret_cast<int>(selectText),
-            createTextFieldInitData(node));
+            start, end, reinterpret_cast<int>(selectText), initData.get());
     checkException(env);
 }
 
