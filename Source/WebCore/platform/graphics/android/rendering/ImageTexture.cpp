@@ -174,8 +174,8 @@ bool ImageTexture::prepareGL(GLWebViewState* state)
         return false;
 
     if (!m_texture && m_picture) {
-        bool isLayerTile = true;
-        m_texture = new TileGrid(isLayerTile);
+        bool isBaseSurface = false;
+        m_texture = new TileGrid(isBaseSurface);
         SkRegion region;
         region.setRect(0, 0, m_image->width(), m_image->height());
         m_texture->markAsDirty(region);
@@ -198,8 +198,6 @@ const TransformationMatrix* ImageTexture::transform()
     if (!m_layer)
         return 0;
 
-    FloatPoint p(0, 0);
-    p = m_layer->drawTransform()->mapPoint(p);
     IntRect layerArea = m_layer->unclippedArea();
     float scaleW = static_cast<float>(layerArea.width()) / static_cast<float>(m_image->width());
     float scaleH = static_cast<float>(layerArea.height()) / static_cast<float>(m_image->height());

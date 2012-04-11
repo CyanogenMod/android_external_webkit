@@ -80,7 +80,7 @@ bool TileGrid::isReady()
     // in order to unblock the zooming process.
     // FIXME: have a better system -- maybe keeping the last scale factor
     // able to fully render everything
-    ALOGV("TT %p, ready %d, visible %d, texturesRemain %d",
+    ALOGV("TG %p, ready %d, visible %d, texturesRemain %d",
           this, tilesAllReady, tilesVisible,
           TilesManager::instance()->layerTexturesRemain());
 
@@ -102,7 +102,7 @@ void TileGrid::swapTiles()
     for (unsigned int i = 0; i < m_tiles.size(); i++)
         if (m_tiles[i]->swapTexturesIfNeeded())
             swaps++;
-    ALOGV("TT %p swapping, swaps = %d", this, swaps);
+    ALOGV("TG %p swapping, swaps = %d", this, swaps);
 }
 
 IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)
@@ -113,7 +113,7 @@ IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)
                  ceilf(contentArea.width() * scale),
                  ceilf(contentArea.height() * scale));
 
-    ALOGV("TT %p prepare, scale %f, area %d x %d", this, scale, area.width(), area.height());
+    ALOGV("TG %p prepare, scale %f, area %d x %d", this, scale, area.width(), area.height());
 
     if (area.width() == 0 && area.height() == 0) {
         computedArea.setWidth(0);
@@ -213,7 +213,7 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
 
 void TileGrid::markAsDirty(const SkRegion& invalRegion)
 {
-    ALOGV("TT %p markAsDirty, current region empty %d, new empty %d",
+    ALOGV("TG %p markAsDirty, current region empty %d, new empty %d",
           this, m_dirtyRegion.isEmpty(), invalRegion.isEmpty());
     m_dirtyRegion.op(invalRegion, SkRegion::kUnion_Op);
 }
@@ -239,7 +239,7 @@ void TileGrid::prepareTile(int x, int y, TilePainter* painter,
         tile->reserveTexture();
 
     if (tile->backTexture() && tile->isDirty() && !tile->isRepaintPending()) {
-        ALOGV("painting TT %p's tile %d %d for LG %p", this, x, y, painter);
+        ALOGV("painting TG %p's tile %d %d for LG %p", this, x, y, painter);
         PaintTileOperation *operation = new PaintTileOperation(tile, painter,
                                                                state, isLowResPrefetch);
         TilesManager::instance()->scheduleOperation(operation);
@@ -330,7 +330,7 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
     if (semiOpaqueBaseSurface)
         drawMissingRegion(missingRegion, opacity, background);
 
-    ALOGV("TT %p drew %d tiles, scale %f",
+    ALOGV("TG %p drew %d tiles, scale %f",
           this, drawn, m_scale);
 }
 
@@ -372,7 +372,7 @@ void TileGrid::removeTiles()
 
 void TileGrid::discardTextures()
 {
-    ALOGV("TT %p discarding textures", this);
+    ALOGV("TG %p discarding textures", this);
     for (unsigned int i = 0; i < m_tiles.size(); i++)
         m_tiles[i]->discardTextures();
 }
