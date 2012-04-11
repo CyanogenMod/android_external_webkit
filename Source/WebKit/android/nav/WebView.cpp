@@ -593,6 +593,19 @@ void setTextSelection(SelectText *selection) {
     setDrawExtra(selection, DrawExtrasSelection);
 }
 
+const TransformationMatrix* getLayerTransform(int layerId) {
+    if (layerId != -1 && m_baseLayer) {
+        LayerAndroid* layer = m_baseLayer->findById(layerId);
+        // We need to make sure the drawTransform is up to date as this is
+        // called before a draw() or drawGL()
+        if (layer) {
+            m_baseLayer->updateLayerPositions(m_visibleRect);
+            return layer->drawTransform();
+        }
+    }
+    return 0;
+}
+
 int getHandleLayerId(SelectText::HandleId handleId, SkIPoint& cursorPoint,
         FloatQuad& textBounds) {
     SelectText* selectText = static_cast<SelectText*>(getDrawExtra(DrawExtrasSelection));
@@ -607,32 +620,20 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIPoint& cursorPoint,
     textRect.setWidth(std::max(1, textRect.width() - 1));
     textBounds = FloatQuad(textRect);
 
-    if (layerId != -1) {
-        // We need to make sure the drawTransform is up to date as this is
-        // called before a draw() or drawGL()
-        m_baseLayer->updateLayerPositions(m_visibleRect);
-        LayerAndroid* root = m_baseLayer;
-        LayerAndroid* layer = root ? root->findById(layerId) : 0;
-        if (layer && layer->drawTransform()) {
-            const TransformationMatrix* transform = layer->drawTransform();
-            // We're overloading the concept of Rect to be just the two
-            // points (bottom-left and top-right.
-            cursorPoint = transform->mapPoint(cursorPoint);
-            textBounds = transform->mapQuad(textBounds);
-        }
+    const TransformationMatrix* transform = getLayerTransform(layerId);
+    if (transform) {
+        // We're overloading the concept of Rect to be just the two
+        // points (bottom-left and top-right.
+        cursorPoint = transform->mapPoint(cursorPoint);
+        textBounds = transform->mapQuad(textBounds);
     }
     return layerId;
 }
 
 void mapLayerRect(int layerId, SkIRect& rect) {
-    if (layerId != -1) {
-        // We need to make sure the drawTransform is up to date as this is
-        // called before a draw() or drawGL()
-        m_baseLayer->updateLayerPositions(m_visibleRect);
-        LayerAndroid* layer = m_baseLayer ? m_baseLayer->findById(layerId) : 0;
-        if (layer && layer->drawTransform())
-            rect = layer->drawTransform()->mapRect(rect);
-    }
+    const TransformationMatrix* transform = getLayerTransform(layerId);
+    if (transform)
+        transform->mapRect(rect);
 }
 
 void floatQuadToQuadF(JNIEnv* env, const FloatQuad& nativeTextQuad,
