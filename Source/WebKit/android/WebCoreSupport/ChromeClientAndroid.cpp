@@ -95,7 +95,7 @@ void ChromeClientAndroid::scheduleCompositingLayerSync()
     m_needsLayerSync = true;
     WebViewCore* webViewCore = WebViewCore::getWebViewCore(m_webFrame->page()->mainFrame()->view());
     if (webViewCore)
-        webViewCore->layersDraw();
+        webViewCore->contentDraw();
 }
 
 void ChromeClientAndroid::setNeedsOneShotDrawingSynchronization()

@@ -254,7 +254,7 @@ void LayerAndroid::addDirtyArea()
 
     area.intersect(clip);
     IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
-    m_state->addDirtyArea(dirtyArea);
+    state()->addDirtyArea(dirtyArea);
 }
 
 void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> prpAnim)
@@ -411,7 +411,6 @@ void LayerAndroid::updatePositions()
 void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                              const FloatRect& clipping, float opacity, float scale)
 {
-    m_atomicSync.lock();
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
     FloatPoint position(getPosition().fX - m_offset.x(), getPosition().fY - m_offset.y());
@@ -428,7 +427,6 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
                             -originY,
                             -anchorPointZ());
 
-    m_atomicSync.unlock();
     setDrawTransform(localMatrix);
     if (m_drawTransform.isIdentityOrTranslation()) {
         // adjust the translation coordinates of the draw transform matrix so
@@ -608,50 +606,6 @@ void LayerAndroid::mergeInvalsInto(LayerAndroid* replacementTree)
     LayerAndroid* replacementLayer = replacementTree->findById(uniqueId());
     if (replacementLayer)
         replacementLayer->markAsDirty(m_dirtyRegion);
-}
-
-bool LayerAndroid::updateWithTree(LayerAndroid* newTree)
-{
-// Disable fast update for now
-#if (0)
-    bool needsRepaint = false;
-    int count = this->countChildren();
-    for (int i = 0; i < count; i++)
-        needsRepaint |= this->getChild(i)->updateWithTree(newTree);
-
-    if (newTree) {
-        LayerAndroid* newLayer = newTree->findById(uniqueId());
-        needsRepaint |= updateWithLayer(newLayer);
-    }
-    return needsRepaint;
-#else
-    return true;
-#endif
-}
-
-// Return true to indicate to WebViewCore that the updates
-// are too complicated to be fully handled and we need a full
-// call to webkit (e.g. handle repaints)
-bool LayerAndroid::updateWithLayer(LayerAndroid* layer)
-{
-    if (!layer)
-        return true;
-
-    android::AutoMutex lock(m_atomicSync);
-    m_position = layer->m_position;
-    m_anchorPoint = layer->m_anchorPoint;
-    m_size = layer->m_size;
-    m_opacity = layer->m_opacity;
-    m_transform = layer->m_transform;
-
-    if (m_imageCRC != layer->m_imageCRC)
-        m_visible = false;
-
-    if ((m_content != layer->m_content)
-        || (m_imageCRC != layer->m_imageCRC))
-        return true;
-
-    return false;
 }
 
 static inline bool compareLayerZ(const LayerAndroid* a, const LayerAndroid* b)
@@ -857,7 +811,7 @@ bool LayerAndroid::drawGL(bool layerTilesDisabled)
         ImagesManager::instance()->releaseImage(m_imageCRC);
     }
 
-    m_state->glExtras()->drawGL(this);
+    state()->glExtras()->drawGL(this);
     bool askScreenUpdate = false;
 
     m_atomicSync.lock();
