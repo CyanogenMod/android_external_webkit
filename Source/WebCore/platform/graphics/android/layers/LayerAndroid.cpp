@@ -930,7 +930,8 @@ void LayerAndroid::onDraw(SkCanvas* canvas, SkScalar opacity,
         return;
     }
 
-    if (masksToBounds() || !m_content)
+    // only continue drawing if layer is drawable
+    if (!m_content && !m_imageCRC)
         return;
 
     // we just have this save/restore for opacity...
