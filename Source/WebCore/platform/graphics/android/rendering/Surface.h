@@ -56,7 +56,7 @@ public:
 
     void computeTexturesAmount(TexturesResult* result);
 
-    LayerAndroid* getFirstLayer() { return m_layers[0]; }
+    LayerAndroid* getFirstLayer() const { return m_layers[0]; }
     bool needsTexture() { return m_needsTexture; }
     bool hasText() { return m_hasText; }
     bool isBase();

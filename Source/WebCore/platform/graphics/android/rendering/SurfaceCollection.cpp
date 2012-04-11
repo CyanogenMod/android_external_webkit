@@ -95,6 +95,15 @@ void SurfaceCollection::prepareGL(const SkRect& visibleRect)
         m_surfaces[i]->prepareGL(layerTilesDisabled);
 }
 
+static inline bool compareSurfaceZ(const Surface* a, const Surface* b)
+{
+    const LayerAndroid* la = a->getFirstLayer();
+    const LayerAndroid* lb = b->getFirstLayer();
+
+    // swap drawing order if zValue suggests it AND the layers are in the same stacking context
+    return (la->zValue() > lb->zValue()) && (la->getParent() == lb->getParent());
+}
+
 bool SurfaceCollection::drawGL(const SkRect& visibleRect)
 {
 #ifdef DEBUG_COUNT
@@ -105,8 +114,16 @@ bool SurfaceCollection::drawGL(const SkRect& visibleRect)
     updateLayerPositions(visibleRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
+
+    // create a duplicate vector of surfaces, sorted by z value
+    Vector <Surface*> surfaces;
     for (unsigned int i = 0; i < m_surfaces.size(); i++)
-        needsRedraw |= m_surfaces[i]->drawGL(layerTilesDisabled);
+        surfaces.append(m_surfaces[i]);
+    std::stable_sort(surfaces.begin()+1, surfaces.end(), compareSurfaceZ);
+
+    // draw the sorted vector
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+        needsRedraw |= surfaces[i]->drawGL(layerTilesDisabled);
 
     return needsRedraw;
 }
