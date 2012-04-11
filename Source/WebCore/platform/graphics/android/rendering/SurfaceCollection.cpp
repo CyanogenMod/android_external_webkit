@@ -63,11 +63,8 @@ SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
 
     // set the layersurfaces' update count, to be drawn on painted tiles
     unsigned int updateCount = TilesManager::instance()->incWebkitContentUpdates();
-    for (unsigned int i = 0; i < m_surfaces.size(); i++) {
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
         m_surfaces[i]->setUpdateCount(updateCount);
-        if (m_surfaces[i]->isBase())
-            m_surfaces[i]->setBackground(getBackground());
-    }
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("SurfaceCollection");
@@ -128,7 +125,7 @@ bool SurfaceCollection::drawGL(const SkRect& visibleRect)
     return needsRedraw;
 }
 
-Color SurfaceCollection::getBackground()
+Color SurfaceCollection::getBackgroundColor()
 {
     return static_cast<BaseLayerAndroid*>(m_compositedRoot)->getBackgroundColor();
 }
@@ -154,6 +151,16 @@ bool SurfaceCollection::isReady()
         }
     }
     return true;
+}
+
+bool SurfaceCollection::isMissingBackgroundContent()
+{
+    if (!m_compositedRoot)
+        return true;
+
+    // return true when the first surface is missing content (indicating the
+    // entire viewport isn't covered)
+    return m_surfaces[0]->isMissingContent();
 }
 
 void SurfaceCollection::computeTexturesAmount(TexturesResult* result)

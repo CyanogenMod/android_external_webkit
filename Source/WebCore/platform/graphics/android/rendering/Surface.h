@@ -53,6 +53,7 @@ public:
     bool drawGL(bool layerTilesDisabled);
     void swapTiles();
     bool isReady();
+    bool isMissingContent();
 
     void computeTexturesAmount(TexturesResult* result);
 
@@ -60,7 +61,6 @@ public:
     bool needsTexture() { return m_needsTexture; }
     bool hasText() { return m_hasText; }
     bool isBase();
-    void setBackground(Color background) { m_background = background; }
 
     // TilePainter methods
     virtual bool paint(Tile* tile, SkCanvas* canvas);
@@ -72,7 +72,6 @@ private:
     IntRect visibleArea();
     IntRect unclippedArea();
     bool singleLayer() { return m_layers.size() == 1; }
-    void updateBackground(const Color& background);
     bool useAggressiveRendering();
 
     const TransformationMatrix* drawTransform();

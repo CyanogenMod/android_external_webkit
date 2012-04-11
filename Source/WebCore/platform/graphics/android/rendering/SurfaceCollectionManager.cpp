@@ -224,6 +224,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     // ===========================================================================
     // Don't have a drawing collection, draw white background
     Color background = Color::white;
+    bool drawBackground = true;
     if (m_drawingCollection) {
         bool drawingReady = didCollectionSwap || m_drawingCollection->isReady();
 
@@ -245,17 +246,21 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         m_drawingCollection->evaluateAnimations(currentTime);
 
         ALOGV("drawing collection %p", m_drawingCollection);
-        background = m_drawingCollection->getBackground();
+        background = m_drawingCollection->getBackgroundColor();
+        drawBackground = m_drawingCollection->isMissingBackgroundContent();
     } else if (m_paintingCollection) {
         // Use paintingCollection background color while tiles are not done painting.
-        background = m_paintingCollection->getBackground();
+        background = m_paintingCollection->getBackgroundColor();
     }
 
     // Start doing the actual GL drawing.
-    ALOGV("background is %x", background.rgb());
-    // If background is opaque, we can safely and efficiently clear it here.
-    // Otherwise, we have to calculate all the missing tiles and blend the background.
-    GLUtils::clearBackgroundIfOpaque(&background);
+    if (drawBackground) {
+        ALOGV("background is %x", background.rgb());
+        // If background is opaque, we can safely and efficiently clear it here.
+        // Otherwise, we have to calculate all the missing tiles and blend the background.
+        GLUtils::clearBackgroundIfOpaque(&background);
+    }
+
     if (m_drawingCollection && m_drawingCollection->drawGL(visibleRect))
         returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
 
