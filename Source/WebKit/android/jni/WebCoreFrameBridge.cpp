@@ -316,7 +316,6 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     ALOG_ASSERT(mJavaFrame->mAutoLogin, "Could not find method autoLogin");
 
     mUserAgent = WTF::String();
-    mUserInitiatedAction = false;
     mBlockNetworkLoads = false;
     m_renderSkins = 0;
 }

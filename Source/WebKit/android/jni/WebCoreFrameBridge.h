@@ -128,13 +128,6 @@ class WebFrame : public WebCoreRefObject {
     // application.
     void autoLogin(const std::string& loginHeader);
 
-    /**
-     * When the user initiates a click, we set mUserInitiatedAction to true.
-     * If a load happens due to this click, then we ask the application if it wants
-     * to override the load. Otherwise, we attempt to load the resource internally.
-     */
-    void setUserInitiatedAction(bool userInitiatedAction) { mUserInitiatedAction = userInitiatedAction; }
-
     WebCore::Page* page() const { return mPage; }
 
     // Currently used only by the chrome net stack.  A similar field is used by
@@ -163,7 +156,6 @@ class WebFrame : public WebCoreRefObject {
     WebCore::Page* mPage;
     WTF::String mUserAgent;
     bool mBlockNetworkLoads;
-    bool mUserInitiatedAction;
     WebCore::RenderSkinAndroid* m_renderSkins;
 };
 

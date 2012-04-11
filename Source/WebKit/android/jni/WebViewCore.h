@@ -350,6 +350,11 @@ namespace android {
                 WebCore::Node* node, int x, int y);
 
         /**
+         * Clicks the mouse at its current location
+         */
+        bool performMouseClick();
+
+        /**
          * Sets the index of the label from a popup
          */
         void popupReply(int index);

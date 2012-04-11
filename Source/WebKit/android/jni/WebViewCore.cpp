@@ -3264,6 +3264,23 @@ void WebViewCore::touchUp(int touchGeneration,
     handleMouseClick(frame, node, false);
 }
 
+bool WebViewCore::performMouseClick()
+{
+    WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
+            WebCore::MouseEventPressed, 1, false, false, false, false,
+            WTF::currentTime());
+    // ignore the return from as it will return true if the hit point can trigger selection change
+    m_mainFrame->eventHandler()->handleMousePressEvent(mouseDown);
+    WebCore::PlatformMouseEvent mouseUp(m_mousePos, m_mousePos, WebCore::LeftButton,
+            WebCore::MouseEventReleased, 1, false, false, false, false,
+            WTF::currentTime());
+    bool handled = m_mainFrame->eventHandler()->handleMouseReleaseEvent(mouseUp);
+
+    WebCore::Node* focusNode = currentFocus();
+    initializeTextInput(focusNode, false);
+    return handled;
+}
+
 // Check for the "x-webkit-soft-keyboard" attribute.  If it is there and
 // set to hidden, do not show the soft keyboard.  Node passed as a parameter
 // must not be null.
@@ -3291,15 +3308,12 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
     // Need to special case area tags because an image map could have an area element in the middle
     // so when attempting to get the default, the point chosen would be follow the wrong link.
         if (nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
-            webFrame->setUserInitiatedAction(true);
             nodePtr->dispatchSimulatedClick(0, true, true);
-            webFrame->setUserInitiatedAction(false);
             return true;
         }
     }
     if (!valid || !framePtr)
         framePtr = m_mainFrame;
-    webFrame->setUserInitiatedAction(true);
     WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
             WebCore::MouseEventPressed, 1, false, false, false, false,
             WTF::currentTime());
@@ -3309,7 +3323,6 @@ bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* node
             WebCore::MouseEventReleased, 1, false, false, false, false,
             WTF::currentTime());
     bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
-    webFrame->setUserInitiatedAction(false);
 
     WebCore::Node* focusNode = currentFocus();
     initializeTextInput(focusNode, fake);
@@ -4657,6 +4670,12 @@ static void TouchUp(JNIEnv* env, jobject obj, jint nativeClass,
         (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
 
+static bool MouseClick(JNIEnv* env, jobject obj, jint nativeClass)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    return viewImpl->performMouseClick();
+}
+
 static jstring RetrieveHref(JNIEnv* env, jobject obj, jint nativeClass,
         jint x, jint y)
 {
@@ -5078,6 +5097,8 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
             (void*) HandleTouchEvent },
     { "nativeTouchUp", "(IIIIII)V",
         (void*) TouchUp },
+    { "nativeMouseClick", "(I)Z",
+        (void*) MouseClick },
     { "nativeRetrieveHref", "(III)Ljava/lang/String;",
         (void*) RetrieveHref },
     { "nativeRetrieveAnchorText", "(III)Ljava/lang/String;",
