@@ -593,7 +593,6 @@ String KURL::query() const
 
 String KURL::path() const
 {
-    // Note: KURL.cpp unescapes here.
     return m_url.componentString(m_url.m_parsed.path);
 }
 

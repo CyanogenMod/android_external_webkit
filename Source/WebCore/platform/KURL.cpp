@@ -708,7 +708,7 @@ String KURL::query() const
 
 String KURL::path() const
 {
-    return decodeURLEscapeSequences(m_string.substring(m_portEnd, m_pathEnd - m_portEnd)); 
+    return m_string.substring(m_portEnd, m_pathEnd - m_portEnd);
 }
 
 bool KURL::setProtocol(const String& s)
@@ -996,7 +996,7 @@ static void appendEscapingBadChars(char*& buffer, const char* strStart, size_t l
     buffer = p;
 }
 
-static void escapeAndAppendFragment(char*& buffer, const char* strStart, size_t length)
+static void escapeAndAppendNonHierarchicalPart(char*& buffer, const char* strStart, size_t length)
 {
     char* p = buffer;
 
@@ -1420,7 +1420,9 @@ void KURL::parse(const char* url, const String* originalString)
         *p++ = '/';
 
     // add path, escaping bad characters
-    if (!hierarchical || !hasSlashDotOrDotDot(url))
+    if (!hierarchical)
+        escapeAndAppendNonHierarchicalPart(p, url + pathStart, pathEnd - pathStart);
+    else if (!hasSlashDotOrDotDot(url))
         appendEscapingBadChars(p, url + pathStart, pathEnd - pathStart);
     else {
         CharBuffer pathBuffer(pathEnd - pathStart + 1);
@@ -1446,7 +1448,7 @@ void KURL::parse(const char* url, const String* originalString)
     // add fragment, escaping bad characters
     if (fragmentEnd != queryEnd) {
         *p++ = '#';
-        escapeAndAppendFragment(p, url + fragmentStart, fragmentEnd - fragmentStart);
+        escapeAndAppendNonHierarchicalPart(p, url + fragmentStart, fragmentEnd - fragmentStart);
     }
     m_fragmentEnd = p - buffer.data();
 
