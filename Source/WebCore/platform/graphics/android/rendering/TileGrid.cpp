@@ -274,8 +274,8 @@ int TileGrid::nbTextures(IntRect& area, float scale)
 }
 
 void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
-                          const TransformationMatrix* transform,
-                          const Color* background)
+                      const TransformationMatrix* transform,
+                      const Color* background)
 {
     m_area = computeTilesArea(visibleArea, m_scale);
     if (m_area.width() == 0 || m_area.height() == 0)
@@ -322,7 +322,8 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
                 drawn++;
         }
 
-        if (semiOpaqueBaseSurface)
+        // log tile information for base, high res tiles
+        if (m_isBaseSurface && background)
             TilesManager::instance()->getProfiler()->nextTile(tile, invScale, tileInView);
     }
 
