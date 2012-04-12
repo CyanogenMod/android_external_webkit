@@ -711,13 +711,17 @@ class GLDrawFunctor : Functor {
         int titlebarHeight = webViewRect.height() - viewRect.height();
 
         uirenderer::DrawGlInfo* info = reinterpret_cast<uirenderer::DrawGlInfo*>(data);
-        WebCore::IntRect localViewRect = viewRect;
-        if (info->isLayer)
-            localViewRect.move(-1 * localViewRect.x(), -1 * localViewRect.y());
-
         WebCore::IntRect clip(info->clipLeft, info->clipTop,
                               info->clipRight - info->clipLeft,
                               info->clipBottom - info->clipTop);
+
+        WebCore::IntRect localViewRect = viewRect;
+        if (info->isLayer) {
+            // When webview is on a layer, we need to use the viewport relative
+            // to the FBO, rather than the screen(which will use viewRect).
+            localViewRect.setX(clip.x());
+            localViewRect.setY(info->height - clip.y() - clip.height());
+        }
         bool shouldDraw = (messageId == uirenderer::DrawGlInfo::kModeDraw);
         TilesManager::instance()->shader()->setWebViewMatrix(info->transform, info->isLayer);
         int returnFlags = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect,
