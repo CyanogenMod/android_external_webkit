@@ -312,6 +312,7 @@ public:
 
     inline bool isBeforeContent() const;
     inline bool isAfterContent() const;
+    inline bool isBeforeOrAfterContent() const;
     static inline bool isBeforeContent(const RenderObject* obj) { return obj && obj->isBeforeContent(); }
     static inline bool isAfterContent(const RenderObject* obj) { return obj && obj->isAfterContent(); }
 
@@ -915,6 +916,11 @@ inline bool RenderObject::isAfterContent() const
     if (isText() && !isBR())
         return false;
     return true;
+}
+
+inline bool RenderObject::isBeforeOrAfterContent() const
+{
+    return isBeforeContent() || isAfterContent();
 }
 
 inline void RenderObject::setNeedsLayout(bool b, bool markParents)
