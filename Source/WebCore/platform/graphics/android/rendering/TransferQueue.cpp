@@ -203,7 +203,6 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
     GLenum status = glCheckFramebufferStatus(GL_FRAMEBUFFER);
     if (status != GL_FRAMEBUFFER_COMPLETE) {
         ALOGV("Error: glCheckFramebufferStatus failed");
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         return;
     }
 
@@ -426,7 +425,6 @@ void TransferQueue::updateDirtyTiles()
     // dynamic switch possible. Moving this out from the loop can save some
     // milli-seconds.
     if (usedFboForUpload) {
-        glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
         restoreGLState();
         GLUtils::checkGlError("updateDirtyTiles");
     }
@@ -593,6 +591,7 @@ void TransferQueue::cleanupPendingDiscard()
 
 void TransferQueue::saveGLState()
 {
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, m_GLStateBeforeBlit.bufferId);
     glGetIntegerv(GL_VIEWPORT, m_GLStateBeforeBlit.viewport);
     glGetBooleanv(GL_SCISSOR_TEST, m_GLStateBeforeBlit.scissor);
     glGetBooleanv(GL_DEPTH_TEST, m_GLStateBeforeBlit.depth);
@@ -616,6 +615,7 @@ void TransferQueue::setGLStateForCopy(int width, int height)
 
 void TransferQueue::restoreGLState()
 {
+    glBindFramebuffer(GL_FRAMEBUFFER, m_GLStateBeforeBlit.bufferId[0]);
     glViewport(m_GLStateBeforeBlit.viewport[0],
                m_GLStateBeforeBlit.viewport[1],
                m_GLStateBeforeBlit.viewport[2],

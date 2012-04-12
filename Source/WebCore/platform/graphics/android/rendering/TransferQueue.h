@@ -40,6 +40,7 @@ class Tile;
 class TileTexture;
 
 struct GLState {
+    GLint bufferId[1];
     GLint viewport[4];
     GLboolean scissor[1];
     GLboolean depth[1];
