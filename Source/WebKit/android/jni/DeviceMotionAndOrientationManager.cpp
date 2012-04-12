@@ -46,7 +46,7 @@ DeviceMotionAndOrientationManager::DeviceMotionAndOrientationManager(WebViewCore
 {
 }
 
-void DeviceMotionAndOrientationManager::useMock()
+void DeviceMotionAndOrientationManager::setUseMock()
 {
     m_useMock = true;
 }
@@ -124,9 +124,9 @@ static WebViewCore* getWebViewCore(JNIEnv* env, jobject webViewCoreObject)
     return reinterpret_cast<WebViewCore*>(env->GetIntField(webViewCoreObject, nativeClassField));
 }
 
-static void useMock(JNIEnv* env, jobject, jobject webViewCoreObject)
+static void setUseMock(JNIEnv* env, jobject, jobject webViewCoreObject)
 {
-    getWebViewCore(env, webViewCoreObject)->deviceMotionAndOrientationManager()->useMock();
+    getWebViewCore(env, webViewCoreObject)->deviceMotionAndOrientationManager()->setUseMock();
 }
 
 static void onMotionChange(JNIEnv* env, jobject, jobject webViewCoreObject, bool canProvideX, double x, bool canProvideY, double y, bool canProvideZ, double z, double interval)
@@ -151,7 +151,7 @@ static void onOrientationChange(JNIEnv* env, jobject, jobject webViewCoreObject,
 }
 
 static JNINativeMethod gDeviceMotionAndOrientationManagerMethods[] = {
-    { "nativeUseMock", "(Landroid/webkit/WebViewCore;)V", (void*) useMock },
+    { "nativeSetUseMock", "(Landroid/webkit/WebViewCore;)V", (void*) setUseMock },
     { "nativeOnMotionChange", "(Landroid/webkit/WebViewCore;ZDZDZDD)V", (void*) onMotionChange },
     { "nativeSetMockOrientation", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) setMockOrientation },
     { "nativeOnOrientationChange", "(Landroid/webkit/WebViewCore;ZDZDZD)V", (void*) onOrientationChange }
