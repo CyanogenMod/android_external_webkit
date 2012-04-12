@@ -30,6 +30,7 @@
 #include "Surface.h"
 
 #include "AndroidLog.h"
+#include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
 #include "LayerAndroid.h"
 #include "GLWebViewState.h"
@@ -140,6 +141,9 @@ void Surface::addLayer(LayerAndroid* layer, const TransformationMatrix& transfor
               m_unclippedArea.x(), m_unclippedArea.y(),
               m_unclippedArea.width(), m_unclippedArea.height());
     }
+
+    if (isBase())
+        m_background = static_cast<BaseLayerAndroid*>(layer)->getBackgroundColor();
 }
 
 IntRect Surface::visibleArea()
@@ -248,6 +252,14 @@ bool Surface::isReady()
         return true;
 
     return m_surfaceBacking->isReady();
+}
+
+bool Surface::isMissingContent()
+{
+    if (!m_surfaceBacking)
+        return true;
+
+    return m_surfaceBacking->isMissingContent();
 }
 
 IntRect Surface::computePrepareArea() {

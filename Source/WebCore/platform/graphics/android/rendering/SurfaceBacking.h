@@ -59,6 +59,11 @@ public:
         return !m_zooming && m_frontTexture->isReady() && m_scale > 0;
     }
 
+    bool isMissingContent()
+    {
+        return !m_zooming && m_frontTexture->isMissingContent();
+    }
+
     int nbTextures(IntRect& area, float scale)
     {
         // TODO: consider the zooming case for the backTexture

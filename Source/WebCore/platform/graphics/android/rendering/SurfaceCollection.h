@@ -50,9 +50,10 @@ public:
     // Tiled painting methods (executed on groups)
     void prepareGL(const SkRect& visibleRect);
     bool drawGL(const SkRect& visibleRect);
-    Color getBackground();
+    Color getBackgroundColor();
     void swapTiles();
     bool isReady();
+    bool isMissingBackgroundContent();
     void computeTexturesAmount(TexturesResult* result);
 
     // Recursive tree methods (animations, invals, etc)
