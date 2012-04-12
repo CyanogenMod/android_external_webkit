@@ -218,8 +218,8 @@ public:
     virtual bool isShadowBoundary() const { return false; }
     virtual bool canHaveLightChildRendererWithShadow() const { return false; }
 
-    Node* shadowAncestorNode();
-    Node* shadowTreeRootNode();
+    Node* shadowAncestorNode() const;
+    Node* shadowTreeRootNode() const;
     bool isInShadowTree();
     // Node's parent, shadow tree host, or SVG use.
     ContainerNode* parentOrHostNode() const;
