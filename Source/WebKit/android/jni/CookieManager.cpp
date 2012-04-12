@@ -35,8 +35,8 @@ using namespace net;
 
 namespace android {
 
-// JNI for android.webkit.CookieManager
-static const char* javaCookieManagerClass = "android/webkit/CookieManager";
+// JNI for android.webkit.CookieManagerClassic
+static const char* javaCookieManagerClass = "android/webkit/CookieManagerClassic";
 
 static bool acceptCookie(JNIEnv*, jobject)
 {

@@ -99,7 +99,7 @@ static JNINativeMethod gGeolocationPermissionsMethods[] = {
 
 int registerGeolocationPermissions(JNIEnv* env)
 {
-    const char* kGeolocationPermissionsClass = "android/webkit/GeolocationPermissions";
+    const char* kGeolocationPermissionsClass = "android/webkit/GeolocationPermissionsClassic";
 #ifndef NDEBUG
     jclass geolocationPermissions = env->FindClass(kGeolocationPermissionsClass);
     ALOG_ASSERT(geolocationPermissions, "Unable to find class");
