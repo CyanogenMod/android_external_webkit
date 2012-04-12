@@ -323,31 +323,11 @@ namespace android {
         void chromeTakeFocus(WebCore::FocusDirection direction);
 
         /**
-         * Handle (trackball) click event / dpad center press from Java.
-         * Also used when typing into an unfocused textfield, in which case 'fake'
-         * will be true.
-         */
-        void click(WebCore::Frame* frame, WebCore::Node* node, bool fake);
-
-        /**
          * Handle touch event
          */
         bool handleTouchEvent(int action, WTF::Vector<int>& ids,
                               WTF::Vector<WebCore::IntPoint>& points,
                               int actionIndex, int metaState);
-
-        /**
-         * Handle motionUp event from the UI thread (called touchUp in the
-         * WebCore thread).
-         * @param touchGeneration Generation number for touches so we can ignore
-         *      touches when a newer one has been generated.
-         * @param frame Pointer to Frame containing the node that was touched.
-         * @param node Pointer to Node that was touched.
-         * @param x x-position of the touch.
-         * @param y y-position of the touch.
-         */
-        void touchUp(int touchGeneration, WebCore::Frame* frame,
-                WebCore::Node* node, int x, int y);
 
         /**
          * Clicks the mouse at its current location
@@ -659,7 +639,6 @@ namespace android {
          * @param fake This is a fake mouse click, used to put a textfield into focus. Do not
          *      open the IME.
          */
-        bool handleMouseClick(WebCore::Frame*, WebCore::Node*, bool fake);
         WebCore::HTMLAnchorElement* retrieveAnchorElement(int x, int y);
         WebCore::HTMLElement* retrieveElement(int x, int y,
             const WebCore::QualifiedName& );

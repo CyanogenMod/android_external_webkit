@@ -52,10 +52,6 @@ enum TouchEventType {
     , TouchMove
     , TouchEnd
     , TouchCancel
-#if PLATFORM(ANDROID)
-    , TouchLongPress
-    , TouchDoubleTap
-#endif
 };
 
 class PlatformTouchEvent {
