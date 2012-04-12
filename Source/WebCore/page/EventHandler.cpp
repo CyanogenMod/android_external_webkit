@@ -3224,15 +3224,7 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
         // When sending a touch cancel event, use empty touches and targetTouches lists.
         bool isTouchCancelEvent = (state == PlatformTouchPoint::TouchCancelled);
         RefPtr<TouchList>& effectiveTouches(isTouchCancelEvent ? emptyList : touches);
-#if PLATFORM(ANDROID)
-        AtomicString stateName(eventNameForTouchPointState(static_cast<PlatformTouchPoint::State>(state)));
-        if (event.type() == TouchLongPress)
-            stateName = eventNames().touchlongpressEvent;
-        else if (event.type() == TouchDoubleTap)
-            stateName = eventNames().touchdoubletapEvent;
-#else
         const AtomicString& stateName(eventNameForTouchPointState(static_cast<PlatformTouchPoint::State>(state)));
-#endif
         const EventTargetSet& targetsForState = changedTouches[state].m_targets;
 
         for (EventTargetSet::const_iterator it = targetsForState.begin(); it != targetsForState.end(); ++it) {

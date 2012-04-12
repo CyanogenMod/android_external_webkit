@@ -3123,27 +3123,6 @@ void WebViewCore::chromeTakeFocus(FocusDirection direction)
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_chromeTakeFocus, direction);
 }
 
-// For when the user clicks the trackball, presses dpad center, or types into an
-// unfocused textfield.  In the latter case, 'fake' will be true
-void WebViewCore::click(WebCore::Frame* frame, WebCore::Node* node, bool fake) {
-    if (!node) {
-        WebCore::IntPoint pt = m_mousePos;
-        pt.move(m_scrollOffsetX, m_scrollOffsetY);
-        WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->
-                hitTestResultAtPoint(pt, false);
-        node = hitTestResult.innerNode();
-        frame = node->document()->frame();
-    }
-    if (node) {
-        EditorClientAndroid* client
-                = static_cast<EditorClientAndroid*>(
-                m_mainFrame->editor()->client());
-        client->setShouldChangeSelectedRange(false);
-        handleMouseClick(frame, node, fake);
-        client->setShouldChangeSelectedRange(true);
-    }
-}
-
 #if USE(ACCELERATED_COMPOSITING)
 GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 {
@@ -3198,14 +3177,6 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
         type = WebCore::TouchEnd;
         defaultTouchState = WebCore::PlatformTouchPoint::TouchStationary;
         break;
-    case 0x100: // WebViewCore.ACTION_LONGPRESS
-        type = WebCore::TouchLongPress;
-        defaultTouchState = WebCore::PlatformTouchPoint::TouchPressed;
-        break;
-    case 0x200: // WebViewCore.ACTION_DOUBLETAP
-        type = WebCore::TouchDoubleTap;
-        defaultTouchState = WebCore::PlatformTouchPoint::TouchPressed;
-        break;
     default:
         // We do not support other kinds of touch event inside WebCore
         // at the moment.
@@ -3239,31 +3210,6 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
     return preventDefault;
 }
 
-void WebViewCore::touchUp(int touchGeneration,
-    WebCore::Frame* frame, WebCore::Node* node, int x, int y)
-{
-    if (touchGeneration == 0) {
-        // m_mousePos should be set in getTouchHighlightRects()
-        WebCore::HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(m_mousePos, false);
-        node = hitTestResult.innerNode();
-        if (node)
-            frame = node->document()->frame();
-        else
-            frame = 0;
-    } else {
-        if (m_touchGeneration > touchGeneration)
-            return; // short circuit if a newer touch has been generated
-        // This moves m_mousePos to the correct place, and handleMouseClick uses
-        // m_mousePos to determine where the click happens.
-        moveMouse(x, y);
-        m_lastGeneration = touchGeneration;
-    }
-    if (frame && validNode(m_mainFrame, frame, 0)) {
-        frame->loader()->resetMultipleFormSubmissionProtection();
-    }
-    handleMouseClick(frame, node, false);
-}
-
 bool WebViewCore::performMouseClick()
 {
     WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
@@ -3295,38 +3241,6 @@ static bool shouldSuppressKeyboard(const WebCore::Node* node) {
             return true;
     }
     return false;
-}
-
-// Common code for both clicking with the trackball and touchUp
-// Also used when typing into a non-focused textfield to give the textfield focus,
-// in which case, 'fake' is set to true
-bool WebViewCore::handleMouseClick(WebCore::Frame* framePtr, WebCore::Node* nodePtr, bool fake)
-{
-    bool valid = !framePtr || validNode(m_mainFrame, framePtr, nodePtr);
-    WebFrame* webFrame = WebFrame::getWebFrame(m_mainFrame);
-    if (valid && nodePtr) {
-    // Need to special case area tags because an image map could have an area element in the middle
-    // so when attempting to get the default, the point chosen would be follow the wrong link.
-        if (nodePtr->hasTagName(WebCore::HTMLNames::areaTag)) {
-            nodePtr->dispatchSimulatedClick(0, true, true);
-            return true;
-        }
-    }
-    if (!valid || !framePtr)
-        framePtr = m_mainFrame;
-    WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
-            WebCore::MouseEventPressed, 1, false, false, false, false,
-            WTF::currentTime());
-    // ignore the return from as it will return true if the hit point can trigger selection change
-    framePtr->eventHandler()->handleMousePressEvent(mouseDown);
-    WebCore::PlatformMouseEvent mouseUp(m_mousePos, m_mousePos, WebCore::LeftButton,
-            WebCore::MouseEventReleased, 1, false, false, false, false,
-            WTF::currentTime());
-    bool handled = framePtr->eventHandler()->handleMouseReleaseEvent(mouseUp);
-
-    WebCore::Node* focusNode = currentFocus();
-    initializeTextInput(focusNode, fake);
-    return handled;
 }
 
 WebViewCore::InputType WebViewCore::getInputType(Node* node)
@@ -4474,16 +4388,6 @@ static jboolean Key(JNIEnv* env, jobject obj, jint nativeClass, jint keyCode,
         unichar, repeatCount, isDown, isShift, isAlt, isSym));
 }
 
-static void Click(JNIEnv* env, jobject obj, jint nativeClass, int framePtr,
-        int nodePtr, jboolean fake)
-{
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    ALOG_ASSERT(viewImpl, "viewImpl not set in Click");
-
-    viewImpl->click(reinterpret_cast<WebCore::Frame*>(framePtr),
-        reinterpret_cast<WebCore::Node*>(nodePtr), fake);
-}
-
 static void ContentInvalidateAll(JNIEnv* env, jobject obj, jint nativeClass)
 {
     reinterpret_cast<WebViewCore*>(nativeClass)->contentInvalidateAll();
@@ -4659,15 +4563,6 @@ static jboolean HandleTouchEvent(JNIEnv* env, jobject obj, jint nativeClass,
     env->ReleaseIntArrayElements(yArray, ptrYArray, JNI_ABORT);
 
     return viewImpl->handleTouchEvent(action, ids, points, actionIndex, metaState);
-}
-
-static void TouchUp(JNIEnv* env, jobject obj, jint nativeClass,
-        jint touchGeneration, jint frame, jint node, jint x, jint y)
-{
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    ALOG_ASSERT(viewImpl, "viewImpl not set in %s", __FUNCTION__);
-    viewImpl->touchUp(touchGeneration,
-        (WebCore::Frame*) frame, (WebCore::Node*) node, x, y);
 }
 
 static bool MouseClick(JNIEnv* env, jobject obj, jint nativeClass)
@@ -5059,8 +4954,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) FocusBoundsChanged } ,
     { "nativeKey", "(IIIIZZZZ)Z",
         (void*) Key },
-    { "nativeClick", "(IIIZ)V",
-        (void*) Click },
     { "nativeContentInvalidateAll", "(I)V",
         (void*) ContentInvalidateAll },
     { "nativeSendListBoxChoices", "(I[ZI)V",
@@ -5094,9 +4987,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
     { "nativeHandleTouchEvent", "(II[I[I[IIII)Z",
-            (void*) HandleTouchEvent },
-    { "nativeTouchUp", "(IIIIII)V",
-        (void*) TouchUp },
+        (void*) HandleTouchEvent },
     { "nativeMouseClick", "(I)Z",
         (void*) MouseClick },
     { "nativeRetrieveHref", "(III)Ljava/lang/String;",
