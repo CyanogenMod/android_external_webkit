@@ -321,6 +321,7 @@ namespace android {
         bool key(const WebCore::PlatformKeyboardEvent& event);
         bool chromeCanTakeFocus(WebCore::FocusDirection direction);
         void chromeTakeFocus(WebCore::FocusDirection direction);
+        void setInitialFocus(const WebCore::PlatformKeyboardEvent& event);
 
         /**
          * Handle touch event
