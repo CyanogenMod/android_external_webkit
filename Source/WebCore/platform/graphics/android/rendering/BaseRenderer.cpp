@@ -112,7 +112,7 @@ void BaseRenderer::renderTiledContent(TileRenderInfo& renderInfo)
     setupPartialInval(renderInfo, &canvas);
     canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
     canvas.scale(renderInfo.scale, renderInfo.scale);
-    renderInfo.tilePainter->paint(renderInfo.baseTile, &canvas);
+    renderInfo.tilePainter->paint(&canvas);
     if (renderInfo.baseTile && renderInfo.baseTile->backTexture())
         checkForPureColor(renderInfo, &canvas);
     else

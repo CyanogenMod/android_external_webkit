@@ -298,7 +298,7 @@ bool Surface::isBase()
     return getFirstLayer()->subclassType() == LayerAndroid::BaseLayer;
 }
 
-bool Surface::paint(Tile* tile, SkCanvas* canvas)
+bool Surface::paint(SkCanvas* canvas)
 {
     if (singleLayer()) {
         getFirstLayer()->contentDraw(canvas, Layer::UnmergedLayers);

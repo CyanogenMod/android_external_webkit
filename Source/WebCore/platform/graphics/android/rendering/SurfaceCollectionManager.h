@@ -41,7 +41,7 @@ class SurfaceCollection;
 
 class TEST_EXPORT SurfaceCollectionManager {
 public:
-    SurfaceCollectionManager(GLWebViewState* state);
+    SurfaceCollectionManager();
 
     ~SurfaceCollectionManager();
 
@@ -57,10 +57,6 @@ public:
 private:
     void swap();
     void clearCollections();
-
-    android::Mutex m_paintSwapLock;
-
-    GLWebViewState* m_state;
 
     SurfaceCollection* m_drawingCollection;
     SurfaceCollection* m_paintingCollection;

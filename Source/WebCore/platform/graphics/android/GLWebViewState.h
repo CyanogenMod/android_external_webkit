@@ -192,10 +192,6 @@ public:
 
     bool goingDown() { return m_goingDown; }
     bool goingLeft() { return m_goingLeft; }
-    void setDirection(bool goingDown, bool goingLeft) {
-        m_goingDown = goingDown;
-        m_goingLeft = goingLeft;
-    }
 
     float scale() { return m_scale; }
 

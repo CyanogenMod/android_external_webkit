@@ -63,7 +63,7 @@ public:
     bool isBase();
 
     // TilePainter methods
-    virtual bool paint(Tile* tile, SkCanvas* canvas);
+    virtual bool paint(SkCanvas* canvas);
     virtual float opacity();
     virtual Color* background();
 

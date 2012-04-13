@@ -341,7 +341,6 @@ void TileGrid::drawMissingRegion(const SkRegion& region, float opacity,
     SkRegion::Iterator iterator(region);
     const float tileWidth = TilesManager::tileWidth() / m_scale;
     const float tileHeight = TilesManager::tileHeight() / m_scale;
-    ShaderProgram* shader = TilesManager::instance()->shader();
     while (!iterator.done()) {
         SkIRect r = iterator.rect();
         SkRect rect;

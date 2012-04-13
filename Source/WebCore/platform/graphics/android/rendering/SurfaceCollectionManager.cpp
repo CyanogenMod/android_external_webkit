@@ -36,9 +36,8 @@
 
 namespace WebCore {
 
-SurfaceCollectionManager::SurfaceCollectionManager(GLWebViewState* state)
-    : m_state(state)
-    , m_drawingCollection(0)
+SurfaceCollectionManager::SurfaceCollectionManager()
+    : m_drawingCollection(0)
     , m_paintingCollection(0)
     , m_queuedCollection(0)
     , m_fastSwapMode(false)
@@ -58,8 +57,6 @@ void SurfaceCollectionManager::swap()
 {
     // swap can't be called unless painting just finished
     ASSERT(m_paintingCollection);
-
-    android::Mutex::Autolock lock(m_paintSwapLock);
 
     ALOGV("SWAPPING, D %p, P %p, Q %p",
           m_drawingCollection, m_paintingCollection, m_queuedCollection);
@@ -90,8 +87,6 @@ void SurfaceCollectionManager::swap()
 // clear all of the content in the three collections held by the collection manager
 void SurfaceCollectionManager::clearCollections()
 {
-    ALOGV("SurfaceCollectionManager %p removing PS from state %p", this, m_state);
-
     SkSafeUnref(m_drawingCollection);
     m_drawingCollection = 0;
     SkSafeUnref(m_paintingCollection);
@@ -108,8 +103,6 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
 {
     // can't have a queued collection unless have a painting collection too
     ASSERT(m_paintingCollection || !m_queuedCollection);
-
-    android::Mutex::Autolock lock(m_paintSwapLock);
 
     if (!newCollection || brandNew) {
         clearCollections();

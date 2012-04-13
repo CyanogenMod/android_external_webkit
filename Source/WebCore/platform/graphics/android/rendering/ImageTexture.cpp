@@ -215,14 +215,14 @@ float ImageTexture::opacity()
     return m_layer->drawOpacity();
 }
 
-bool ImageTexture::paint(Tile* tile, SkCanvas* canvas)
+bool ImageTexture::paint(SkCanvas* canvas)
 {
     if (!m_picture) {
         ALOGV("IT %p COULDNT PAINT, NO PICTURE", this);
         return false;
     }
 
-    ALOGV("IT %p painting tile %d, %d with picture %p", this, tile->x(), tile->y(), m_picture);
+    ALOGV("IT %p painting with picture %p", this, m_picture);
     canvas->drawPicture(*m_picture);
 
     return true;
