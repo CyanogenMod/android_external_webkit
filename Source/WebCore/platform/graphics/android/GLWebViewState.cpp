@@ -305,9 +305,10 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                            bool shouldDraw)
 {
     TilesManager* tilesManager = TilesManager::instance();
-    tilesManager->getProfiler()->nextFrame(viewport.fLeft, viewport.fTop,
-                                           viewport.fRight, viewport.fBottom,
-                                           scale);
+    if (shouldDraw)
+        tilesManager->getProfiler()->nextFrame(viewport.fLeft, viewport.fTop,
+                                               viewport.fRight, viewport.fBottom,
+                                               scale);
     tilesManager->incDrawGLCount();
 
     ALOGV("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
