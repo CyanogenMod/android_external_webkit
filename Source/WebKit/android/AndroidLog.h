@@ -31,6 +31,7 @@
 #endif
 
 #include <cutils/log.h>
+#include <utils/Trace.h>
 #include <wtf/CurrentTime.h>
 
 #ifdef ANDROID_DOM_LOGGING
@@ -51,6 +52,8 @@ extern FILE* gRenderTreeFile;
 
 #define DISPLAY_TREE_LOG_FILE "/sdcard/displayTree.txt"
 #define LAYERS_TREE_LOG_FILE "/sdcard/layersTree.plist"
+
+#define TRACE_METHOD() ScopedTrace __st(ATRACE_TAG_WEBVIEW, __func__);
 
 #define TIME_METHOD() MethodTimer __method_timer(__func__)
 class MethodTimer {
