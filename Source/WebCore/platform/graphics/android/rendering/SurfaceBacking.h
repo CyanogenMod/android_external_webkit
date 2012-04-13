@@ -61,7 +61,7 @@ public:
 
     bool isMissingContent()
     {
-        return !m_zooming && m_frontTexture->isMissingContent();
+        return m_zooming || m_frontTexture->isMissingContent();
     }
 
     int nbTextures(IntRect& area, float scale)
@@ -80,6 +80,8 @@ private:
 
     TileGrid* m_frontTexture;
     TileGrid* m_backTexture;
+    TileGrid* m_lowResTexture;
+
     float m_scale;
     float m_futureScale;
     double m_zoomUpdateTime;
