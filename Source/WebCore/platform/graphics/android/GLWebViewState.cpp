@@ -70,7 +70,7 @@ GLWebViewState::GLWebViewState()
     , m_goingLeft(false)
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
-    , m_surfaceCollectionManager(this)
+    , m_surfaceCollectionManager()
 {
     m_viewport.setEmpty();
 

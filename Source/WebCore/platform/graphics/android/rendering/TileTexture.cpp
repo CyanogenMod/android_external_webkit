@@ -77,15 +77,15 @@ void TileTexture::discardGLTexture()
     }
 }
 
-bool TileTexture::acquire(TextureOwner* owner, bool force)
+bool TileTexture::acquire(TextureOwner* owner)
 {
     if (m_owner == owner)
         return true;
 
-    return setOwner(owner, force);
+    return setOwner(owner);
 }
 
-bool TileTexture::setOwner(TextureOwner* owner, bool force)
+bool TileTexture::setOwner(TextureOwner* owner)
 {
     bool proceed = true;
     if (m_owner && m_owner != owner)

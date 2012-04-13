@@ -86,7 +86,7 @@ public:
     bool equalsCRC(unsigned crc);
 
     // methods used by TileGrid
-    virtual bool paint(Tile* tile, SkCanvas* canvas);
+    virtual bool paint(SkCanvas* canvas);
     virtual float opacity();
 
     int nbTextures();

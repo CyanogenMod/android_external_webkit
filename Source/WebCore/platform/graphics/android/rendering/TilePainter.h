@@ -33,14 +33,13 @@ class SkCanvas;
 
 namespace WebCore {
 
-class Tile;
 class Color;
 
 class TilePainter : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
     virtual ~TilePainter() { }
-    virtual bool paint(Tile* tile, SkCanvas* canvas) = 0;
+    virtual bool paint(SkCanvas* canvas) = 0;
     virtual float opacity() { return 1.0; }
     enum SurfaceType { Painted, Image };
     virtual SurfaceType type() { return Painted; }
