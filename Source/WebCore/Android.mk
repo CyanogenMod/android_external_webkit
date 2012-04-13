@@ -634,7 +634,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/WidthIterator.cpp \
 	\
 	platform/graphics/android/BitmapAllocatorAndroid.cpp \
-	platform/graphics/android/GradientAndroid.cpp \
 	platform/graphics/android/GraphicsLayerAndroid.cpp \
 	platform/graphics/android/GLWebViewState.cpp \
 	platform/graphics/android/ImageAndroid.cpp \
@@ -728,6 +727,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/skia/FloatPointSkia.cpp \
 	platform/graphics/skia/FloatRectSkia.cpp \
 	platform/graphics/skia/GlyphPageTreeNodeSkia.cpp \
+	platform/graphics/skia/GradientSkia.cpp \
 	platform/graphics/skia/IntPointSkia.cpp \
 	platform/graphics/skia/IntRectSkia.cpp \
 	platform/graphics/skia/NativeImageSkia.cpp \

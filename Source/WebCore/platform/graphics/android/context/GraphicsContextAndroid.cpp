@@ -66,13 +66,31 @@ private:
     PlatformGraphicsContext* m_context;
 };
 
-static SkShader* extractShader(Pattern* pat, Gradient* grad)
+static void syncPlatformContext(GraphicsContext* gc)
 {
-    if (pat)
-        return pat->platformPattern(AffineTransform());
-    else if (grad)
-        return grad->platformGradient();
-    return 0;
+    // Stroke and fill sometimes reference each other, so always
+    // sync them both to make sure our state is consistent.
+
+    PlatformGraphicsContext* pgc = gc->platformContext();
+    Gradient* grad = gc->state().fillGradient.get();
+    Pattern* pat = gc->state().fillPattern.get();
+
+    if (grad)
+        pgc->setFillShader(grad->platformGradient());
+    else if (pat)
+        pgc->setFillShader(pat->platformPattern(AffineTransform()));
+    else
+        pgc->setFillColor(gc->state().fillColor);
+
+    grad = gc->state().strokeGradient.get();
+    pat = gc->state().strokePattern.get();
+
+    if (grad)
+        pgc->setStrokeShader(grad->platformGradient());
+    else if (pat)
+        pgc->setStrokeShader(pat->platformPattern(AffineTransform()));
+    else
+        pgc->setStrokeColor(gc->state().strokeColor);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
@@ -137,6 +155,7 @@ void GraphicsContext::drawRect(const IntRect& rect)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawRect(rect);
 }
 
@@ -146,6 +165,7 @@ void GraphicsContext::drawLine(const IntPoint& point1, const IntPoint& point2)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawLine(point1, point2);
 }
 
@@ -154,6 +174,7 @@ void GraphicsContext::drawLineForText(const FloatPoint& pt, float width, bool /*
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawLineForText(pt, width);
 }
 
@@ -163,6 +184,7 @@ void GraphicsContext::drawLineForTextChecking(const FloatPoint& pt, float width,
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawLineForTextChecking(pt, width, style);
 }
 
@@ -172,6 +194,7 @@ void GraphicsContext::drawEllipse(const IntRect& rect)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawEllipse(rect);
 }
 
@@ -180,6 +203,7 @@ void GraphicsContext::strokeArc(const IntRect& r, int startAngle, int angleSpan)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->strokeArc(r, startAngle, angleSpan);
 }
 
@@ -189,6 +213,7 @@ void GraphicsContext::drawConvexPolygon(size_t numPoints, const FloatPoint* poin
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawConvexPolygon(numPoints, points, shouldAntialias);
 }
 
@@ -199,6 +224,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->fillRoundedRect(rect, topLeft, topRight,
             bottomLeft, bottomRight, color, colorSpace);
 }
@@ -208,6 +234,7 @@ void GraphicsContext::fillRect(const FloatRect& rect)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->fillRect(rect);
 }
 
@@ -216,6 +243,7 @@ void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorS
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->fillRect(rect, color, colorSpace);
 }
 
@@ -308,6 +336,7 @@ void GraphicsContext::setupFillPaint(SkPaint* paint)
 {
     if (paintingDisabled())
         return;
+    syncPlatformContext(this);
     platformContext()->setupPaintFill(paint);
 }
 
@@ -315,6 +344,7 @@ void GraphicsContext::setupStrokePaint(SkPaint* paint)
 {
     if (paintingDisabled())
         return;
+    syncPlatformContext(this);
     platformContext()->setupPaintStroke(paint, 0);
 }
 
@@ -322,14 +352,12 @@ bool GraphicsContext::setupShadowPaint(SkPaint* paint, SkPoint* offset)
 {
     if (paintingDisabled())
         return false;
+    syncPlatformContext(this);
     return platformContext()->setupPaintShadow(paint, offset);
 }
 
 void GraphicsContext::setPlatformStrokeColor(const Color& c, ColorSpace)
 {
-    if (paintingDisabled())
-        return;
-    platformContext()->setStrokeColor(c);
 }
 
 void GraphicsContext::setPlatformStrokeThickness(float f)
@@ -348,9 +376,6 @@ void GraphicsContext::setPlatformStrokeStyle(StrokeStyle style)
 
 void GraphicsContext::setPlatformFillColor(const Color& c, ColorSpace)
 {
-    if (paintingDisabled())
-        return;
-    platformContext()->setFillColor(c);
 }
 
 void GraphicsContext::setPlatformShadow(const FloatSize& size, float blur, const Color& color, ColorSpace)
@@ -384,6 +409,7 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawFocusRing(rects, width, offset, color);
 }
 
@@ -424,6 +450,7 @@ void GraphicsContext::clearRect(const FloatRect& rect)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->clearRect(rect);
 }
 
@@ -432,6 +459,7 @@ void GraphicsContext::strokeRect(const FloatRect& rect, float lineWidth)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->strokeRect(rect, lineWidth);
 }
 
@@ -520,34 +548,18 @@ void GraphicsContext::setPlatformShouldAntialias(bool useAA)
 
 void GraphicsContext::setPlatformFillGradient(Gradient* fillGradient)
 {
-    if (paintingDisabled())
-        return;
-    SkShader* shader = extractShader(0, fillGradient);
-    platformContext()->setFillShader(shader);
 }
 
 void GraphicsContext::setPlatformFillPattern(Pattern* fillPattern)
 {
-    if (paintingDisabled())
-        return;
-    SkShader* shader = extractShader(fillPattern, 0);
-    platformContext()->setFillShader(shader);
 }
 
 void GraphicsContext::setPlatformStrokeGradient(Gradient* strokeGradient)
 {
-    if (paintingDisabled())
-        return;
-    SkShader* shader = extractShader(0, strokeGradient);
-    platformContext()->setStrokeShader(shader);
 }
 
 void GraphicsContext::setPlatformStrokePattern(Pattern* strokePattern)
 {
-    if (paintingDisabled())
-        return;
-    SkShader* shader = extractShader(strokePattern, 0);
-    platformContext()->setStrokeShader(shader);
 }
 
 AffineTransform GraphicsContext::getCTM() const
@@ -579,6 +591,7 @@ void GraphicsContext::fillPath(const Path& pathToFill)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->fillPath(pathToFill, fillRule());
 }
 
@@ -587,6 +600,7 @@ void GraphicsContext::strokePath(const Path& pathToStroke)
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->strokePath(pathToStroke);
 }
 
@@ -634,6 +648,7 @@ void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run,
     if (paintingDisabled())
         return;
 
+    syncPlatformContext(this);
     platformContext()->drawHighlightForText(font, run, point, h, backgroundColor,
             colorSpace, from, to, isActive);
 }
