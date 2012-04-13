@@ -420,14 +420,18 @@ void RenderBlock::addChildToAnonymousColumnBlocks(RenderObject* newChild, Render
 
 RenderBlock* RenderBlock::containingColumnsBlock(bool allowAnonymousColumnBlock)
 {
+    RenderBlock* firstChildIgnoringAnonymousWrappers = 0;
     for (RenderObject* curr = this; curr; curr = curr->parent()) {
         if (!curr->isRenderBlock() || curr->isFloatingOrPositioned() || curr->isTableCell() || curr->isRoot() || curr->isRenderView() || curr->hasOverflowClip()
             || curr->isInlineBlockOrInlineTable())
             return 0;
         
         RenderBlock* currBlock = toRenderBlock(curr);
+        if (!currBlock->createsAnonymousWrapper())
+            firstChildIgnoringAnonymousWrappers = currBlock;
+
         if (currBlock->style()->specifiesColumns() && (allowAnonymousColumnBlock || !currBlock->isAnonymousColumnsBlock()))
-            return currBlock;
+            return firstChildIgnoringAnonymousWrappers;
             
         if (currBlock->isAnonymousColumnSpanBlock())
             return 0;
@@ -661,10 +665,19 @@ RenderBlock* RenderBlock::columnsBlockForSpanningElement(RenderObject* newChild)
     RenderBlock* columnsBlockAncestor = 0;
     if (!newChild->isText() && newChild->style()->columnSpan() && !newChild->isBeforeOrAfterContent()
         && !newChild->isFloatingOrPositioned() && !newChild->isInline() && !isAnonymousColumnSpanBlock()) {
-        if (style()->specifiesColumns())
-            columnsBlockAncestor = this;
-        else if (parent() && parent()->isRenderBlock())
-            columnsBlockAncestor = toRenderBlock(parent())->containingColumnsBlock(false);
+        columnsBlockAncestor = containingColumnsBlock(false);
+        if (columnsBlockAncestor) {
+            // Make sure that none of the parent ancestors have a continuation.
+            // If yes, we do not want split the block into continuations.
+            RenderObject* curr = this;
+            while (curr && curr != columnsBlockAncestor) {
+                if (curr->isRenderBlock() && toRenderBlock(curr)->continuation()) {
+                    columnsBlockAncestor = 0;
+                    break;
+                }
+                curr = curr->parent();
+            }
+        }
     }
     return columnsBlockAncestor;
 }
