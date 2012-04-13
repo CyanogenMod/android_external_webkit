@@ -5383,6 +5383,8 @@ bool CSSParser::parseRadialGradient(RefPtr<CSSValue>& gradient, CSSGradientRepea
     // parseFillPosition advances the args next pointer.
     parseFillPosition(args, centerX, centerY);
     a = args->current();
+    if (!a)
+        return false;
     
     if (centerX || centerY) {
         // Comma
