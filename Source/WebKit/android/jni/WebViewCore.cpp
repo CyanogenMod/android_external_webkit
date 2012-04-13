@@ -3132,6 +3132,32 @@ void WebViewCore::chromeTakeFocus(FocusDirection direction)
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_chromeTakeFocus, direction);
 }
 
+void WebViewCore::setInitialFocus(const WebCore::PlatformKeyboardEvent& platformEvent)
+{
+    Frame* frame = focusedFrame();
+    Document* document = frame->document();
+    if (document)
+        document->setFocusedNode(0);
+    FocusDirection direction;
+    switch (platformEvent.nativeVirtualKeyCode()) {
+    case AKEYCODE_DPAD_LEFT:
+        direction = FocusDirectionLeft;
+        break;
+    case AKEYCODE_DPAD_RIGHT:
+        direction = FocusDirectionRight;
+        break;
+    case AKEYCODE_DPAD_UP:
+        direction = FocusDirectionUp;
+        break;
+    default:
+        direction = FocusDirectionDown;
+        break;
+    }
+    RefPtr<KeyboardEvent> webkitEvent = KeyboardEvent::create(platformEvent, 0);
+    m_mainFrame->page()->focusController()->setInitialFocus(direction,
+            webkitEvent.get());
+}
+
 #if USE(ACCELERATED_COMPOSITING)
 GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 {
@@ -4401,6 +4427,14 @@ static jboolean Key(JNIEnv* env, jobject obj, jint nativeClass, jint keyCode,
         unichar, repeatCount, isDown, isShift, isAlt, isSym));
 }
 
+static void SetInitialFocus(JNIEnv* env, jobject obj, jint nativeClass,
+                            jint keyDirection)
+{
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
+    viewImpl->setInitialFocus(PlatformKeyboardEvent(keyDirection,
+            0, 0, false, false, false, false));
+}
+
 static void ContentInvalidateAll(JNIEnv* env, jobject obj, jint nativeClass)
 {
     reinterpret_cast<WebViewCore*>(nativeClass)->contentInvalidateAll();
@@ -5073,6 +5107,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) FindAll },
     { "nativeFindNext", "(IZ)I",
         (void*) FindNext },
+    { "nativeSetInitialFocus", "(II)V", (void*) SetInitialFocus },
 };
 
 int registerWebViewCore(JNIEnv* env)
