@@ -437,6 +437,10 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     m_screenClip.setSize(IntSize(ceilf(tclip.width()), ceilf(tclip.height())));
 
     resetBlending();
+
+    // Set up m_clipProjectionMatrix, m_currentScale and m_webViewMatrix before
+    // calling this function.
+    setupSurfaceProjectionMatrix();
 }
 
 // Calculate the right color value sent into the shader considering the (0,1)
@@ -613,8 +617,16 @@ void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 }
 
+// Put the common matrix computation at higher level to avoid redundancy.
+void ShaderProgram::setupSurfaceProjectionMatrix()
+{
+    TransformationMatrix scaleMatrix;
+    scaleMatrix.scale3d(m_currentScale, m_currentScale, 1);
+    m_surfaceProjectionMatrix = m_clipProjectionMatrix * m_webViewMatrix * scaleMatrix;
+}
+
 // Calculate the matrix given the geometry.
-GLfloat* ShaderProgram::getProjectionMatrix(const DrawQuadData* data)
+GLfloat* ShaderProgram::getTileProjectionMatrix(const DrawQuadData* data)
 {
     DrawQuadType type = data->type();
     if (type == Blit)
@@ -631,9 +643,8 @@ GLfloat* ShaderProgram::getProjectionMatrix(const DrawQuadData* data)
     // Note the geometry contains the tile zoom scale, so visually we will see
     // the tiles scale at a ratio as (m_currentScale/tile's scale).
     TransformationMatrix modifiedDrawMatrix;
-    modifiedDrawMatrix.scale3d(m_currentScale, m_currentScale, 1);
     if (type == LayerQuad)
-        modifiedDrawMatrix = modifiedDrawMatrix.multiply(*matrix);
+        modifiedDrawMatrix = *matrix;
     modifiedDrawMatrix.translate(geometry->fLeft, geometry->fTop);
     modifiedDrawMatrix.scale3d(geometry->width(), geometry->height(), 1);
 
@@ -641,7 +652,7 @@ GLfloat* ShaderProgram::getProjectionMatrix(const DrawQuadData* data)
     // m_webViewMatrix, it may contain the layout offset. Normally it is
     // identity.
     TransformationMatrix renderMatrix;
-    renderMatrix = m_clipProjectionMatrix * m_webViewMatrix * modifiedDrawMatrix;
+    renderMatrix = m_surfaceProjectionMatrix * modifiedDrawMatrix;
 
 #if DEBUG_MATRIX
     debugMatrixInfo(m_currentScale, m_clipProjectionMatrix, m_webViewMatrix,
@@ -654,7 +665,7 @@ GLfloat* ShaderProgram::getProjectionMatrix(const DrawQuadData* data)
 
 void ShaderProgram::drawQuad(const DrawQuadData* data)
 {
-    GLfloat* matrix = getProjectionMatrix(data);
+    GLfloat* matrix = getTileProjectionMatrix(data);
 
     float opacity = data->opacity();
     bool forceBlending = data->forceBlending();
@@ -725,8 +736,6 @@ void ShaderProgram::setGLDrawInfo(const android::uirenderer::DrawGlInfo* info)
     m_targetHeight = info->height;
 }
 
-} // namespace WebCore
-
 #if DEBUG_MATRIX
 FloatRect ShaderProgram::debugMatrixTransform(const TransformationMatrix& matrix,
                                               const char* matrixName)
@@ -747,20 +756,25 @@ void ShaderProgram::debugMatrixInfo(float currentScale,
 {
     int viewport[4];
     glGetIntegerv(GL_VIEWPORT, viewport);
-    ALOGV("viewport %d, %d, %d, %d , m_currentScale %f",
-          viewport[0], viewport[1], viewport[2], viewport[3], m_currentScale);
+    ALOGV("viewport %d, %d, %d, %d , currentScale %f",
+          viewport[0], viewport[1], viewport[2], viewport[3], currentScale);
     IntRect currentGLViewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+
+    TransformationMatrix scaleMatrix;
+    scaleMatrix.scale3d(currentScale, currentScale, 1.0);
 
     if (layerMatrix)
         debugMatrixTransform(*layerMatrix, "layerMatrix");
 
-    debugMatrixTransform(modifiedDrawMatrix, "modifiedDrawMatrix");
-    debugMatrixTransform(webViewMatrix * modifiedDrawMatrix,
-                         "webViewMatrix * modifiedDrawMatrix");
+    TransformationMatrix debugMatrix = scaleMatrix * modifiedDrawMatrix;
+    debugMatrixTransform(debugMatrix, "scaleMatrix * modifiedDrawMatrix");
 
+    debugMatrix = webViewMatrix * debugMatrix;
+    debugMatrixTransform(debugMatrix, "webViewMatrix * scaleMatrix * modifiedDrawMatrix");
+
+    debugMatrix = clipProjectionMatrix * debugMatrix;
     FloatRect finalRect =
-        debugMatrixTransform(clipProjectionMatrix * webViewMatrix * modifiedDrawMatrix,
-                             "clipProjectionMatrix * webViewMatrix * modifiedDrawMatrix;,");
+        debugMatrixTransform(debugMatrix, "all Matrix");
     // After projection, we will be in a (-1, 1) range and now we can map it back
     // to the (x,y) -> (x+width, y+height)
     ALOGV("final convert to screen coord x, y %f, %f width %f height %f , ",
@@ -771,4 +785,5 @@ void ShaderProgram::debugMatrixInfo(float currentScale,
 }
 #endif // DEBUG_MATRIX
 
+} // namespace WebCore
 #endif // USE(ACCELERATED_COMPOSITING)

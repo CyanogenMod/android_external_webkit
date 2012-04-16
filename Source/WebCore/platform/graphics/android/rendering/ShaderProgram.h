@@ -159,7 +159,7 @@ public:
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLint createProgram(const char* vertexSource, const char* fragmentSource);
-    GLfloat* getProjectionMatrix(const DrawQuadData* data);
+    GLfloat* getTileProjectionMatrix(const DrawQuadData* data);
     void setBlendingState(bool enableBlending);
     void drawQuadInternal(ShaderType type, const GLfloat* matrix, int textureId,
                          float opacity, GLenum textureTarget, GLenum filter,
@@ -167,7 +167,7 @@ private:
     Color shaderColor(Color pureColor, float opacity);
     ShaderType getTextureShaderType(GLenum textureTarget);
     void resetBlending();
-
+    void setupSurfaceProjectionMatrix();
 #if DEBUG_MATRIX
     FloatRect debugMatrixTransform(const TransformationMatrix& matrix, const char* matrixName);
     void debugMatrixInfo(float currentScale,
@@ -179,6 +179,7 @@ private:
 
     bool m_blendingEnabled;
 
+    TransformationMatrix m_surfaceProjectionMatrix;
     TransformationMatrix m_clipProjectionMatrix;
     TransformationMatrix m_visibleRectProjectionMatrix;
     GLuint m_textureBuffer[1];
