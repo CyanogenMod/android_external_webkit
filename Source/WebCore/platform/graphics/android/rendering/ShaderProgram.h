@@ -24,9 +24,11 @@
 #include "IntRect.h"
 #include "SkRect.h"
 #include "TransformationMatrix.h"
+#include "private/hwui/DrawGlInfo.h"
 #include <GLES2/gl2.h>
 
 #define MAX_CONTRAST 5
+#define DEBUG_MATRIX 0
 
 namespace WebCore {
 
@@ -150,18 +152,8 @@ public:
             contrast = MAX_CONTRAST;
         m_contrast = contrast;
     }
-    void setWebViewMatrix(const float* matrix, bool alphaLayer);
+    void setGLDrawInfo(const android::uirenderer::DrawGlInfo* info);
 
-    // This delta is the delta from the layout pos and the current animation pos.
-    // Basically, in terms of layout, the webview is still in the original layout
-    // pos, as without animation. Such that the viewport and visible rect etc are
-    // still in that pos, too, except the clipping info.
-    // Our rendering approach is after applying all the matrix, webView is
-    // rendered as if it was at the original layout pos, but then offset the
-    // glViewport to match the animation.
-    void calculateAnimationDelta();
-    int getAnimationDeltaX() { return m_animationDelta.x(); }
-    int getAnimationDeltaY() { return m_animationDelta.y(); }
     bool needsInit() { return m_needsInit; }
 
 private:
@@ -176,9 +168,19 @@ private:
     ShaderType getTextureShaderType(GLenum textureTarget);
     void resetBlending();
 
+#if DEBUG_MATRIX
+    FloatRect debugMatrixTransform(const TransformationMatrix& matrix, const char* matrixName);
+    void debugMatrixInfo(float currentScale,
+                         const TransformationMatrix& clipProjectionMatrix,
+                         const TransformationMatrix& webViewMatrix,
+                         const TransformationMatrix& modifiedDrawMatrix,
+                         const TransformationMatrix* layerMatrix);
+#endif // DEBUG_MATRIX
+
     bool m_blendingEnabled;
 
-    TransformationMatrix m_projectionMatrix;
+    TransformationMatrix m_clipProjectionMatrix;
+    TransformationMatrix m_visibleRectProjectionMatrix;
     GLuint m_textureBuffer[1];
 
     TransformationMatrix m_documentToScreenMatrix;
@@ -188,27 +190,19 @@ private:
     FloatRect m_clipRect;
     IntRect m_screenClip;
     int m_titleBarHeight;
+    // This is the layout position in screen coordinate and didn't contain the
+    // animation offset.
     IntRect m_webViewRect;
 
     FloatRect m_documentViewport;
 
     float m_contrast;
 
+    // The height of the render target, either FBO or screen.
+    int m_targetHeight;
     bool m_alphaLayer;
     TransformationMatrix m_webViewMatrix;
     float m_currentScale;
-
-    // After the webViewTranform, we need to reposition the rect to match our viewport.
-    // Basically, the webViewTransformMatrix should apply on the screen resolution.
-    // So we start by doing the scale and translate to get each tile into screen coordinates.
-    // After applying the webViewTransformMatrix, b/c the way it currently set up
-    // for scroll and titlebar, we need to offset both of them.
-    // Finally, map everything back to (-1, 1) by using the m_projectionMatrix.
-    // TODO: Given that m_webViewMatrix contains most of the tranformation
-    // information, we should be able to get rid of some parameter we got from
-    // Java side and simplify our code.
-    TransformationMatrix m_repositionMatrix;
-    IntPoint m_animationDelta;
 
     // Put all the uniform location (handle) info into an array, and group them
     // by the shader's type, this can help to clean up the interface.

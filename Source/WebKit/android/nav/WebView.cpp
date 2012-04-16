@@ -723,7 +723,9 @@ class GLDrawFunctor : Functor {
             localViewRect.setY(info->height - clip.y() - clip.height());
         }
         bool shouldDraw = (messageId == uirenderer::DrawGlInfo::kModeDraw);
-        TilesManager::instance()->shader()->setWebViewMatrix(info->transform, info->isLayer);
+        // Send the necessary info to the shader.
+        TilesManager::instance()->shader()->setGLDrawInfo(info);
+
         int returnFlags = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect,
                 titlebarHeight, clip, scale, extras, shouldDraw);
         if ((returnFlags & uirenderer::DrawGlInfo::kStatusDraw) != 0) {

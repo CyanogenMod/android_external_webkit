@@ -228,7 +228,7 @@ bool Surface::drawGL(bool layerTilesDisabled)
         // TODO: why this visibleArea is different from visibleRect at zooming for base?
         IntRect drawArea = visibleArea();
         m_surfaceBacking->drawGL(drawArea, opacity(), drawTransform(),
-                                   useAggressiveRendering(), background());
+                                 useAggressiveRendering(), background());
     }
 
     // draw member layers (draws image textures, glextras)

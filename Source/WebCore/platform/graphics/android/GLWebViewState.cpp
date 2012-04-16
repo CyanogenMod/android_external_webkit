@@ -196,10 +196,6 @@ double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visib
                                     const IntRect& webViewRect, int titleBarHeight,
                                     const IntRect& screenClip, float scale)
 {
-    int left = viewRect.x();
-    int top = viewRect.y();
-    int width = viewRect.width();
-    int height = viewRect.height();
     TilesManager* tilesManager = TilesManager::instance();
 
     // Make sure GL resources are created on the UI thread.
@@ -216,15 +212,8 @@ double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visib
         transferQueue->initGLResources(TilesManager::tileWidth(),
                                        TilesManager::tileHeight());
     }
-    // TODO: Add the video GL resource re-initialization code here.
-
     shader->setupDrawing(viewRect, visibleRect, webViewRect,
                          titleBarHeight, screenClip, scale);
-    shader->calculateAnimationDelta();
-
-    glViewport(left + shader->getAnimationDeltaX(),
-               top - shader->getAnimationDeltaY(),
-               width, height);
 
     double currentTime = WTF::currentTime();
 
@@ -298,6 +287,14 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
     return (m_layersRenderingMode != layersRenderingMode && invalBase);
 }
 
+// -rect(viewRect) is the webViewRect with inverted Y, in screen coordinate.
+// -viewport(visibleRect) is the visible area in document coordinate.
+// They are both based on webViewRect and calculated in Java side.
+//
+// -clip is the final glViewport value in screen coordinate, and it contains the
+// animation translation/scale and FBO offset.
+//
+// TODO: Try to decrease the number of parameters as some info is redundant.
 int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                            IntRect& webViewRect, int titleBarHeight,
                            IntRect& clip, float scale,
@@ -311,15 +308,15 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
                                                scale);
     tilesManager->incDrawGLCount();
 
-    ALOGV("drawGL, rect(%d, %d, %d, %d), viewport(%.2f, %.2f, %.2f, %.2f)",
+    ALOGV("drawGL, rect/viewRect(%d, %d, %d, %d), viewport/visibleRect(%.2f, %.2f, %.2f, %.2f)",
           rect.x(), rect.y(), rect.width(), rect.height(),
           viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
 
     ALOGV("drawGL, invalRect(%d, %d, %d, %d), webViewRect(%d, %d, %d, %d)"
-          "clip (%d, %d, %d, %d), scale %f",
+          "clip/glViewport (%d, %d, %d, %d), scale %f titleBarHeight %d",
           invalRect->x(), invalRect->y(), invalRect->width(), invalRect->height(),
           webViewRect.x(), webViewRect.y(), webViewRect.width(), webViewRect.height(),
-          clip.x(), clip.y(), clip.width(), clip.height(), scale);
+          clip.x(), clip.y(), clip.width(), clip.height(), scale, titleBarHeight);
 
     resetLayersDirtyArea();
 

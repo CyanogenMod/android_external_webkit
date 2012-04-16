@@ -281,7 +281,7 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
     if (m_area.width() == 0 || m_area.height() == 0)
         return;
 
-    float invScale = 1 / m_scale;
+    float invScale = 1.0 / m_scale;
     const float tileWidth = TilesManager::tileWidth() * invScale;
     const float tileHeight = TilesManager::tileHeight() * invScale;
 
