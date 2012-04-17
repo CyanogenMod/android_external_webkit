@@ -155,6 +155,7 @@ public:
     void setGLDrawInfo(const android::uirenderer::DrawGlInfo* info);
 
     bool needsInit() { return m_needsInit; }
+    bool usePointSampling(float tileScale, const TransformationMatrix* layerTransform);
 
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);

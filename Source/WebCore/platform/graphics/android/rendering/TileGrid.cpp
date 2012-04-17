@@ -296,6 +296,9 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
         missingRegion = SkRegion(totalArea);
     }
 
+    bool usePointSampling =
+        TilesManager::instance()->shader()->usePointSampling(m_scale, transform);
+
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         Tile* tile = m_tiles[i];
 
@@ -312,7 +315,7 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
 
             bool forceBaseBlending = background ? background->hasAlpha() : false;
             bool success = tile->drawGL(opacity, rect, m_scale, transform,
-                                        forceBaseBlending);
+                                        forceBaseBlending, usePointSampling);
             if (semiOpaqueBaseSurface && success) {
                 // Cut the successful drawn tile area from the missing region.
                 missingRegion.op(SkIRect::MakeXYWH(tile->x(), tile->y(), 1, 1),

@@ -80,7 +80,8 @@ public:
     Color pureColor() { return m_pureColor; }
 
     void drawGL(bool isLayer, const SkRect& rect, float opacity,
-                const TransformationMatrix* transform, bool forceBlending = false);
+                const TransformationMatrix* transform, bool forceBlending = false,
+                bool usePointSampling = false);
 private:
     TextureInfo m_ownTextureInfo;
     SkSize m_size;
