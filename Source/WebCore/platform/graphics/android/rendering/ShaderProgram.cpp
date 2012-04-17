@@ -40,6 +40,8 @@
 #include <GLES2/gl2.h>
 #include <GLES2/gl2ext.h>
 
+#define EPSILON 0.00001f
+
 namespace WebCore {
 
 static const char gVertexShader[] =
@@ -734,6 +736,36 @@ void ShaderProgram::setGLDrawInfo(const android::uirenderer::DrawGlInfo* info)
     GLUtils::convertToTransformationMatrix(info->transform, m_webViewMatrix);
     m_alphaLayer = info->isLayer;
     m_targetHeight = info->height;
+}
+
+// This function is called per tileGrid to minimize the computation overhead.
+// The ortho projection and glViewport will map 1:1, so we don't need to
+// worry about them here. Basically, if the current zoom scale / tile's scale
+// plus the webview and layer transformation ends up at scale factor 1.0,
+// then we can use point sampling.
+bool ShaderProgram::usePointSampling(float tileScale,
+                                     const TransformationMatrix* layerTransform)
+{
+    const float testSize = 1.0;
+    FloatRect rect(0, 0, testSize, testSize);
+    TransformationMatrix matrix;
+    matrix.scale3d(m_currentScale, m_currentScale, 1);
+    if (layerTransform)
+        matrix.multiply(*layerTransform);
+    matrix.scale3d(1.0 / tileScale, 1.0 / tileScale, 1);
+
+    matrix = m_webViewMatrix * matrix;
+
+    rect = matrix.mapRect(rect);
+
+    float deltaWidth = abs(rect.width() - testSize);
+    float deltaHeight = abs(rect.height() - testSize);
+
+    if (deltaWidth < EPSILON && deltaHeight < EPSILON) {
+        ALOGV("Point sampling : deltaWidth is %f, deltaHeight is %f", deltaWidth, deltaHeight);
+        return true;
+    }
+    return false;
 }
 
 #if DEBUG_MATRIX
