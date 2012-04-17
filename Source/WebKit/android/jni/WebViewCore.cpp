@@ -630,6 +630,8 @@ WebCore::Node* WebViewCore::currentFocus()
 
 void WebViewCore::recordPictureSet(PictureSet* content)
 {
+    TRACE_METHOD();
+
     // if there is no document yet, just return
     if (!m_mainFrame->document()) {
         DBG_SET_LOG("!m_mainFrame->document()");

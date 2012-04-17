@@ -702,6 +702,8 @@ class GLDrawFunctor : Functor {
         extras = _extras;
     };
     status_t operator()(int messageId, void* data) {
+        TRACE_METHOD();
+
         if (viewRect.isEmpty()) {
             // NOOP operation if viewport is empty
             return 0;
