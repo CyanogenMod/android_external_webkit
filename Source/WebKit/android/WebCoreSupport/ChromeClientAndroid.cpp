@@ -188,10 +188,10 @@ Page* ChromeClientAndroid::createWindow(Frame* frame, const FrameLoadRequest&,
         return frame->page();
 #endif
 
-    const WebCoreViewBridge* bridge = frame->view()->platformWidget();
+    FloatRect window = windowRect();
     bool dialog = features.dialog || !features.resizable
-            || (features.heightSet && features.height < bridge->height()
-                    && features.widthSet && features.width < bridge->width())
+            || (features.heightSet && features.height < window.height()
+                    && features.widthSet && features.width < window.width())
             || (!features.menuBarVisible && !features.statusBarVisible
                     && !features.toolBarVisible && !features.locationBarVisible
                     && !features.scrollbarsVisible);
