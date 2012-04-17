@@ -51,25 +51,25 @@ public:
     void computeTexturesAmount(TexturesResult* result, LayerAndroid* layer);
     void discardTextures()
     {
-        m_frontTexture->discardTextures();
-        m_backTexture->discardTextures();
+        m_frontTileGrid->discardTextures();
+        m_backTileGrid->discardTextures();
     }
     bool isReady()
     {
-        return !m_zooming && m_frontTexture->isReady() && m_scale > 0;
+        return !m_zooming && m_frontTileGrid->isReady() && m_scale > 0;
     }
 
     bool isMissingContent()
     {
-        return m_zooming || m_frontTexture->isMissingContent();
+        return m_zooming || m_frontTileGrid->isMissingContent();
     }
 
     int nbTextures(IntRect& area, float scale)
     {
-        // TODO: consider the zooming case for the backTexture
-        if (!m_frontTexture)
+        // TODO: consider the zooming case for the backTileGrid
+        if (!m_frontTileGrid)
             return 0;
-        return m_frontTexture->nbTextures(area, scale);
+        return m_frontTileGrid->nbTextures(area, scale);
     }
 
 private:
@@ -78,9 +78,9 @@ private:
     // Delay before we schedule a new tile at the new scale factor
     static const double s_zoomUpdateDelay = 0.2; // 200 ms
 
-    TileGrid* m_frontTexture;
-    TileGrid* m_backTexture;
-    TileGrid* m_lowResTexture;
+    TileGrid* m_frontTileGrid;
+    TileGrid* m_backTileGrid;
+    TileGrid* m_lowResTileGrid;
 
     float m_scale;
     float m_futureScale;

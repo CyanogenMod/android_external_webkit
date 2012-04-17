@@ -98,7 +98,7 @@ private:
 
     SkBitmapRef* m_imageRef;
     SkBitmap* m_image;
-    TileGrid* m_texture;
+    TileGrid* m_tileGrid;
     LayerAndroid* m_layer;
     SkPicture* m_picture;
     TransformationMatrix m_layerMatrix;

@@ -40,9 +40,9 @@ namespace WebCore {
 
 SurfaceBacking::SurfaceBacking(bool isBaseSurface)
 {
-    m_frontTexture = new TileGrid(isBaseSurface);
-    m_backTexture = new TileGrid(isBaseSurface);
-    m_lowResTexture = new TileGrid(isBaseSurface);
+    m_frontTileGrid = new TileGrid(isBaseSurface);
+    m_backTileGrid = new TileGrid(isBaseSurface);
+    m_lowResTileGrid = new TileGrid(isBaseSurface);
     m_scale = -1;
     m_futureScale = -1;
     m_zooming = false;
@@ -50,9 +50,9 @@ SurfaceBacking::SurfaceBacking(bool isBaseSurface)
 
 SurfaceBacking::~SurfaceBacking()
 {
-    delete m_frontTexture;
-    delete m_backTexture;
-    delete m_lowResTexture;
+    delete m_frontTileGrid;
+    delete m_backTileGrid;
+    delete m_lowResTileGrid;
 }
 
 void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
@@ -73,41 +73,55 @@ void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
         m_zoomUpdateTime = WTF::currentTime() + SurfaceBacking::s_zoomUpdateDelay;
         m_zooming = true;
 
-        // release back texture's TileTextures, so they can be reused immediately
-        m_backTexture->discardTextures();
+        // release back TileGrid's TileTextures, so they can be reused immediately
+        m_backTileGrid->discardTextures();
     }
 
-    bool useExpandPrefetch = aggressiveRendering;
+    int prepareRegionFlags = TileGrid::StandardRegion;
+    if (aggressiveRendering)
+        prepareRegionFlags |= TileGrid::ExpandedRegion;
+
     ALOGV("Prepare SurfBack %p, scale %.2f, m_scale %.2f, futScale: %.2f, zooming: %d, f %p, b %p",
           this, scale, m_scale, m_futureScale, m_zooming,
-          m_frontTexture, m_backTexture);
+          m_frontTileGrid, m_backTileGrid);
 
     if (m_zooming && (m_zoomUpdateTime < WTF::currentTime())) {
-        m_backTexture->prepareGL(state, m_futureScale,
-                                 prepareArea, unclippedArea, painter, false, false);
-        if (m_backTexture->isReady()) {
-            // zooming completed, swap the textures and new front tiles
+        // prepare the visible portions of the back tile grid at the futureScale
+        m_backTileGrid->prepareGL(state, m_futureScale,
+                                  prepareArea, unclippedArea, painter,
+                                  TileGrid::StandardRegion, false);
+
+        if (m_backTileGrid->isReady()) {
+            // zooming completed, swap the TileGrids and new front tiles
             swapTileGrids();
 
-            m_frontTexture->swapTiles();
-            m_backTexture->discardTextures();
-            m_lowResTexture->discardTextures();
+            m_frontTileGrid->swapTiles();
+            m_backTileGrid->discardTextures();
+            m_lowResTileGrid->discardTextures();
 
             m_scale = m_futureScale;
             m_zooming = false;
+
+            // clear the StandardRegion flag, to prevent preparing it twice -
+            // the new frontTileGrid has already had its StandardRegion prepared
+            prepareRegionFlags &= ~TileGrid::StandardRegion;
         }
     }
 
     if (!m_zooming) {
-        m_frontTexture->prepareGL(state, m_scale,
-                                  prepareArea, unclippedArea, painter, false, useExpandPrefetch);
+        if (prepareRegionFlags) {
+            // if the front grid hasn't already prepared, or needs to prepare
+            // expanded bounds do so now
+            m_frontTileGrid->prepareGL(state, m_scale,
+                                       prepareArea, unclippedArea, painter, prepareRegionFlags, false);
+        }
         if (aggressiveRendering) {
             // prepare low res content
             float lowResPrefetchScale = m_scale * LOW_RES_PREFETCH_SCALE_MODIFIER;
-            m_lowResTexture->prepareGL(state, lowResPrefetchScale,
+            m_lowResTileGrid->prepareGL(state, lowResPrefetchScale,
                                        prepareArea, unclippedArea, painter,
-                                       true, useExpandPrefetch);
-            m_lowResTexture->swapTiles();
+                                       TileGrid::StandardRegion | TileGrid::ExpandedRegion, true);
+            m_lowResTileGrid->swapTiles();
         }
     }
 }
@@ -118,23 +132,23 @@ void SurfaceBacking::drawGL(const IntRect& visibleArea, float opacity,
 {
     // draw low res prefetch page if zooming or front texture missing content
     if (aggressiveRendering && isMissingContent())
-        m_lowResTexture->drawGL(visibleArea, opacity, transform);
+        m_lowResTileGrid->drawGL(visibleArea, opacity, transform);
 
-    m_frontTexture->drawGL(visibleArea, opacity, transform, background);
+    m_frontTileGrid->drawGL(visibleArea, opacity, transform, background);
 }
 
 void SurfaceBacking::markAsDirty(const SkRegion& dirtyArea)
 {
-    m_backTexture->markAsDirty(dirtyArea);
-    m_frontTexture->markAsDirty(dirtyArea);
-    m_lowResTexture->markAsDirty(dirtyArea);
+    m_backTileGrid->markAsDirty(dirtyArea);
+    m_frontTileGrid->markAsDirty(dirtyArea);
+    m_lowResTileGrid->markAsDirty(dirtyArea);
 }
 
 void SurfaceBacking::swapTiles()
 {
-    m_backTexture->swapTiles();
-    m_frontTexture->swapTiles();
-    m_lowResTexture->swapTiles();
+    m_backTileGrid->swapTiles();
+    m_frontTileGrid->swapTiles();
+    m_lowResTileGrid->swapTiles();
 }
 
 void SurfaceBacking::computeTexturesAmount(TexturesResult* result, LayerAndroid* layer)
@@ -149,9 +163,9 @@ void SurfaceBacking::computeTexturesAmount(TexturesResult* result, LayerAndroid*
     // get two numbers here:
     // - textures needed for a clipped area
     // - textures needed for an un-clipped area
-    TileGrid* tiledTexture = m_zooming ? m_backTexture : m_frontTexture;
-    int nbTexturesUnclipped = tiledTexture->nbTextures(unclippedArea, m_scale);
-    int nbTexturesClipped = tiledTexture->nbTextures(clippedVisibleArea, m_scale);
+    TileGrid* tileGrid = m_zooming ? m_backTileGrid : m_frontTileGrid;
+    int nbTexturesUnclipped = tileGrid->nbTextures(unclippedArea, m_scale);
+    int nbTexturesClipped = tileGrid->nbTextures(clippedVisibleArea, m_scale);
 
     // Set kFixedLayers level
     if (layer->isPositionFixed())
@@ -174,9 +188,9 @@ void SurfaceBacking::computeTexturesAmount(TexturesResult* result, LayerAndroid*
 
 void SurfaceBacking::swapTileGrids()
 {
-    TileGrid* temp = m_frontTexture;
-    m_frontTexture = m_backTexture;
-    m_backTexture = temp;
+    TileGrid* temp = m_frontTileGrid;
+    m_frontTileGrid = m_backTileGrid;
+    m_backTileGrid = temp;
 }
 
 } // namespace WebCore

@@ -134,8 +134,8 @@ IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)
 }
 
 void TileGrid::prepareGL(GLWebViewState* state, float scale,
-                             const IntRect& prepareArea, const IntRect& unclippedArea,
-                             TilePainter* painter, bool isLowResPrefetch, bool useExpandPrefetch)
+                         const IntRect& prepareArea, const IntRect& unclippedArea,
+                         TilePainter* painter, int regionFlags, bool isLowResPrefetch)
 {
     // first, how many tiles do we need
     m_area = computeTilesArea(prepareArea, scale);
@@ -176,21 +176,21 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
         m_dirtyRegion.setEmpty();
     }
 
-    // prepare standard bounds (clearing ExpandPrefetch flag)
-    for (int i = 0; i < m_area.width(); i++) {
-        if (goingDown) {
-            for (int j = 0; j < m_area.height(); j++)
-                prepareTile(m_area.x() + i, m_area.y() + j,
-                            painter, state, isLowResPrefetch, false);
-        } else {
-            for (int j = m_area.height() - 1; j >= 0; j--)
-                prepareTile(m_area.x() + i, m_area.y() + j,
-                            painter, state, isLowResPrefetch, false);
+    if (regionFlags & StandardRegion) {
+        for (int i = 0; i < m_area.width(); i++) {
+            if (goingDown) {
+                for (int j = 0; j < m_area.height(); j++)
+                    prepareTile(m_area.x() + i, m_area.y() + j,
+                                painter, state, isLowResPrefetch, false);
+            } else {
+                for (int j = m_area.height() - 1; j >= 0; j--)
+                    prepareTile(m_area.x() + i, m_area.y() + j,
+                                painter, state, isLowResPrefetch, false);
+            }
         }
     }
 
-    // prepare expanded bounds
-    if (useExpandPrefetch) {
+    if (regionFlags & ExpandedRegion) {
         IntRect fullArea = computeTilesArea(unclippedArea, scale);
         IntRect expandedArea = m_area;
 
@@ -219,7 +219,7 @@ void TileGrid::markAsDirty(const SkRegion& invalRegion)
 }
 
 void TileGrid::prepareTile(int x, int y, TilePainter* painter,
-                               GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch)
+                           GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch)
 {
     Tile* tile = getTile(x, y);
     if (!tile) {

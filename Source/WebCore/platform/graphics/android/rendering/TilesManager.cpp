@@ -258,22 +258,16 @@ TileTexture* TilesManager::getAvailableTexture(Tile* owner)
 {
     android::Mutex::Autolock lock(m_texturesLock);
 
+    WTF::Vector<TileTexture*>* availableTexturePool;
+    if (owner->isLayerTile())
+        availableTexturePool = &m_availableTilesTextures;
+    else
+        availableTexturePool = &m_availableTextures;
+
     // Sanity check that the tile does not already own a texture
     if (owner->backTexture() && owner->backTexture()->owner() == owner) {
-        ALOGV("same owner (%d, %d), getAvailableBackTexture(%x) => texture %x",
-              owner->x(), owner->y(), owner, owner->backTexture());
-        if (owner->isLayerTile())
-            m_availableTilesTextures.remove(m_availableTilesTextures.find(owner->backTexture()));
-        else
-            m_availableTextures.remove(m_availableTextures.find(owner->backTexture()));
+        availableTexturePool->remove(availableTexturePool->find(owner->backTexture()));
         return owner->backTexture();
-    }
-
-    WTF::Vector<TileTexture*>* availableTexturePool;
-    if (owner->isLayerTile()) {
-        availableTexturePool = &m_availableTilesTextures;
-    } else {
-        availableTexturePool = &m_availableTextures;
     }
 
     // The heuristic for selecting a texture is as follows:

@@ -41,6 +41,8 @@ class TransformationMatrix;
 
 class TileGrid {
 public:
+    enum PrepareRegionFlags { EmptyRegion = 0x0, StandardRegion = 0x1, ExpandedRegion = 0x2 };
+
     TileGrid(bool isBaseSurface);
     virtual ~TileGrid();
 
@@ -48,8 +50,8 @@ public:
 
     void prepareGL(GLWebViewState* state, float scale,
                    const IntRect& prepareArea, const IntRect& unclippedArea,
-                   TilePainter* painter, bool isLowResPrefetch = false,
-                   bool useExpandPrefetch = false);
+                   TilePainter* painter, int regionFlags = StandardRegion,
+                   bool isLowResPrefetch = false);
     void swapTiles();
     void drawGL(const IntRect& visibleArea, float opacity,
                 const TransformationMatrix* transform, const Color* background = 0);
