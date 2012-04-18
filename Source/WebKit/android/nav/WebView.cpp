@@ -1057,8 +1057,9 @@ static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
         // Texture to avoid ANR b/c framework may destroy the EGL context.
         // Refer to WindowManagerImpl.java for conditions we followed.
         TilesManager* tilesManager = TilesManager::instance();
-        if (level >= TRIM_MEMORY_MODERATE
-            && !tilesManager->highEndGfx()) {
+        if ((level >= TRIM_MEMORY_MODERATE
+            && !tilesManager->highEndGfx())
+            || level >= TRIM_MEMORY_COMPLETE) {
             ALOGD("OnTrimMemory with EGL Context %p", eglGetCurrentContext());
             tilesManager->transferQueue()->emptyQueue();
             tilesManager->shader()->cleanupGLResources();
