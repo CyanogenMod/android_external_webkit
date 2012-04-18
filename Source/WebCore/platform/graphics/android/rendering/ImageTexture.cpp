@@ -72,7 +72,7 @@ unsigned computeCrc(uint8_t* buffer, size_t size)
 
 ImageTexture::ImageTexture(SkBitmap* bmp, unsigned crc)
     : m_image(bmp)
-    , m_texture(0)
+    , m_tileGrid(0)
     , m_layer(0)
     , m_picture(0)
     , m_crc(crc)
@@ -99,7 +99,7 @@ ImageTexture::~ImageTexture()
     ClassTracker::instance()->decrement("ImageTexture");
 #endif
     delete m_image;
-    delete m_texture;
+    delete m_tileGrid;
     SkSafeUnref(m_picture);
 }
 
@@ -145,13 +145,13 @@ int ImageTexture::nbTextures()
 {
     if (!hasContentToShow())
         return 0;
-    if (!m_texture)
+    if (!m_tileGrid)
         return 0;
 
     // TODO: take in account the visible clip (need to maintain
     // a list of the clients layer, etc.)
     IntRect visibleArea(0, 0, m_image->width(), m_image->height());
-    int nbTextures = m_texture->nbTextures(visibleArea, 1.0);
+    int nbTextures = m_tileGrid->nbTextures(visibleArea, 1.0);
     ALOGV("ImageTexture %p, %d x %d needs %d textures",
           this, m_image->width(), m_image->height(),
           nbTextures);
@@ -173,21 +173,21 @@ bool ImageTexture::prepareGL(GLWebViewState* state)
     if (!hasContentToShow())
         return false;
 
-    if (!m_texture && m_picture) {
+    if (!m_tileGrid && m_picture) {
         bool isBaseSurface = false;
-        m_texture = new TileGrid(isBaseSurface);
+        m_tileGrid = new TileGrid(isBaseSurface);
         SkRegion region;
         region.setRect(0, 0, m_image->width(), m_image->height());
-        m_texture->markAsDirty(region);
+        m_tileGrid->markAsDirty(region);
     }
 
-    if (!m_texture)
+    if (!m_tileGrid)
         return false;
 
     IntRect unclippedArea(0, 0, m_image->width(), m_image->height());
-    m_texture->prepareGL(state, 1.0, unclippedArea, unclippedArea, this);
-    if (m_texture->isReady()) {
-        m_texture->swapTiles();
+    m_tileGrid->prepareGL(state, 1.0, unclippedArea, unclippedArea, this);
+    if (m_tileGrid->isReady()) {
+        m_tileGrid->swapTiles();
         return false;
     }
     return true;
@@ -238,9 +238,9 @@ void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
     // TileGrid::draw() will call us back to know the
     // transform and opacity, so we need to set m_layer
     m_layer = layer;
-    if (m_texture) {
+    if (m_tileGrid) {
         IntRect visibleArea = m_layer->visibleArea();
-        m_texture->drawGL(visibleArea, opacity, transform());
+        m_tileGrid->drawGL(visibleArea, opacity, transform());
     }
     m_layer = 0;
 }
