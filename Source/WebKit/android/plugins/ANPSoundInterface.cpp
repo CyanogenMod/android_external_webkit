@@ -102,7 +102,7 @@ static ANPAudioTrack* ANPCreateTrack(uint32_t sampleRate,
                                             fromANPFormat(format),
                                             (channelCount > 1) ? AUDIO_CHANNEL_OUT_STEREO : AUDIO_CHANNEL_OUT_MONO,
                                             0,  // frameCount
-                                            (audio_policy_output_flags_t) 0, // AUDIO_POLICY_OUTPUT_FLAG_NONE,
+                                            (audio_output_flags_t) 0, // AUDIO_OUTPUT_FLAG_NONE,
                                             callbackProc,
                                             track,
                                             0);
