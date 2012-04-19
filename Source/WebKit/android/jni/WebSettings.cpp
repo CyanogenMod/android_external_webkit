@@ -93,6 +93,8 @@ struct FieldIds {
 #endif
         mBlockNetworkLoads = env->GetFieldID(clazz, "mBlockNetworkLoads", "Z");
         mJavaScriptEnabled = env->GetFieldID(clazz, "mJavaScriptEnabled", "Z");
+        mAllowUniversalAccessFromFileURLs = env->GetFieldID(clazz, "mAllowUniversalAccessFromFileURLs", "Z");
+        mAllowFileAccessFromFileURLs = env->GetFieldID(clazz, "mAllowFileAccessFromFileURLs", "Z");
         mPluginState = env->GetFieldID(clazz, "mPluginState",
                 "Landroid/webkit/WebSettings$PluginState;");
 #if ENABLE(DATABASE)
@@ -167,6 +169,10 @@ struct FieldIds {
 #endif
         ALOG_ASSERT(mBlockNetworkLoads, "Could not find field mBlockNetworkLoads");
         ALOG_ASSERT(mJavaScriptEnabled, "Could not find field mJavaScriptEnabled");
+        ALOG_ASSERT(mAllowUniversalAccessFromFileURLs,
+                    "Could not find field mAllowUniversalAccessFromFileURLs");
+        ALOG_ASSERT(mAllowFileAccessFromFileURLs,
+                    "Could not find field mAllowFileAccessFromFileURLs");
         ALOG_ASSERT(mPluginState, "Could not find field mPluginState");
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
         ALOG_ASSERT(mAppCacheEnabled, "Could not find field mAppCacheEnabled");
@@ -214,6 +220,8 @@ struct FieldIds {
 #endif
     jfieldID mBlockNetworkLoads;
     jfieldID mJavaScriptEnabled;
+    jfieldID mAllowUniversalAccessFromFileURLs;
+    jfieldID mAllowFileAccessFromFileURLs;
     jfieldID mPluginState;
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     jfieldID mAppCacheEnabled;
@@ -400,6 +408,13 @@ public:
 
         flag = env->GetBooleanField(obj, gFieldIds->mJavaScriptEnabled);
         s->setJavaScriptEnabled(flag);
+
+        flag = env->GetBooleanField(obj, gFieldIds->mAllowUniversalAccessFromFileURLs);
+        s->setAllowUniversalAccessFromFileURLs(flag);
+
+        flag = env->GetBooleanField(obj, gFieldIds->mAllowFileAccessFromFileURLs);
+        s->setAllowFileAccessFromFileURLs(flag);
+
         // Hyperlink auditing (the ping attribute) has similar privacy
         // considerations as does the running of JavaScript, so to keep the UI
         // simpler, we leverage the same setting.
