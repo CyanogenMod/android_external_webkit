@@ -4872,13 +4872,6 @@ static void FullScreenPluginHidden(JNIEnv* env, jobject obj, jint nativeClass,
         plugin->exitFullScreen(false);
 }
 
-static WebCore::IntRect jrect_to_webrect(JNIEnv* env, jobject obj)
-{
-    int L, T, R, B;
-    GraphicsJNI::get_jrect(env, obj, &L, &T, &R, &B);
-    return WebCore::IntRect(L, T, R - L, B - T);
-}
-
 static jobject HitTest(JNIEnv* env, jobject obj, jint nativeClass, jint x,
                        jint y, jint slop, jboolean doMoveMouse)
 {
