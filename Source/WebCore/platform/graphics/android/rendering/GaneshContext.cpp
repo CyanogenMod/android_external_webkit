@@ -60,9 +60,8 @@ GaneshContext* GaneshContext::instance()
 
 GrContext* GaneshContext::getGrContext()
 {
-    if (!m_grContext) {
-        m_grContext = GrContext::Create(kOpenGL_Shaders_GrEngine, NULL);
-    }
+    if (!m_grContext)
+        m_grContext = GrContext::Create(kOpenGL_Shaders_GrEngine, 0);
     return m_grContext;
 }
 
@@ -88,9 +87,8 @@ SkDevice* GaneshContext::getDeviceForTile(const TileRenderInfo& renderInfo)
 
     if (!m_surfaceContext) {
 
-        if(eglGetCurrentContext() != EGL_NO_CONTEXT) {
+        if(eglGetCurrentContext() != EGL_NO_CONTEXT)
             ALOGV("ERROR: should not have a context yet");
-        }
 
         display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
         GLUtils::checkEglError("eglGetDisplay");
