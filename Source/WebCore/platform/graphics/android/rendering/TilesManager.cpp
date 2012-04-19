@@ -96,6 +96,7 @@ TilesManager::TilesManager()
     , m_drawGLCount(1)
     , m_lastTimeLayersUsed(0)
     , m_hasLayerTextures(false)
+    , m_eglContext(EGL_NO_CONTEXT)
 {
     ALOGV("TilesManager ctor");
     m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
@@ -161,6 +162,14 @@ void TilesManager::discardTextures(bool allTextures, bool glTextures)
     }
     discardTexturesVector(sparedDrawCount, m_textures, glTextures);
     discardTexturesVector(sparedDrawCount, m_tilesTextures, glTextures);
+}
+
+void TilesManager::markAllGLTexturesZero()
+{
+    for (unsigned int i = 0; i < m_textures.size(); i++)
+        m_textures[i]->m_ownTextureId = 0;
+    for (unsigned int i = 0; i < m_tilesTextures.size(); i++)
+        m_tilesTextures[i]->m_ownTextureId = 0;
 }
 
 void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
@@ -415,6 +424,55 @@ TransferQueue* TilesManager::transferQueue()
     if (!m_queue)
         m_queue = new TransferQueue(m_useMinimalMemory);
     return m_queue;
+}
+
+// When GL context changed or we get a low memory signal, we want to cleanup all
+// the GPU memory webview is using.
+// The recreation will be on the next incoming draw call at the drawGL of
+// GLWebViewState or the VideoLayerAndroid
+void TilesManager::cleanupGLResources()
+{
+    transferQueue()->cleanupGLResourcesAndQueue();
+    shader()->cleanupGLResources();
+    videoLayerManager()->cleanupGLResources();
+    m_eglContext = EGL_NO_CONTEXT;
+    GLUtils::checkGlError("TilesManager::cleanupGLResources");
+}
+
+void TilesManager::updateTilesIfContextVerified()
+{
+    if (updateContextIfChanged()) {
+        // A change in EGL context is an unexpected error, but we don't want to
+        // crash or ANR. Therefore, abandon the Surface Texture and GL resources;
+        // they'll be recreated later in setupDrawing. (We can't delete them
+        // since the context is gone)
+        transferQueue()->resetQueue();
+        shader()->forceNeedsInit();
+        videoLayerManager()->forceNeedsInit();
+        markAllGLTexturesZero();
+    } else {
+        // Here before we draw, update the Tile which has updated content.
+        // Inside this function, just do GPU blits from the transfer queue into
+        // the Tiles' texture.
+        transferQueue()->updateDirtyTiles();
+        // Clean up GL textures for video layer.
+        videoLayerManager()->deleteUnusedTextures();
+    }
+}
+
+// Return true if context has changed, which indicate an error we should look
+// into.
+bool TilesManager::updateContextIfChanged()
+{
+    bool changed = false;
+    EGLContext ctx = eglGetCurrentContext();
+    GLUtils::checkEglError("contextChanged");
+    if (ctx != m_eglContext && m_eglContext != EGL_NO_CONTEXT) {
+        ALOGE("Unexpected : EGLContext changed! current %x , expected %x", ctx, m_eglContext);
+        changed = true;
+    }
+    m_eglContext = ctx;
+    return changed;
 }
 
 float TilesManager::tileWidth()

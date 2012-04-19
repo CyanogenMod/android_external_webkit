@@ -97,6 +97,7 @@ public:
 
     void initGLResourcesIfNeeded();
     void cleanupGLResources();
+    void forceNeedsInit() { m_createdTexture = false; }
 
     static int getButtonSize();
 private:

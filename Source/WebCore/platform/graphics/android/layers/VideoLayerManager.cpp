@@ -107,16 +107,15 @@ void VideoLayerManager::initGLResourcesIfNeeded()
 void VideoLayerManager::initGLResources()
 {
     GLUtils::checkGlError("before initGLResources()");
-    if (!m_createdTexture) {
-        m_spinnerOuterTextureId =
-            createTextureFromImage(RenderSkinMediaButton::SPINNER_OUTER);
-        m_spinnerInnerTextureId =
-            createTextureFromImage(RenderSkinMediaButton::SPINNER_INNER);
-        m_posterTextureId =
-            createTextureFromImage(RenderSkinMediaButton::VIDEO);
-        m_playTextureId = createTextureFromImage(RenderSkinMediaButton::PLAY);
-        m_pauseTextureId = createTextureFromImage(RenderSkinMediaButton::PAUSE);
-    }
+    m_spinnerOuterTextureId =
+        createTextureFromImage(RenderSkinMediaButton::SPINNER_OUTER);
+    m_spinnerInnerTextureId =
+        createTextureFromImage(RenderSkinMediaButton::SPINNER_INNER);
+    m_posterTextureId =
+        createTextureFromImage(RenderSkinMediaButton::VIDEO);
+    m_playTextureId = createTextureFromImage(RenderSkinMediaButton::PLAY);
+    m_pauseTextureId = createTextureFromImage(RenderSkinMediaButton::PAUSE);
+
     m_createdTexture = !GLUtils::checkGlError("initGLResources()");
     return;
 }

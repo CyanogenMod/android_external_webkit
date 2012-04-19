@@ -67,7 +67,6 @@ public:
     static bool isEGLFenceSyncSupported();
 
     // Texture utilities
-    static EGLContext createBackgroundContext(EGLContext sharedContext);
     static void deleteTexture(GLuint* texture);
     static GLuint createSampleColorTexture(int r, int g, int b);
     static GLuint createSampleTexture();

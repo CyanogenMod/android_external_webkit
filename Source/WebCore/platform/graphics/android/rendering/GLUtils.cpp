@@ -298,49 +298,6 @@ static EGLSurface createPbufferSurface(EGLDisplay display, const EGLConfig& conf
     return surface;
 }
 
-EGLContext GLUtils::createBackgroundContext(EGLContext sharedContext)
-{
-    checkEglError("<init>");
-    EGLDisplay display = eglGetDisplay(EGL_DEFAULT_DISPLAY);
-    checkEglError("eglGetDisplay");
-    if (display == EGL_NO_DISPLAY) {
-        ALOGE("eglGetDisplay returned EGL_NO_DISPLAY");
-        return EGL_NO_CONTEXT;
-    }
-
-    EGLint majorVersion;
-    EGLint minorVersion;
-    EGLBoolean returnValue = eglInitialize(display, &majorVersion, &minorVersion);
-    checkEglError("eglInitialize", returnValue);
-    if (returnValue != EGL_TRUE) {
-        ALOGE("eglInitialize failed\n");
-        return EGL_NO_CONTEXT;
-    }
-
-    EGLConfig config = defaultPbufferConfig(display);
-    EGLSurface surface = createPbufferSurface(display, config, 0);
-
-    EGLint surfaceConfigId;
-    EGLBoolean success = eglGetConfigAttrib(display, config, EGL_CONFIG_ID, &surfaceConfigId);
-
-    EGLint contextAttribs[] = { EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE };
-    EGLContext context = eglCreateContext(display, config, sharedContext, contextAttribs);
-    checkEglError("eglCreateContext");
-    if (context == EGL_NO_CONTEXT) {
-        ALOGE("eglCreateContext failed\n");
-        return EGL_NO_CONTEXT;
-    }
-
-    returnValue = eglMakeCurrent(display, surface, surface, context);
-    checkEglError("eglMakeCurrent", returnValue);
-    if (returnValue != EGL_TRUE) {
-        ALOGE("eglMakeCurrent failed\n");
-        return EGL_NO_CONTEXT;
-    }
-
-    return context;
-}
-
 void GLUtils::deleteTexture(GLuint* texture)
 {
     glDeleteTextures(1, texture);

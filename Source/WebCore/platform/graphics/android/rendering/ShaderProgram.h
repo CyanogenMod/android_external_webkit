@@ -153,7 +153,7 @@ public:
         m_contrast = contrast;
     }
     void setGLDrawInfo(const android::uirenderer::DrawGlInfo* info);
-
+    void forceNeedsInit() { m_needsInit = true; }
     bool needsInit() { return m_needsInit; }
     bool usePointSampling(float tileScale, const TransformationMatrix* layerTransform);
 

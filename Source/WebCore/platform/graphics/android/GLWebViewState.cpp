@@ -323,10 +323,7 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
         ALOGW("WARNING, scale seems corrupted before update: %e", scale);
 
-    // Here before we draw, update the Tile which has updated content.
-    // Inside this function, just do GPU blits from the transfer queue into
-    // the Tiles' texture.
-    tilesManager->transferQueue()->updateDirtyTiles();
+    tilesManager->updateTilesIfContextVerified();
 
     // Upload any pending ImageTexture
     // Return true if we still have some images to upload.
@@ -365,9 +362,6 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
         returnFlags |= uirenderer::DrawGlInfo::kStatusDraw | uirenderer::DrawGlInfo::kStatusInvoke;
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
-
-    // Clean up GL textures for video layer.
-    tilesManager->videoLayerManager()->deleteUnusedTextures();
 
     if (returnFlags & uirenderer::DrawGlInfo::kStatusDraw) {
         // returnFlags & kStatusDraw && empty inval region means we've inval'd everything,
