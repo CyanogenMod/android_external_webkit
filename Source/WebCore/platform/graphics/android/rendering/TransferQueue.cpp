@@ -102,7 +102,7 @@ void TransferQueue::initGLResources(int width, int height)
         m_sharedSurfaceTexture =
 #if GPU_UPLOAD_WITHOUT_DRAW
             new android::SurfaceTexture(m_sharedSurfaceTextureId, true,
-                                        GL_TEXTURE_2D, false, bufferQueue);
+                                        GL_TEXTURE_2D, true, bufferQueue);
 #else
             new android::SurfaceTexture(m_sharedSurfaceTextureId, true,
                                         GL_TEXTURE_EXTERNAL_OES, true,
