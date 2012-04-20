@@ -363,6 +363,11 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
+    // workaround for kProcessMode functor issue
+    if (returnFlags)
+        returnFlags = uirenderer::DrawGlInfo::kStatusDraw;
+    ///////////////////////////////
+
     if (returnFlags & uirenderer::DrawGlInfo::kStatusDraw) {
         // returnFlags & kStatusDraw && empty inval region means we've inval'd everything,
         // but don't have new content. Keep redrawing full view (0,0,0,0)
