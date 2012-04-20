@@ -376,23 +376,9 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     m_titleBarHeight = titleBarHeight;
 
     //// viewport ////
-    TransformationMatrix ortho;
-    GLUtils::setOrthographicMatrix(ortho, visibleRect.fLeft, visibleRect.fTop,
-                                   visibleRect.fRight, visibleRect.fBottom, -1000, 1000);
-    // In most case , visibleRect / viewRect * scale should 1.0, but for the
-    // translation case, the scale factor can be 1 but visibleRect is smaller
-    // than viewRect, we need to tune in this factor to make sure we scale them
-    // right. Conceptually, that means, no matter how animation affects the
-    // visibleRect, the scaling should respect the viewRect if zoomScale is 1.0.
-    // Note that at TiledPage, we already scale the tile size inversely to make
-    // zooming animation right.
-    float orthoScaleX = scale * visibleRect.width() / viewRect.width();
-    float orthoScaleY = scale * visibleRect.height() / viewRect.height();
-
-    TransformationMatrix orthoScale;
-    orthoScale.scale3d(orthoScaleX, orthoScaleY, 1.0);
-
-    m_visibleRectProjectionMatrix = ortho * orthoScale;
+    GLUtils::setOrthographicMatrix(m_visibleRectProjectionMatrix, visibleRect.fLeft,
+                                   visibleRect.fTop, visibleRect.fRight, visibleRect.fBottom,
+                                   -1000, 1000);
 
     ALOGV("set m_clipProjectionMatrix, %d, %d, %d, %d",
           screenClip.x(), screenClip.y(), screenClip.x() + screenClip.width(),
