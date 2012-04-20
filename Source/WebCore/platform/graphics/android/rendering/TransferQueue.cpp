@@ -75,14 +75,19 @@ TransferQueue::~TransferQueue()
     delete[] m_transferQueue;
 }
 
+// Set the queue to be totally empty, abandon the Surface Texture. This should
+// be called only when we hit a wrong EGL Context in an error situation.
+void TransferQueue::resetQueue()
+{
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+    emptyAndAbandonQueue();
+    m_sharedSurfaceTextureId = 0;
+}
+
 // This should be called within the m_transferQueueItemLocks.
 // Now only called by emptyQueue() and destructor.
 void TransferQueue::cleanupGLResources()
 {
-    if (m_sharedSurfaceTexture.get()) {
-        m_sharedSurfaceTexture->abandon();
-        m_sharedSurfaceTexture.clear();
-    }
     if (m_fboID) {
         glDeleteFramebuffers(1, &m_fboID);
         m_fboID = 0;
@@ -290,17 +295,27 @@ void TransferQueue::setHasGLContext(bool hasContext)
     m_hasGLContext = hasContext;
 }
 
-void TransferQueue::setPendingDiscardWithLock()
+// Call within a m_transferQueueItemLocks, now called by resetQueue() and
+// cleanupGLResoucesAndQueue()
+void TransferQueue::emptyAndAbandonQueue()
 {
-    android::Mutex::Autolock lock(m_transferQueueItemLocks);
-    setPendingDiscard();
+    for (int i = 0 ; i < m_transferQueueSize; i++)
+        m_transferQueue[i].status = emptyItem;
+    m_emptyItemCount = m_transferQueueSize;
+    m_pureColorTileQueue.clear();
+
+    if (m_sharedSurfaceTexture.get()) {
+        m_sharedSurfaceTexture->abandon();
+        m_sharedSurfaceTexture.clear();
+    }
+    // This can prevent the tex gen thread to produce, until next incoming draw.
+    setHasGLContext(false);
 }
 
-void TransferQueue::emptyQueue()
+void TransferQueue::cleanupGLResourcesAndQueue()
 {
     android::Mutex::Autolock lock(m_transferQueueItemLocks);
-    setPendingDiscard();
-    cleanupPendingDiscard();
+    emptyAndAbandonQueue();
     cleanupGLResources();
 }
 

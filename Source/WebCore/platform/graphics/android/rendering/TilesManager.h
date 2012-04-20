@@ -69,6 +69,9 @@ public:
     TransferQueue* transferQueue();
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
+    void updateTilesIfContextVerified();
+    void cleanupGLResources();
+
     void gatherTextures();
     bool layerTexturesRemain() { return m_layerTexturesRemain; }
     void gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextures,
@@ -163,6 +166,8 @@ private:
     void discardTexturesVector(unsigned long long sparedDrawCount,
                                WTF::Vector<TileTexture*>& textures,
                                bool deallocateGLTextures);
+    void markAllGLTexturesZero();
+    bool updateContextIfChanged();
 
     WTF::Vector<TileTexture*> m_textures;
     WTF::Vector<TileTexture*> m_availableTextures;
@@ -201,6 +206,8 @@ private:
     unsigned long long m_drawGLCount;
     double m_lastTimeLayersUsed;
     bool m_hasLayerTextures;
+
+    EGLContext m_eglContext;
 };
 
 } // namespace WebCore

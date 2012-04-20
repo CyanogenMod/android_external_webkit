@@ -1063,9 +1063,7 @@ static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
             && !tilesManager->highEndGfx())
             || level >= TRIM_MEMORY_COMPLETE) {
             ALOGD("OnTrimMemory with EGL Context %p", eglGetCurrentContext());
-            tilesManager->transferQueue()->emptyQueue();
-            tilesManager->shader()->cleanupGLResources();
-            tilesManager->videoLayerManager()->cleanupGLResources();
+            tilesManager->cleanupGLResources();
         }
 
         bool freeAllTextures = (level > TRIM_MEMORY_UI_HIDDEN), glTextures = true;

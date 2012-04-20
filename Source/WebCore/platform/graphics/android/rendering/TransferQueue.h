@@ -117,7 +117,6 @@ public:
 
     // This will be called by the browser through nativeSetProperty
     void setTextureUploadType(TextureUploadType type);
-    void cleanupGLResources();
     void updateDirtyTiles();
 
     void initGLResources(int width, int height);
@@ -140,10 +139,10 @@ public:
 
     void addItemInPureColorQueue(const TileRenderInfo* renderInfo);
 
-    void setPendingDiscardWithLock();
-    void emptyQueue();
+    void cleanupGLResourcesAndQueue();
 
     bool needsInit() { return !m_sharedSurfaceTextureId; }
+    void resetQueue();
     // This queue can be accessed from UI and TexGen thread, therefore, we need
     // a lock to protect its access
     TileTransferData* m_transferQueue;
@@ -159,6 +158,7 @@ private:
                                   const SkBitmap& bitmap);
     bool getHasGLContext();
     void setHasGLContext(bool hasContext);
+    void emptyAndAbandonQueue();
 
     int getNextTransferQueueIndex();
 
@@ -174,6 +174,7 @@ private:
     // Before each draw call and the blit operation, clean up all the
     // pendingDiscard items.
     void cleanupPendingDiscard();
+    void cleanupGLResources();
 
     void blitTileFromQueue(GLuint fboID, TileTexture* destTex,
                            TileTexture* frontTex,
