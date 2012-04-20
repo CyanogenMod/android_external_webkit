@@ -232,9 +232,6 @@ void TileGrid::prepareTile(int x, int y, TilePainter* painter,
 
     tile->setContents(x, y, m_scale, isExpandPrefetch);
 
-    // TODO: move below (which is largely the same for layers / tiled page) into
-    // prepareGL() function
-
     if (tile->isDirty() || !tile->frontTexture())
         tile->reserveTexture();
 
@@ -299,6 +296,10 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
     bool usePointSampling =
         TilesManager::instance()->shader()->usePointSampling(m_scale, transform);
 
+
+    float maxTileWidth = visibleArea.maxX() / tileWidth;
+    float maxTileHeight = visibleArea.maxY() / tileWidth;
+
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         Tile* tile = m_tiles[i];
 
@@ -314,8 +315,11 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
                   tile->scale(), m_scale, tile->isTileReady(), tile->isDirty());
 
             bool forceBaseBlending = background ? background->hasAlpha() : false;
+
+            FloatPoint fillPortion(std::min(maxTileWidth - tile->x(), 1.0f),
+                                   std::min(maxTileHeight - tile->y(), 1.0f));
             bool success = tile->drawGL(opacity, rect, m_scale, transform,
-                                        forceBaseBlending, usePointSampling);
+                                        forceBaseBlending, usePointSampling, fillPortion);
             if (semiOpaqueBaseSurface && success) {
                 // Cut the successful drawn tile area from the missing region.
                 missingRegion.op(SkIRect::MakeXYWH(tile->x(), tile->y(), 1, 1),

@@ -47,10 +47,11 @@ namespace WebCore {
 static const char gVertexShader[] =
     "attribute vec4 vPosition;\n"
     "uniform mat4 projectionMatrix;\n"
+    "uniform vec2 fillPortion;\n"
     "varying vec2 v_texCoord;\n"
     "void main() {\n"
     "  gl_Position = projectionMatrix * vPosition;\n"
-    "  v_texCoord = vec2(vPosition);\n"
+    "  v_texCoord = vPosition.xy * fillPortion;\n"
     "}\n";
 
 static const char gFragmentShader[] =
@@ -273,41 +274,45 @@ void ShaderProgram::initGLResources()
     GLint pureColorProjMtx = glGetUniformLocation(pureColorProgram, "projectionMatrix");
     GLint pureColorValue = glGetUniformLocation(pureColorProgram, "inputColor");
     m_handleArray[PureColor].init(-1, -1, pureColorPosition, pureColorProgram,
-                                  pureColorProjMtx, pureColorValue, -1, -1);
+                                  pureColorProjMtx, pureColorValue, -1, -1, -1);
 
     GLint tex2DAlpha = glGetUniformLocation(tex2DProgram, "alpha");
     GLint tex2DPosition = glGetAttribLocation(tex2DProgram, "vPosition");
     GLint tex2DProjMtx = glGetUniformLocation(tex2DProgram, "projectionMatrix");
     GLint tex2DTexSampler = glGetUniformLocation(tex2DProgram, "s_texture");
+    GLint tex2DFillPortion = glGetUniformLocation(tex2DProgram, "fillPortion");
     m_handleArray[Tex2D].init(tex2DAlpha, -1, tex2DPosition, tex2DProgram,
-                              tex2DProjMtx, -1, tex2DTexSampler, -1);
+                              tex2DProjMtx, -1, tex2DTexSampler, -1, tex2DFillPortion);
 
     GLint tex2DInvAlpha = glGetUniformLocation(tex2DInvProgram, "alpha");
     GLint tex2DInvContrast = glGetUniformLocation(tex2DInvProgram, "contrast");
     GLint tex2DInvPosition = glGetAttribLocation(tex2DInvProgram, "vPosition");
     GLint tex2DInvProjMtx = glGetUniformLocation(tex2DInvProgram, "projectionMatrix");
     GLint tex2DInvTexSampler = glGetUniformLocation(tex2DInvProgram, "s_texture");
+    GLint tex2DInvFillPortion = glGetUniformLocation(tex2DInvProgram, "fillPortion");
     m_handleArray[Tex2DInv].init(tex2DInvAlpha, tex2DInvContrast,
                                  tex2DInvPosition, tex2DInvProgram,
                                  tex2DInvProjMtx, -1,
-                                 tex2DInvTexSampler, -1);
+                                 tex2DInvTexSampler, -1, tex2DInvFillPortion);
 
     GLint texOESAlpha = glGetUniformLocation(texOESProgram, "alpha");
     GLint texOESPosition = glGetAttribLocation(texOESProgram, "vPosition");
     GLint texOESProjMtx = glGetUniformLocation(texOESProgram, "projectionMatrix");
     GLint texOESTexSampler = glGetUniformLocation(texOESProgram, "s_texture");
+    GLint texOESFillPortion = glGetUniformLocation(texOESProgram, "fillPortion");
     m_handleArray[TexOES].init(texOESAlpha, -1, texOESPosition, texOESProgram,
-                               texOESProjMtx, -1, texOESTexSampler, -1);
+                               texOESProjMtx, -1, texOESTexSampler, -1, texOESFillPortion);
 
     GLint texOESInvAlpha = glGetUniformLocation(texOESInvProgram, "alpha");
     GLint texOESInvContrast = glGetUniformLocation(texOESInvProgram, "contrast");
     GLint texOESInvPosition = glGetAttribLocation(texOESInvProgram, "vPosition");
     GLint texOESInvProjMtx = glGetUniformLocation(texOESInvProgram, "projectionMatrix");
     GLint texOESInvTexSampler = glGetUniformLocation(texOESInvProgram, "s_texture");
+    GLint texOESInvFillPortion = glGetUniformLocation(texOESInvProgram, "fillPortion");
     m_handleArray[TexOESInv].init(texOESInvAlpha, texOESInvContrast,
                                   texOESInvPosition, texOESInvProgram,
                                   texOESInvProjMtx, -1,
-                                  texOESInvTexSampler, -1);
+                                  texOESInvTexSampler, -1, texOESInvFillPortion);
 
     GLint videoPosition = glGetAttribLocation(videoProgram, "vPosition");
     GLint videoProjMtx = glGetUniformLocation(videoProgram, "projectionMatrix");
@@ -315,7 +320,7 @@ void ShaderProgram::initGLResources()
     GLint videoTexMtx = glGetUniformLocation(videoProgram, "textureMatrix");
     m_handleArray[Video].init(-1, -1, videoPosition, videoProgram,
                               videoProjMtx, -1, videoTexSampler,
-                              videoTexMtx);
+                              videoTexMtx, -1);
 
     const GLfloat coord[] = {
         0.0f, 0.0f, // C
@@ -589,7 +594,7 @@ float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, flo
 void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
                                     int textureId, float opacity,
                                     GLenum textureTarget, GLenum filter,
-                                    const Color& pureColor)
+                                    const Color& pureColor, const FloatPoint& fillPortion)
 {
     glUseProgram(m_handleArray[type].programHandle);
     glUniformMatrix4fv(m_handleArray[type].projMtxHandle, 1, GL_FALSE, matrix);
@@ -605,6 +610,8 @@ void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
         GLint contrastHandle = m_handleArray[type].contrastHandle;
         if (contrastHandle != -1)
             glUniform1f(contrastHandle, m_contrast);
+
+        glUniform2f(m_handleArray[type].fillPortionHandle, fillPortion.x(), fillPortion.y());
     } else {
         glUniform4f(m_handleArray[type].pureColorHandle,
                     pureColor.red() / 255.0, pureColor.green() / 255.0,
@@ -636,7 +643,7 @@ GLfloat* ShaderProgram::getTileProjectionMatrix(const DrawQuadData* data)
 
     const TransformationMatrix* matrix = data->drawMatrix();
     const SkRect* geometry = data->geometry();
-
+    FloatPoint fillPortion = data->fillPortion();
     // This modifiedDrawMatrix tranform (0,0)(1x1) to the final rect in screen
     // coordinate, before applying the m_webViewMatrix.
     // It first scale and translate the vertex array from (0,0)(1x1) to real
@@ -648,7 +655,8 @@ GLfloat* ShaderProgram::getTileProjectionMatrix(const DrawQuadData* data)
     if (type == LayerQuad)
         modifiedDrawMatrix = *matrix;
     modifiedDrawMatrix.translate(geometry->fLeft, geometry->fTop);
-    modifiedDrawMatrix.scale3d(geometry->width(), geometry->height(), 1);
+    modifiedDrawMatrix.scale3d(geometry->width() * fillPortion.x(),
+                               geometry->height() * fillPortion.y(), 1);
 
     // Even when we are on a alpha layer or not, we need to respect the
     // m_webViewMatrix, it may contain the layout offset. Normally it is
@@ -693,7 +701,7 @@ void ShaderProgram::drawQuad(const DrawQuadData* data)
     }
     setBlendingState(enableBlending);
     drawQuadInternal(shaderType, matrix, textureId, opacity,
-                     textureTarget, textureFilter, quadColor);
+                     textureTarget, textureFilter, quadColor, data->fillPortion());
 }
 
 void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
@@ -717,7 +725,6 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                        projectionMatrix);
     glUniformMatrix4fv(m_handleArray[Video].videoMtxHandle, 1, GL_FALSE,
                        textureMatrix);
-
     glActiveTexture(GL_TEXTURE0);
     glUniform1i(m_handleArray[Video].texSamplerHandle, 0);
     glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);

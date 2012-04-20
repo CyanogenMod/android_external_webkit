@@ -120,7 +120,8 @@ void TileTexture::transferComplete()
 
 void TileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
                          const TransformationMatrix* transform,
-                         bool forceBlending, bool usePointSampling)
+                         bool forceBlending, bool usePointSampling,
+                         const FloatPoint& fillPortion)
 {
     ShaderProgram* shader = TilesManager::instance()->shader();
 
@@ -134,7 +135,7 @@ void TileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
     // TODO: Don't blend tiles if they are fully opaque.
     bool useBlending = forceBlending || isLayer;
     DrawQuadData commonData(isLayer ? LayerQuad : BaseQuad, transform, &rect,
-                            opacity, useBlending);
+                            opacity, useBlending, fillPortion);
     if (isPureColor()) {
         PureColorQuadData data(commonData, pureColor());
         shader->drawQuad(&data);

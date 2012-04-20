@@ -26,11 +26,12 @@
 #ifndef TileTexture_h
 #define TileTexture_h
 
-#include "TextureInfo.h"
 #include "Color.h"
+#include "FloatPoint.h"
 #include "SkBitmap.h"
 #include "SkRect.h"
 #include "SkSize.h"
+#include "TextureInfo.h"
 
 #include <GLES2/gl2.h>
 
@@ -80,8 +81,8 @@ public:
     Color pureColor() { return m_pureColor; }
 
     void drawGL(bool isLayer, const SkRect& rect, float opacity,
-                const TransformationMatrix* transform, bool forceBlending = false,
-                bool usePointSampling = false);
+                const TransformationMatrix* transform, bool forceBlending, bool usePointSampling,
+                const FloatPoint& fillPortion);
 private:
     TextureInfo m_ownTextureInfo;
     SkSize m_size;

@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "BaseRenderer.h"
+#include "FloatPoint.h"
 #include "SkRect.h"
 #include "SkRegion.h"
 #include "TextureOwner.h"
@@ -102,7 +103,8 @@ public:
     // Return false when real draw didn't happen for any reason.
     bool drawGL(float opacity, const SkRect& rect, float scale,
                 const TransformationMatrix* transform,
-                bool forceBlending = false, bool usePointSampling = false);
+                bool forceBlending, bool usePointSampling,
+                const FloatPoint& fillPortion);
 
     // the only thread-safe function called by the background thread
     void paintBitmap(TilePainter* painter);
