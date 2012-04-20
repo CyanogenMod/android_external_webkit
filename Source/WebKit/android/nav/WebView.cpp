@@ -811,7 +811,7 @@ static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv,
     return reinterpret_cast<jint>(pictureSet);
 }
 
-static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
+static jint nativeCreateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
                                     jobject jrect, jobject jviewrect,
                                     jobject jvisiblerect,
                                     jfloat scale, jint extras) {
@@ -830,9 +830,17 @@ static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
     return (jint)functor;
 }
 
-static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jobject jrect,
+static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView) {
+    WebView *wvInstance = (WebView*) nativeView;
+    if (!wvInstance)
+        return 0;
+
+    return (jint) wvInstance->getFunctor();
+}
+
+static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView, jobject jrect,
         jobject jviewrect, jobject jvisiblerect, jfloat scale) {
-    WebView *wvInstance = GET_NATIVE_VIEW(env, obj);
+    WebView *wvInstance = (WebView*) nativeView;
     if (wvInstance) {
         GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
         if (functor) {
@@ -1233,9 +1241,11 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeDestroy },
     { "nativeDraw", "(Landroid/graphics/Canvas;Landroid/graphics/RectF;IIZ)I",
         (void*) nativeDraw },
-    { "nativeGetDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;FI)I",
+    { "nativeCreateDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;FI)I",
+        (void*) nativeCreateDrawGLFunction },
+    { "nativeGetDrawGLFunction", "(I)I",
         (void*) nativeGetDrawGLFunction },
-    { "nativeUpdateDrawGLFunction", "(Landroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;F)V",
+    { "nativeUpdateDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;F)V",
         (void*) nativeUpdateDrawGLFunction },
     { "nativeDumpDisplayTree", "(Ljava/lang/String;)V",
         (void*) nativeDumpDisplayTree },
