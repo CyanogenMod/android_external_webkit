@@ -177,7 +177,7 @@ public:
 
     bool setLayersRenderingMode(TexturesResult&);
 
-    int drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
+    int drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRect,
                IntRect& webViewRect, int titleBarHeight,
                IntRect& clip, float scale,
                bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,

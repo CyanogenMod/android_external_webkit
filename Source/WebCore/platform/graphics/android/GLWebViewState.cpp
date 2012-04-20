@@ -288,14 +288,14 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
 }
 
 // -rect(viewRect) is the webViewRect with inverted Y, in screen coordinate.
-// -viewport(visibleRect) is the visible area in document coordinate.
+// -visibleRect is the visible area in document coordinate.
 // They are both based on webViewRect and calculated in Java side.
 //
 // -clip is the final glViewport value in screen coordinate, and it contains the
 // animation translation/scale and FBO offset.
 //
 // TODO: Try to decrease the number of parameters as some info is redundant.
-int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
+int GLWebViewState::drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRect,
                            IntRect& webViewRect, int titleBarHeight,
                            IntRect& clip, float scale,
                            bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
@@ -303,14 +303,14 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
 {
     TilesManager* tilesManager = TilesManager::instance();
     if (shouldDraw)
-        tilesManager->getProfiler()->nextFrame(viewport.fLeft, viewport.fTop,
-                                               viewport.fRight, viewport.fBottom,
+        tilesManager->getProfiler()->nextFrame(visibleRect.fLeft, visibleRect.fTop,
+                                               visibleRect.fRight, visibleRect.fBottom,
                                                scale);
     tilesManager->incDrawGLCount();
 
-    ALOGV("drawGL, rect/viewRect(%d, %d, %d, %d), viewport/visibleRect(%.2f, %.2f, %.2f, %.2f)",
+    ALOGV("drawGL, rect/viewRect(%d, %d, %d, %d), visibleRect(%.2f, %.2f, %.2f, %.2f)",
           rect.x(), rect.y(), rect.width(), rect.height(),
-          viewport.fLeft, viewport.fTop, viewport.fRight, viewport.fBottom);
+          visibleRect.fLeft, visibleRect.fTop, visibleRect.fRight, visibleRect.fBottom);
 
     ALOGV("drawGL, invalRect(%d, %d, %d, %d), webViewRect(%d, %d, %d, %d)"
           "clip/glViewport (%d, %d, %d, %d), scale %f titleBarHeight %d",
@@ -340,12 +340,12 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& viewport, IntRect* invalRect,
     // gather the textures we can use
     tilesManager->gatherTextures();
 
-    double currentTime = setupDrawing(rect, viewport, webViewRect, titleBarHeight, clip, scale);
+    double currentTime = setupDrawing(rect, visibleRect, webViewRect, titleBarHeight, clip, scale);
 
     TexturesResult nbTexturesNeeded;
     bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
-    m_glExtras.setViewport(viewport);
-    returnFlags |= m_surfaceCollectionManager.drawGL(currentTime, rect, viewport,
+    m_glExtras.setViewport(visibleRect);
+    returnFlags |= m_surfaceCollectionManager.drawGL(currentTime, rect, visibleRect,
                                                      scale, fastSwap,
                                                      collectionsSwappedPtr, newCollectionHasAnimPtr,
                                                      &nbTexturesNeeded, shouldDraw);
