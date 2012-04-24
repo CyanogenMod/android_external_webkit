@@ -27,7 +27,7 @@
 #include "TexturesGenerator.h"
 
 #if USE(ACCELERATED_COMPOSITING)
-
+#include "sys/types.h"
 #include "BaseLayerAndroid.h"
 #include "GLUtils.h"
 #include "PaintTileOperation.h"
@@ -162,6 +162,7 @@ QueuedOperation* TexturesGenerator::popNext()
 
 bool TexturesGenerator::threadLoop()
 {
+    m_threadID = gettid();
     // Check if we have any pending operations.
     mRequestedOperationsLock.lock();
     while (!mRequestedOperations.size())
