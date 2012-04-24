@@ -43,6 +43,9 @@ enum GraphicsLayerPaintingPhase {
     GraphicsLayerPaintBackground = (1 << 0),
     GraphicsLayerPaintForeground = (1 << 1),
     GraphicsLayerPaintMask = (1 << 2),
+#if PLATFORM(ANDROID)
+    GraphicsLayerPaintBackgroundDecorations = (1 << 3),
+#endif
     GraphicsLayerPaintAll = (GraphicsLayerPaintBackground | GraphicsLayerPaintForeground | GraphicsLayerPaintMask)
 };
 

@@ -30,6 +30,7 @@
 #include "BaseLayerAndroid.h"
 
 #include "AndroidLog.h"
+#include "FixedPositioning.h"
 #include "GLWebViewState.h"
 #include "LayerContent.h"
 
@@ -42,8 +43,10 @@ BaseLayerAndroid::BaseLayerAndroid(LayerContent* content)
     : LayerAndroid((RenderLayer*)0)
     , m_color(Color::white)
 {
-    setContent(content);
-    setSize(content->width(), content->height());
+    if (content) {
+        setContent(content);
+        setSize(content->width(), content->height());
+    }
     m_uniqueId = BASE_UNIQUE_ID;
 }
 
@@ -64,6 +67,43 @@ IFrameLayerAndroid* BaseLayerAndroid::updatePosition(SkRect viewport,
     }
 
     return LayerAndroid::updatePosition(viewport, parentIframeLayer);
+}
+
+ForegroundBaseLayerAndroid::ForegroundBaseLayerAndroid(LayerContent* content)
+    : LayerAndroid((RenderLayer*)0)
+{
+    setIntrinsicallyComposited(true);
+}
+
+FixedBackgroundBaseLayerAndroid::FixedBackgroundBaseLayerAndroid(LayerContent* content)
+    : LayerAndroid((RenderLayer*)0)
+{
+    if (content) {
+        setContent(content);
+        setSize(content->width(), content->height());
+    }
+    setIntrinsicallyComposited(true);
+
+    // TODO: add support for fixed positioning attributes
+    SkRect viewRect;
+    SkLength left, top, right, bottom;
+    left.setFixedValue(0);
+    top.setFixedValue(0);
+    right.setAuto();
+    bottom.setAuto();
+    SkLength marginLeft, marginTop, marginRight, marginBottom;
+    marginLeft.setAuto();
+    marginTop.setAuto();
+    marginRight.setAuto();
+    marginBottom.setAuto();
+
+    viewRect.set(0, 0, content->width(), content->height());
+    FixedPositioning* fixedPosition = new FixedPositioning(this);
+    setFixedPosition(fixedPosition);
+    fixedPosition->setFixedPosition(left, top, right, bottom,
+                                    marginLeft, marginTop,
+                                    marginRight, marginBottom,
+                                    IntPoint(0, 0), viewRect);
 }
 
 } // namespace WebCore

@@ -2499,7 +2499,11 @@ void RenderBlock::paintObject(PaintInfo& paintInfo, int tx, int ty)
     PaintPhase paintPhase = paintInfo.phase;
 
     // 1. paint background, borders etc
-    if ((paintPhase == PaintPhaseBlockBackground || paintPhase == PaintPhaseChildBlockBackground) && style()->visibility() == VISIBLE) {
+    if ((paintPhase == PaintPhaseBlockBackground || paintPhase == PaintPhaseChildBlockBackground
+#if PLATFORM(ANDROID)
+         || paintPhase == PaintPhaseBlockBackgroundDecorations
+#endif
+        ) && style()->visibility() == VISIBLE) {
         if (hasBoxDecorations())
             paintBoxDecorations(paintInfo, tx, ty);
         if (hasColumns())

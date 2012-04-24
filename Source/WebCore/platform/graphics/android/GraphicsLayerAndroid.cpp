@@ -25,9 +25,11 @@
 #include "AndroidAnimation.h"
 #include "AndroidLog.h"
 #include "Animation.h"
+#include "CachedImage.h"
 #include "CanvasLayer.h"
-#include "FloatRect.h"
+#include "FixedBackgroundLayerAndroid.h"
 #include "FixedPositioning.h"
+#include "FloatRect.h"
 #include "GraphicsContext.h"
 #include "IFrameContentLayerAndroid.h"
 #include "IFrameLayerAndroid.h"
@@ -47,6 +49,7 @@
 #include "ScrollableLayerAndroid.h"
 #include "SkCanvas.h"
 #include "SkRegion.h"
+#include "StyleCachedImage.h"
 #include "TransformationMatrix.h"
 #include "TranslateTransformOperation.h"
 
@@ -117,6 +120,8 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_haveContents(false),
     m_newImage(false),
     m_image(0),
+    m_backgroundDecorationsLayer(0),
+    m_fixedBackgroundLayer(0),
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
 {
@@ -136,6 +141,8 @@ GraphicsLayerAndroid::~GraphicsLayerAndroid()
         m_image->deref();
 
     m_contentLayer->unref();
+    SkSafeUnref(m_backgroundDecorationsLayer);
+    SkSafeUnref(m_fixedBackgroundLayer);
     SkSafeUnref(m_foregroundLayer);
     SkSafeUnref(m_foregroundClipLayer);
     gDebugGraphicsLayerAndroidInstances--;
@@ -167,7 +174,7 @@ void GraphicsLayerAndroid::addChild(GraphicsLayer* childLayer)
 {
 #ifndef NDEBUG
     const String& name = childLayer->name();
-    ALOGV("(%x) addChild: %x (%s)", this, childLayer, name.latin1().data());
+    ALOGV("(%x) addChild: %x (%s)", this, childLayer, name.ascii().data());
 #endif
     GraphicsLayer::addChild(childLayer);
     m_needsSyncChildren = true;
@@ -328,7 +335,8 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
 {
     if (size == m_size)
         return;
-    ALOGV("(%x) setSize (%.2f,%.2f)", this, size.width(), size.height());
+    ALOGV("(%x) layer %d setSize (%.2f,%.2f)", this,
+          m_contentLayer->uniqueId(), size.width(), size.height());
     GraphicsLayer::setSize(size);
 
     // If it is a media layer the size may have changed as a result of the media
@@ -547,7 +555,7 @@ void GraphicsLayerAndroid::updateScrollingLayers()
         }
         // Need to rebuild our children based on the new structure.
         m_needsSyncChildren = true;
-    } else {
+    } else if (!m_contentLayer->isFixedBackground()) {
         ASSERT(hasOverflowScroll && !layerNeedsOverflow && !iframeNeedsOverflow);
         ASSERT(m_contentLayer);
         // Remove the foreground layers.
@@ -571,6 +579,96 @@ void GraphicsLayerAndroid::updateScrollingLayers()
         m_needsSyncChildren = true;
     }
 #endif
+}
+
+void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
+    RenderLayer* renderLayer = renderLayerFromClient(m_client);
+    if (!renderLayer)
+        return;
+    RenderView* view = static_cast<RenderView*>(renderLayer->renderer());
+    if (!view)
+        return;
+    if (view->isBody()) // body element is already handled
+        return;
+    if (!view->style()->hasFixedBackgroundImage())
+        return;
+    if (m_contentLayer->isFixedBackground())
+        return;
+    if (m_fixedBackgroundLayer) // already created
+        return;
+
+    // we will have:
+    // m_contentLayer
+    //   \- m_foregroundClipLayer
+    //     \- m_fixedBackgroundLayer
+    //   \- m_backgroundDecorationsLayer
+    //   \- m_foregroundLayer
+
+    // Grab the background image and create a layer for it
+    // the layer will be fixed positioned.
+    // TODO: if there's a background color, we don't honor it.
+    FillLayer* layers = view->style()->accessBackgroundLayers();
+    StyleImage* styleImage = layers->image();
+    if (styleImage->isCachedImage()) {
+        CachedImage* cachedImage = static_cast<StyleCachedImage*>(styleImage)->cachedImage();
+        Image* image = cachedImage->image();
+        if (image) {
+            m_fixedBackgroundLayer = new LayerAndroid(renderLayer);
+            m_fixedBackgroundLayer->setContentsImage(image->nativeImageForCurrentFrame());
+            m_fixedBackgroundLayer->setSize(image->width(), image->height());
+
+            // TODO: add support for the correct CSS position attributes
+            //       for now, just pin to left(0) top(0)
+
+            FixedPositioning* fixedPosition = new FixedPositioning(m_fixedBackgroundLayer);
+            SkRect viewRect;
+            SkLength left, top, right, bottom;
+            left.setFixedValue(0);
+            top.setFixedValue(0);
+            right.setAuto();
+            bottom.setAuto();
+            SkLength marginLeft, marginTop, marginRight, marginBottom;
+            marginLeft.setAuto();
+            marginTop.setAuto();
+            marginRight.setAuto();
+            marginBottom.setAuto();
+
+            viewRect.set(0, 0, view->width(), view->height());
+            fixedPosition->setFixedPosition(left, top, right, bottom,
+                                            marginLeft, marginTop,
+                                            marginRight, marginBottom,
+                                            IntPoint(0, 0), viewRect);
+
+            m_fixedBackgroundLayer->setFixedPosition(fixedPosition);
+        }
+    }
+
+    // We need to clip the background image to the bounds of the original element
+    m_foregroundClipLayer = new LayerAndroid(renderLayer);
+    m_foregroundClipLayer->setMasksToBounds(true);
+    m_foregroundClipLayer->addChild(m_fixedBackgroundLayer);
+
+    // We then want to display the content above the image background; webkit
+    // allow to paint background and foreground separately. For now, we'll create
+    // two layers; the one containing the background will be painted *without* the
+    // background image (but with the decorations, e.g. border)
+    // TODO: use a single layer with a new type of content (joining background/foreground?)
+    m_backgroundDecorationsLayer = new LayerAndroid(renderLayer);
+    m_backgroundDecorationsLayer->setIntrinsicallyComposited(true);
+    m_foregroundLayer = new LayerAndroid(renderLayer);
+    m_foregroundLayer->setIntrinsicallyComposited(false);
+
+    // Finally, let's assemble all the layers under a FixedBackgroundLayerAndroid layer
+    LayerAndroid* layer = new FixedBackgroundLayerAndroid(*m_contentLayer);
+    m_contentLayer->unref();
+    m_contentLayer = layer;
+
+    m_contentLayer->addChild(m_foregroundClipLayer);
+    m_contentLayer->addChild(m_backgroundDecorationsLayer);
+    m_contentLayer->addChild(m_foregroundLayer);
+
+    m_needsRepaint = true;
+    m_needsSyncChildren = true;
 }
 
 void GraphicsLayerAndroid::updateScrollOffset() {
@@ -600,7 +698,7 @@ bool GraphicsLayerAndroid::repaint()
         RenderLayer* layer = renderLayerFromClient(m_client);
         if (!layer)
             return false;
-        if (m_foregroundLayer) {
+        if (m_foregroundLayer && !m_contentLayer->isFixedBackground()) {
             PaintingPhase phase(this);
             // Paint the background into a separate context.
             phase.set(GraphicsLayerPaintBackground);
@@ -648,7 +746,7 @@ bool GraphicsLayerAndroid::repaint()
             // for the contents to be in the correct position.
             m_foregroundLayer->setPosition(-x, -y);
             // Set the scrollable bounds of the layer.
-            m_foregroundLayer->setScrollLimits(-x, -y, m_size.width(), m_size.height());
+            static_cast<ScrollableLayerAndroid*>(m_foregroundLayer)->setScrollLimits(-x, -y, m_size.width(), m_size.height());
 
             // Invalidate the entire layer for now, as webkit will only send the
             // setNeedsDisplayInRect() for the visible (clipped) scrollable area,
@@ -657,6 +755,25 @@ bool GraphicsLayerAndroid::repaint()
             SkRegion region;
             region.setRect(0, 0, contentsRect.width(), contentsRect.height());
             m_foregroundLayer->markAsDirty(region);
+        } else if (m_contentLayer->isFixedBackground()) {
+            PaintingPhase phase(this);
+            // Paint the background into a separate context.
+            ALOGV("paint background of layer %d (%d x %d)", m_contentLayer->uniqueId(),
+                  layerBounds.width(), layerBounds.height());
+
+            m_backgroundDecorationsLayer->setSize(layerBounds.width(), layerBounds.height());
+            phase.set(GraphicsLayerPaintBackgroundDecorations);
+            paintContext(m_backgroundDecorationsLayer, layerBounds);
+            phase.clear(GraphicsLayerPaintBackgroundDecorations);
+
+            // Paint the foreground into a separate context.
+            ALOGV("paint foreground of layer %d", m_contentLayer->uniqueId());
+            m_foregroundLayer->setSize(layerBounds.width(), layerBounds.height());
+            phase.set(GraphicsLayerPaintForeground);
+            paintContext(m_foregroundLayer, layerBounds);
+
+            m_foregroundClipLayer->setPosition(layerBounds.x(), layerBounds.y());
+            m_foregroundClipLayer->setSize(layerBounds.width(), layerBounds.height());
         } else {
             // If there is no contents clip, we can draw everything into one
             // picture.
@@ -788,7 +905,7 @@ bool GraphicsLayerAndroid::createAnimationFromKeyframes(const KeyframeValueList&
 {
     bool isKeyframe = valueList.size() > 2;
     ALOGV("createAnimationFromKeyframes(%d), name(%s) beginTime(%.2f)",
-          isKeyframe, keyframesName.latin1().data(), beginTime);
+          isKeyframe, keyframesName.ascii().data(), beginTime);
 
     switch (valueList.property()) {
     case AnimatedPropertyInvalid: break;
@@ -837,7 +954,7 @@ bool GraphicsLayerAndroid::createTransformAnimationsFromKeyframes(const Keyframe
 {
     ASSERT(valueList.property() == AnimatedPropertyWebkitTransform);
     ALOGV("createTransformAnimationFromKeyframes, name(%s) beginTime(%.2f)",
-          keyframesName.latin1().data(), beginTime);
+          keyframesName.ascii().data(), beginTime);
 
     KeyframeValueList* operationsList = new KeyframeValueList(AnimatedPropertyWebkitTransform);
     for (unsigned int i = 0; i < valueList.size(); i++) {
@@ -874,14 +991,14 @@ void GraphicsLayerAndroid::removeAnimationsForProperty(AnimatedPropertyID anID)
 
 void GraphicsLayerAndroid::removeAnimationsForKeyframes(const String& keyframesName)
 {
-    ALOGV("NRO removeAnimationsForKeyframes(%s)", keyframesName.latin1().data());
+    ALOGV("NRO removeAnimationsForKeyframes(%s)", keyframesName.ascii().data());
     m_contentLayer->removeAnimationsForKeyframes(keyframesName);
     askForSync();
 }
 
 void GraphicsLayerAndroid::pauseAnimation(const String& keyframesName)
 {
-    ALOGV("NRO pauseAnimation(%s)", keyframesName.latin1().data());
+    ALOGV("NRO pauseAnimation(%s)", keyframesName.ascii().data());
 }
 
 void GraphicsLayerAndroid::suspendAnimations(double time)
@@ -984,20 +1101,28 @@ void GraphicsLayerAndroid::askForSync()
 
 void GraphicsLayerAndroid::syncChildren()
 {
-    if (m_needsSyncChildren) {
+    if (m_needsSyncChildren && !m_contentLayer->isFixedBackground()) {
         m_contentLayer->removeChildren();
         LayerAndroid* layer = m_contentLayer;
-        if (m_foregroundClipLayer) {
+
+        if (m_contentLayer->isFixedBackground()) {
+            m_contentLayer->addChild(m_foregroundClipLayer);
+            m_contentLayer->addChild(m_backgroundDecorationsLayer);
+            m_contentLayer->addChild(m_foregroundLayer);
+            layer = m_foregroundLayer;
+            layer->removeChildren();
+        } else if (m_foregroundClipLayer) {
             m_contentLayer->addChild(m_foregroundClipLayer);
             // Use the scrollable content layer as the parent of the children so
             // that they move with the content.
             layer = m_foregroundLayer;
             layer->removeChildren();
         }
+
         for (unsigned int i = 0; i < m_children.size(); i++)
             layer->addChild(m_children[i]->platformLayer());
-        m_needsSyncChildren = false;
     }
+    m_needsSyncChildren = false;
 }
 
 void GraphicsLayerAndroid::syncMask()
@@ -1046,6 +1171,7 @@ void GraphicsLayerAndroid::syncCompositingStateForThisLayerOnly()
     }
 
     updateScrollingLayers();
+    updateFixedBackgroundLayers();
     updatePositionedLayers();
     syncChildren();
     syncMask();

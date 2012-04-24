@@ -38,6 +38,8 @@
 #include "SurfaceBacking.h"
 #include "TilesManager.h"
 
+#include <wtf/text/CString.h>
+
 // Surfaces with an area larger than 2048*2048 should never be unclipped
 #define MAX_UNCLIPPED_AREA 4194304
 
@@ -199,8 +201,13 @@ void Surface::prepareGL(bool layerTilesDisabled)
         IntRect prepareArea = computePrepareArea();
         IntRect fullArea = unclippedArea();
 
-        ALOGV("prepareGL on Surf %p with SurfBack %p, %d layers",
-              this, m_surfaceBacking, m_layers.size());
+        ALOGV("prepareGL on Surf %p with SurfBack %p, %d layers, first layer %s (%d) "
+              "prepareArea(%d, %d - %d x %d) fullArea(%d, %d - %d x %d)",
+              this, m_surfaceBacking, m_layers.size(),
+              getFirstLayer()->subclassName().ascii().data(),
+              getFirstLayer()->uniqueId(),
+              prepareArea.x(), prepareArea.y(), prepareArea.width(), prepareArea.height(),
+              fullArea.x(), fullArea.y(), fullArea.width(), fullArea.height());
 
         m_surfaceBacking->prepareGL(getFirstLayer()->state(), allowZoom,
                                       prepareArea, fullArea,
@@ -214,7 +221,11 @@ bool Surface::drawGL(bool layerTilesDisabled)
     if (!getFirstLayer()->visible())
         return false;
 
-    if (!isBase()) {
+    bool isBaseLayer = isBase()
+        || getFirstLayer()->subclassType() == LayerAndroid::FixedBackgroundBaseLayer
+        || getFirstLayer()->subclassType() == LayerAndroid::ForegroundBaseLayer;
+
+    if (!isBaseLayer) {
         // TODO: why are clipping regions wrong for base layer?
         FloatRect drawClip = getFirstLayer()->drawClip();
         FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip);
@@ -223,7 +234,8 @@ bool Surface::drawGL(bool layerTilesDisabled)
 
     bool askRedraw = false;
     if (m_surfaceBacking && !tilesDisabled) {
-        ALOGV("drawGL on Surf %p with SurfBack %p", this, m_surfaceBacking);
+        ALOGV("drawGL on Surf %p with SurfBack %p, first layer %s (%d)", this, m_surfaceBacking,
+              getFirstLayer()->subclassName().ascii().data(), getFirstLayer()->uniqueId());
 
         IntRect drawArea = visibleArea();
         m_surfaceBacking->drawGL(drawArea, opacity(), drawTransform(),

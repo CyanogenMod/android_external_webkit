@@ -87,7 +87,7 @@ void ClassTracker::show()
    ALOGD("*** Tracking %d classes ***", m_classes.size());
    for (HashMap<String, int>::iterator iter = m_classes.begin(); iter != m_classes.end(); ++iter) {
        ALOGD("class %s has %d instances",
-             iter->first.latin1().data(), iter->second);
+             iter->first.ascii().data(), iter->second);
    }
    ALOGD("*** %d Layers ***", m_layers.size());
    int nbTextures = 0;

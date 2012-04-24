@@ -1114,12 +1114,24 @@ void RenderLayerBacking::paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*
 
     bool shouldPaint = (m_owningLayer->hasVisibleContent() || m_owningLayer->hasVisibleDescendant()) && m_owningLayer->isSelfPaintingLayer();
 
+#if PLATFORM(ANDROID)
+    if (shouldPaint && ((paintingPhase & GraphicsLayerPaintBackground)
+                        || (paintingPhase & GraphicsLayerPaintBackgroundDecorations))) {
+#else
     if (shouldPaint && (paintingPhase & GraphicsLayerPaintBackground)) {
+#endif
         // Paint our background first, before painting any child layers.
         // Establish the clip used to paint our background.
         setClip(context, paintDirtyRect, damageRect);
         
+#if PLATFORM(ANDROID)
+        PaintPhase phase = PaintPhaseBlockBackground;
+        if (paintingPhase & GraphicsLayerPaintBackgroundDecorations)
+            phase = PaintPhaseBlockBackgroundDecorations;
+        PaintInfo info(context, damageRect, phase, false, paintingRootForRenderer, 0);
+#else
         PaintInfo info(context, damageRect, PaintPhaseBlockBackground, false, paintingRootForRenderer, 0);
+#endif
         renderer()->paint(info, tx, ty);
 
         // Our scrollbar widgets paint exactly when we tell them to, so that they work properly with

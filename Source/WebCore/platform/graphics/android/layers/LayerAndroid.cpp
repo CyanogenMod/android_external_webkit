@@ -578,9 +578,9 @@ void LayerAndroid::showLayer(int indent)
     IntRect visible = visibleArea();
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
-    ALOGD("%s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
+    ALOGD("%s %s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
           "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d",
-          spaces, subclassName().latin1().data(), subclassType(), uniqueId(), m_owningLayer,
+          spaces, m_haveClip ? "CLIP LAYER" : "", subclassName().ascii().data(), subclassType(), uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           m_imageCRC ? "has an image" : "no image",
           tr.x(), tr.y(), tr.width(), tr.height(),
@@ -748,6 +748,8 @@ IntRect LayerAndroid::unclippedArea()
 IntRect LayerAndroid::visibleArea()
 {
     IntRect area = unclippedArea();
+    if (subclassType() == LayerAndroid::FixedBackgroundBaseLayer)
+       return area;
     // First, we get the transformed area of the layer,
     // in document coordinates
     IntRect rect = m_drawTransform.mapRect(area);

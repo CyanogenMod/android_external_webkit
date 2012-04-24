@@ -88,6 +88,7 @@
 #include "NodeList.h"
 #include "Page.h"
 #include "PageGroup.h"
+#include "PictureLayerContent.h"
 #include "PictureSetLayerContent.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
@@ -872,8 +873,62 @@ void WebViewCore::notifyAnimationStarted()
 
 BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
 {
+    // We set the background color
+    Color background = Color::white;
+
+    bool bodyHasFixedBackgroundImage = false;
+    bool bodyHasCSSBackground = false;
+
+    if (m_mainFrame && m_mainFrame->document()
+        && m_mainFrame->document()->body()) {
+
+        Document* document = m_mainFrame->document();
+        RefPtr<RenderStyle> style = document->styleForElementIgnoringPendingStylesheets(document->body());
+        if (style->hasBackground()) {
+            background = style->visitedDependentColor(CSSPropertyBackgroundColor);
+            bodyHasCSSBackground = true;
+        }
+        WebCore::FrameView* view = m_mainFrame->view();
+        if (view) {
+            Color viewBackground = view->baseBackgroundColor();
+            background = bodyHasCSSBackground ? viewBackground.blend(background) : viewBackground;
+        }
+        bodyHasFixedBackgroundImage = style->hasFixedBackgroundImage();
+    }
+
     PictureSetLayerContent* content = new PictureSetLayerContent(m_content);
-    BaseLayerAndroid* base = new BaseLayerAndroid(content);
+
+    BaseLayerAndroid* realBase = 0;
+    LayerAndroid* base = 0;
+
+    //If we have a fixed background image on the body element, the fixed image
+    // will be contained in the PictureSet (the content object), and the foreground
+    //of the body element will be moved to a layer.
+    //In that case, let's change the hierarchy to obtain:
+    //
+    //BaseLayerAndroid
+    // \- FixedBackgroundBaseLayerAndroid (fixed positioning)
+    // \- ForegroundBaseLayerAndroid
+    //   \- root layer (webkit composited tree)
+
+    if (bodyHasFixedBackgroundImage) {
+        base = new ForegroundBaseLayerAndroid(0);
+        base->setSize(content->width(), content->height());
+        FixedBackgroundBaseLayerAndroid* baseBackground =
+            new FixedBackgroundBaseLayerAndroid(content);
+
+        // TODO -- check we don't have the assumption that baselayer has only one child
+        realBase = new BaseLayerAndroid(0);
+        realBase->setSize(content->width(), content->height());
+        realBase->addChild(baseBackground);
+        realBase->addChild(base);
+    } else {
+        realBase = new BaseLayerAndroid(content);
+        base = realBase;
+    }
+
+    realBase->setBackgroundColor(background);
+
     SkSafeUnref(content);
 
     m_skipContentDraw = true;
@@ -881,28 +936,6 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
     m_skipContentDraw = false;
     // Layout only fails if called during a layout.
     ALOG_ASSERT(layoutSucceeded, "Can never be called recursively");
-
-#if USE(ACCELERATED_COMPOSITING)
-    // We set the background color
-    Color background = Color::white;
-    if (m_mainFrame && m_mainFrame->document()
-        && m_mainFrame->document()->body()) {
-        bool hasCSSBackground = false;
-
-        Document* document = m_mainFrame->document();
-        RefPtr<RenderStyle> style = document->styleForElementIgnoringPendingStylesheets(document->body());
-        if (style->hasBackground()) {
-            background = style->visitedDependentColor(CSSPropertyBackgroundColor);
-            hasCSSBackground = true;
-        }
-
-        WebCore::FrameView* view = m_mainFrame->view();
-        if (view) {
-            Color viewBackground = view->baseBackgroundColor();
-            background = hasCSSBackground ? viewBackground.blend(background) : viewBackground;
-        }
-    }
-    base->setBackgroundColor(background);
 
     // We update the layers
     ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
@@ -913,9 +946,8 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
         copyLayer->unref();
         root->contentLayer()->clearDirtyRegion();
     }
-#endif
 
-    return base;
+    return realBase;
 }
 
 BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)

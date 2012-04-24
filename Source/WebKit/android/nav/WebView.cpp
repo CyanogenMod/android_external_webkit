@@ -305,7 +305,7 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
     LayerContent* content = m_baseLayer->content();
     int sc = canvas->save(SkCanvas::kClip_SaveFlag);
     canvas->clipRect(SkRect::MakeLTRB(0, 0, content->width(),
-                content->height()), SkRegion::kDifference_Op);
+                     content->height()), SkRegion::kDifference_Op);
     Color c = m_baseLayer->getBackgroundColor();
     canvas->drawColor(SkColorSetARGBInline(c.alpha(), c.red(), c.green(), c.blue()));
     canvas->restoreToCount(sc);
