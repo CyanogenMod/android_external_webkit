@@ -225,7 +225,6 @@ bool Surface::drawGL(bool layerTilesDisabled)
     if (m_surfaceBacking && !tilesDisabled) {
         ALOGV("drawGL on Surf %p with SurfBack %p", this, m_surfaceBacking);
 
-        // TODO: why this visibleArea is different from visibleRect at zooming for base?
         IntRect drawArea = visibleArea();
         m_surfaceBacking->drawGL(drawArea, opacity(), drawTransform(),
                                  useAggressiveRendering(), background());

@@ -59,12 +59,13 @@ struct ShaderHandles {
         , pureColorHandle(-1)
         , texSamplerHandle(-1)
         , videoMtxHandle(-1)
+        , fillPortionHandle(-1)
     {
     }
 
     void init(GLint alphaHdl, GLint contrastHdl, GLint posHdl, GLint pgmHdl,
               GLint projMtxHdl, GLint colorHdl, GLint texSamplerHdl,
-              GLint videoMtxHdl)
+              GLint videoMtxHdl, GLint fillPortionHdl)
     {
         alphaHandle = alphaHdl;
         contrastHandle = contrastHdl;
@@ -74,6 +75,7 @@ struct ShaderHandles {
         pureColorHandle = colorHdl;
         texSamplerHandle = texSamplerHdl;
         videoMtxHandle = videoMtxHdl;
+        fillPortionHandle = fillPortionHdl;
     }
 
     GLint alphaHandle;
@@ -84,6 +86,7 @@ struct ShaderHandles {
     GLint pureColorHandle;
     GLint texSamplerHandle;
     GLint videoMtxHandle;
+    GLint fillPortionHandle;
 };
 
 struct ShaderResource {
@@ -164,7 +167,7 @@ private:
     void setBlendingState(bool enableBlending);
     void drawQuadInternal(ShaderType type, const GLfloat* matrix, int textureId,
                          float opacity, GLenum textureTarget, GLenum filter,
-                         const Color& pureColor);
+                         const Color& pureColor,  const FloatPoint& fillPortion);
     Color shaderColor(Color pureColor, float opacity);
     ShaderType getTextureShaderType(GLenum textureTarget);
     void resetBlending();
