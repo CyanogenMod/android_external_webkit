@@ -146,9 +146,15 @@ bool JavaNPObjectInvoke(NPObject* obj, NPIdentifier identifier, const NPVariant*
     for (unsigned int i = 0; i < argCount; i++)
         jArgs[i] = convertNPVariantToJavaValue(args[i], jMethod->parameterAt(i));
 
-    JavaValue jResult = instance->invokeMethod(jMethod, jArgs);
+// ANDROID
+    bool exceptionOccurred;
+    JavaValue jResult = instance->invokeMethod(jMethod, jArgs, exceptionOccurred);
     instance->end();
     delete[] jArgs;
+
+    if (exceptionOccurred)
+        return false;
+// END ANDROID
 
     VOID_TO_NPVARIANT(*result);
     convertJavaValueToNPVariant(jResult, result);
