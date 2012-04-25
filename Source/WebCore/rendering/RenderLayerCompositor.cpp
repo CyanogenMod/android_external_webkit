@@ -1425,8 +1425,13 @@ bool RenderLayerCompositor::requiresCompositingForAndroidLayers(const RenderLaye
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
 
     // Enable composited layers (for fixed elements)
-    if (layer->isFixed())
-        return true;
+    if (layer->isFixed()) {
+        // Skip fixed layers with a width or height of 1 or less...
+        IntRect bounds = layer->renderer()->localToAbsoluteQuad(
+                FloatRect(layer->localBoundingBox())).enclosingBoundingBox();
+        if (bounds.width() > 1 && bounds.height() > 1)
+            return true;
+    }
 #endif
 
     if (layer->renderer()->isCanvas())
