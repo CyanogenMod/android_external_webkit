@@ -510,13 +510,13 @@ namespace android {
 
         bool focusBoundsChanged();
 
-        // record the inval area, and the picture size
-        WebCore::BaseLayerAndroid* recordContent(SkRegion* , SkIPoint* );
+        // record content in a new BaseLayerAndroid, copying the layer tree as well
+        WebCore::BaseLayerAndroid* recordContent(SkIPoint* );
 
         // This creates a new BaseLayerAndroid by copying the current m_content
         // and doing a copy of the layers. The layers' content may be updated
         // as we are calling layersSync().
-        WebCore::BaseLayerAndroid* createBaseLayer(SkRegion*);
+        WebCore::BaseLayerAndroid* createBaseLayer();
         bool updateLayers(WebCore::LayerAndroid*);
         void notifyAnimationStarted();
 
