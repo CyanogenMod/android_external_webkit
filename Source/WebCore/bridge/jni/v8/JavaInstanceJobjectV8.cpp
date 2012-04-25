@@ -65,15 +65,29 @@ JavaClass* JavaInstanceJobject::getClass() const
     return m_class.get();
 }
 
-JavaValue JavaInstanceJobject::invokeMethod(const JavaMethod* method, JavaValue* args)
+// ANDROID
+JavaValue JavaInstanceJobject::invokeMethod(const JavaMethod* method, JavaValue* args, bool& didRaiseUncaughtException)
 {
+    didRaiseUncaughtException = false;
+// END ANDROID
+
     ASSERT(getClass()->methodsNamed(method->name().utf8().data()).find(method) != notFound);
     unsigned int numParams = method->numParameters();
     OwnArrayPtr<jvalue> jvalueArgs = adoptArrayPtr(new jvalue[numParams]);
     for (unsigned int i = 0; i < numParams; ++i)
         jvalueArgs[i] = javaValueToJvalue(args[i]);
     jvalue result = callJNIMethod(javaInstance(), method->returnType(), method->name().utf8().data(), method->signature(), jvalueArgs.get());
+
+// ANDROID
+    JNIEnv* env = getJNIEnv();
+    if (env->ExceptionCheck() != JNI_FALSE) {
+        env->ExceptionClear();
+        didRaiseUncaughtException = true;
+        return JavaValue();
+    }
+
     return jvalueToJavaValue(result, method->returnType());
+// END ANDROID
 }
 
 static void appendClassName(StringBuilder& builder, const char* className)

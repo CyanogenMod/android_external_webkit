@@ -52,7 +52,9 @@ public:
 
     // JavaInstance implementation
     virtual JavaClass* getClass() const;
-    virtual JavaValue invokeMethod(const JavaMethod*, JavaValue* args);
+// ANDROID
+    virtual JavaValue invokeMethod(const JavaMethod*, JavaValue* args, bool& didRaiseUncaughtException);
+// END ANDROID
     virtual JavaValue getField(const JavaField*);
     virtual void begin();
     virtual void end();
