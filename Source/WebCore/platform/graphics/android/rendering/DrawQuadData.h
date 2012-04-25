@@ -29,7 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "Color.h"
-#include "FloatPoint.h"
+#include "FloatRect.h"
 #include "SkRect.h"
 #include <GLES2/gl2.h>
 
@@ -51,13 +51,14 @@ public:
                  const SkRect* geometry = 0,
                  float opacity = 1.0f,
                  bool forceBlending = true,
-                 FloatPoint fillPortion = FloatPoint(1.0f, 1.0f))
+                 FloatRect fillPortion = FloatRect(0.0f, 0.0f, 1.0f, 1.0f))
         : m_type(type)
         , m_drawMatrix(drawMatrix)
         , m_geometry(geometry)
         , m_opacity(opacity)
         , m_forceBlending(forceBlending)
-        , m_fillPortion(fillPortion.x(), fillPortion.y())
+        , m_fillPortion(fillPortion.x(), fillPortion.y(),
+                        fillPortion.width(), fillPortion.height())
     {
     }
 
@@ -67,7 +68,8 @@ public:
         , m_geometry(data.m_geometry)
         , m_opacity(data.m_opacity)
         , m_forceBlending(data.m_forceBlending)
-        , m_fillPortion(data.m_fillPortion.x(), data.m_fillPortion.y())
+        , m_fillPortion(data.m_fillPortion.x(), data.m_fillPortion.y(),
+                        data.m_fillPortion.width(), data.m_fillPortion.height())
     {
     }
 
@@ -90,7 +92,7 @@ public:
     virtual int textureId() const { return 0; }
     virtual GLint textureFilter() const { return 0; }
     virtual GLenum textureTarget() const { return 0; }
-    virtual FloatPoint fillPortion() const { return m_fillPortion; }
+    virtual FloatRect fillPortion() const { return m_fillPortion; }
 
 private:
     DrawQuadType m_type;
@@ -98,7 +100,7 @@ private:
     const SkRect* m_geometry;
     float m_opacity;
     bool m_forceBlending;
-    FloatPoint m_fillPortion;
+    FloatRect m_fillPortion;
 };
 
 class PureColorQuadData : public DrawQuadData {

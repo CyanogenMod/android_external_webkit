@@ -27,7 +27,7 @@
 #define TileTexture_h
 
 #include "Color.h"
-#include "FloatPoint.h"
+#include "FloatRect.h"
 #include "SkBitmap.h"
 #include "SkRect.h"
 #include "SkSize.h"
@@ -82,7 +82,7 @@ public:
 
     void drawGL(bool isLayer, const SkRect& rect, float opacity,
                 const TransformationMatrix* transform, bool forceBlending, bool usePointSampling,
-                const FloatPoint& fillPortion);
+                const FloatRect& fillPortion);
 private:
     TextureInfo m_ownTextureInfo;
     SkSize m_size;

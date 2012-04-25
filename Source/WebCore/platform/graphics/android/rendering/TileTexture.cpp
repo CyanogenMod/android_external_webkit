@@ -121,7 +121,7 @@ void TileTexture::transferComplete()
 void TileTexture::drawGL(bool isLayer, const SkRect& rect, float opacity,
                          const TransformationMatrix* transform,
                          bool forceBlending, bool usePointSampling,
-                         const FloatPoint& fillPortion)
+                         const FloatRect& fillPortion)
 {
     ShaderProgram* shader = TilesManager::instance()->shader();
 

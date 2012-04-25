@@ -210,7 +210,7 @@ void Tile::setRepaintPending(bool pending)
 bool Tile::drawGL(float opacity, const SkRect& rect, float scale,
                   const TransformationMatrix* transform,
                   bool forceBlending, bool usePointSampling,
-                  const FloatPoint& fillPortion)
+                  const FloatRect& fillPortion)
 {
     if (m_x < 0 || m_y < 0 || m_scale != scale)
         return false;
@@ -220,9 +220,11 @@ bool Tile::drawGL(float opacity, const SkRect& rect, float scale,
     if (!m_frontTexture)
         return false;
 
-    if (fillPortion.x() < 1.0f || fillPortion.y() < 1.0f)
-        ALOGV("drawing tile %p (%d, %d with fill portions %f %f",
-              this, m_x, m_y, fillPortion.x(), fillPortion.y());
+    if (fillPortion.maxX() < 1.0f || fillPortion.maxY() < 1.0f
+        || fillPortion.x() > 0.0f || fillPortion.y() > 0.0f)
+        ALOGV("drawing tile %p (%d, %d with fill portions %f %f->%f, %f",
+              this, m_x, m_y, fillPortion.x(), fillPortion.y(),
+              fillPortion.maxX(), fillPortion.maxY());
 
     m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform,
                            forceBlending, usePointSampling, fillPortion);
