@@ -439,10 +439,8 @@ void RenderThemeAndroid::adjustSliderThumbSize(RenderObject* o) const
 {
     static const int sliderThumbWidth = RenderSkinMediaButton::sliderThumbWidth();
     static const int sliderThumbHeight = RenderSkinMediaButton::sliderThumbHeight();
-    if (o->style()->appearance() == MediaSliderThumbPart) {
-        o->style()->setWidth(Length(sliderThumbWidth, Fixed));
-        o->style()->setHeight(Length(sliderThumbHeight, Fixed));
-    }
+    o->style()->setWidth(Length(sliderThumbHeight, Fixed));
+    o->style()->setHeight(Length(sliderThumbWidth, Fixed));
 }
 
 #endif
@@ -645,6 +643,30 @@ void RenderThemeAndroid::adjustMenuListButtonStyle(CSSStyleSelector*,
 bool RenderThemeAndroid::paintMenuListButton(RenderObject* obj, const PaintInfo& info, const IntRect& rect)
 {
     return paintCombo(obj, info, rect);
+}
+
+bool RenderThemeAndroid::paintSliderTrack(RenderObject* o, const PaintInfo& i, const IntRect& r)
+{
+    SkCanvas* canvas = getCanvasFromInfo(i);
+    if (!canvas)
+        return true;
+    static const bool translucent = true;
+    RenderSkinMediaButton::Draw(canvas, r,
+                                RenderSkinMediaButton::SLIDER_TRACK,
+                                translucent, o, false);
+    return false;
+}
+
+bool RenderThemeAndroid::paintSliderThumb(RenderObject* o, const PaintInfo& i, const IntRect& r)
+{
+    SkCanvas* canvas = getCanvasFromInfo(i);
+    if (!canvas)
+        return true;
+    static const bool translucent = true;
+    RenderSkinMediaButton::Draw(canvas, r,
+                                RenderSkinMediaButton::SLIDER_THUMB,
+                                translucent, 0, false);
+    return false;
 }
 
 Color RenderThemeAndroid::platformFocusRingColor() const

@@ -71,10 +71,6 @@ private:
     virtual bool shouldRespectListAttribute();
 
     SliderThumbElement* shadowSliderThumb() const;
-
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-    virtual void handleTouchStartEvent(TouchEvent*);
-#endif
 };
 
 } // namespace WebCore
