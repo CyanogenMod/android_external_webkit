@@ -871,7 +871,7 @@ void WebViewCore::notifyAnimationStarted()
 
 }
 
-BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
+BaseLayerAndroid* WebViewCore::createBaseLayer()
 {
     // We set the background color
     Color background = Color::white;
@@ -950,9 +950,8 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(SkRegion* region)
     return realBase;
 }
 
-BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
+BaseLayerAndroid* WebViewCore::recordContent(SkIPoint* point)
 {
-    DBG_SET_LOG("start");
     // If there is a pending style recalculation, just return.
     if (m_mainFrame->document()->isPendingStyleRecalc()) {
         DBG_SET_LOG("recordContent: pending style recalc, ignoring.");
@@ -965,21 +964,20 @@ BaseLayerAndroid* WebViewCore::recordContent(SkRegion* region, SkIPoint* point)
         DBG_SET_LOGD("empty (progress=%g)", progress);
         return 0;
     }
-    region->set(m_addInval);
+
+    BaseLayerAndroid* baseLayer = createBaseLayer();
+
+    baseLayer->markAsDirty(m_addInval);
     m_addInval.setEmpty();
 #if USE(ACCELERATED_COMPOSITING)
 #else
-    region->op(m_rebuildInval, SkRegion::kUnion_Op);
+    baseLayer->markAsDirty(m_rebuildInval);
 #endif
     m_rebuildInval.setEmpty();
     point->fX = m_content.width();
     point->fY = m_content.height();
-    DBG_SET_LOGD("region={%d,%d,r=%d,b=%d}", region->getBounds().fLeft,
-        region->getBounds().fTop, region->getBounds().fRight,
-        region->getBounds().fBottom);
-    DBG_SET_LOG("end");
 
-    return createBaseLayer(region);
+    return baseLayer;
 }
 
 void WebViewCore::splitContent(PictureSet* content)
@@ -4553,13 +4551,11 @@ static void NotifyAnimationStarted(JNIEnv* env, jobject obj, jint nativeClass)
     viewImpl->notifyAnimationStarted();
 }
 
-static jint RecordContent(JNIEnv* env, jobject obj, jint nativeClass,
-        jobject region, jobject pt)
+static jint RecordContent(JNIEnv* env, jobject obj, jint nativeClass, jobject pt)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    SkRegion* nativeRegion = GraphicsJNI::getNativeRegion(env, region);
     SkIPoint nativePt;
-    BaseLayerAndroid* result = viewImpl->recordContent(nativeRegion, &nativePt);
+    BaseLayerAndroid* result = viewImpl->recordContent(&nativePt);
     GraphicsJNI::ipoint_to_jpoint(nativePt, env, pt);
     return reinterpret_cast<jint>(result);
 }
@@ -5074,7 +5070,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) GetContentMinPrefWidth },
     { "nativeNotifyAnimationStarted", "(I)V",
         (void*) NotifyAnimationStarted },
-    { "nativeRecordContent", "(ILandroid/graphics/Region;Landroid/graphics/Point;)I",
+    { "nativeRecordContent", "(ILandroid/graphics/Point;)I",
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "(I)V",
         (void*) SetViewportSettingsFromNative },
