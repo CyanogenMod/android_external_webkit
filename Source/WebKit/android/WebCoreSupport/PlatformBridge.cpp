@@ -78,15 +78,21 @@ void PlatformBridge::setCookies(const Document* document, const KURL& url, const
     std::string cookieValue(value.utf8().data());
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
-    WebCookieJar::get(isPrivateBrowsing)->cookieStore()->SetCookie(cookieGurl, cookieValue);
+    WebCookieJar* cookieJar = WebCookieJar::get(isPrivateBrowsing);
+    if (cookieJar->allowCookies())
+        cookieJar->cookieStore()->SetCookie(cookieGurl, cookieValue);
 }
 
 String PlatformBridge::cookies(const Document* document, const KURL& url)
 {
     GURL cookieGurl(url.string().utf8().data());
     bool isPrivateBrowsing = document->settings() && document->settings()->privateBrowsingEnabled();
-    std::string cookies = WebCookieJar::get(isPrivateBrowsing)->cookieStore()->GetCookies(cookieGurl);
-    String cookieString(cookies.c_str());
+    WebCookieJar* cookieJar = WebCookieJar::get(isPrivateBrowsing);
+    String cookieString;
+    if (cookieJar->allowCookies()) {
+        std::string cookies = cookieJar->cookieStore()->GetCookies(cookieGurl);
+        cookieString = cookies.c_str();
+    }
     return cookieString;
 }
 
