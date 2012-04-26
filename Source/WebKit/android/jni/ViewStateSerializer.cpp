@@ -100,6 +100,10 @@ static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jint v
     BaseLayerAndroid* layer = new BaseLayerAndroid(content);
     layer->setBackgroundColor(color);
 
+    SkRegion dirtyRegion;
+    dirtyRegion.setRect(0, 0, content->width(), content->height());
+    layer->markAsDirty(dirtyRegion);
+
     SkSafeUnref(content);
     SkSafeUnref(picture);
     int childCount = stream->readS32();

@@ -515,18 +515,14 @@ static void copyScrollPositionRecursive(const LayerAndroid* from,
 
 BaseLayerAndroid* getBaseLayer() const { return m_baseLayer; }
 
-bool setBaseLayer(BaseLayerAndroid* newBaseLayer, SkRegion& inval, bool showVisualIndicator,
+bool setBaseLayer(BaseLayerAndroid* newBaseLayer, bool showVisualIndicator,
                   bool isPictureAfterFirstLayout)
 {
     bool queueFull = false;
 #if USE(ACCELERATED_COMPOSITING)
-    if (m_glWebViewState) {
-        // TODO: mark as inval on webkit side
-        if (newBaseLayer)
-            newBaseLayer->markAsDirty(inval);
+    if (m_glWebViewState)
         queueFull = m_glWebViewState->setBaseLayer(newBaseLayer, showVisualIndicator,
                                                    isPictureAfterFirstLayout);
-    }
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -701,6 +697,7 @@ class GLDrawFunctor : Functor {
         scale = _scale;
         extras = _extras;
     };
+
     status_t operator()(int messageId, void* data) {
         TRACE_METHOD();
 
@@ -871,15 +868,12 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint native
     return false;
 }
 
-static bool nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint layer, jobject inval,
+static bool nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint layer,
                                jboolean showVisualIndicator,
                                jboolean isPictureAfterFirstLayout)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
-    SkRegion invalRegion;
-    if (inval)
-        invalRegion = *GraphicsJNI::getNativeRegion(env, inval);
-    return ((WebView*)nativeView)->setBaseLayer(layerImpl, invalRegion, showVisualIndicator,
+    return ((WebView*)nativeView)->setBaseLayer(layerImpl, showVisualIndicator,
                                                 isPictureAfterFirstLayout);
 }
 
@@ -1257,7 +1251,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeLayerBounds },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(IILandroid/graphics/Region;ZZ)Z",
+    { "nativeSetBaseLayer", "(IIZZ)Z",
         (void*) nativeSetBaseLayer },
     { "nativeGetBaseLayer", "()I",
         (void*) nativeGetBaseLayer },
