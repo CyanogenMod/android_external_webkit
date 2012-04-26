@@ -44,14 +44,16 @@
 
 namespace WebCore {
 
+// fillPortion.xy = starting UV coordinate.
+// fillPortion.zw = UV coordinate width and height.
 static const char gVertexShader[] =
     "attribute vec4 vPosition;\n"
     "uniform mat4 projectionMatrix;\n"
-    "uniform vec2 fillPortion;\n"
+    "uniform vec4 fillPortion;\n"
     "varying vec2 v_texCoord;\n"
     "void main() {\n"
     "  gl_Position = projectionMatrix * vPosition;\n"
-    "  v_texCoord = vPosition.xy * fillPortion;\n"
+    "  v_texCoord = vPosition.xy * fillPortion.zw + fillPortion.xy;\n"
     "}\n";
 
 static const char gFragmentShader[] =
@@ -580,7 +582,7 @@ float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, flo
 void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
                                     int textureId, float opacity,
                                     GLenum textureTarget, GLenum filter,
-                                    const Color& pureColor, const FloatPoint& fillPortion)
+                                    const Color& pureColor, const FloatRect& fillPortion)
 {
     glUseProgram(m_handleArray[type].programHandle);
     glUniformMatrix4fv(m_handleArray[type].projMtxHandle, 1, GL_FALSE, matrix);
@@ -597,7 +599,8 @@ void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
         if (contrastHandle != -1)
             glUniform1f(contrastHandle, m_contrast);
 
-        glUniform2f(m_handleArray[type].fillPortionHandle, fillPortion.x(), fillPortion.y());
+        glUniform4f(m_handleArray[type].fillPortionHandle, fillPortion.x(), fillPortion.y(),
+                    fillPortion.width(), fillPortion.height());
     } else {
         glUniform4f(m_handleArray[type].pureColorHandle,
                     pureColor.red() / 255.0, pureColor.green() / 255.0,
@@ -629,7 +632,7 @@ GLfloat* ShaderProgram::getTileProjectionMatrix(const DrawQuadData* data)
 
     const TransformationMatrix* matrix = data->drawMatrix();
     const SkRect* geometry = data->geometry();
-    FloatPoint fillPortion = data->fillPortion();
+    FloatRect fillPortion = data->fillPortion();
     // This modifiedDrawMatrix tranform (0,0)(1x1) to the final rect in screen
     // coordinate, before applying the m_webViewMatrix.
     // It first scale and translate the vertex array from (0,0)(1x1) to real
@@ -640,9 +643,10 @@ GLfloat* ShaderProgram::getTileProjectionMatrix(const DrawQuadData* data)
     TransformationMatrix modifiedDrawMatrix;
     if (type == LayerQuad)
         modifiedDrawMatrix = *matrix;
-    modifiedDrawMatrix.translate(geometry->fLeft, geometry->fTop);
-    modifiedDrawMatrix.scale3d(geometry->width() * fillPortion.x(),
-                               geometry->height() * fillPortion.y(), 1);
+    modifiedDrawMatrix.translate(geometry->fLeft + geometry->width() * fillPortion.x(),
+                                 geometry->fTop + geometry->height() * fillPortion.y());
+    modifiedDrawMatrix.scale3d(geometry->width() * fillPortion.width(),
+                               geometry->height() * fillPortion.height(), 1);
 
     // Even when we are on a alpha layer or not, we need to respect the
     // m_webViewMatrix, it may contain the layout offset. Normally it is

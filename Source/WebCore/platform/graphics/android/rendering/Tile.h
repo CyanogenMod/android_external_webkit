@@ -104,7 +104,7 @@ public:
     bool drawGL(float opacity, const SkRect& rect, float scale,
                 const TransformationMatrix* transform,
                 bool forceBlending, bool usePointSampling,
-                const FloatPoint& fillPortion);
+                const FloatRect& fillPortion);
 
     // the only thread-safe function called by the background thread
     void paintBitmap(TilePainter* painter);

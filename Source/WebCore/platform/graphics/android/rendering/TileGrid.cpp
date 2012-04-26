@@ -296,10 +296,12 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
     bool usePointSampling =
         TilesManager::instance()->shader()->usePointSampling(m_scale, transform);
 
-
+    float minTileX =  visibleArea.x() / tileWidth;
+    float minTileY =  visibleArea.y() / tileWidth;
     float maxTileWidth = visibleArea.maxX() / tileWidth;
     float maxTileHeight = visibleArea.maxY() / tileWidth;
-
+    ALOGV("minTileX, minTileY, maxTileWidth, maxTileHeight %f, %f, %f %f",
+          minTileX, minTileY, maxTileWidth, maxTileHeight);
     for (unsigned int i = 0; i < m_tiles.size(); i++) {
         Tile* tile = m_tiles[i];
 
@@ -316,8 +318,20 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
 
             bool forceBaseBlending = background ? background->hasAlpha() : false;
 
-            FloatPoint fillPortion(std::min(maxTileWidth - tile->x(), 1.0f),
-                                   std::min(maxTileHeight - tile->y(), 1.0f));
+            float left = std::max(minTileX - tile->x(), 0.0f);
+            float top = std::max(minTileY - tile->y(), 0.0f);
+            float right = std::min(maxTileWidth - tile->x(), 1.0f);
+            float bottom = std::min(maxTileHeight - tile->y(), 1.0f);
+            if (left > 1.0f || top > 1.0f || right < 0.0f || bottom < 0.0f) {
+                ALOGE("Unexpected portion:left, top, right, bottom %f %f %f %f",
+                      left, top, right, bottom);
+                left = 0.0f;
+                top = 0.0f;
+                right = 1.0f;
+                bottom = 1.0f;
+            }
+            FloatRect fillPortion(left, top, right - left, bottom - top);
+
             bool success = tile->drawGL(opacity, rect, m_scale, transform,
                                         forceBaseBlending, usePointSampling, fillPortion);
             if (semiOpaqueBaseSurface && success) {
