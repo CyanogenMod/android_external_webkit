@@ -118,6 +118,9 @@ protected:
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
     virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
 
+    virtual bool paintSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+
 private:
     RenderThemeAndroid();
     void addIntrinsicMargins(RenderStyle*) const;
