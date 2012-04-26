@@ -1102,14 +1102,6 @@ void HTMLInputElement::defaultEventHandler(Event* evt)
             return;
     }
 
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-    if (evt->isTouchEvent() && evt->type() == eventNames().touchstartEvent) {
-        m_inputType->handleTouchStartEvent(static_cast<TouchEvent*>(evt));
-        if (evt->defaultHandled())
-            return;
-    }
-#endif
-
     m_inputType->forwardEvent(evt);
 
     if (!callBaseClassEarly && !evt->defaultHandled())
