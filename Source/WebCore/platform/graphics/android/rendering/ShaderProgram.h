@@ -167,7 +167,7 @@ private:
     void setBlendingState(bool enableBlending);
     void drawQuadInternal(ShaderType type, const GLfloat* matrix, int textureId,
                          float opacity, GLenum textureTarget, GLenum filter,
-                         const Color& pureColor,  const FloatPoint& fillPortion);
+                         const Color& pureColor,  const FloatRect& fillPortion);
     Color shaderColor(Color pureColor, float opacity);
     ShaderType getTextureShaderType(GLenum textureTarget);
     void resetBlending();
