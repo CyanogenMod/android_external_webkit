@@ -49,7 +49,9 @@ public:
     virtual JavaClass* getClass() const = 0;
     // args must be an array of length greater than or equal to the number of
     // arguments expected by the method.
-    virtual JavaValue invokeMethod(const JavaMethod*, JavaValue* args) = 0;
+// ANDROID
+    virtual JavaValue invokeMethod(const JavaMethod*, JavaValue* args, bool& didRaiseUncaughtException) = 0;
+// END ANDROID
     virtual JavaValue getField(const JavaField*) = 0;
 
     // These functions are called before and after the main entry points into
