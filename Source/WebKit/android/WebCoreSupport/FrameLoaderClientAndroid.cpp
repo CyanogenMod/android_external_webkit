@@ -945,11 +945,11 @@ void FrameLoaderClientAndroid::transitionToCommittedForNewPage() {
     Retain(webViewCore);
 
     // Save the old WebFrameView's bounds and apply them to the new WebFrameView
-    WebFrameView* oldWebFrameView = static_cast<WebFrameView*> (m_frame->view()->platformWidget());
+    RefPtr<WebCore::FrameView> oldFrameView = m_frame->view();
+    WebFrameView* oldWebFrameView = static_cast<WebFrameView*> (oldFrameView->platformWidget());
     IntRect bounds;
     if (oldWebFrameView)
         bounds = oldWebFrameView->getBounds();
-    WebCore::FrameView* oldFrameView = m_frame->view();
     const float oldZoomFactor = oldFrameView->frame()->textZoomFactor();
     m_frame->createView(bounds.size(), oldFrameView->baseBackgroundColor(), oldFrameView->isTransparent(),
             oldFrameView->fixedLayoutSize(), oldFrameView->useFixedLayout());
