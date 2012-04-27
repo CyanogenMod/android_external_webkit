@@ -89,7 +89,7 @@
 #include "Page.h"
 #include "PageGroup.h"
 #include "PictureLayerContent.h"
-#include "PictureSetLayerContent.h"
+#include "PicturePileLayerContent.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
 #include "PluginWidgetAndroid.h"
@@ -168,17 +168,6 @@ FILE* gRenderTreeFile = 0;
 #include "GraphicsLayerAndroid.h"
 #include "RenderLayerCompositor.h"
 #endif
-
-// In some cases, too many invalidations passed to the UI will slow us down.
-// Limit ourselves to 32 rectangles, past this just send the area bounds to the UI.
-// see WebViewCore::recordPictureSet().
-#define MAX_INVALIDATIONS 32
-
-/*  We pass this flag when recording the actual content, so that we don't spend
-    time actually regionizing complex path clips, when all we really want to do
-    is record them.
- */
-#define PICT_RECORD_FLAGS   SkPicture::kUsePathBoundsForClip_RecordingFlag
 
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -430,7 +419,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_scrollOffsetX(0)
     , m_scrollOffsetY(0)
     , m_mousePos(WebCore::IntPoint(0,0))
-    , m_progressDone(false)
     , m_screenWidth(320)
     , m_screenHeight(240)
     , m_textWrapWidth(320)
@@ -610,18 +598,8 @@ static bool layoutIfNeededRecursive(WebCore::Frame* f)
     WebCore::FrameView* v = f->view();
     if (!v)
         return true;
-
-    if (v->needsLayout())
-        v->layout(f->tree()->parent());
-
-    WebCore::Frame* child = f->tree()->firstChild();
-    bool success = true;
-    while (child) {
-        success &= layoutIfNeededRecursive(child);
-        child = child->tree()->nextSibling();
-    }
-
-    return success && !v->needsLayout();
+    v->updateLayoutAndStyleIfNeededRecursive();
+    return !v->needsLayout();
 }
 
 WebCore::Node* WebViewCore::currentFocus()
@@ -629,19 +607,16 @@ WebCore::Node* WebViewCore::currentFocus()
     return focusedFrame()->document()->focusedNode();
 }
 
-void WebViewCore::recordPictureSet(PictureSet* content)
+void WebViewCore::recordPicturePile()
 {
     TRACE_METHOD();
 
     // if there is no document yet, just return
     if (!m_mainFrame->document()) {
-        DBG_SET_LOG("!m_mainFrame->document()");
+        ALOGV("!m_mainFrame->document()");
         return;
     }
-    if (m_addInval.isEmpty()) {
-        DBG_SET_LOG("m_addInval.isEmpty()");
-        return;
-    }
+
     // Call layout to ensure that the contentWidth and contentHeight are correct
     // it's fine for layout to gather invalidates, but defeat sending a message
     // back to java to call webkitDraw, since we're already in the middle of
@@ -704,6 +679,8 @@ void WebViewCore::recordPictureSet(PictureSet* content)
     // If the new total is larger than the content, resize the view to include
     // all the content.
     if (!contentRect.contains(total)) {
+        // TODO: Does this ever happen? Is this needed now that we don't flatten
+        // frames?
         // Resize the view to change the overflow clip.
         view->resize(total.fRight, total.fBottom);
 
@@ -723,51 +700,15 @@ void WebViewCore::recordPictureSet(PictureSet* content)
         height = view->contentsHeight();
     }
 
-#if USE(ACCELERATED_COMPOSITING)
-    // The invals are not always correct when the content size has changed. For
-    // now, let's just reset the inval so that it invalidates the entire content
-    // -- the pictureset will be fully repainted, tiles will be marked dirty and
-    // will have to be repainted.
+    m_content.setSize(IntSize(width, height));
 
-    // FIXME: the webkit invals ought to have been enough...
-    if (content->width() != width || content->height() != height) {
-        SkIRect r;
-        r.fLeft = 0;
-        r.fTop = 0;
-        r.fRight = width;
-        r.fBottom = height;
-        m_addInval.setRect(r);
-    }
-#endif
-
-    content->setDimensions(width, height, &m_addInval);
-
-    // Add the current inval rects to the PictureSet, and rebuild it.
-    content->add(m_addInval, 0, false);
-
-    // If we have too many invalidations, just get the area bounds
-    SkRegion::Iterator iterator(m_addInval);
-    int nbInvals = 0;
-    while (!iterator.done()) {
-        iterator.next();
-        nbInvals++;
-        if (nbInvals > MAX_INVALIDATIONS)
-            break;
-    }
-    if (nbInvals > MAX_INVALIDATIONS) {
-        SkIRect r = m_addInval.getBounds();
-        m_addInval.setRect(r);
-    }
     // Rebuild the pictureset (webkit repaint)
-    rebuildPictureSet(content);
+    m_content.updatePicturesIfNeeded(this);
 }
 
 void WebViewCore::clearContent()
 {
-    DBG_SET_LOG("");
-    m_content.clear();
-    m_addInval.setEmpty();
-    m_rebuildInval.setEmpty();
+    m_content.reset();
     updateLocale();
 }
 
@@ -778,86 +719,51 @@ bool WebViewCore::focusBoundsChanged()
     return result;
 }
 
-SkPicture* WebViewCore::rebuildPicture(const SkIRect& inval)
+void WebViewCore::paintContents(WebCore::GraphicsContext* gc, WebCore::IntRect& dirty)
 {
     WebCore::FrameView* view = m_mainFrame->view();
-    int width = view->contentsWidth();
-    int height = view->contentsHeight();
-    SkPicture* picture = new SkPicture();
-    SkAutoPictureRecord arp(picture, width, height, PICT_RECORD_FLAGS);
-    SkAutoMemoryUsageProbe mup(__FUNCTION__);
-    SkCanvas* recordingCanvas = arp.getRecordingCanvas();
-
-    WebCore::PlatformGraphicsContextSkia pgc(recordingCanvas);
-    WebCore::GraphicsContext gc(&pgc);
-    IntPoint origin = view->minimumScrollPosition();
-    WebCore::IntRect drawArea(inval.fLeft + origin.x(), inval.fTop + origin.y(),
-            inval.width(), inval.height());
-    recordingCanvas->translate(-drawArea.x(), -drawArea.y());
-    recordingCanvas->save();
-    view->platformWidget()->draw(&gc, drawArea);
-    m_rebuildInval.op(inval, SkRegion::kUnion_Op);
-    DBG_SET_LOGD("m_rebuildInval={%d,%d,r=%d,b=%d}",
-        m_rebuildInval.getBounds().fLeft, m_rebuildInval.getBounds().fTop,
-        m_rebuildInval.getBounds().fRight, m_rebuildInval.getBounds().fBottom);
-
-    return picture;
-}
-
-#ifdef CONTEXT_RECORDING
-GraphicsOperationCollection* WebViewCore::rebuildGraphicsOperationCollection(const SkIRect& inval)
-{
-    WebCore::FrameView* view = m_mainFrame->view();
-    int width = view->contentsWidth();
-    int height = view->contentsHeight();
 
     IntPoint origin = view->minimumScrollPosition();
-    WebCore::IntRect drawArea(inval.fLeft + origin.x(), inval.fTop + origin.y(),
-            inval.width(), inval.height());
-
-    AutoGraphicsOperationCollection autoPicture(drawArea);
-    view->platformWidget()->draw(autoPicture.context(), drawArea);
-
-    m_rebuildInval.op(inval, SkRegion::kUnion_Op);
-
-    SkSafeRef(autoPicture.picture());
-    return autoPicture.picture();
+    IntRect drawArea = dirty;
+    gc->translate(-origin.x(), -origin.y());
+    drawArea.move(origin.x(), origin.y());
+    view->platformWidget()->draw(gc, drawArea);
 }
-#endif
 
-void WebViewCore::rebuildPictureSet(PictureSet* pictureSet)
+SkCanvas* WebViewCore::createPrerenderCanvas(PrerenderedInval* prerendered)
 {
-#ifdef FAST_PICTURESET
-    WTF::Vector<Bucket*>* buckets = pictureSet->bucketsToUpdate();
-
-    for (unsigned int i = 0; i < buckets->size(); i++) {
-        Bucket* bucket = (*buckets)[i];
-        for (unsigned int j = 0; j < bucket->size(); j++) {
-            BucketPicture& bucketPicture = (*bucket)[j];
-            const SkIRect& inval = bucketPicture.mRealArea;
-            SkPicture* picture = rebuildPicture(inval);
-            SkSafeUnref(bucketPicture.mPicture);
-            bucketPicture.mPicture = picture;
-        }
+    IntRect screen(m_scrollOffsetX, m_scrollOffsetY, m_screenWidth, m_screenHeight);
+    if (prerendered->area.isEmpty() || !prerendered->area.intersects(screen))
+        return 0;
+    FloatRect scaledArea = prerendered->area;
+    scaledArea.scale(m_scale);
+    IntRect enclosingScaledArea = enclosingIntRect(scaledArea);
+    if (enclosingScaledArea.isEmpty())
+        return 0;
+    prerendered->screenArea = enclosingScaledArea;
+    FloatRect enclosingDocArea(enclosingScaledArea);
+    enclosingDocArea.scale(1 / m_scale);
+    prerendered->area = enclosingIntRect(enclosingDocArea);
+    if (prerendered->area.isEmpty())
+        return 0;
+    // TODO: We need a better heuristic for this. We should change this to:
+    // 1) Limit by area, not width/height (as we care more about the RAM than size)
+    // 2) Clip by the screen, but "round out" to make sure we cover partially
+    // visible tiles
+    int maxWidth = ceilf(m_screenWidth * m_scale);
+    int maxHeight = ceilf(m_screenHeight * m_scale);
+    if (enclosingScaledArea.width() <= maxWidth
+            && enclosingScaledArea.height() <= maxHeight) {
+        prerendered->bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+                                      enclosingScaledArea.width(),
+                                      enclosingScaledArea.height());
+        prerendered->bitmap.allocPixels();
+        SkCanvas* bitmapCanvas = new SkCanvas(prerendered->bitmap);
+        bitmapCanvas->scale(m_scale, m_scale);
+        bitmapCanvas->translate(-enclosingDocArea.x(), -enclosingDocArea.y());
+        return bitmapCanvas;
     }
-    buckets->clear();
-#else
-    size_t size = pictureSet->size();
-    for (size_t index = 0; index < size; index++) {
-        if (pictureSet->upToDate(index))
-            continue;
-        const SkIRect& inval = pictureSet->bounds(index);
-        DBG_SET_LOGD("pictSet=%p [%d] {%d,%d,w=%d,h=%d}", pictureSet, index,
-            inval.fLeft, inval.fTop, inval.width(), inval.height());
-        pictureSet->setPicture(index, rebuildPicture(inval));
-#ifdef CONTEXT_RECORDING
-        pictureSet->setGraphicsOperationCollection(index,
-            rebuildGraphicsOperationCollection(inval));
-#endif
-    }
-
-    pictureSet->validate(__FUNCTION__);
-#endif
+    return 0;
 }
 
 void WebViewCore::notifyAnimationStarted()
@@ -896,7 +802,8 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
         bodyHasFixedBackgroundImage = style->hasFixedBackgroundImage();
     }
 
-    PictureSetLayerContent* content = new PictureSetLayerContent(m_content);
+    PicturePileLayerContent* content = new PicturePileLayerContent(m_content);
+    m_content.clearPrerenders();
 
     BaseLayerAndroid* realBase = 0;
     LayerAndroid* base = 0;
@@ -952,44 +859,20 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
 
 BaseLayerAndroid* WebViewCore::recordContent(SkIPoint* point)
 {
-    // If there is a pending style recalculation, just return.
-    if (m_mainFrame->document()->isPendingStyleRecalc()) {
-        DBG_SET_LOG("recordContent: pending style recalc, ignoring.");
-        return 0;
-    }
-    float progress = (float) m_mainFrame->page()->progress()->estimatedProgress();
-    m_progressDone = progress <= 0.0f || progress >= 1.0f;
-    recordPictureSet(&m_content);
-    if (!m_progressDone && m_content.isEmpty()) {
-        DBG_SET_LOGD("empty (progress=%g)", progress);
-        return 0;
-    }
+    recordPicturePile();
 
     BaseLayerAndroid* baseLayer = createBaseLayer();
 
-    baseLayer->markAsDirty(m_addInval);
-    m_addInval.setEmpty();
+    baseLayer->markAsDirty(m_content.dirtyRegion());
+    m_content.dirtyRegion().setEmpty();
 #if USE(ACCELERATED_COMPOSITING)
 #else
     baseLayer->markAsDirty(m_rebuildInval);
 #endif
-    m_rebuildInval.setEmpty();
-    point->fX = m_content.width();
-    point->fY = m_content.height();
+    point->fX = m_content.size().width();
+    point->fY = m_content.size().height();
 
     return baseLayer;
-}
-
-void WebViewCore::splitContent(PictureSet* content)
-{
-#ifdef FAST_PICTURESET
-#else
-    bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
-    ALOG_ASSERT(layoutSucceeded, "Can never be called recursively");
-    content->split(&m_content);
-    rebuildPictureSet(&m_content);
-    content->set(m_content);
-#endif // FAST_PICTURESET
 }
 
 void WebViewCore::scrollTo(int x, int y, bool animate)
@@ -1041,14 +924,10 @@ void WebViewCore::contentDraw()
 
 void WebViewCore::contentInvalidate(const WebCore::IntRect &r)
 {
-    DBG_SET_LOGD("rect={%d,%d,w=%d,h=%d}", r.x(), r.y(), r.width(), r.height());
-    SkIRect rect(r);
-    if (!rect.intersect(0, 0, INT_MAX, INT_MAX))
-        return;
-    m_addInval.op(rect, SkRegion::kUnion_Op);
-    DBG_SET_LOGD("m_addInval={%d,%d,r=%d,b=%d}",
-        m_addInval.getBounds().fLeft, m_addInval.getBounds().fTop,
-        m_addInval.getBounds().fRight, m_addInval.getBounds().fBottom);
+    IntPoint origin = m_mainFrame->view()->minimumScrollPosition();
+    IntRect dirty = r;
+    dirty.move(-origin.x(), -origin.y());
+    m_content.invalidate(dirty);
     if (!m_skipContentDraw)
         contentDraw();
 }
@@ -4560,13 +4439,6 @@ static jint RecordContent(JNIEnv* env, jobject obj, jint nativeClass, jobject pt
     return reinterpret_cast<jint>(result);
 }
 
-static void SplitContent(JNIEnv* env, jobject obj, jint nativeClass,
-        jint content)
-{
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    viewImpl->splitContent(reinterpret_cast<PictureSet*>(content));
-}
-
 static void SendListBoxChoice(JNIEnv* env, jobject obj, jint nativeClass,
         jint choice)
 {
@@ -5074,8 +4946,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) RecordContent },
     { "setViewportSettingsFromNative", "(I)V",
         (void*) SetViewportSettingsFromNative },
-    { "nativeSplitContent", "(II)V",
-        (void*) SplitContent },
     { "nativeSetBackgroundColor", "(II)V",
         (void*) SetBackgroundColor },
     { "nativeRegisterURLSchemeAsLocal", "(ILjava/lang/String;)V",

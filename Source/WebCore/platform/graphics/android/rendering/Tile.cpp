@@ -327,75 +327,7 @@ void Tile::paintBitmap(TilePainter* painter)
     const float tileWidth = renderInfo.tileSize.width();
     const float tileHeight = renderInfo.tileSize.height();
 
-    SkRegion::Iterator cliperator(dirtyArea);
-
-    bool fullRepaint = false;
-
-    if (m_fullRepaint
-        || textureInfo->m_width != tileWidth
-        || textureInfo->m_height != tileHeight) {
-        fullRepaint = true;
-    }
-
-    // For now, only do full repaint
-    fullRepaint = true;
-
-    if (!fullRepaint) {
-        // compute the partial inval area
-        SkIRect totalRect;
-        totalRect.set(0, 0, 0, 0);
-        float tileSurface = tileWidth * tileHeight;
-        float tileSurfaceCap = MAX_INVAL_AREA * tileSurface;
-
-        // We join all the invals in the same tile for now
-        while (!fullRepaint && !cliperator.done()) {
-            SkRect realTileRect;
-            SkRect dirtyRect;
-            dirtyRect.set(cliperator.rect());
-            bool intersect = intersectWithRect(x, y, tileWidth, tileHeight,
-                                               scale, dirtyRect, realTileRect);
-            if (intersect) {
-                // initialize finalRealRect to the rounded values of realTileRect
-                SkIRect finalRealRect;
-                realTileRect.roundOut(&finalRealRect);
-
-                // stash the int values of the current width and height
-                const int iWidth = finalRealRect.width();
-                const int iHeight = finalRealRect.height();
-
-                if (iWidth == tileWidth || iHeight == tileHeight) {
-                    fullRepaint = true;
-                    break;
-                }
-
-                // translate the rect into tile space coordinates
-                finalRealRect.fLeft = finalRealRect.fLeft % static_cast<int>(tileWidth);
-                finalRealRect.fTop = finalRealRect.fTop % static_cast<int>(tileHeight);
-                finalRealRect.fRight = finalRealRect.fLeft + iWidth;
-                finalRealRect.fBottom = finalRealRect.fTop + iHeight;
-                totalRect.join(finalRealRect);
-                float repaintSurface = totalRect.width() * totalRect.height();
-
-                if (repaintSurface > tileSurfaceCap) {
-                    fullRepaint = true;
-                    break;
-                }
-            }
-
-            cliperator.next();
-        }
-
-        if (!fullRepaint) {
-            renderInfo.invalRect = &totalRect;
-            m_renderer->renderTiledContent(renderInfo);
-        }
-    }
-
-    // Do a full repaint if needed
-    if (fullRepaint) {
-        renderInfo.invalRect = 0;
-        m_renderer->renderTiledContent(renderInfo);
-    }
+    m_renderer->renderTiledContent(renderInfo);
 
     m_atomicSync.lock();
 
@@ -410,13 +342,7 @@ void Tile::paintBitmap(TilePainter* painter)
         if (m_scale != scale)
             m_dirty = true;
 
-        if (fullRepaint)
-            m_dirtyArea.setEmpty();
-        else
-            m_dirtyArea.op(dirtyArea, SkRegion::kDifference_Op);
-
-        if (!m_dirtyArea.isEmpty())
-            m_dirty = true;
+        m_dirtyArea.setEmpty();
 
         ALOGV("painted tile %p (%d, %d), texture %p, dirty=%d", this, x, y, texture, m_dirty);
 
@@ -496,6 +422,15 @@ void Tile::backTextureTransferFail() {
     m_state = Unpainted;
     m_dirty = true;
     // whether validatePaint is called before or after, it won't do anything
+}
+
+void Tile::onBlitUpdate()
+{
+    // The front texture was directly updated with a blit, so mark this as clean
+    android::AutoMutex lock(m_atomicSync);
+    m_dirty = false;
+    m_dirtyArea.setEmpty();
+    m_state = Tile::UpToDate;
 }
 
 void Tile::validatePaint() {

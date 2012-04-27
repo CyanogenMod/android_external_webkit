@@ -23,31 +23,31 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PictureSetLayerContent_h
-#define PictureSetLayerContent_h
+#ifndef PicturePileLayerContent_h
+#define PicturePileLayerContent_h
 
 #include "LayerContent.h"
-#include "PictureSet.h"
+#include "PicturePile.h"
 
 namespace WebCore {
 
-class PictureSetLayerContent : public LayerContent {
+class PicturePileLayerContent : public LayerContent {
 public:
-    PictureSetLayerContent(const android::PictureSet& pictureSet);
-    ~PictureSetLayerContent();
+    PicturePileLayerContent(const PicturePile& picturePile);
 
-    virtual int width() { return m_pictureSet.width(); }
-    virtual int height() { return m_pictureSet.height(); }
-    virtual bool isEmpty() { return m_pictureSet.isEmpty(); }
+    virtual int width() { return m_picturePile.size().width(); }
+    virtual int height() { return m_picturePile.size().height(); }
     virtual void checkForOptimisations() {}
     virtual bool hasText() { return true; }
     virtual void draw(SkCanvas* canvas);
     virtual void serialize(SkWStream* stream);
+    virtual PrerenderedInval* prerenderForRect(const IntRect& dirty);
+    virtual void clearPrerenders();
 
 private:
-    android::PictureSet m_pictureSet;
+    PicturePile m_picturePile;
 };
 
 } // WebCore
 
-#endif // PictureLayerContent_h
+#endif // PicturePileLayerContent_h

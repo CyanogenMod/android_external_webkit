@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "Color.h"
+#include "IntRect.h"
 #include "SkBitmap.h"
 #include "SkMatrix.h"
 #include "TransformationMatrix.h"
@@ -73,7 +74,8 @@ public:
     static GLuint createTileGLTexture(int width, int height);
 
     static void createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GLint filter = GL_LINEAR);
-    static void updateTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, const IntRect&, GLint filter = GL_LINEAR);
+    static void updateTextureWithBitmap(GLuint texture, const SkBitmap& bitmap,
+                                        const IntRect& inval = IntRect(), GLint filter = GL_LINEAR);
     static void createEGLImageFromTexture(GLuint texture, EGLImageKHR* image);
     static void createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter = GL_LINEAR);
 
@@ -82,6 +84,8 @@ public:
     static bool updateSharedSurfaceTextureWithBitmap(ANativeWindow* anw, const SkBitmap& bitmap);
     static void convertToTransformationMatrix(const float* matrix, TransformationMatrix& transformMatrix);
 
+    static bool deepCopyBitmapSubset(const SkBitmap& sourceBitmap,
+                                     SkBitmap& subset, int left, int top);
     static bool isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor);
     static bool skipTransferForPureColor(const TileRenderInfo* renderInfo,
                                          const SkBitmap& bitmap);

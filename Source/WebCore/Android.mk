@@ -670,7 +670,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/layers/MediaLayer.cpp \
 	platform/graphics/android/layers/MediaTexture.cpp \
 	platform/graphics/android/layers/PictureLayerContent.cpp \
-	platform/graphics/android/layers/PictureSetLayerContent.cpp \
+	platform/graphics/android/layers/PicturePileLayerContent.cpp \
 	platform/graphics/android/layers/ScrollableLayerAndroid.cpp \
 	platform/graphics/android/layers/VideoLayerAndroid.cpp \
 	platform/graphics/android/layers/VideoLayerManager.cpp \

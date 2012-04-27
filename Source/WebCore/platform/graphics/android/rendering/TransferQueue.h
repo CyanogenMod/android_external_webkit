@@ -91,7 +91,6 @@ public:
     TransferItemStatus status;
     Tile* savedTilePtr;
     TileTexture* savedTileTexturePtr;
-    IntRect invalRect;
     TextureUploadType uploadType;
     // This is only useful in Cpu upload code path, so it will be dynamically
     // lazily allocated.

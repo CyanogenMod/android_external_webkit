@@ -34,6 +34,7 @@ class SkCanvas;
 namespace WebCore {
 
 class Color;
+class Tile;
 
 class TilePainter : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
@@ -44,6 +45,7 @@ public:
     enum SurfaceType { Painted, Image };
     virtual SurfaceType type() { return Painted; }
     virtual Color* background() { return 0; }
+    virtual bool blitFromContents(Tile* tile) { return false; }
 
     unsigned int getUpdateCount() { return m_updateCount; }
     void setUpdateCount(unsigned int updateCount) { m_updateCount = updateCount; }

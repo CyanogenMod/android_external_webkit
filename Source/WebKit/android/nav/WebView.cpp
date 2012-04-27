@@ -293,12 +293,11 @@ int drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     return 0;
 }
 
-PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool split)
+void draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras)
 {
-    PictureSet* ret = 0;
     if (!m_baseLayer) {
         canvas->drawColor(bgColor);
-        return ret;
+        return;
     }
 
     // draw the content of the base layer first
@@ -327,8 +326,6 @@ PictureSet* draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras, bool spli
     m_baseLayer->setMatrix(canvas->getTotalMatrix());
     canvas->resetMatrix();
     m_baseLayer->draw(canvas, getDrawExtra(extras));
-
-    return ret;
 }
 
 int getScaledMaxXScroll()
@@ -541,14 +538,6 @@ bool setBaseLayer(BaseLayerAndroid* newBaseLayer, bool showVisualIndicator,
     m_baseLayer = newBaseLayer;
 
     return queueFull;
-}
-
-void replaceBaseContent(PictureSet* set)
-{
-    if (!m_baseLayer)
-        return;
-    // TODO: remove the split picture codepath
-    delete set;
 }
 
 void copyBaseContentToPicture(SkPicture* picture)
@@ -805,16 +794,14 @@ static SkRect jrectf_to_rect(JNIEnv* env, jobject obj)
     return rect;
 }
 
-static jint nativeDraw(JNIEnv *env, jobject obj, jobject canv,
+static void nativeDraw(JNIEnv *env, jobject obj, jobject canv,
         jobject visible, jint color,
-        jint extras, jboolean split) {
+        jint extras) {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
     WebView* webView = GET_NATIVE_VIEW(env, obj);
     SkRect visibleRect = jrectf_to_rect(env, visible);
     webView->setVisibleRect(visibleRect);
-    PictureSet* pictureSet = webView->draw(canvas, color,
-            static_cast<WebView::DrawExtras>(extras), split);
-    return reinterpret_cast<jint>(pictureSet);
+    webView->draw(canvas, color, static_cast<WebView::DrawExtras>(extras));
 }
 
 static jint nativeCreateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
@@ -896,12 +883,6 @@ static bool nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint l
 static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
 {
     return GET_NATIVE_VIEW(env, obj)->getBaseLayer();
-}
-
-static void nativeReplaceBaseContent(JNIEnv *env, jobject obj, jint content)
-{
-    PictureSet* set = reinterpret_cast<PictureSet*>(content);
-    GET_NATIVE_VIEW(env, obj)->replaceBaseContent(set);
 }
 
 static void nativeCopyBaseContentToPicture(JNIEnv *env, jobject obj, jobject pict)
@@ -1110,7 +1091,7 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
             SkDumpCanvas canvas(&dumper);
             // this will playback the picture into the canvas, which will
             // spew its contents to the dumper
-            view->draw(&canvas, 0, WebView::DrawExtrasNone, false);
+            view->draw(&canvas, 0, WebView::DrawExtrasNone);
             // we're done with the file now
             fwrite("\n", 1, 1, file);
             fclose(file);
@@ -1249,7 +1230,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeCreate },
     { "nativeDestroy", "()V",
         (void*) nativeDestroy },
-    { "nativeDraw", "(Landroid/graphics/Canvas;Landroid/graphics/RectF;IIZ)I",
+    { "nativeDraw", "(Landroid/graphics/Canvas;Landroid/graphics/RectF;II)V",
         (void*) nativeDraw },
     { "nativeCreateDrawGLFunction", "(ILandroid/graphics/Rect;Landroid/graphics/Rect;Landroid/graphics/RectF;FI)I",
         (void*) nativeCreateDrawGLFunction },
@@ -1271,8 +1252,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetBaseLayer },
     { "nativeGetBaseLayer", "()I",
         (void*) nativeGetBaseLayer },
-    { "nativeReplaceBaseContent", "(I)V",
-        (void*) nativeReplaceBaseContent },
     { "nativeCopyBaseContentToPicture", "(Landroid/graphics/Picture;)V",
         (void*) nativeCopyBaseContentToPicture },
     { "nativeHasContent", "()Z",

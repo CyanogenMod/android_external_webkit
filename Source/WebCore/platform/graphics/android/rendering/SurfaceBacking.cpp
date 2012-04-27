@@ -57,7 +57,8 @@ SurfaceBacking::~SurfaceBacking()
 
 void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
                                const IntRect& prepareArea, const IntRect& unclippedArea,
-                               TilePainter* painter, bool aggressiveRendering)
+                               TilePainter* painter, bool aggressiveRendering,
+                               bool updateWithBlit)
 {
     float scale = state->scale();
     if (scale > 1 && !allowZoom)
@@ -113,7 +114,8 @@ void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
             // if the front grid hasn't already prepared, or needs to prepare
             // expanded bounds do so now
             m_frontTileGrid->prepareGL(state, m_scale,
-                                       prepareArea, unclippedArea, painter, prepareRegionFlags, false);
+                                       prepareArea, unclippedArea, painter,
+                                       prepareRegionFlags, false, updateWithBlit);
         }
         if (aggressiveRendering) {
             // prepare low res content

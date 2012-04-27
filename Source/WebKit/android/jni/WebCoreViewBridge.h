@@ -48,7 +48,7 @@ public:
 
     virtual ~WebCoreViewBridge() { }
 
-    virtual void draw(WebCore::GraphicsContext* ctx, 
+    virtual void draw(WebCore::GraphicsContext* ctx,
         const WebCore::IntRect& rect) = 0;
 
     const WebCore::IntRect& getBounds() const 

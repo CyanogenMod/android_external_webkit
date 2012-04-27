@@ -103,13 +103,7 @@ void ScrollView::platformOffscreenContentRectangle(const IntRect& vis, const Int
     android::WebViewCore* core = android::WebViewCore::getWebViewCore(this);
     if (!core) // SVG does not instantiate webviewcore
         return; // and doesn't need to record drawing offscreen
-    SkRegion rectRgn = SkRegion(rect);
-    rectRgn.op(vis, SkRegion::kDifference_Op);
-    SkRegion::Iterator iter(rectRgn);
-    for (; !iter.done(); iter.next()) {
-        const SkIRect& diff = iter.rect();
-        core->offInvalidate(diff);
-    }
+    core->offInvalidate(rect);
 }
 #endif
 

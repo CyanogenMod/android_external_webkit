@@ -53,7 +53,12 @@ extern FILE* gRenderTreeFile;
 #define DISPLAY_TREE_LOG_FILE "/sdcard/displayTree.txt"
 #define LAYERS_TREE_LOG_FILE "/sdcard/layersTree.plist"
 
-#define TRACE_METHOD() ScopedTrace __st(ATRACE_TAG_WEBVIEW, __func__);
+#define FLOAT_RECT_FORMAT "[x=%.2f,y=%.2f,w=%.2f,h=%.2f]"
+#define FLOAT_RECT_ARGS(fr) fr.x(), fr.y(), fr.width(), fr.height()
+#define INT_RECT_FORMAT "[x=%d,y=%d,w=%d,h=%d]"
+#define INT_RECT_ARGS(ir) ir.x(), ir.y(), ir.width(), ir.height()
+
+#define TRACE_METHOD() android::ScopedTrace __st(ATRACE_TAG_WEBVIEW, __func__);
 
 #define TIME_METHOD() MethodTimer __method_timer(__func__)
 class MethodTimer {

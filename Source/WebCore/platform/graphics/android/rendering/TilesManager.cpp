@@ -471,12 +471,12 @@ bool TilesManager::updateContextIfChanged()
     return changed;
 }
 
-float TilesManager::tileWidth()
+int TilesManager::tileWidth()
 {
     return TILE_WIDTH;
 }
 
-float TilesManager::tileHeight()
+int TilesManager::tileHeight()
 {
     return TILE_HEIGHT;
 }

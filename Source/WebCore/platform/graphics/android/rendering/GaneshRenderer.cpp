@@ -84,16 +84,6 @@ void GaneshRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     canvas->setDevice(device);
 }
 
-void GaneshRenderer::setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas)
-{
-    // set the clip to our invalRect
-    SkRect clipRect = SkRect::MakeLTRB(renderInfo.invalRect->fLeft,
-                                       renderInfo.invalRect->fTop,
-                                       renderInfo.invalRect->fRight,
-                                       renderInfo.invalRect->fBottom);
-    canvas->clipRect(clipRect);
-}
-
 void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
     ALOGV("rendered to tile (%d,%d)", renderInfo.x, renderInfo.y);

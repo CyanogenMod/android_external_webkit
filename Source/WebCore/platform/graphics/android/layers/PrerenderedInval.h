@@ -23,39 +23,36 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef LayerContent_h
-#define LayerContent_h
+#ifndef PrerenderedInval_h
+#define PrerenderedInval_h
 
 #include "IntRect.h"
-#include "SkRefCnt.h"
-#include <utils/threads.h>
+#include "SkBitmap.h"
 
-class SkCanvas;
-class SkPicture;
-class SkWStream;
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefCounted.h>
+#include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
 
-class PrerenderedInval;
-
-class LayerContent : public SkRefCnt {
+class PrerenderedInval : public ThreadSafeRefCounted<PrerenderedInval> {
+    WTF_MAKE_NONCOPYABLE(PrerenderedInval);
 public:
-    virtual int width() = 0;
-    virtual int height() = 0;
-    virtual bool isEmpty() { return !width() || !height(); }
-    virtual void checkForOptimisations() = 0;
-    virtual bool hasText() = 0;
-    virtual void draw(SkCanvas* canvas) = 0;
-    virtual PrerenderedInval* prerenderForRect(const IntRect& dirty) { return 0; }
-    virtual void clearPrerenders() { };
+    SkBitmap bitmap;
+    IntRect area;
+    IntRect screenArea;
 
-    virtual void serialize(SkWStream* stream) = 0;
+    static PassRefPtr<PrerenderedInval> create(const IntRect& ir)
+    {
+        return adoptRef(new PrerenderedInval(ir));
+    }
 
-protected:
-    // used to prevent parallel draws, as both SkPicture and PictureSet don't support them
-    android::Mutex m_drawLock;
+private:
+    PrerenderedInval(const IntRect& ir)
+        : area(ir)
+    {}
 };
 
-} // WebCore
+} // namespace WebCore
 
-#endif // LayerContent_h
+#endif // PrerenderedInval_h
