@@ -334,7 +334,7 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRec
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING) {
         ALOGW("WARNING, scale seems corrupted after update: %e", scale);
-        CRASH();
+        scale = 1.0f; // WORKAROUND for corrupted scale: use 1.0
     }
 
     // gather the textures we can use
