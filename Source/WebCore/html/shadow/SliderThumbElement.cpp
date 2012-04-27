@@ -94,7 +94,8 @@ public:
     {
         return adoptRef(new SliderTouchEventListener(slider));
     }
-    virtual bool operator==(const EventListener& other) {
+    virtual bool operator==(const EventListener& other)
+    {
         return this == &other;
     }
     virtual void handleEvent(ScriptExecutionContext*, Event* event)
