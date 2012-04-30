@@ -50,10 +50,10 @@
 // one viewport, otherwise the allocation may stall.
 // We need n textures for one TiledPage, and another n textures for the
 // second page used when scaling.
-// In our case, we use 256*256 textures. On the tablet, this equates to
-// at least 60 textures, or 112 with expanded tile boundaries.
-// 112(tiles)*256*256*4(bpp)*2(pages) = 56MB
-// It turns out the viewport dependent value m_maxTextureCount is a reasonable
+// In our case, we use 256*256 textures. Both base and layers can use up to
+// MAX_TEXTURE_ALLOCATION textures, which is 224MB GPU memory in total.
+// For low end graphics systems, we cut this upper limit to half.
+// We've found the viewport dependent value m_currentTextureCount is a reasonable
 // number to cap the layer tile texturs, it worked on both phones and tablets.
 // TODO: after merge the pool of base tiles and layer tiles, we should revisit
 // the logic of allocation management.
@@ -67,24 +67,26 @@
 
 namespace WebCore {
 
-GLint TilesManager::getMaxTextureSize()
-{
-    static GLint maxTextureSize = 0;
-    if (!maxTextureSize)
-        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
-    return maxTextureSize;
-}
-
 int TilesManager::getMaxTextureAllocation()
 {
-    return MAX_TEXTURE_ALLOCATION;
+    if (m_maxTextureAllocation == -1) {
+        GLint glMaxTextureSize = 0;
+        glGetIntegerv(GL_MAX_TEXTURE_SIZE, &glMaxTextureSize);
+        GLUtils::checkGlError("TilesManager::getMaxTextureAllocation");
+        // Half of glMaxTextureSize can be used for base, the other half for layers.
+        m_maxTextureAllocation = std::min(MAX_TEXTURE_ALLOCATION, glMaxTextureSize / 2);
+        if (!m_highEndGfx)
+            m_maxTextureAllocation = m_maxTextureAllocation / 2;
+    }
+    return m_maxTextureAllocation;
 }
 
 TilesManager::TilesManager()
     : m_layerTexturesRemain(true)
     , m_highEndGfx(false)
-    , m_maxTextureCount(0)
-    , m_maxLayerTextureCount(0)
+    , m_currentTextureCount(0)
+    , m_currentLayerTextureCount(0)
+    , m_maxTextureAllocation(-1)
     , m_generatorReady(false)
     , m_showVisualIndicator(false)
     , m_invertedScreen(false)
@@ -107,10 +109,10 @@ TilesManager::TilesManager()
     m_pixmapsGenerationThread->run("TexturesGenerator");
 }
 
-void TilesManager::allocateTiles()
+void TilesManager::allocateTextures()
 {
-    int nbTexturesToAllocate = m_maxTextureCount - m_textures.size();
-    ALOGV("%d tiles to allocate (%d textures planned)", nbTexturesToAllocate, m_maxTextureCount);
+    int nbTexturesToAllocate = m_currentTextureCount - m_textures.size();
+    ALOGV("%d tiles to allocate (%d textures planned)", nbTexturesToAllocate, m_currentTextureCount);
     int nbTexturesAllocated = 0;
     for (int i = 0; i < nbTexturesToAllocate; i++) {
         TileTexture* texture = new TileTexture(
@@ -124,9 +126,9 @@ void TilesManager::allocateTiles()
         nbTexturesAllocated++;
     }
 
-    int nbLayersTexturesToAllocate = m_maxLayerTextureCount - m_tilesTextures.size();
+    int nbLayersTexturesToAllocate = m_currentLayerTextureCount - m_tilesTextures.size();
     ALOGV("%d layers tiles to allocate (%d textures planned)",
-          nbLayersTexturesToAllocate, m_maxLayerTextureCount);
+          nbLayersTexturesToAllocate, m_currentLayerTextureCount);
     int nbLayersTexturesAllocated = 0;
     for (int i = 0; i < nbLayersTexturesToAllocate; i++) {
         TileTexture* texture = new TileTexture(
@@ -202,9 +204,9 @@ void TilesManager::discardTexturesVector(unsigned long long sparedDrawCount,
             textures.remove(discardedIndex[i]);
 
         int remainedTextureNumber = textures.size();
-        int* countPtr = base ? &m_maxTextureCount : &m_maxLayerTextureCount;
+        int* countPtr = base ? &m_currentTextureCount : &m_currentLayerTextureCount;
         if (remainedTextureNumber < *countPtr) {
-            ALOGV("reset maxTextureCount for %s tiles from %d to %d",
+            ALOGV("reset currentTextureCount for %s tiles from %d to %d",
                   base ? "base" : "layer", *countPtr, remainedTextureNumber);
             *countPtr = remainedTextureNumber;
         }
@@ -356,41 +358,39 @@ bool TilesManager::highEndGfx()
     return m_highEndGfx;
 }
 
-int TilesManager::maxTextureCount()
+int TilesManager::currentTextureCount()
 {
     android::Mutex::Autolock lock(m_texturesLock);
-    return m_maxTextureCount;
+    return m_currentTextureCount;
 }
 
-int TilesManager::maxLayerTextureCount()
+int TilesManager::currentLayerTextureCount()
 {
     android::Mutex::Autolock lock(m_texturesLock);
-    return m_maxLayerTextureCount;
+    return m_currentLayerTextureCount;
 }
 
-void TilesManager::setMaxTextureCount(int max)
+void TilesManager::setCurrentTextureCount(int newTextureCount)
 {
-    ALOGV("setMaxTextureCount: %d (current: %d, total:%d)",
-         max, m_maxTextureCount, MAX_TEXTURE_ALLOCATION);
-    if (m_maxTextureCount == MAX_TEXTURE_ALLOCATION ||
-         max <= m_maxTextureCount)
+    int maxTextureAllocation = getMaxTextureAllocation();
+    ALOGV("setCurrentTextureCount: %d (current: %d, max:%d)",
+         newTextureCount, m_currentTextureCount, maxTextureAllocation);
+    if (m_currentTextureCount == maxTextureAllocation ||
+        newTextureCount <= m_currentTextureCount)
         return;
 
     android::Mutex::Autolock lock(m_texturesLock);
+    m_currentTextureCount = std::min(newTextureCount, maxTextureAllocation);
 
-    if (max < MAX_TEXTURE_ALLOCATION)
-        m_maxTextureCount = max;
-    else
-        m_maxTextureCount = MAX_TEXTURE_ALLOCATION;
-
-    allocateTiles();
+    allocateTextures();
 }
 
-void TilesManager::setMaxLayerTextureCount(int max)
+void TilesManager::setCurrentLayerTextureCount(int newTextureCount)
 {
-    ALOGV("setMaxLayerTextureCount: %d (current: %d, total:%d)",
-         max, m_maxLayerTextureCount, MAX_TEXTURE_ALLOCATION);
-    if (!max && m_hasLayerTextures) {
+    int maxTextureAllocation = getMaxTextureAllocation();
+    ALOGV("setCurrentLayerTextureCount: %d (current: %d, max:%d)",
+         newTextureCount, m_currentLayerTextureCount, maxTextureAllocation);
+    if (!newTextureCount && m_hasLayerTextures) {
         double secondsSinceLayersUsed = WTF::currentTime() - m_lastTimeLayersUsed;
         if (secondsSinceLayersUsed > LAYER_TEXTURES_DESTROY_TIMEOUT) {
             unsigned long long sparedDrawCount = ~0; // by default, spare no textures
@@ -401,18 +401,14 @@ void TilesManager::setMaxLayerTextureCount(int max)
         return;
     }
     m_lastTimeLayersUsed = WTF::currentTime();
-    if (m_maxLayerTextureCount == MAX_TEXTURE_ALLOCATION ||
-         max <= m_maxLayerTextureCount)
+    if (m_currentLayerTextureCount == maxTextureAllocation ||
+        newTextureCount <= m_currentLayerTextureCount)
         return;
 
     android::Mutex::Autolock lock(m_texturesLock);
+    m_currentLayerTextureCount = std::min(newTextureCount, maxTextureAllocation);
 
-    if (max < MAX_TEXTURE_ALLOCATION)
-        m_maxLayerTextureCount = max;
-    else
-        m_maxLayerTextureCount = MAX_TEXTURE_ALLOCATION;
-
-    allocateTiles();
+    allocateTextures();
     m_hasLayerTextures = true;
 }
 

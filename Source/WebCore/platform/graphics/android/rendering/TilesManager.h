@@ -47,8 +47,6 @@ class TilesManager {
 public:
     // May only be called from the UI thread
     static TilesManager* instance();
-    static GLint getMaxTextureSize();
-    static int getMaxTextureAllocation();
 
     static bool hardwareAccelerationEnabled()
     {
@@ -85,14 +83,14 @@ public:
     void setHighEndGfx(bool highEnd);
     bool highEndGfx();
 
-    int maxTextureCount();
-    int maxLayerTextureCount();
-    void setMaxTextureCount(int max);
-    void setMaxLayerTextureCount(int max);
+    int currentTextureCount();
+    int currentLayerTextureCount();
+    void setCurrentTextureCount(int newTextureCount);
+    void setCurrentLayerTextureCount(int newTextureCount);
     static float tileWidth();
     static float tileHeight();
 
-    void allocateTiles();
+    void allocateTextures();
 
     // remove all tiles from textures (and optionally deallocate gl memory)
     void discardTextures(bool allTextures, bool glTextures);
@@ -168,6 +166,7 @@ private:
                                bool deallocateGLTextures);
     void markAllGLTexturesZero();
     bool updateContextIfChanged();
+    int getMaxTextureAllocation();
 
     WTF::Vector<TileTexture*> m_textures;
     WTF::Vector<TileTexture*> m_availableTextures;
@@ -177,8 +176,9 @@ private:
     bool m_layerTexturesRemain;
 
     bool m_highEndGfx;
-    int m_maxTextureCount;
-    int m_maxLayerTextureCount;
+    int m_currentTextureCount;
+    int m_currentLayerTextureCount;
+    int m_maxTextureAllocation;
 
     bool m_generatorReady;
 
