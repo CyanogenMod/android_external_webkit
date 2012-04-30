@@ -439,8 +439,8 @@ void RenderThemeAndroid::adjustSliderThumbSize(RenderObject* o) const
 {
     static const int sliderThumbWidth = RenderSkinMediaButton::sliderThumbWidth();
     static const int sliderThumbHeight = RenderSkinMediaButton::sliderThumbHeight();
-    o->style()->setWidth(Length(sliderThumbHeight, Fixed));
-    o->style()->setHeight(Length(sliderThumbWidth, Fixed));
+    o->style()->setWidth(Length(sliderThumbWidth, Fixed));
+    o->style()->setHeight(Length(sliderThumbHeight, Fixed));
 }
 
 #endif
