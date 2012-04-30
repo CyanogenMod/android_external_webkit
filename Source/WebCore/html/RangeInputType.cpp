@@ -199,6 +199,22 @@ void RangeInputType::handleKeydownEvent(KeyboardEvent* event)
     event->setDefaultHandled();
 }
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+void RangeInputType::handleTouchStartEvent(TouchEvent* touchEvent)
+{
+    if (SliderThumbElement* thumb = shadowSliderThumb()) {
+        if (touchEvent->touches() && touchEvent->touches()->item(0)) {
+            IntPoint curPoint;
+            curPoint.setX(touchEvent->touches()->item(0)->pageX());
+            curPoint.setY(touchEvent->touches()->item(0)->pageY());
+            thumb->dragFrom(curPoint);
+            touchEvent->setDefaultHandled();
+            touchEvent->setDefaultPrevented(true);
+        }
+    }
+}
+#endif
+
 void RangeInputType::createShadowSubtree()
 {
     ExceptionCode ec = 0;

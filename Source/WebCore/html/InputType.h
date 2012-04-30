@@ -173,6 +173,10 @@ public:
     virtual void handleWheelEvent(WheelEvent*);
     virtual void forwardEvent(Event*);
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+    virtual void handleTouchStartEvent(TouchEvent*);
+#endif
+
     // Helpers for event handlers.
     virtual bool shouldSubmitImplicitly(Event*);
     virtual PassRefPtr<HTMLFormElement> formForSubmission() const;
