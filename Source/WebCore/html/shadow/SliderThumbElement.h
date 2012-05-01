@@ -44,9 +44,6 @@ class HTMLElement;
 class HTMLInputElement;
 class Event;
 class FloatPoint;
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-class SliderTouchEventListener;
-#endif
 
 class SliderThumbElement : public HTMLDivElement {
 public:
@@ -73,10 +70,6 @@ private:
 
     FloatPoint m_offsetToThumb;
     bool m_inDragMode;
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-    RefPtr<EventListener> m_touchListener;
-    friend class SliderTouchEventListener;
-#endif
 };
 
 inline SliderThumbElement::SliderThumbElement(Document* document)

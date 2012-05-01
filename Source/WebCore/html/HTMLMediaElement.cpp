@@ -186,8 +186,6 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     document->registerForMediaVolumeCallbacks(this);
     document->registerForPrivateBrowsingStateChangedCallbacks(this);
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-    // Enable the Media Element to listen to all the touch events
-    document->addListenerTypeIfNeeded(eventNames().touchstartEvent);
     m_restrictions |= RequireUserGestureForRateChangeRestriction;
 #endif
 }

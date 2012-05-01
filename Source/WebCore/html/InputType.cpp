@@ -310,6 +310,12 @@ void InputType::handleMouseDownEvent(MouseEvent*)
 {
 }
 
+#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
+void InputType::handleTouchStartEvent(TouchEvent*)
+{
+}
+#endif
+
 void InputType::handleDOMActivateEvent(Event*)
 {
 }
