@@ -1113,13 +1113,13 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 #endif
 }
 
-static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y,
-    jobject rect, jobject bounds)
+static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint nativeView,
+    jint x, jint y, jobject rect, jobject bounds)
 {
-    WebView* view = GET_NATIVE_VIEW(env, jwebview);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    ALOG_ASSERT(webview, "webview not set in %s", __FUNCTION__);
     SkIRect nativeRect, nativeBounds;
-    int id = view->scrollableLayer(x, y, &nativeRect, &nativeBounds);
+    int id = webview->scrollableLayer(x, y, &nativeRect, &nativeBounds);
     if (rect)
         GraphicsJNI::irect_to_jrect(nativeRect, env, rect);
     if (bounds)
@@ -1127,15 +1127,15 @@ static int nativeScrollableLayer(JNIEnv* env, jobject jwebview, jint x, jint y,
     return id;
 }
 
-static bool nativeScrollLayer(JNIEnv* env, jobject obj, jint layerId, jint x,
-        jint y)
+static bool nativeScrollLayer(JNIEnv* env, jobject obj,
+    jint nativeView, jint layerId, jint x, jint y)
 {
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    WebView* view = GET_NATIVE_VIEW(env, obj);
-    view->scrollLayer(layerId, x, y);
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    webview->scrollLayer(layerId, x, y);
 
     //TODO: the below only needed for the SW rendering path
-    LayerAndroid* baseLayer = view->getBaseLayer();
+    LayerAndroid* baseLayer = webview->getBaseLayer();
     if (!baseLayer)
         return false;
     LayerAndroid* layer = baseLayer->findById(layerId);
@@ -1279,9 +1279,9 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTileProfilingGetFloat },
     { "nativeStopGL", "()V",
         (void*) nativeStopGL },
-    { "nativeScrollableLayer", "(IILandroid/graphics/Rect;Landroid/graphics/Rect;)I",
+    { "nativeScrollableLayer", "(IIILandroid/graphics/Rect;Landroid/graphics/Rect;)I",
         (void*) nativeScrollableLayer },
-    { "nativeScrollLayer", "(III)Z",
+    { "nativeScrollLayer", "(IIII)Z",
         (void*) nativeScrollLayer },
     { "nativeSetIsScrolling", "(Z)V",
         (void*) nativeSetIsScrolling },
