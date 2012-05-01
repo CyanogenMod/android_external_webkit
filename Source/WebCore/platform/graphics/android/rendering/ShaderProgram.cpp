@@ -44,8 +44,8 @@
 
 namespace WebCore {
 
-// fillPortion.xy = starting UV coordinate.
-// fillPortion.zw = UV coordinate width and height.
+// fillPortion.xy = starting UV coordinates.
+// fillPortion.zw = UV coordinates width and height.
 static const char gVertexShader[] =
     "attribute vec4 vPosition;\n"
     "uniform mat4 projectionMatrix;\n"
@@ -370,6 +370,27 @@ void ShaderProgram::setBlendingState(bool enableBlending)
 // Drawing
 /////////////////////////////////////////////////////////////////////////////////////////
 
+// We have multiple coordinates to deal with, each could be inverted Y or not, and
+// each could be local to webview or global to the screen.
+// viewRect - global screen coordinates starting from lower left.
+// visibleRect - local document coordinates starting from upper left.
+// webViewRect - inverted global screen coordinates starting from upper left.
+// screenClip - inverted global screen coordinates starting from upper left.
+//    ------------------------------------------
+//    |(origin of inv global screen)           |
+//    |screen                                  |
+//    |   ---------------------------------    |
+//    |   | (origin of inv local screen)  |    |
+//    |   | webview                       |    |
+//    |   |        --------               |    |
+//    |   |        | clip |               |    |
+//    |   |        |      |               |    |
+//    |   |        --------               |    |
+//    |   |                               |    |
+//    |   |(origin of local screen)       |    |
+//    |   ---------------------------------    |
+//    |(origin of global screen)                |
+//    ------------------------------------------
 void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
                                  const IntRect& webViewRect, int titleBarHeight,
                                  const IntRect& screenClip, float scale)
@@ -403,9 +424,12 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     //// viewRect ////
     m_viewRect = viewRect;
 
-    // We do clipping using glScissor, which needs to take
-    // coordinates in screen space. The following matrix transform
-    // content coordinates in screen coordinates.
+    // The following matrices transform document coordinates into screen coordinates
+    // and inv screen coordinates, and they are local to the webview in terms of
+    // coordinate origins.
+    // Note that GLUtils::setOrthographicMatrix is inverting the Y. So screen
+    // coordinates is starting from lower left, and inverted screen coordinates
+    // is from upper left.
     TransformationMatrix viewTranslate;
     viewTranslate.translate(1.0, 1.0);
 
@@ -424,7 +448,12 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     //// clipping ////
     IntRect mclip = screenClip;
 
-    // the clip from frameworks is in full screen coordinates
+    // The incoming screenClip is in inverted global screen coordinates, we first
+    // translate it into inverted local screen coordinates.
+    // Then we convert it into local screen coordinates.
+    // Therefore, in the clip() function, we need to convert things back from
+    // local screen coordinates to global screen coordinates.
+    mclip.setX(screenClip.x() - m_webViewRect.x());
     mclip.setY(screenClip.y() - m_webViewRect.y() - m_titleBarHeight);
     FloatRect tclip = convertInvScreenCoordToScreenCoord(mclip);
     m_screenClip.setLocation(IntPoint(tclip.x(), tclip.y()));
@@ -542,6 +571,10 @@ void ShaderProgram::clip(const FloatRect& clip)
     if (!m_screenClip.isEmpty())
         screenClip.intersect(m_screenClip);
 
+    // The previous intersection calculation is using local screen coordinates.
+    // Now we need to convert things from local screen coordinates to global
+    // screen coordinates and pass to the GL functions.
+    screenClip.setX(screenClip.x() + m_viewRect.x());
     screenClip.setY(screenClip.y() + m_viewRect.y());
     if (screenClip.x() < 0) {
         int w = screenClip.width();
@@ -634,7 +667,7 @@ GLfloat* ShaderProgram::getTileProjectionMatrix(const DrawQuadData* data)
     const SkRect* geometry = data->geometry();
     FloatRect fillPortion = data->fillPortion();
     // This modifiedDrawMatrix tranform (0,0)(1x1) to the final rect in screen
-    // coordinate, before applying the m_webViewMatrix.
+    // coordinates, before applying the m_webViewMatrix.
     // It first scale and translate the vertex array from (0,0)(1x1) to real
     // tile position and size. Then apply the transform from the layer's.
     // Finally scale to the currentScale to support zooming.
