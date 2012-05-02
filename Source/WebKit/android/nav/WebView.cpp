@@ -761,6 +761,9 @@ class GLDrawFunctor : Functor {
     void updateScale(float _scale) {
         scale = _scale;
     }
+    void updateExtras(jint _extras) {
+        extras = _extras;
+    }
     private:
     WebView* wvInstance;
     int (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
@@ -823,9 +826,16 @@ static jint nativeCreateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView
     SkRect visibleRect = jrectf_to_rect(env, jvisiblerect);
     wvInstance->setVisibleRect(visibleRect);
 
-    GLDrawFunctor* functor = new GLDrawFunctor(wvInstance,
-            &android::WebView::drawGL, viewRect, scale, extras);
-    wvInstance->setFunctor((Functor*) functor);
+    GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
+    if (!functor) {
+        functor = new GLDrawFunctor(wvInstance, &android::WebView::drawGL,
+                                    viewRect, scale, extras);
+        wvInstance->setFunctor((Functor*) functor);
+    } else {
+        functor->updateRect(viewRect);
+        functor->updateScale(scale);
+        functor->updateExtras(extras);
+    }
 
     WebCore::IntRect webViewRect = jrect_to_webrect(env, jviewrect);
     functor->updateViewRect(webViewRect);
