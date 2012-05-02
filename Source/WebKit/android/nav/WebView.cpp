@@ -629,7 +629,7 @@ int getHandleLayerId(SelectText::HandleId handleId, SkIPoint& cursorPoint,
 void mapLayerRect(int layerId, SkIRect& rect) {
     const TransformationMatrix* transform = getLayerTransform(layerId);
     if (transform)
-        transform->mapRect(rect);
+        rect = transform->mapRect(rect);
 }
 
 void floatQuadToQuadF(JNIEnv* env, const FloatQuad& nativeTextQuad,
