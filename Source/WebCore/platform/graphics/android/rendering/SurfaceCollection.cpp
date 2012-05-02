@@ -88,8 +88,16 @@ void SurfaceCollection::prepareGL(const SkRect& visibleRect)
     updateLayerPositions(visibleRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
+    bool updateWithBlit = true;
+    if (!layerTilesDisabled) {
+        for (unsigned int i = 0; i < m_surfaces.size(); i++) {
+            updateWithBlit &= m_surfaces[i]->canUpdateWithBlit();
+            if (!updateWithBlit)
+                break;
+        }
+    }
     for (unsigned int i = 0; i < m_surfaces.size(); i++)
-        m_surfaces[i]->prepareGL(layerTilesDisabled);
+        m_surfaces[i]->prepareGL(layerTilesDisabled, updateWithBlit);
 }
 
 static inline bool compareSurfaceZ(const Surface* a, const Surface* b)

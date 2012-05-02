@@ -51,13 +51,11 @@ public:
     void prepareGL(GLWebViewState* state, float scale,
                    const IntRect& prepareArea, const IntRect& unclippedArea,
                    TilePainter* painter, int regionFlags = StandardRegion,
-                   bool isLowResPrefetch = false);
+                   bool isLowResPrefetch = false, bool updateWithBlit = false);
     void swapTiles();
     void drawGL(const IntRect& visibleArea, float opacity,
                 const TransformationMatrix* transform, const Color* background = 0);
 
-    void prepareTile(int x, int y, TilePainter* painter,
-                     GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch);
     void markAsDirty(const SkRegion& dirtyArea);
 
     Tile* getTile(int x, int y);
@@ -67,11 +65,17 @@ public:
 
     bool isReady();
     bool isMissingContent();
+    bool isDirty() { return !m_dirtyRegion.isEmpty(); }
 
     int nbTextures(IntRect& area, float scale);
 
 private:
+    void prepareTile(int x, int y, TilePainter* painter,
+                     GLWebViewState* state, bool isLowResPrefetch,
+                     bool isExpandPrefetch, bool shouldTryUpdateWithBlit);
     void drawMissingRegion(const SkRegion& region, float opacity, const Color* tileBackground);
+    bool tryBlitFromContents(Tile* tile, TilePainter* painter);
+
     WTF::Vector<Tile*> m_tiles;
 
     IntRect m_area;

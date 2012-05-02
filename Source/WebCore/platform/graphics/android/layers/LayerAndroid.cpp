@@ -20,6 +20,7 @@
 #include "MediaLayer.h"
 #include "ParseCanvas.h"
 #include "PictureLayerContent.h"
+#include "PrerenderedInval.h"
 #include "SkBitmapRef.h"
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
@@ -522,6 +523,20 @@ void LayerAndroid::setContent(LayerContent* content)
     SkSafeRef(content);
     SkSafeUnref(m_content);
     m_content = content;
+}
+
+bool LayerAndroid::canUpdateWithBlit()
+{
+    if (!m_content || !m_scale)
+        return false;
+    PrerenderedInval* prerendered = m_content->prerenderForRect(m_dirtyRegion.getBounds());
+    if (!prerendered)
+        return false;
+    // Check that the scales are "close enough" to produce the same rects
+    FloatRect screenArea = prerendered->screenArea;
+    screenArea.scale(1 / m_scale);
+    IntRect enclosingDocArea = enclosingIntRect(screenArea);
+    return enclosingDocArea == prerendered->area;
 }
 
 bool LayerAndroid::needsTexture()

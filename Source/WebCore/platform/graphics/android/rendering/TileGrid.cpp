@@ -34,6 +34,7 @@
 #include "GLWebViewState.h"
 #include "PaintTileOperation.h"
 #include "Tile.h"
+#include "TileTexture.h"
 #include "TilesManager.h"
 
 #include <wtf/CurrentTime.h>
@@ -113,7 +114,7 @@ IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)
                  ceilf(contentArea.width() * scale),
                  ceilf(contentArea.height() * scale));
 
-    ALOGV("TG %p prepare, scale %f, area %d x %d", this, scale, area.width(), area.height());
+    ALOGV("TG prepare, scale %f, area %d x %d", scale, area.width(), area.height());
 
     if (area.width() == 0 && area.height() == 0) {
         computedArea.setWidth(0);
@@ -135,7 +136,8 @@ IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)
 
 void TileGrid::prepareGL(GLWebViewState* state, float scale,
                          const IntRect& prepareArea, const IntRect& unclippedArea,
-                         TilePainter* painter, int regionFlags, bool isLowResPrefetch)
+                         TilePainter* painter, int regionFlags, bool isLowResPrefetch,
+                         bool updateWithBlit)
 {
     // first, how many tiles do we need
     m_area = computeTilesArea(prepareArea, scale);
@@ -181,11 +183,11 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
             if (goingDown) {
                 for (int j = 0; j < m_area.height(); j++)
                     prepareTile(m_area.x() + i, m_area.y() + j,
-                                painter, state, isLowResPrefetch, false);
+                                painter, state, isLowResPrefetch, false, updateWithBlit);
             } else {
                 for (int j = m_area.height() - 1; j >= 0; j--)
                     prepareTile(m_area.x() + i, m_area.y() + j,
-                                painter, state, isLowResPrefetch, false);
+                                painter, state, isLowResPrefetch, false, updateWithBlit);
             }
         }
     }
@@ -207,7 +209,7 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
         for (int i = expandedArea.x(); i < expandedArea.maxX(); i++)
             for (int j = expandedArea.y(); j < expandedArea.maxY(); j++)
                 if (!m_area.contains(i, j))
-                    prepareTile(i, j, painter, state, isLowResPrefetch, true);
+                    prepareTile(i, j, painter, state, isLowResPrefetch, true, updateWithBlit);
     }
 }
 
@@ -219,7 +221,8 @@ void TileGrid::markAsDirty(const SkRegion& invalRegion)
 }
 
 void TileGrid::prepareTile(int x, int y, TilePainter* painter,
-                           GLWebViewState* state, bool isLowResPrefetch, bool isExpandPrefetch)
+                           GLWebViewState* state, bool isLowResPrefetch,
+                           bool isExpandPrefetch, bool shouldTryUpdateWithBlit)
 {
     Tile* tile = getTile(x, y);
     if (!tile) {
@@ -232,6 +235,9 @@ void TileGrid::prepareTile(int x, int y, TilePainter* painter,
 
     tile->setContents(x, y, m_scale, isExpandPrefetch);
 
+    if (shouldTryUpdateWithBlit && tryBlitFromContents(tile, painter))
+        return;
+
     if (tile->isDirty() || !tile->frontTexture())
         tile->reserveTexture();
 
@@ -241,6 +247,15 @@ void TileGrid::prepareTile(int x, int y, TilePainter* painter,
                                                                state, isLowResPrefetch);
         TilesManager::instance()->scheduleOperation(operation);
     }
+}
+
+bool TileGrid::tryBlitFromContents(Tile* tile, TilePainter* painter)
+{
+    return tile->frontTexture()
+           && !tile->frontTexture()->isPureColor()
+           && tile->frontTexture()->m_ownTextureId
+           && !tile->isRepaintPending()
+           && painter->blitFromContents(tile);
 }
 
 Tile* TileGrid::getTile(int x, int y)

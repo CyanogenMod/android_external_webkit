@@ -418,10 +418,6 @@ bool GLUtils::skipTransferForPureColor(const TileRenderInfo* renderInfo,
     bool skipTransfer = false;
     Tile* tilePtr = renderInfo->baseTile;
 
-    // TODO: use pure color for partial invals as well
-    if (renderInfo->invalRect)
-        return false;
-
     if (tilePtr) {
         TileTexture* tileTexture = tilePtr->backTexture();
         // Check the bitmap, and make everything ready here.
@@ -609,6 +605,33 @@ void GLUtils::clearBackgroundIfOpaque(const Color* backgroundColor)
         }
         glClear(GL_COLOR_BUFFER_BIT);
     }
+}
+
+bool GLUtils::deepCopyBitmapSubset(const SkBitmap& sourceBitmap,
+                                   SkBitmap& subset, int leftOffset, int topOffset)
+{
+    sourceBitmap.lockPixels();
+    subset.lockPixels();
+    char* srcPixels = (char*) sourceBitmap.getPixels();
+    char* dstPixels = (char*) subset.getPixels();
+    if (!dstPixels || !srcPixels || !subset.lockPixelsAreWritable()) {
+        ALOGD("no pixels :( %p, %p (writable=%d)", srcPixels, dstPixels,
+              subset.lockPixelsAreWritable());
+        subset.unlockPixels();
+        sourceBitmap.unlockPixels();
+        return false;
+    }
+    int srcRowSize = sourceBitmap.rowBytes();
+    int destRowSize = subset.rowBytes();
+    for (int i = 0; i < subset.height(); i++) {
+        int srcOffset = (i + topOffset) * srcRowSize;
+        srcOffset += (leftOffset * sourceBitmap.bytesPerPixel());
+        int dstOffset = i * destRowSize;
+        memcpy(dstPixels + dstOffset, srcPixels + srcOffset, destRowSize);
+    }
+    subset.unlockPixels();
+    sourceBitmap.unlockPixels();
+    return true;
 }
 
 } // namespace WebCore

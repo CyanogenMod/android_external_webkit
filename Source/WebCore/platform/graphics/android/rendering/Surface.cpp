@@ -33,9 +33,13 @@
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
 #include "LayerAndroid.h"
+#include "LayerContent.h"
 #include "GLWebViewState.h"
+#include "PrerenderedInval.h"
 #include "SkCanvas.h"
 #include "SurfaceBacking.h"
+#include "Tile.h"
+#include "TileTexture.h"
 #include "TilesManager.h"
 
 #include <wtf/text/CString.h>
@@ -181,7 +185,7 @@ bool Surface::useAggressiveRendering()
            || !m_background.hasAlpha());
 }
 
-void Surface::prepareGL(bool layerTilesDisabled)
+void Surface::prepareGL(bool layerTilesDisabled, bool updateWithBlit)
 {
     bool tilesDisabled = layerTilesDisabled && !isBase();
     if (!m_surfaceBacking) {
@@ -210,8 +214,15 @@ void Surface::prepareGL(bool layerTilesDisabled)
               fullArea.x(), fullArea.y(), fullArea.width(), fullArea.height());
 
         m_surfaceBacking->prepareGL(getFirstLayer()->state(), allowZoom,
-                                      prepareArea, fullArea,
-                                      this, useAggressiveRendering());
+                                    prepareArea, fullArea,
+                                    this, useAggressiveRendering(), updateWithBlit);
+        if (updateWithBlit) {
+            for (size_t i = 0; i < m_layers.size(); i++) {
+                LayerContent* content = m_layers[i]->content();
+                if (content)
+                    content->clearPrerenders();
+            }
+        }
     }
 }
 
@@ -273,7 +284,28 @@ bool Surface::isMissingContent()
     return m_surfaceBacking->isMissingContent();
 }
 
-IntRect Surface::computePrepareArea() {
+bool Surface::canUpdateWithBlit()
+{
+    // If we don't have a texture, we have nothing to update and thus can take
+    // the fast path
+    if (!needsTexture())
+        return true;
+    // If we have a surface backing that isn't ready, we can't update with a blit
+    // If it is ready, then check to see if it is dirty. We can only call isDirty()
+    // if isReady() returns true
+    if (!m_surfaceBacking)
+        return false;
+    if (!m_surfaceBacking->isReady())
+        return false;
+    if (!m_surfaceBacking->isDirty())
+        return true;
+    if (!singleLayer())
+        return false;
+    return getFirstLayer()->canUpdateWithBlit();
+}
+
+IntRect Surface::computePrepareArea()
+{
     IntRect area;
 
     if (!getFirstLayer()->contentIsScrollable()
@@ -285,9 +317,8 @@ IntRect Surface::computePrepareArea() {
         double total = ((double) area.width()) * ((double) area.height());
         if (total > MAX_UNCLIPPED_AREA)
             area = visibleArea();
-    } else {
+    } else
         area = visibleArea();
-    }
 
     return area;
 }
@@ -353,6 +384,61 @@ Color* Surface::background()
     if (!isBase() || !m_background.isValid())
         return 0;
     return &m_background;
+}
+
+bool Surface::blitFromContents(Tile* tile)
+{
+    if (!singleLayer() || !tile || !getFirstLayer() || !getFirstLayer()->content())
+        return false;
+
+    LayerContent* content = getFirstLayer()->content();
+    // Extract the dirty rect from the region. Note that this is *NOT* constrained
+    // to this tile
+    IntRect dirtyRect = tile->dirtyArea().getBounds();
+    PrerenderedInval* prerenderedInval = content->prerenderForRect(dirtyRect);
+    if (!prerenderedInval || prerenderedInval->bitmap.isNull())
+        return false;
+    SkBitmap sourceBitmap = prerenderedInval->bitmap;
+    // Calculate the screen rect that is dirty, then intersect it with the
+    // tile's screen rect so that we end up with the pixels we need to blit
+    FloatRect screenDirty = dirtyRect;
+    screenDirty.scale(tile->scale());
+    IntRect enclosingScreenDirty = enclosingIntRect(screenDirty);
+    IntRect tileRect = IntRect(tile->x() * TilesManager::tileWidth(),
+                               tile->y() * TilesManager::tileHeight(),
+                               TilesManager::tileWidth(),
+                               TilesManager::tileHeight());
+    enclosingScreenDirty.intersect(tileRect);
+    if (enclosingScreenDirty.isEmpty())
+        return false;
+    // Make sure the screen area we want to blit is contained by the
+    // prerendered screen area
+    if (!prerenderedInval->screenArea.contains(enclosingScreenDirty)) {
+        ALOGD("prerendered->screenArea " INT_RECT_FORMAT " doesn't contain "
+                "enclosingScreenDirty " INT_RECT_FORMAT,
+                INT_RECT_ARGS(prerenderedInval->screenArea),
+                INT_RECT_ARGS(enclosingScreenDirty));
+        return false;
+    }
+    IntPoint origin = prerenderedInval->screenArea.location();
+    SkBitmap subset;
+    subset.setConfig(sourceBitmap.config(), enclosingScreenDirty.width(),
+            enclosingScreenDirty.height());
+    subset.allocPixels();
+
+    int topOffset = enclosingScreenDirty.y() - prerenderedInval->screenArea.y();
+    int leftOffset = enclosingScreenDirty.x() - prerenderedInval->screenArea.x();
+    if (!GLUtils::deepCopyBitmapSubset(sourceBitmap, subset, leftOffset, topOffset))
+        return false;
+    // Now upload
+    SkIRect textureInval = SkIRect::MakeXYWH(enclosingScreenDirty.x() - tileRect.x(),
+                                             enclosingScreenDirty.y() - tileRect.y(),
+                                             enclosingScreenDirty.width(),
+                                             enclosingScreenDirty.height());
+    GLUtils::updateTextureWithBitmap(tile->frontTexture()->m_ownTextureId,
+                                     subset, textureInval);
+    tile->onBlitUpdate();
+    return true;
 }
 
 const TransformationMatrix* Surface::drawTransform()

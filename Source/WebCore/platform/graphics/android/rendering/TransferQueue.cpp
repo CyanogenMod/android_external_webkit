@@ -166,34 +166,14 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
     int textureWidth = destTex->getSize().width();
     int textureHeight = destTex->getSize().height();
 
-    IntRect inval = m_transferQueue[index].invalRect;
-    bool partialInval = !inval.isEmpty();
-
-    if (partialInval && frontTex) {
-        // recopy the previous texture to the new one, as
-        // the partial update will not cover the entire texture
-        glFramebufferTexture2D(GL_FRAMEBUFFER,
-                               GL_COLOR_ATTACHMENT0,
-                               GL_TEXTURE_2D,
-                               frontTex->m_ownTextureId,
-                               0);
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
-                            textureWidth, textureHeight);
-    }
-
     glFramebufferTexture2D(GL_FRAMEBUFFER,
                            GL_COLOR_ATTACHMENT0,
                            GL_TEXTURE_2D,
                            srcTexId,
                            0);
 
-    if (!partialInval) {
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
-                            textureWidth, textureHeight);
-    } else {
-        glCopyTexSubImage2D(GL_TEXTURE_2D, 0, inval.x(), inval.y(), 0, 0,
-                            inval.width(), inval.height());
-    }
+    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
+                        textureWidth, textureHeight);
 
 #else
     // Then set up the FBO and copy the SurfTex content in.
@@ -412,8 +392,7 @@ void TransferQueue::updateDirtyTiles()
             if (m_transferQueue[index].uploadType == CpuUpload) {
                 // Here we just need to upload the bitmap content to the GL Texture
                 GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId,
-                                                 *m_transferQueue[index].bitmap,
-                                                 m_transferQueue[index].invalRect);
+                                                 *m_transferQueue[index].bitmap);
             } else {
                 if (!usedFboForUpload) {
                     saveGLState();
@@ -517,13 +496,6 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
     data->uploadType = type;
 
     IntRect inval(0, 0, 0, 0);
-    if (renderInfo->invalRect) {
-        inval.setX(renderInfo->invalRect->fLeft);
-        inval.setY(renderInfo->invalRect->fTop);
-        inval.setWidth(renderInfo->invalRect->width());
-        inval.setHeight(renderInfo->invalRect->height());
-    }
-    data->invalRect = inval;
 }
 
 // Note that there should be lock/unlock around this function call.

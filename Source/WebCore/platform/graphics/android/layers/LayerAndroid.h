@@ -185,6 +185,9 @@ public:
 
     LayerContent* content() { return m_content; }
     void setContent(LayerContent* content);
+    // Check to see if the dirty area of this layer can be updated with a blit
+    // from the prerender instead of needing to generate tiles from the LayerContent
+    bool canUpdateWithBlit();
 
     void addAnimation(PassRefPtr<AndroidAnimation> anim);
     void removeAnimationsForProperty(AnimatedPropertyID property);

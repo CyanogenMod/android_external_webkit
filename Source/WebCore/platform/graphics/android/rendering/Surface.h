@@ -49,11 +49,12 @@ public:
     bool tryUpdateSurface(Surface* oldSurface);
 
     void addLayer(LayerAndroid* layer, const TransformationMatrix& transform);
-    void prepareGL(bool layerTilesDisabled);
+    void prepareGL(bool layerTilesDisabled, bool updateWithBlit);
     bool drawGL(bool layerTilesDisabled);
     void swapTiles();
     bool isReady();
     bool isMissingContent();
+    bool canUpdateWithBlit();
 
     void computeTexturesAmount(TexturesResult* result);
 
@@ -66,6 +67,7 @@ public:
     virtual bool paint(SkCanvas* canvas);
     virtual float opacity();
     virtual Color* background();
+    virtual bool blitFromContents(Tile* tile);
 
 private:
     IntRect computePrepareArea();

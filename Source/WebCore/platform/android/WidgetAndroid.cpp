@@ -59,10 +59,6 @@ void Widget::setFocus(bool focused)
 
 void Widget::paint(GraphicsContext* ctx, const IntRect& r)
 {
-    // FIXME: in what case, will this be called for the top frame?
-    if (!platformWidget())
-        return;
-    platformWidget()->draw(ctx, r);
 }
 
 void Widget::releasePlatformWidget()

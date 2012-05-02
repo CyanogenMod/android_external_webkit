@@ -31,7 +31,7 @@
 #include "FileChooser.h"
 #include "FocusDirection.h"
 #include "HitTestResult.h"
-#include "PictureSet.h"
+#include "PicturePile.h"
 #include "PlatformGraphicsContext.h"
 #include "Position.h"
 #include "ScrollTypes.h"
@@ -121,7 +121,7 @@ namespace android {
     };
 
     // one instance of WebViewCore per page for calling into Java's WebViewCore
-    class WebViewCore : public WebCoreRefObject {
+    class WebViewCore : public WebCoreRefObject, public WebCore::PicturePainter {
     public:
         /**
          * Initialize the native WebViewCore with a JNI environment, a Java
@@ -526,9 +526,6 @@ namespace android {
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
         WebCore::Frame* focusedFrame() const;
 
-        // utility to split slow parts of the picture set
-        void splitContent(PictureSet*);
-
         void notifyWebAppCanBeInstalled();
 
         void deleteText(int startX, int startY, int endX, int endY);
@@ -625,13 +622,13 @@ namespace android {
         WebCore::Node* currentFocus();
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
-        void recordPictureSet(PictureSet* master);
+        void recordPicturePile();
 
-        SkPicture* rebuildPicture(const SkIRect& inval);
+        virtual void paintContents(WebCore::GraphicsContext* gc, WebCore::IntRect& dirty);
+        virtual SkCanvas* createPrerenderCanvas(WebCore::PrerenderedInval* prerendered);
 #ifdef CONTEXT_RECORDING
         WebCore::GraphicsOperationCollection* rebuildGraphicsOperationCollection(const SkIRect& inval);
 #endif
-        void rebuildPictureSet(PictureSet* );
         void sendNotifyProgressFinished();
         /*
          * Handle a mouse click, either from a touch or trackball press.
@@ -750,9 +747,7 @@ namespace android {
         struct TextFieldInitDataGlue* m_textFieldInitDataGlue;
         WebCore::Frame*        m_mainFrame;
         WebCoreReply*          m_popupReply;
-        PictureSet m_content; // the set of pictures to draw
-        SkRegion m_addInval; // the accumulated inval region (not yet drawn)
-        SkRegion m_rebuildInval; // the accumulated region for rebuilt pictures
+        WebCore::PicturePile m_content; // the set of pictures to draw
         // Used in passToJS to avoid updating the UI text field until after the
         // key event has been processed.
         bool m_blockTextfieldUpdates;
@@ -766,7 +761,6 @@ namespace android {
         int m_scrollOffsetX; // webview.java's current scroll in X
         int m_scrollOffsetY; // webview.java's current scroll in Y
         WebCore::IntPoint m_mousePos;
-        bool m_progressDone;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
         int m_textWrapWidth;

@@ -49,9 +49,6 @@ struct TileRenderInfo {
     // current scale factor
     float scale;
 
-    // inval rectangle with coordinates in the tile's coordinate space
-    SkIRect* invalRect;
-
     // the expected size of the tile
     SkSize tileSize;
 
@@ -89,7 +86,6 @@ public:
 protected:
 
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
-    virtual void setupPartialInval(const TileRenderInfo& renderInfo, SkCanvas* canvas) {}
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
     virtual void checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
 

@@ -80,7 +80,7 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
         ALOGV("setupCanvas use background on Base Layer %x", background->rgb());
         g_bitmap->setIsOpaque(!background->hasAlpha());
         g_bitmap->eraseARGB(background->alpha(), background->red(),
-                            background->green(), background->blue());
+                          background->green(), background->blue());
     }
 
     SkDevice* device = new SkDevice(*g_bitmap);
@@ -88,15 +88,6 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
     canvas->setDevice(device);
 
     device->unref();
-
-    // If we have a partially painted bitmap
-    if (renderInfo.invalRect) {
-        SkRect clipRect = SkRect::MakeWH(renderInfo.invalRect->width(),
-                                         renderInfo.invalRect->height());
-        // ensure the canvas origin is translated to the coordinates of our inval rect
-        canvas->clipRect(clipRect);
-        canvas->translate(-renderInfo.invalRect->fLeft, -renderInfo.invalRect->fTop);
-    }
 }
 
 void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
@@ -107,7 +98,8 @@ void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
 
 void RasterRenderer::checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    renderInfo.isPureColor = GLUtils::isPureColorBitmap(*g_bitmap, renderInfo.pureColor);
+    const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
+    renderInfo.isPureColor = GLUtils::isPureColorBitmap(bitmap, renderInfo.pureColor);
 }
 
 } // namespace WebCore

@@ -87,8 +87,8 @@ public:
     int currentLayerTextureCount();
     void setCurrentTextureCount(int newTextureCount);
     void setCurrentLayerTextureCount(int newTextureCount);
-    static float tileWidth();
-    static float tileHeight();
+    static int tileWidth();
+    static int tileHeight();
 
     void allocateTextures();
 

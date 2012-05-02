@@ -38,7 +38,6 @@
 #include "LayerAndroid.h"
 #include "LayerContent.h"
 #include "PictureLayerContent.h"
-#include "PictureSet.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkFlattenable.h"
 #include "SkPicture.h"

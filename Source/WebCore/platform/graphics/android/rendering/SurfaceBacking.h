@@ -42,7 +42,8 @@ public:
     ~SurfaceBacking();
     void prepareGL(GLWebViewState* state, bool allowZoom,
                    const IntRect& prepareArea, const IntRect& unclippedArea,
-                   TilePainter* painter, bool aggressiveRendering);
+                   TilePainter* painter, bool aggressiveRendering,
+                   bool updateWithBlit);
     void swapTiles();
     void drawGL(const IntRect& visibleArea, float opacity,
                 const TransformationMatrix* transform, bool aggressiveRendering,
@@ -57,6 +58,11 @@ public:
     bool isReady()
     {
         return !m_zooming && m_frontTileGrid->isReady() && m_scale > 0;
+    }
+
+    bool isDirty()
+    {
+        return m_frontTileGrid->isDirty();
     }
 
     bool isMissingContent()

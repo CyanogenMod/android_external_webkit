@@ -116,6 +116,7 @@ public:
 
     void markAsDirty(const SkRegion& dirtyArea);
     bool isDirty();
+    const SkRegion& dirtyArea() { return m_dirtyArea; }
     virtual bool isRepaintPending();
     void setRepaintPending(bool pending);
     float scale() const { return m_scale; }
@@ -133,6 +134,7 @@ public:
     bool swapTexturesIfNeeded();
     void backTextureTransfer();
     void backTextureTransferFail();
+    void onBlitUpdate();
 
     // TextureOwner implementation
     virtual bool removeTexture(TileTexture* texture);

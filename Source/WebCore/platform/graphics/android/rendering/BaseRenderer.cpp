@@ -109,7 +109,6 @@ void BaseRenderer::renderTiledContent(TileRenderInfo& renderInfo)
         before = currentTimeMS();
     }
 
-    setupPartialInval(renderInfo, &canvas);
     canvas.translate(-renderInfo.x * tileSize.width(), -renderInfo.y * tileSize.height());
     canvas.scale(renderInfo.scale, renderInfo.scale);
     renderInfo.tilePainter->paint(&canvas);
@@ -127,25 +126,10 @@ void BaseRenderer::renderTiledContent(TileRenderInfo& renderInfo)
         // only color the invalidated area
         SkPaint paint;
         paint.setARGB(color, 0, 255, 0);
-        if (renderInfo.invalRect)
-            canvas.drawIRect(*renderInfo.invalRect, paint);
-        else {
-            SkIRect rect;
-            rect.set(0, 0, tileSize.width(), tileSize.height());
-            canvas.drawIRect(rect, paint);
-        }
+        SkIRect rect;
+        rect.set(0, 0, tileSize.width(), tileSize.height());
+        canvas.drawIRect(rect, paint);
 
-        if (renderInfo.invalRect) {
-            // if partial inval...
-            int x = renderInfo.invalRect->fLeft;
-            int y = renderInfo.invalRect->fTop;
-            int w = renderInfo.invalRect->width();
-            int h = renderInfo.invalRect->height();
-
-            paint.setARGB(128, 255, 255, 0);
-            canvas.drawLine(x, y, x + w, y + h, paint);
-            canvas.drawLine(x, y + h, x + w, y, paint);
-        }
         drawTileInfo(&canvas, renderInfo, updateCount, after - before);
 
         // paint the tile boundaries
