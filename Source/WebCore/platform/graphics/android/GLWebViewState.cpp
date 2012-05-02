@@ -135,7 +135,7 @@ void GLWebViewState::setViewport(const SkRect& viewport, float scale)
     TilesManager* tilesManager = TilesManager::instance();
     int maxTextureCount = viewMaxTileX * viewMaxTileY * (tilesManager->highEndGfx() ? 4 : 2);
 
-    tilesManager->setMaxTextureCount(maxTextureCount);
+    tilesManager->setCurrentTextureCount(maxTextureCount);
 
     // TODO: investigate whether we can move this return earlier.
     if ((m_viewport == viewport)
@@ -227,11 +227,11 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
     bool invalBase = false;
 
     if (!nbTexturesNeeded.full)
-        TilesManager::instance()->setMaxLayerTextureCount(0);
+        TilesManager::instance()->setCurrentLayerTextureCount(0);
     else
-        TilesManager::instance()->setMaxLayerTextureCount((2*nbTexturesNeeded.full)+1);
+        TilesManager::instance()->setCurrentLayerTextureCount((2 * nbTexturesNeeded.full) + 1);
 
-    int maxTextures = TilesManager::instance()->maxLayerTextureCount();
+    int maxTextures = TilesManager::instance()->currentLayerTextureCount();
     LayersRenderingMode layersRenderingMode = m_layersRenderingMode;
 
     if (m_layersRenderingMode == kSingleSurfaceRendering) {
