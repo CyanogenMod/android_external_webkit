@@ -119,29 +119,21 @@ COMPILE_ASSERT(WTF_ARRAY_LENGTH(asciiLineBreakTable) == asciiLineBreakTableLastC
 
 static inline bool shouldBreakAfter(UChar ch, UChar nextCh)
 {
-    switch (ch) {
-    case ideographicComma:
-    case ideographicFullStop:
-        // FIXME: cases for ideographicComma and ideographicFullStop are a workaround for an issue in Unicode 5.0
-        // which is likely to be resolved in Unicode 5.1 <http://bugs.webkit.org/show_bug.cgi?id=17411>.
-        // We may want to remove or conditionalize this workaround at some point.
 #ifdef ANDROID_LAYOUT
-        // as '/' is used in uri which is always long, we would like to break it
-    case '/':
-#endif
+    if (ch == '/')  // as '/' is used in uri which is always long, we would like to break it
         return true;
-    default:
-        // If both ch and nextCh are ASCII characters, use a lookup table for enhanced speed and for compatibility
-        // with other browsers (see comments for asciiLineBreakTable for details).
-        if (ch >= asciiLineBreakTableFirstChar && ch <= asciiLineBreakTableLastChar
-                && nextCh >= asciiLineBreakTableFirstChar && nextCh <= asciiLineBreakTableLastChar) {
-            const unsigned char* tableRow = asciiLineBreakTable[ch - asciiLineBreakTableFirstChar];
-            int nextChIndex = nextCh - asciiLineBreakTableFirstChar;
-            return tableRow[nextChIndex / 8] & (1 << (nextChIndex % 8));
-        }
-        // Otherwise defer to the Unicode algorithm by returning false.
-        return false;
+#endif
+
+    // If both ch and nextCh are ASCII characters, use a lookup table for enhanced speed and for compatibility
+    // with other browsers (see comments for asciiLineBreakTable for details).
+    if (ch >= asciiLineBreakTableFirstChar && ch <= asciiLineBreakTableLastChar
+        && nextCh >= asciiLineBreakTableFirstChar && nextCh <= asciiLineBreakTableLastChar) {
+        const unsigned char* tableRow = asciiLineBreakTable[ch - asciiLineBreakTableFirstChar];
+        int nextChIndex = nextCh - asciiLineBreakTableFirstChar;
+        return tableRow[nextChIndex / 8] & (1 << (nextChIndex % 8));
     }
+    // Otherwise defer to the Unicode algorithm by returning false.
+    return false;
 }
 
 static inline bool needsLineBreakIterator(UChar ch)
