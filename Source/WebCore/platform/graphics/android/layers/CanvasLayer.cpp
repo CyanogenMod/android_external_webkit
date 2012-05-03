@@ -178,13 +178,13 @@ IntSize CanvasLayer::offsetFromRenderer() const
 
 bool CanvasLayer::needsTexture()
 {
-    return m_bitmap || LayerAndroid::needsTexture();
+    return (m_bitmap && !masksToBounds()) || LayerAndroid::needsTexture();
 }
 
 void CanvasLayer::contentDraw(SkCanvas* canvas, PaintStyle style)
 {
     LayerAndroid::contentDraw(canvas, style);
-    if (!m_bitmap)
+    if (!m_bitmap || masksToBounds())
         return;
     SkBitmap& bitmap = m_bitmap->bitmap();
     SkRect dst = SkRect::MakeXYWH(m_contentRect.x() - m_offsetFromRenderer.width(),
