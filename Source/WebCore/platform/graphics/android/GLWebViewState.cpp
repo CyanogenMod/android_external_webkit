@@ -65,14 +65,14 @@ using namespace android;
 GLWebViewState::GLWebViewState()
     : m_frameworkLayersInval(0, 0, 0, 0)
     , m_isScrolling(false)
-    , m_isViewportScrolling(false)
+    , m_isVisibleContentRectScrolling(false)
     , m_goingDown(true)
     , m_goingLeft(false)
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
     , m_surfaceCollectionManager()
 {
-    m_viewport.setEmpty();
+    m_visibleContentRect.setEmpty();
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("GLWebViewState");
@@ -123,14 +123,16 @@ void GLWebViewState::scrollLayer(int layerId, int x, int y)
     m_surfaceCollectionManager.updateScrollableLayer(layerId, x, y);
 }
 
-void GLWebViewState::setViewport(const SkRect& viewport, float scale)
+void GLWebViewState::setVisibleContentRect(const SkRect& visibleContentRect, float scale)
 {
-    // allocate max possible number of tiles visible with this viewport / expandedTileBounds
+    // allocate max possible number of tiles visible with this visibleContentRect / expandedTileBounds
     const float invTileContentWidth = scale / TilesManager::tileWidth();
     const float invTileContentHeight = scale / TilesManager::tileHeight();
 
-    int viewMaxTileX = static_cast<int>(ceilf((viewport.width()-1) * invTileContentWidth)) + 1;
-    int viewMaxTileY = static_cast<int>(ceilf((viewport.height()-1) * invTileContentHeight)) + 1;
+    int viewMaxTileX =
+        static_cast<int>(ceilf((visibleContentRect.width()-1) * invTileContentWidth)) + 1;
+    int viewMaxTileY =
+        static_cast<int>(ceilf((visibleContentRect.height()-1) * invTileContentHeight)) + 1;
 
     TilesManager* tilesManager = TilesManager::instance();
     int maxTextureCount = viewMaxTileX * viewMaxTileY * (tilesManager->highEndGfx() ? 4 : 2);
@@ -138,24 +140,26 @@ void GLWebViewState::setViewport(const SkRect& viewport, float scale)
     tilesManager->setCurrentTextureCount(maxTextureCount);
 
     // TODO: investigate whether we can move this return earlier.
-    if ((m_viewport == viewport)
+    if ((m_visibleContentRect == visibleContentRect)
         && (m_scale == scale)) {
         // everything below will stay the same, early return.
-        m_isViewportScrolling = false;
+        m_isVisibleContentRectScrolling = false;
         return;
     }
     m_scale = scale;
 
-    m_goingDown = m_viewport.fTop - viewport.fTop <= 0;
-    m_goingLeft = m_viewport.fLeft - viewport.fLeft >= 0;
+    m_goingDown = m_visibleContentRect.fTop - visibleContentRect.fTop <= 0;
+    m_goingLeft = m_visibleContentRect.fLeft - visibleContentRect.fLeft >= 0;
 
-    // detect viewport scrolling from short programmatic scrolls/jumps
-    m_isViewportScrolling = m_viewport != viewport && SkRect::Intersects(m_viewport, viewport);
-    m_viewport = viewport;
+    // detect visibleContentRect scrolling from short programmatic scrolls/jumps
+    m_isVisibleContentRectScrolling = m_visibleContentRect != visibleContentRect
+        && SkRect::Intersects(m_visibleContentRect, visibleContentRect);
+    m_visibleContentRect = visibleContentRect;
 
-    ALOGV("New VIEWPORT %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f )",
-          m_viewport.fLeft, m_viewport.fTop, m_viewport.fRight, m_viewport.fBottom,
-          m_viewport.width(), m_viewport.height(), scale);
+    ALOGV("New visibleContentRect %.2f - %.2f %.2f - %.2f (w: %2.f h: %.2f scale: %.2f )",
+          m_visibleContentRect.fLeft, m_visibleContentRect.fTop,
+          m_visibleContentRect.fRight, m_visibleContentRect.fBottom,
+          m_visibleContentRect.width(), m_visibleContentRect.height(), scale);
 }
 
 #ifdef MEASURES_PERF
@@ -192,8 +196,9 @@ void GLWebViewState::resetLayersDirtyArea()
     m_frameworkLayersInval.setHeight(0);
 }
 
-double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
-                                    const IntRect& webViewRect, int titleBarHeight,
+double GLWebViewState::setupDrawing(const IntRect& invScreenRect,
+                                    const SkRect& visibleContentRect,
+                                    const IntRect& screenRect, int titleBarHeight,
                                     const IntRect& screenClip, float scale)
 {
     TilesManager* tilesManager = TilesManager::instance();
@@ -212,12 +217,12 @@ double GLWebViewState::setupDrawing(const IntRect& viewRect, const SkRect& visib
         transferQueue->initGLResources(TilesManager::tileWidth(),
                                        TilesManager::tileHeight());
     }
-    shader->setupDrawing(viewRect, visibleRect, webViewRect,
+    shader->setupDrawing(invScreenRect, visibleContentRect, screenRect,
                          titleBarHeight, screenClip, scale);
 
     double currentTime = WTF::currentTime();
 
-    setViewport(visibleRect, scale);
+    setVisibleContentRect(visibleContentRect, scale);
 
     return currentTime;
 }
@@ -287,36 +292,39 @@ bool GLWebViewState::setLayersRenderingMode(TexturesResult& nbTexturesNeeded)
     return (m_layersRenderingMode != layersRenderingMode && invalBase);
 }
 
-// -rect(viewRect) is the webViewRect with inverted Y, in screen coordinate.
-// -visibleRect is the visible area in document coordinate.
-// They are both based on webViewRect and calculated in Java side.
+// -invScreenRect is the webView's rect with inverted Y screen coordinate.
+// -visibleContentRect is the visible area in content coordinate.
+// They are both based on  webView's rect and calculated in Java side.
 //
-// -clip is the final glViewport value in screen coordinate, and it contains the
-// animation translation/scale and FBO offset.
+// -screenClip is in screen coordinate, so we need to invert the Y axis before
+// passing into GL functions. Clip can be smaller than the webView's rect.
 //
 // TODO: Try to decrease the number of parameters as some info is redundant.
-int GLWebViewState::drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRect,
-                           IntRect& webViewRect, int titleBarHeight,
-                           IntRect& clip, float scale,
+int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
+                           IntRect* invalRect, IntRect& screenRect, int titleBarHeight,
+                           IntRect& screenClip, float scale,
                            bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                            bool shouldDraw)
 {
     TilesManager* tilesManager = TilesManager::instance();
     if (shouldDraw)
-        tilesManager->getProfiler()->nextFrame(visibleRect.fLeft, visibleRect.fTop,
-                                               visibleRect.fRight, visibleRect.fBottom,
+        tilesManager->getProfiler()->nextFrame(visibleContentRect.fLeft,
+                                               visibleContentRect.fTop,
+                                               visibleContentRect.fRight,
+                                               visibleContentRect.fBottom,
                                                scale);
     tilesManager->incDrawGLCount();
 
-    ALOGV("drawGL, rect/viewRect(%d, %d, %d, %d), visibleRect(%.2f, %.2f, %.2f, %.2f)",
-          rect.x(), rect.y(), rect.width(), rect.height(),
-          visibleRect.fLeft, visibleRect.fTop, visibleRect.fRight, visibleRect.fBottom);
+    ALOGV("drawGL, invScreenRect(%d, %d, %d, %d), visibleContentRect(%.2f, %.2f, %.2f, %.2f)",
+          invScreenRect.x(), invScreenRect.y(), invScreenRect.width(), invScreenRect.height(),
+          visibleContentRect.fLeft, visibleContentRect.fTop,
+          visibleContentRect.fRight, visibleContentRect.fBottom);
 
-    ALOGV("drawGL, invalRect(%d, %d, %d, %d), webViewRect(%d, %d, %d, %d)"
-          "clip/glViewport (%d, %d, %d, %d), scale %f titleBarHeight %d",
+    ALOGV("drawGL, invalRect(%d, %d, %d, %d), screenRect(%d, %d, %d, %d)"
+          "screenClip (%d, %d, %d, %d), scale %f titleBarHeight %d",
           invalRect->x(), invalRect->y(), invalRect->width(), invalRect->height(),
-          webViewRect.x(), webViewRect.y(), webViewRect.width(), webViewRect.height(),
-          clip.x(), clip.y(), clip.width(), clip.height(), scale, titleBarHeight);
+          screenRect.x(), screenRect.y(), screenRect.width(), screenRect.height(),
+          screenClip.x(), screenClip.y(), screenClip.width(), screenClip.height(), scale, titleBarHeight);
 
     resetLayersDirtyArea();
 
@@ -340,14 +348,17 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRec
     // gather the textures we can use
     tilesManager->gatherTextures();
 
-    double currentTime = setupDrawing(rect, visibleRect, webViewRect, titleBarHeight, clip, scale);
+    double currentTime = setupDrawing(invScreenRect, visibleContentRect, screenRect,
+                                      titleBarHeight, screenClip, scale);
 
     TexturesResult nbTexturesNeeded;
     bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
-    m_glExtras.setViewport(visibleRect);
-    returnFlags |= m_surfaceCollectionManager.drawGL(currentTime, rect, visibleRect,
+    m_glExtras.setVisibleContentRect(visibleContentRect);
+    returnFlags |= m_surfaceCollectionManager.drawGL(currentTime, invScreenRect,
+                                                     visibleContentRect,
                                                      scale, fastSwap,
-                                                     collectionsSwappedPtr, newCollectionHasAnimPtr,
+                                                     collectionsSwappedPtr,
+                                                     newCollectionHasAnimPtr,
                                                      &nbTexturesNeeded, shouldDraw);
 
     int nbTexturesForImages = ImagesManager::instance()->nbTextures();
@@ -380,7 +391,7 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRec
             ALOGV("invalRect(%d, %d, %d, %d)", inval.x(),
                   inval.y(), inval.width(), inval.height());
 
-            if (!invalRect->intersects(rect)) {
+            if (!invalRect->intersects(invScreenRect)) {
                 // invalidate is occurring offscreen, do full inval to guarantee redraw
                 fullScreenInval = true;
             }
@@ -395,7 +406,7 @@ int GLWebViewState::drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRec
     }
 
     if (shouldDraw)
-        showFrameInfo(rect, *collectionsSwappedPtr);
+        showFrameInfo(invScreenRect, *collectionsSwappedPtr);
 
     return returnFlags;
 }

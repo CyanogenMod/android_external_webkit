@@ -75,7 +75,7 @@ class TexturesResult;
 //
 // The rendering model is to use tiles to display the BaseLayer (as obviously a
 // BaseLayer's area can be arbitrarly large). The idea is to compute a set of
-// tiles covering the viewport's area, paint those tiles using the webview's
+// tiles covering the visibleContentRect's area, paint those tiles using the webview's
 // content (i.e. the BaseLayer's PictureSet), then display those tiles.
 // We check which tile we should use at every frame.
 //
@@ -86,7 +86,7 @@ class TexturesResult;
 // the BaseLayer's surface. When drawing, we ask the TiledPage to prepare()
 // itself then draw itself on screen. The prepare() function is the one
 // that schedules tiles to be painted -- i.e. the subset of tiles that intersect
-// with the current viewport. When they are ready, we can display
+// with the current visibleContentRect. When they are ready, we can display
 // the TiledPage.
 //
 // Note that BaseLayerAndroid::drawGL() will return true to the java side if
@@ -102,7 +102,7 @@ class TexturesResult;
 // accordingly (and therefore possible loss of quality): this is fast as it's
 // purely a hardware operation. When the user is done zooming, we ask for
 // TiledPage B to be painted at the new scale factor, covering the
-// viewport's area. When B is ready, we swap it with A.
+// visibleContentRect's area. When B is ready, we swap it with A.
 //
 // Texture allocation
 // ------------------
@@ -111,17 +111,17 @@ class TexturesResult;
 // get the GL textures from an existing pool, and reuse them.
 //
 // The way we do it is that when we call TiledPage::prepare(), we group the
-// tiles we need (i.e. in the viewport and dirty) into a TilesSet and call
+// tiles we need (i.e. in the visibleContentRect and dirty) into a TilesSet and call
 // Tile::reserveTexture() for each tile (which ensures there is a specific
 // GL textures backing the Tiles).
 //
 // reserveTexture() will ask the TilesManager for a texture. The allocation
 // mechanism goal is to (in order):
 // - prefers to allocate the same texture as the previous time
-// - prefers to allocate textures that are as far from the viewport as possible
+// - prefers to allocate textures that are as far from the visibleContentRect as possible
 // - prefers to allocate textures that are used by different TiledPages
 //
-// Note that to compute the distance of each tile from the viewport, each time
+// Note that to compute the distance of each tile from the visibleContentRect, each time
 // we prepare() a TiledPage. Also during each prepare() we compute which tiles
 // are dirty based on the info we have received from webkit.
 //
@@ -173,12 +173,12 @@ public:
     GLExtras* glExtras() { return &m_glExtras; }
 
     void setIsScrolling(bool isScrolling) { m_isScrolling = isScrolling; }
-    bool isScrolling() { return m_isScrolling || m_isViewportScrolling; }
+    bool isScrolling() { return m_isScrolling || m_isVisibleContentRectScrolling; }
 
     bool setLayersRenderingMode(TexturesResult&);
 
-    int drawGL(IntRect& rect, SkRect& visibleRect, IntRect* invalRect,
-               IntRect& webViewRect, int titleBarHeight,
+    int drawGL(IntRect& rect, SkRect& visibleContentRect, IntRect* invalRect,
+               IntRect& screenRect, int titleBarHeight,
                IntRect& clip, float scale,
                bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                bool shouldDraw);
@@ -208,16 +208,16 @@ public:
     void scrollLayer(int layerId, int x, int y);
 
 private:
-    void setViewport(const SkRect& viewport, float scale);
-    double setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
-                        const IntRect& webViewRect, int titleBarHeight,
+    void setVisibleContentRect(const SkRect& visibleContentRect, float scale);
+    double setupDrawing(const IntRect& invScreenRect, const SkRect& visibleContentRect,
+                        const IntRect& screenRect, int titleBarHeight,
                         const IntRect& screenClip, float scale);
     void showFrameInfo(const IntRect& rect, bool collectionsSwapped);
     void clearRectWithColor(const IntRect& rect, float r, float g,
                             float b, float a);
     double m_prevDrawTime;
 
-    SkRect m_viewport;
+    SkRect m_visibleContentRect;
     IntRect m_frameworkLayersInval;
 
 #ifdef MEASURES_PERF
@@ -229,7 +229,7 @@ private:
     GLExtras m_glExtras;
 
     bool m_isScrolling;
-    bool m_isViewportScrolling;
+    bool m_isVisibleContentRectScrolling;
     bool m_goingDown;
     bool m_goingLeft;
 

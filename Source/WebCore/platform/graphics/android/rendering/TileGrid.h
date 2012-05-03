@@ -49,11 +49,11 @@ public:
     static IntRect computeTilesArea(const IntRect& contentArea, float scale);
 
     void prepareGL(GLWebViewState* state, float scale,
-                   const IntRect& prepareArea, const IntRect& unclippedArea,
+                   const IntRect& prepareArea, const IntRect& fullContentArea,
                    TilePainter* painter, int regionFlags = StandardRegion,
                    bool isLowResPrefetch = false, bool updateWithBlit = false);
     void swapTiles();
-    void drawGL(const IntRect& visibleArea, float opacity,
+    void drawGL(const IntRect& visibleContentArea, float opacity,
                 const TransformationMatrix* transform, const Color* background = 0);
 
     void markAsDirty(const SkRegion& dirtyArea);

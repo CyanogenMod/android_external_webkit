@@ -83,9 +83,9 @@ SurfaceCollection::~SurfaceCollection()
 #endif
 }
 
-void SurfaceCollection::prepareGL(const SkRect& visibleRect)
+void SurfaceCollection::prepareGL(const SkRect& visibleContentRect)
 {
-    updateLayerPositions(visibleRect);
+    updateLayerPositions(visibleContentRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
     bool updateWithBlit = true;
@@ -109,14 +109,14 @@ static inline bool compareSurfaceZ(const Surface* a, const Surface* b)
     return (la->zValue() > lb->zValue()) && (la->getParent() == lb->getParent());
 }
 
-bool SurfaceCollection::drawGL(const SkRect& visibleRect)
+bool SurfaceCollection::drawGL(const SkRect& visibleContentRect)
 {
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->show();
 #endif
 
     bool needsRedraw = false;
-    updateLayerPositions(visibleRect);
+    updateLayerPositions(visibleContentRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
 
@@ -231,10 +231,10 @@ void SurfaceCollection::updateScrollableLayer(int layerId, int x, int y)
         static_cast<ScrollableLayerAndroid*>(layer)->scrollTo(x, y);
 }
 
-void SurfaceCollection::updateLayerPositions(const SkRect& visibleRect)
+void SurfaceCollection::updateLayerPositions(const SkRect& visibleContentRect)
 {
     TransformationMatrix ident;
-    m_compositedRoot->updateLayerPositions(visibleRect);
+    m_compositedRoot->updateLayerPositions(visibleContentRect);
     FloatRect clip(0, 0, 1e10, 1e10);
     m_compositedRoot->updateGLPositionsAndScale(
         ident, clip, 1, m_compositedRoot->state()->scale());

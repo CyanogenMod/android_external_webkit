@@ -45,7 +45,7 @@
 #include <wtf/text/CString.h>
 
 // Surfaces with an area larger than 2048*2048 should never be unclipped
-#define MAX_UNCLIPPED_AREA 4194304
+#define MAX_FULL_CONTENT_AREA 4194304
 
 namespace WebCore {
 
@@ -131,48 +131,48 @@ void Surface::addLayer(LayerAndroid* layer, const TransformationMatrix& transfor
     m_hasText |= layer->hasText();
 
     // calculate area size for comparison later
-    IntRect rect = layer->unclippedArea();
+    IntRect rect = layer->fullContentArea();
     SkPoint pos = layer->getPosition();
     rect.setLocation(IntPoint(pos.fX, pos.fY));
 
     if (layer->needsTexture()) {
-        if (m_unclippedArea.isEmpty()) {
+        if (m_fullContentArea.isEmpty()) {
             m_drawTransform = transform;
             m_drawTransform.translate3d(-pos.fX, -pos.fY, 0);
-            m_unclippedArea = rect;
+            m_fullContentArea = rect;
         } else
-            m_unclippedArea.unite(rect);
+            m_fullContentArea.unite(rect);
         ALOGV("Surf %p adding LA %p, size  %d, %d  %dx%d, now Surf size %d,%d  %dx%d",
               this, layer, rect.x(), rect.y(), rect.width(), rect.height(),
-              m_unclippedArea.x(), m_unclippedArea.y(),
-              m_unclippedArea.width(), m_unclippedArea.height());
+              m_fullContentArea.x(), m_fullContentArea.y(),
+              m_fullContentArea.width(), m_fullContentArea.height());
     }
 
     if (isBase())
         m_background = static_cast<BaseLayerAndroid*>(layer)->getBackgroundColor();
 }
 
-IntRect Surface::visibleArea()
+IntRect Surface::visibleContentArea()
 {
     if (singleLayer())
-        return getFirstLayer()->visibleArea();
+        return getFirstLayer()->visibleContentArea();
 
-    IntRect rect = m_unclippedArea;
+    IntRect rect = m_fullContentArea;
 
-    // clip with the viewport in documents coordinate
-    IntRect documentViewport(TilesManager::instance()->shader()->documentViewport());
-    rect.intersect(documentViewport);
+    // clip with the viewport in content coordinate
+    IntRect contentViewport(TilesManager::instance()->shader()->contentViewport());
+    rect.intersect(contentViewport);
 
     // TODO: handle recursive layer clip
 
     return rect;
 }
 
-IntRect Surface::unclippedArea()
+IntRect Surface::fullContentArea()
 {
     if (singleLayer())
-        return getFirstLayer()->unclippedArea();
-    return m_unclippedArea;
+        return getFirstLayer()->fullContentArea();
+    return m_fullContentArea;
 }
 
 bool Surface::useAggressiveRendering()
@@ -203,7 +203,7 @@ void Surface::prepareGL(bool layerTilesDisabled, bool updateWithBlit)
     } else {
         bool allowZoom = hasText(); // only allow for scale > 1 if painting vectors
         IntRect prepareArea = computePrepareArea();
-        IntRect fullArea = unclippedArea();
+        IntRect fullArea = fullContentArea();
 
         ALOGV("prepareGL on Surf %p with SurfBack %p, %d layers, first layer %s (%d) "
               "prepareArea(%d, %d - %d x %d) fullArea(%d, %d - %d x %d)",
@@ -239,7 +239,7 @@ bool Surface::drawGL(bool layerTilesDisabled)
     if (!isBaseLayer) {
         // TODO: why are clipping regions wrong for base layer?
         FloatRect drawClip = getFirstLayer()->drawClip();
-        FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip);
+        FloatRect clippingRect = TilesManager::instance()->shader()->rectInInvViewCoord(drawClip);
         TilesManager::instance()->shader()->clip(clippingRect);
     }
 
@@ -248,7 +248,7 @@ bool Surface::drawGL(bool layerTilesDisabled)
         ALOGV("drawGL on Surf %p with SurfBack %p, first layer %s (%d)", this, m_surfaceBacking,
               getFirstLayer()->subclassName().ascii().data(), getFirstLayer()->uniqueId());
 
-        IntRect drawArea = visibleArea();
+        IntRect drawArea = visibleContentArea();
         m_surfaceBacking->drawGL(drawArea, opacity(), drawTransform(),
                                  useAggressiveRendering(), background());
     }
@@ -312,13 +312,13 @@ IntRect Surface::computePrepareArea()
         && !isBase()
         && getFirstLayer()->state()->layersRenderingMode() == GLWebViewState::kAllTextures) {
 
-        area = unclippedArea();
+        area = fullContentArea();
 
         double total = ((double) area.width()) * ((double) area.height());
-        if (total > MAX_UNCLIPPED_AREA)
-            area = visibleArea();
+        if (total > MAX_FULL_CONTENT_AREA)
+            area = visibleContentArea();
     } else
-        area = visibleArea();
+        area = visibleContentArea();
 
     return area;
 }

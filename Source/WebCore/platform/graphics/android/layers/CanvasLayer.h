@@ -63,11 +63,11 @@ private:
 
     void init();
     SkBitmapRef* bitmap() const;
-    IntRect contentRect() const;
+    IntRect visibleContentRect() const;
     IntSize offsetFromRenderer() const;
 
     HTMLCanvasElement* m_canvas;
-    IntRect m_contentRect;
+    IntRect m_visibleContentRect;
     IntSize m_offsetFromRenderer;
     SkRegion m_dirtyCanvas;
     SkBitmapRef* m_bitmap;

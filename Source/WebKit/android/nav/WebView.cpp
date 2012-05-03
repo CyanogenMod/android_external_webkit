@@ -231,29 +231,29 @@ void scrollRectOnScreen(const IntRect& rect)
     int dx = 0;
     int left = rect.x();
     int right = rect.maxX();
-    if (left < m_visibleRect.fLeft)
-        dx = left - m_visibleRect.fLeft;
+    if (left < m_visibleContentRect.fLeft)
+        dx = left - m_visibleContentRect.fLeft;
     // Only scroll right if the entire width can fit on screen.
-    else if (right > m_visibleRect.fRight
-            && right - left < m_visibleRect.width())
-        dx = right - m_visibleRect.fRight;
+    else if (right > m_visibleContentRect.fRight
+            && right - left < m_visibleContentRect.width())
+        dx = right - m_visibleContentRect.fRight;
     int dy = 0;
     int top = rect.y();
     int bottom = rect.maxY();
-    if (top < m_visibleRect.fTop)
-        dy = top - m_visibleRect.fTop;
+    if (top < m_visibleContentRect.fTop)
+        dy = top - m_visibleContentRect.fTop;
     // Only scroll down if the entire height can fit on screen
-    else if (bottom > m_visibleRect.fBottom
-            && bottom - top < m_visibleRect.height())
-        dy = bottom - m_visibleRect.fBottom;
+    else if (bottom > m_visibleContentRect.fBottom
+            && bottom - top < m_visibleContentRect.height())
+        dy = bottom - m_visibleContentRect.fBottom;
     if ((dx|dy) == 0 || !scrollBy(dx, dy))
         return;
     viewInvalidate();
 }
 
-int drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
-        WebCore::IntRect& webViewRect, int titleBarHeight,
-        WebCore::IntRect& clip, float scale, int extras, bool shouldDraw)
+int drawGL(WebCore::IntRect& invScreenRect, WebCore::IntRect* invalRect,
+        WebCore::IntRect& screenRect, int titleBarHeight,
+        WebCore::IntRect& screenClip, float scale, int extras, bool shouldDraw)
 {
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_baseLayer)
@@ -272,12 +272,12 @@ int drawGL(WebCore::IntRect& viewRect, WebCore::IntRect* invalRect,
     // Make sure we have valid coordinates. We might not have valid coords
     // if the zoom manager is still initializing. We will be redrawn
     // once the correct scale is set
-    if (!m_visibleRect.isFinite())
+    if (!m_visibleContentRect.isFinite())
         return 0;
     bool treesSwapped = false;
     bool newTreeHasAnim = false;
-    int ret = m_glWebViewState->drawGL(viewRect, m_visibleRect, invalRect,
-                                        webViewRect, titleBarHeight, clip, scale,
+    int ret = m_glWebViewState->drawGL(invScreenRect, m_visibleContentRect, invalRect,
+                                        screenRect, titleBarHeight, screenClip, scale,
                                         &treesSwapped, &newTreeHasAnim, shouldDraw);
     if (treesSwapped) {
         ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
@@ -317,7 +317,7 @@ void draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras)
 
     // call this to be sure we've adjusted for any scrolling or animations
     // before we actually draw
-    m_baseLayer->updateLayerPositions(m_visibleRect);
+    m_baseLayer->updateLayerPositions(m_visibleContentRect);
     m_baseLayer->updatePositions();
 
     // We have to set the canvas' matrix on the base layer
@@ -565,8 +565,8 @@ Functor* getFunctor() {
     return m_glDrawFunctor;
 }
 
-void setVisibleRect(SkRect& visibleRect) {
-    m_visibleRect = visibleRect;
+void setVisibleContentRect(SkRect& visibleContentRect) {
+    m_visibleContentRect = visibleContentRect;
 }
 
 void setDrawExtra(DrawExtra *extra, DrawExtras type)
@@ -590,7 +590,7 @@ const TransformationMatrix* getLayerTransform(int layerId) {
         // We need to make sure the drawTransform is up to date as this is
         // called before a draw() or drawGL()
         if (layer) {
-            m_baseLayer->updateLayerPositions(m_visibleRect);
+            m_baseLayer->updateLayerPositions(m_visibleContentRect);
             return layer->drawTransform();
         }
     }
@@ -670,7 +670,7 @@ private: // local state for WebView
 #if USE(ACCELERATED_COMPOSITING)
     GLWebViewState* m_glWebViewState;
 #endif
-    SkRect m_visibleRect;
+    SkRect m_visibleContentRect;
     bool m_isHighEndGfx;
 }; // end of WebView class
 
@@ -685,10 +685,10 @@ class GLDrawFunctor : Functor {
     GLDrawFunctor(WebView* _wvInstance,
             int (WebView::*_funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
                     WebCore::IntRect&, int, WebCore::IntRect&, jfloat, jint, bool),
-            WebCore::IntRect _viewRect, float _scale, int _extras) {
+            WebCore::IntRect _invScreenRect, float _scale, int _extras) {
         wvInstance = _wvInstance;
         funcPtr = _funcPtr;
-        viewRect = _viewRect;
+        invScreenRect = _invScreenRect;
         scale = _scale;
         extras = _extras;
     };
@@ -696,39 +696,39 @@ class GLDrawFunctor : Functor {
     status_t operator()(int messageId, void* data) {
         TRACE_METHOD();
 
-        if (viewRect.isEmpty()) {
+        if (invScreenRect.isEmpty()) {
             // NOOP operation if viewport is empty
             return 0;
         }
 
         WebCore::IntRect inval;
-        int titlebarHeight = webViewRect.height() - viewRect.height();
+        int titlebarHeight = screenRect.height() - invScreenRect.height();
 
         uirenderer::DrawGlInfo* info = reinterpret_cast<uirenderer::DrawGlInfo*>(data);
-        WebCore::IntRect clip(info->clipLeft, info->clipTop,
-                              info->clipRight - info->clipLeft,
-                              info->clipBottom - info->clipTop);
+        WebCore::IntRect screenClip(info->clipLeft, info->clipTop,
+                                    info->clipRight - info->clipLeft,
+                                    info->clipBottom - info->clipTop);
 
-        WebCore::IntRect localViewRect = viewRect;
+        WebCore::IntRect localInvScreenRect = invScreenRect;
         if (info->isLayer) {
             // When webview is on a layer, we need to use the viewport relative
-            // to the FBO, rather than the screen(which will use viewRect).
-            localViewRect.setX(clip.x());
-            localViewRect.setY(info->height - clip.y() - clip.height());
+            // to the FBO, rather than the screen(which will use invScreenRect).
+            localInvScreenRect.setX(screenClip.x());
+            localInvScreenRect.setY(info->height - screenClip.y() - screenClip.height());
         }
         bool shouldDraw = (messageId == uirenderer::DrawGlInfo::kModeDraw);
         // Send the necessary info to the shader.
         TilesManager::instance()->shader()->setGLDrawInfo(info);
 
-        int returnFlags = (*wvInstance.*funcPtr)(localViewRect, &inval, webViewRect,
-                titlebarHeight, clip, scale, extras, shouldDraw);
+        int returnFlags = (*wvInstance.*funcPtr)(localInvScreenRect, &inval, screenRect,
+                titlebarHeight, screenClip, scale, extras, shouldDraw);
         if ((returnFlags & uirenderer::DrawGlInfo::kStatusDraw) != 0) {
             IntRect finalInval;
             if (inval.isEmpty())
-                finalInval = webViewRect;
+                finalInval = screenRect;
             else {
-                finalInval.setX(webViewRect.x() + inval.x());
-                finalInval.setY(webViewRect.y() + titlebarHeight + inval.y());
+                finalInval.setX(screenRect.x() + inval.x());
+                finalInval.setY(screenRect.y() + titlebarHeight + inval.y());
                 finalInval.setWidth(inval.width());
                 finalInval.setHeight(inval.height());
             }
@@ -741,11 +741,11 @@ class GLDrawFunctor : Functor {
         ALOGV("returnFlags are %d, shouldDraw %d", returnFlags, shouldDraw);
         return returnFlags;
     }
-    void updateRect(WebCore::IntRect& _viewRect) {
-        viewRect = _viewRect;
+    void updateScreenRect(WebCore::IntRect& _screenRect) {
+        screenRect = _screenRect;
     }
-    void updateViewRect(WebCore::IntRect& _viewRect) {
-        webViewRect = _viewRect;
+    void updateInvScreenRect(WebCore::IntRect& _invScreenRect) {
+        invScreenRect = _invScreenRect;
     }
     void updateScale(float _scale) {
         scale = _scale;
@@ -757,8 +757,8 @@ class GLDrawFunctor : Functor {
     WebView* wvInstance;
     int (WebView::*funcPtr)(WebCore::IntRect&, WebCore::IntRect*,
             WebCore::IntRect&, int, WebCore::IntRect&, float, int, bool);
-    WebCore::IntRect viewRect;
-    WebCore::IntRect webViewRect;
+    WebCore::IntRect invScreenRect;
+    WebCore::IntRect screenRect;
     jfloat scale;
     jint extras;
 };
@@ -799,33 +799,33 @@ static void nativeDraw(JNIEnv *env, jobject obj, jobject canv,
         jint extras) {
     SkCanvas* canvas = GraphicsJNI::getNativeCanvas(env, canv);
     WebView* webView = GET_NATIVE_VIEW(env, obj);
-    SkRect visibleRect = jrectf_to_rect(env, visible);
-    webView->setVisibleRect(visibleRect);
+    SkRect visibleContentRect = jrectf_to_rect(env, visible);
+    webView->setVisibleContentRect(visibleContentRect);
     webView->draw(canvas, color, static_cast<WebView::DrawExtras>(extras));
 }
 
 static jint nativeCreateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
-                                    jobject jrect, jobject jviewrect,
-                                    jobject jvisiblerect,
-                                    jfloat scale, jint extras) {
-    WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
+                                       jobject jinvscreenrect, jobject jscreenrect,
+                                       jobject jvisiblecontentrect,
+                                       jfloat scale, jint extras) {
+    WebCore::IntRect invScreenRect = jrect_to_webrect(env, jinvscreenrect);
     WebView *wvInstance = (WebView*) nativeView;
-    SkRect visibleRect = jrectf_to_rect(env, jvisiblerect);
-    wvInstance->setVisibleRect(visibleRect);
+    SkRect visibleContentRect = jrectf_to_rect(env, jvisiblecontentrect);
+    wvInstance->setVisibleContentRect(visibleContentRect);
 
     GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
     if (!functor) {
         functor = new GLDrawFunctor(wvInstance, &android::WebView::drawGL,
-                                    viewRect, scale, extras);
+                                    invScreenRect, scale, extras);
         wvInstance->setFunctor((Functor*) functor);
     } else {
-        functor->updateRect(viewRect);
+        functor->updateInvScreenRect(invScreenRect);
         functor->updateScale(scale);
         functor->updateExtras(extras);
     }
 
-    WebCore::IntRect webViewRect = jrect_to_webrect(env, jviewrect);
-    functor->updateViewRect(webViewRect);
+    WebCore::IntRect rect = jrect_to_webrect(env, jscreenrect);
+    functor->updateScreenRect(rect);
 
     return (jint)functor;
 }
@@ -838,20 +838,21 @@ static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView) {
     return (jint) wvInstance->getFunctor();
 }
 
-static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView, jobject jrect,
-        jobject jviewrect, jobject jvisiblerect, jfloat scale) {
+static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
+                                       jobject jinvscreenrect, jobject jscreenrect,
+                                       jobject jvisiblecontentrect, jfloat scale) {
     WebView *wvInstance = (WebView*) nativeView;
     if (wvInstance) {
         GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
         if (functor) {
-            WebCore::IntRect viewRect = jrect_to_webrect(env, jrect);
-            functor->updateRect(viewRect);
+            WebCore::IntRect invScreenRect = jrect_to_webrect(env, jinvscreenrect);
+            functor->updateInvScreenRect(invScreenRect);
 
-            SkRect visibleRect = jrectf_to_rect(env, jvisiblerect);
-            wvInstance->setVisibleRect(visibleRect);
+            SkRect visibleContentRect = jrectf_to_rect(env, jvisiblecontentrect);
+            wvInstance->setVisibleContentRect(visibleContentRect);
 
-            WebCore::IntRect webViewRect = jrect_to_webrect(env, jviewrect);
-            functor->updateViewRect(webViewRect);
+            WebCore::IntRect screenRect = jrect_to_webrect(env, jscreenrect);
+            functor->updateScreenRect(screenRect);
 
             functor->updateScale(scale);
         }

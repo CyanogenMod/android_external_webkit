@@ -56,7 +56,7 @@ MediaLayer::~MediaLayer()
 
 bool MediaLayer::drawGL(bool layerTilesDisabled)
 {
-    FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(drawClip());
+    FloatRect clippingRect = TilesManager::instance()->shader()->rectInInvViewCoord(drawClip());
     TilesManager::instance()->shader()->clip(clippingRect);
 
     // when the plugin gains focus webkit applies an outline to the
