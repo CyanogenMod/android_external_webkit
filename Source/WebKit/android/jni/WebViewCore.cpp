@@ -824,7 +824,6 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
         FixedBackgroundBaseLayerAndroid* baseBackground =
             new FixedBackgroundBaseLayerAndroid(content);
 
-        // TODO -- check we don't have the assumption that baselayer has only one child
         realBase = new BaseLayerAndroid(0);
         realBase->setSize(content->width(), content->height());
         realBase->addChild(baseBackground);

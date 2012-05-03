@@ -192,10 +192,10 @@ void Surface::prepareGL(bool layerTilesDisabled, bool updateWithBlit)
         ALOGV("prepareGL on Surf %p, no SurfBack, needsTexture? %d",
               this, m_surfaceBacking, needsTexture());
 
-        if (!needsTexture())
+        if (needsTexture() || (isBase() && layerTilesDisabled))
+            m_surfaceBacking = new SurfaceBacking(isBase());
+        else
             return;
-
-        m_surfaceBacking = new SurfaceBacking(isBase());
     }
 
     if (tilesDisabled) {
@@ -351,8 +351,10 @@ bool Surface::paint(SkCanvas* canvas)
         // In single surface mode, draw layer content onto the base layer
         if (isBase()
             && getFirstLayer()->countChildren()
-            && getFirstLayer()->state()->layersRenderingMode() > GLWebViewState::kClippedTextures)
-            getFirstLayer()->getChild(0)->drawCanvas(canvas, true, Layer::FlattenedLayers);
+            && getFirstLayer()->state()->layersRenderingMode() > GLWebViewState::kClippedTextures) {
+            for (unsigned int i = 0; i < getFirstLayer()->countChildren(); i++)
+                getFirstLayer()->getChild(i)->drawCanvas(canvas, true, Layer::FlattenedLayers);
+        }
     } else {
         SkAutoCanvasRestore acr(canvas, true);
         SkMatrix matrix;
