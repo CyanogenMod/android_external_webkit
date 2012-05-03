@@ -119,6 +119,7 @@
 #include "SkTDArray.h"
 #include "SkTypes.h"
 #include "SkCanvas.h"
+#include "SkGraphics.h"
 #include "SkPicture.h"
 #include "SkUtils.h"
 #include "Text.h"
@@ -528,6 +529,9 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     WebViewCore::addInstance(this);
 
     AndroidNetworkLibraryImpl::InitWithApplicationContext(env, 0);
+
+    // increase the font cache size beyond the standard system setting
+    SkGraphics::SetFontCacheLimit(1572864); // 1572864 bytes == 1.5 MB
 
     // Static initialisation of certain important V8 static data gets performed at system startup when
     // libwebcore gets loaded. We now need to associate the WebCore thread with V8 to complete
