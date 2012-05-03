@@ -422,7 +422,9 @@ void FrameLoaderClientAndroid::dispatchDidFirstLayout() {
     // so that about:blank will update the screen.
     if (!m_frame->tree()->parent()) {
         // Only need to notify Java side for the top frame
-        WebViewCore::getWebViewCore(m_frame->view())->didFirstLayout();
+        WebViewCore* core = WebViewCore::getWebViewCore(m_frame->view());
+        if (core)
+            core->didFirstLayout();
     }
 }
 
