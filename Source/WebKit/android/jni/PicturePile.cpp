@@ -183,6 +183,7 @@ void PicturePile::updatePicture(PicturePainter* painter, PictureContainer& pc)
         } else {
             drawArea.unite(pc.prerendered->area);
             SkNWayCanvas* nwayCanvas = new SkNWayCanvas(drawArea.width(), drawArea.height());
+            nwayCanvas->translate(-drawArea.x(), -drawArea.y());
             nwayCanvas->addCanvas(canvas);
             nwayCanvas->addCanvas(prerender);
             SkSafeUnref(canvas);
@@ -284,25 +285,14 @@ void PicturePile::appendToPile(const IntRect& inval, const IntRect& originalInva
 
 PrerenderedInval* PicturePile::prerenderedInvalForArea(const IntRect& area)
 {
-    ALOGV("Checking for prerendered inval for area " INT_RECT_FORMAT,
-            INT_RECT_ARGS(area));
     for (int i = (int) m_pile.size() - 1; i >= 0; i--) {
         if (m_pile[i].area.intersects(area)) {
             RefPtr<PrerenderedInval> inval = m_pile[i].prerendered;
-            if (inval.get() && inval->area.contains(area)) {
-                ALOGV("Returning prerendered %p for area " INT_RECT_FORMAT,
-                        m_pile[i].prerendered.get(), INT_RECT_ARGS(area));
+            if (inval.get() && inval->area.contains(area))
                 return inval.get();
-            }
-            if (inval.get()) {
-                ALOGV("Prerendered area doesn't contain requested area; prerendered="
-                        INT_RECT_FORMAT, INT_RECT_ARGS(inval->area));
-            } else
-                ALOGV("No prerendered in intersection");
             return 0;
         }
     }
-    ALOGV("No containers found");
     return 0;
 }
 
