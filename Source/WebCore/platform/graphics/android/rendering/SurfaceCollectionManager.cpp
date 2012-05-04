@@ -171,7 +171,8 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
 
         m_paintingCollection->evaluateAnimations(currentTime);
 
-        m_paintingCollection->prepareGL(visibleContentRect);
+        bool tryFastBlit = !m_fastSwapMode;
+        m_paintingCollection->prepareGL(visibleContentRect, tryFastBlit);
         m_paintingCollection->computeTexturesAmount(texturesResultPtr);
 
         if (!TilesManager::instance()->useDoubleBuffering() || m_paintingCollection->isReady()) {
