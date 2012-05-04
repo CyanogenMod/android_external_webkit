@@ -41,11 +41,11 @@ public:
     SurfaceBacking(bool isBaseSurface);
     ~SurfaceBacking();
     void prepareGL(GLWebViewState* state, bool allowZoom,
-                   const IntRect& prepareArea, const IntRect& unclippedArea,
+                   const IntRect& prepareArea, const IntRect& fullContentArea,
                    TilePainter* painter, bool aggressiveRendering,
                    bool updateWithBlit);
     void swapTiles();
-    void drawGL(const IntRect& visibleArea, float opacity,
+    void drawGL(const IntRect& visibleContentArea, float opacity,
                 const TransformationMatrix* transform, bool aggressiveRendering,
                 const Color* background);
     void markAsDirty(const SkRegion& dirtyArea);

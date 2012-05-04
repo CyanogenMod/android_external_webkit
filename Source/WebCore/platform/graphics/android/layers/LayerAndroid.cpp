@@ -249,9 +249,12 @@ void LayerAndroid::addDirtyArea()
 {
     IntSize layerSize(getSize().width(), getSize().height());
 
-    FloatRect area = TilesManager::instance()->shader()->rectInInvScreenCoord(m_drawTransform, layerSize);
-    FloatRect clippingRect = TilesManager::instance()->shader()->rectInScreenCoord(m_clippingRect);
-    FloatRect clip = TilesManager::instance()->shader()->convertScreenCoordToInvScreenCoord(clippingRect);
+    FloatRect area =
+        TilesManager::instance()->shader()->rectInViewCoord(m_drawTransform, layerSize);
+    FloatRect clippingRect =
+        TilesManager::instance()->shader()->rectInInvViewCoord(m_clippingRect);
+    FloatRect clip =
+        TilesManager::instance()->shader()->convertInvViewCoordToViewCoord(clippingRect);
 
     area.intersect(clip);
     IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
@@ -410,7 +413,8 @@ void LayerAndroid::updatePositions()
 }
 
 void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
-                                             const FloatRect& clipping, float opacity, float scale)
+                                             const FloatRect& clipping, float opacity,
+                                             float scale)
 {
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
@@ -441,7 +445,9 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
         m_drawTransform.setM42(desiredContentY);
     }
 
-    m_zValue = TilesManager::instance()->shader()->zValue(m_drawTransform, getSize().width(), getSize().height());
+    m_zValue = TilesManager::instance()->shader()->zValue(m_drawTransform,
+                                                          getSize().width(),
+                                                          getSize().height());
 
     m_atomicSync.lock();
     m_scale = scale;
@@ -451,7 +457,8 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     setDrawOpacity(opacity);
 
     if (m_haveClip) {
-        // The clipping rect calculation and intersetion will be done in documents coordinates.
+        // The clipping rect calculation and intersetion will be done in content
+        // coordinates.
         FloatRect rect(0, 0, layerSize.width(), layerSize.height());
         FloatRect clip = m_drawTransform.mapRect(rect);
         clip.intersect(clipping);
@@ -461,7 +468,8 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     }
     ALOGV("%s - %d %f %f %f %f",
           subclassType() == BaseLayer ? "BASE" : "nonbase",
-          m_haveClip, m_clippingRect.x(), m_clippingRect.y(), m_clippingRect.width(), m_clippingRect.height());
+          m_haveClip, m_clippingRect.x(), m_clippingRect.y(),
+          m_clippingRect.width(), m_clippingRect.height());
 
     if (!m_backfaceVisibility
          && m_drawTransform.inverse().m33() < 0) {
@@ -548,7 +556,7 @@ IntRect LayerAndroid::clippedRect() const
 {
     IntRect r(0, 0, getWidth(), getHeight());
     IntRect tr = m_drawTransform.mapRect(r);
-    IntRect cr = TilesManager::instance()->shader()->clippedRectWithViewport(tr);
+    IntRect cr = TilesManager::instance()->shader()->clippedRectWithVisibleContentRect(tr);
     IntRect rect = m_drawTransform.inverse().mapRect(cr);
     return rect;
 }
@@ -582,20 +590,21 @@ void LayerAndroid::showLayer(int indent)
 
     if (!indent) {
         ALOGD("\n\n--- LAYERS TREE ---");
-        IntRect documentViewport(TilesManager::instance()->shader()->documentViewport());
-        ALOGD("documentViewport(%d, %d, %d, %d)",
-              documentViewport.x(), documentViewport.y(),
-              documentViewport.width(), documentViewport.height());
+        IntRect contentViewport(TilesManager::instance()->shader()->contentViewport());
+        ALOGD("contentViewport(%d, %d, %d, %d)",
+              contentViewport.x(), contentViewport.y(),
+              contentViewport.width(), contentViewport.height());
     }
 
     IntRect r(0, 0, getWidth(), getHeight());
     IntRect tr = m_drawTransform.mapRect(r);
-    IntRect visible = visibleArea();
+    IntRect visible = visibleContentArea();
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
     ALOGD("%s %s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
           "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d",
-          spaces, m_haveClip ? "CLIP LAYER" : "", subclassName().ascii().data(), subclassType(), uniqueId(), m_owningLayer,
+          spaces, m_haveClip ? "CLIP LAYER" : "", subclassName().ascii().data(),
+          subclassType(), uniqueId(), m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           m_imageCRC ? "has an image" : "no image",
           tr.x(), tr.y(), tr.width(), tr.height(),
@@ -750,7 +759,7 @@ int LayerAndroid::setHwAccelerated(bool hwAccelerated)
     return flags | onSetHwAccelerated(hwAccelerated);
 }
 
-IntRect LayerAndroid::unclippedArea()
+IntRect LayerAndroid::fullContentArea()
 {
     IntRect area;
     area.setX(0);
@@ -760,13 +769,13 @@ IntRect LayerAndroid::unclippedArea()
     return area;
 }
 
-IntRect LayerAndroid::visibleArea()
+IntRect LayerAndroid::visibleContentArea()
 {
-    IntRect area = unclippedArea();
+    IntRect area = fullContentArea();
     if (subclassType() == LayerAndroid::FixedBackgroundBaseLayer)
        return area;
     // First, we get the transformed area of the layer,
-    // in document coordinates
+    // in content coordinates
     IntRect rect = m_drawTransform.mapRect(area);
     int dx = rect.x();
     int dy = rect.y();
@@ -775,9 +784,9 @@ IntRect LayerAndroid::visibleArea()
     IntRect clip(m_clippingRect);
     rect.intersect(clip);
 
-    // Now clip with the viewport in documents coordinate
-    IntRect documentViewport(TilesManager::instance()->shader()->documentViewport());
-    rect.intersect(documentViewport);
+    // Now clip with the viewport in content coordinate
+    IntRect contentViewport(TilesManager::instance()->shader()->contentViewport());
+    rect.intersect(contentViewport);
 
     // Finally, let's return the visible area, in layers coordinate
     rect.move(-dx, -dy);

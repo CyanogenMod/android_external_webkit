@@ -150,8 +150,8 @@ int ImageTexture::nbTextures()
 
     // TODO: take in account the visible clip (need to maintain
     // a list of the clients layer, etc.)
-    IntRect visibleArea(0, 0, m_image->width(), m_image->height());
-    int nbTextures = m_tileGrid->nbTextures(visibleArea, 1.0);
+    IntRect visibleContentArea(0, 0, m_image->width(), m_image->height());
+    int nbTextures = m_tileGrid->nbTextures(visibleContentArea, 1.0);
     ALOGV("ImageTexture %p, %d x %d needs %d textures",
           this, m_image->width(), m_image->height(),
           nbTextures);
@@ -184,8 +184,8 @@ bool ImageTexture::prepareGL(GLWebViewState* state)
     if (!m_tileGrid)
         return false;
 
-    IntRect unclippedArea(0, 0, m_image->width(), m_image->height());
-    m_tileGrid->prepareGL(state, 1.0, unclippedArea, unclippedArea, this);
+    IntRect fullContentArea(0, 0, m_image->width(), m_image->height());
+    m_tileGrid->prepareGL(state, 1.0, fullContentArea, fullContentArea, this);
     if (m_tileGrid->isReady()) {
         m_tileGrid->swapTiles();
         return false;
@@ -198,7 +198,7 @@ const TransformationMatrix* ImageTexture::transform()
     if (!m_layer)
         return 0;
 
-    IntRect layerArea = m_layer->unclippedArea();
+    IntRect layerArea = m_layer->fullContentArea();
     float scaleW = static_cast<float>(layerArea.width()) / static_cast<float>(m_image->width());
     float scaleH = static_cast<float>(layerArea.height()) / static_cast<float>(m_image->height());
     TransformationMatrix d = *(m_layer->drawTransform());
@@ -239,8 +239,8 @@ void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
     // transform and opacity, so we need to set m_layer
     m_layer = layer;
     if (m_tileGrid) {
-        IntRect visibleArea = m_layer->visibleArea();
-        m_tileGrid->drawGL(visibleArea, opacity, transform());
+        IntRect visibleContentArea = m_layer->visibleContentArea();
+        m_tileGrid->drawGL(visibleContentArea, opacity, transform());
     }
     m_layer = 0;
 }

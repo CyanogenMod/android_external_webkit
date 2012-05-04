@@ -154,7 +154,7 @@ void SurfaceCollectionManager::updateScrollableLayer(int layerId, int x, int y)
 }
 
 int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
-                            SkRect& visibleRect, float scale,
+                            SkRect& visibleContentRect, float scale,
                             bool enterFastSwapMode,
                             bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                             TexturesResult* texturesResultPtr, bool shouldDraw)
@@ -171,7 +171,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
 
         m_paintingCollection->evaluateAnimations(currentTime);
 
-        m_paintingCollection->prepareGL(visibleRect);
+        m_paintingCollection->prepareGL(visibleContentRect);
         m_paintingCollection->computeTexturesAmount(texturesResultPtr);
 
         if (!TilesManager::instance()->useDoubleBuffering() || m_paintingCollection->isReady()) {
@@ -186,7 +186,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         }
     } else if (m_drawingCollection) {
         ALOGV("preparing drawing collection %p", m_drawingCollection);
-        m_drawingCollection->prepareGL(visibleRect);
+        m_drawingCollection->prepareGL(visibleContentRect);
         m_drawingCollection->computeTexturesAmount(texturesResultPtr);
     }
 
@@ -254,7 +254,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         GLUtils::clearBackgroundIfOpaque(&background);
     }
 
-    if (m_drawingCollection && m_drawingCollection->drawGL(visibleRect))
+    if (m_drawingCollection && m_drawingCollection->drawGL(visibleContentRect))
         returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
 
     ALOGV("returnFlags %d,  m_paintingCollection %d ", returnFlags, m_paintingCollection);

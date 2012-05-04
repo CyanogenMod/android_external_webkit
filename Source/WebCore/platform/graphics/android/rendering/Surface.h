@@ -71,13 +71,13 @@ public:
 
 private:
     IntRect computePrepareArea();
-    IntRect visibleArea();
-    IntRect unclippedArea();
+    IntRect visibleContentArea();
+    IntRect fullContentArea();
     bool singleLayer() { return m_layers.size() == 1; }
     bool useAggressiveRendering();
 
     const TransformationMatrix* drawTransform();
-    IntRect m_unclippedArea;
+    IntRect m_fullContentArea;
     TransformationMatrix m_drawTransform;
 
     SurfaceBacking* m_surfaceBacking;

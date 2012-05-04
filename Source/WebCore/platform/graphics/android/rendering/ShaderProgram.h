@@ -115,8 +115,8 @@ public:
     void initGLResources();
     void cleanupGLResources();
     // Drawing
-    void setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
-                      const IntRect& webViewRect, int titleBarHeight,
+    void setupDrawing(const IntRect& invScreenRect, const SkRect& visibleContentRect,
+                      const IntRect& screenRect, int titleBarHeight,
                       const IntRect& screenClip, float scale);
     float zValue(const TransformationMatrix& drawMatrix, float w, float h);
 
@@ -130,20 +130,20 @@ public:
     void drawQuad(const DrawQuadData* data);
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                      float* textureMatrix, SkRect& geometry, int textureId);
-    FloatRect rectInScreenCoord(const TransformationMatrix& drawMatrix,
+    FloatRect rectInInvViewCoord(const TransformationMatrix& drawMatrix,
                                 const IntSize& size);
-    FloatRect rectInInvScreenCoord(const TransformationMatrix& drawMatrix,
+    FloatRect rectInViewCoord(const TransformationMatrix& drawMatrix,
                                 const IntSize& size);
 
-    FloatRect rectInInvScreenCoord(const FloatRect& rect);
-    FloatRect rectInScreenCoord(const FloatRect& rect);
-    FloatRect convertScreenCoordToDocumentCoord(const FloatRect& rect);
-    FloatRect convertInvScreenCoordToScreenCoord(const FloatRect& rect);
-    FloatRect convertScreenCoordToInvScreenCoord(const FloatRect& rect);
+    FloatRect rectInViewCoord(const FloatRect& rect);
+    FloatRect rectInInvViewCoord(const FloatRect& rect);
+    FloatRect convertInvViewCoordToContentCoord(const FloatRect& rect);
+    FloatRect convertViewCoordToInvViewCoord(const FloatRect& rect);
+    FloatRect convertInvViewCoordToViewCoord(const FloatRect& rect);
 
     void clip(const FloatRect& rect);
-    IntRect clippedRectWithViewport(const IntRect& rect, int margin = 0);
-    FloatRect documentViewport() { return m_documentViewport; }
+    IntRect clippedRectWithVisibleContentRect(const IntRect& rect, int margin = 0);
+    FloatRect contentViewport() { return m_contentViewport; }
 
     float contrast() { return m_contrast; }
     void setContrast(float c)
@@ -185,21 +185,21 @@ private:
 
     TransformationMatrix m_surfaceProjectionMatrix;
     TransformationMatrix m_clipProjectionMatrix;
-    TransformationMatrix m_visibleRectProjectionMatrix;
+    TransformationMatrix m_visibleContentRectProjectionMatrix;
     GLuint m_textureBuffer[1];
 
-    TransformationMatrix m_documentToScreenMatrix;
-    TransformationMatrix m_documentToInvScreenMatrix;
-    SkRect m_viewport;
-    IntRect m_viewRect;
+    TransformationMatrix m_contentToInvViewMatrix;
+    TransformationMatrix m_contentToViewMatrix;
+    SkRect m_visibleContentRect;
+    IntRect m_invScreenRect;
     FloatRect m_clipRect;
-    IntRect m_screenClip;
+    IntRect m_invViewClip;
     int m_titleBarHeight;
     // This is the layout position in screen coordinate and didn't contain the
     // animation offset.
-    IntRect m_webViewRect;
+    IntRect m_screenRect;
 
-    FloatRect m_documentViewport;
+    FloatRect m_contentViewport;
 
     float m_contrast;
 

@@ -135,7 +135,7 @@ IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)
 }
 
 void TileGrid::prepareGL(GLWebViewState* state, float scale,
-                         const IntRect& prepareArea, const IntRect& unclippedArea,
+                         const IntRect& prepareArea, const IntRect& fullContentArea,
                          TilePainter* painter, int regionFlags, bool isLowResPrefetch,
                          bool updateWithBlit)
 {
@@ -193,7 +193,7 @@ void TileGrid::prepareGL(GLWebViewState* state, float scale,
     }
 
     if (regionFlags & ExpandedRegion) {
-        IntRect fullArea = computeTilesArea(unclippedArea, scale);
+        IntRect fullArea = computeTilesArea(fullContentArea, scale);
         IntRect expandedArea = m_area;
 
         // on systems reporting highEndGfx=true and useMinimalMemory not set, use expanded bounds
@@ -285,11 +285,11 @@ int TileGrid::nbTextures(IntRect& area, float scale)
     return numberTextures;
 }
 
-void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
+void TileGrid::drawGL(const IntRect& visibleContentArea, float opacity,
                       const TransformationMatrix* transform,
                       const Color* background)
 {
-    m_area = computeTilesArea(visibleArea, m_scale);
+    m_area = computeTilesArea(visibleContentArea, m_scale);
     if (m_area.width() == 0 || m_area.height() == 0)
         return;
 
@@ -311,10 +311,10 @@ void TileGrid::drawGL(const IntRect& visibleArea, float opacity,
     bool usePointSampling =
         TilesManager::instance()->shader()->usePointSampling(m_scale, transform);
 
-    float minTileX =  visibleArea.x() / tileWidth;
-    float minTileY =  visibleArea.y() / tileWidth;
-    float maxTileWidth = visibleArea.maxX() / tileWidth;
-    float maxTileHeight = visibleArea.maxY() / tileWidth;
+    float minTileX =  visibleContentArea.x() / tileWidth;
+    float minTileY =  visibleContentArea.y() / tileWidth;
+    float maxTileWidth = visibleContentArea.maxX() / tileWidth;
+    float maxTileHeight = visibleContentArea.maxY() / tileWidth;
     ALOGV("minTileX, minTileY, maxTileWidth, maxTileHeight %f, %f, %f %f",
           minTileX, minTileY, maxTileWidth, maxTileHeight);
     for (unsigned int i = 0; i < m_tiles.size(); i++) {

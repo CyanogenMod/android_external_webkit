@@ -42,7 +42,7 @@
 
 GLExtras::GLExtras()
     : m_drawExtra(0)
-    , m_viewport()
+    , m_visibleContentRect()
 {
 }
 

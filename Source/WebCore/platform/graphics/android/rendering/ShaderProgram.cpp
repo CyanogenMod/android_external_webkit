@@ -370,37 +370,46 @@ void ShaderProgram::setBlendingState(bool enableBlending)
 // Drawing
 /////////////////////////////////////////////////////////////////////////////////////////
 
-// We have multiple coordinates to deal with, each could be inverted Y or not, and
-// each could be local to webview or global to the screen.
-// viewRect - global screen coordinates starting from lower left.
-// visibleRect - local document coordinates starting from upper left.
-// webViewRect - inverted global screen coordinates starting from upper left.
-// screenClip - inverted global screen coordinates starting from upper left.
+// We have multiple coordinates to deal with: first is the screen coordinates,
+// second is the view coordinates and the last one is content(document) coordinates.
+// Both screen and view coordinates are in pixels.
+// All these coordinates start from upper left, but for the purpose of OpenGL
+// operations, we may need a inverted Y version of such coordinates which
+// start from lower left.
+//
+// invScreenRect - inv screen coordinates starting from lower left.
+// visibleContentRect - local content(document) coordinates starting from upper left.
+// screenRect - screen coordinates starting from upper left.
+// screenClip - screen coordinates starting from upper left.
 //    ------------------------------------------
-//    |(origin of inv global screen)           |
+//    |(origin of screen)                      |
 //    |screen                                  |
 //    |   ---------------------------------    |
-//    |   | (origin of inv local screen)  |    |
+//    |   | (origin of view)              |    |
 //    |   | webview                       |    |
 //    |   |        --------               |    |
 //    |   |        | clip |               |    |
 //    |   |        |      |               |    |
 //    |   |        --------               |    |
 //    |   |                               |    |
-//    |   |(origin of local screen)       |    |
+//    |   |(origin of inv view)           |    |
 //    |   ---------------------------------    |
-//    |(origin of global screen)                |
+//    |(origin of inv screen)                  |
 //    ------------------------------------------
-void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleRect,
-                                 const IntRect& webViewRect, int titleBarHeight,
+void ShaderProgram::setupDrawing(const IntRect& invScreenRect,
+                                 const SkRect& visibleContentRect,
+                                 const IntRect& screenRect, int titleBarHeight,
                                  const IntRect& screenClip, float scale)
 {
-    m_webViewRect = webViewRect;
+    m_screenRect = screenRect;
     m_titleBarHeight = titleBarHeight;
 
     //// viewport ////
-    GLUtils::setOrthographicMatrix(m_visibleRectProjectionMatrix, visibleRect.fLeft,
-                                   visibleRect.fTop, visibleRect.fRight, visibleRect.fBottom,
+    GLUtils::setOrthographicMatrix(m_visibleContentRectProjectionMatrix,
+                                   visibleContentRect.fLeft,
+                                   visibleContentRect.fTop,
+                                   visibleContentRect.fRight,
+                                   visibleContentRect.fBottom,
                                    -1000, 1000);
 
     ALOGV("set m_clipProjectionMatrix, %d, %d, %d, %d",
@@ -408,7 +417,7 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
           screenClip.y() + screenClip.height());
 
     // In order to incorporate the animation delta X and Y, using the clip as
-    // the GL viewport can save all the trouble of re-position from webViewRect
+    // the GL viewport can save all the trouble of re-position from screenRect
     // to final position.
     GLUtils::setOrthographicMatrix(m_clipProjectionMatrix, screenClip.x(), screenClip.y(),
                                    screenClip.x() + screenClip.width(),
@@ -417,48 +426,45 @@ void ShaderProgram::setupDrawing(const IntRect& viewRect, const SkRect& visibleR
     glViewport(screenClip.x(), m_targetHeight - screenClip.y() - screenClip.height() ,
                screenClip.width(), screenClip.height());
 
-    m_viewport = visibleRect;
+    m_visibleContentRect = visibleContentRect;
     m_currentScale = scale;
 
 
     //// viewRect ////
-    m_viewRect = viewRect;
+    m_invScreenRect = invScreenRect;
 
-    // The following matrices transform document coordinates into screen coordinates
-    // and inv screen coordinates, and they are local to the webview in terms of
-    // coordinate origins.
-    // Note that GLUtils::setOrthographicMatrix is inverting the Y. So screen
-    // coordinates is starting from lower left, and inverted screen coordinates
-    // is from upper left.
+    // The following matrices transform content coordinates into view coordinates
+    // and inv view coordinates.
+    // Note that GLUtils::setOrthographicMatrix is inverting the Y.
     TransformationMatrix viewTranslate;
     viewTranslate.translate(1.0, 1.0);
 
     TransformationMatrix viewScale;
-    viewScale.scale3d(m_viewRect.width() * 0.5f, m_viewRect.height() * 0.5f, 1);
+    viewScale.scale3d(m_invScreenRect.width() * 0.5f, m_invScreenRect.height() * 0.5f, 1);
 
-    m_documentToScreenMatrix = viewScale * viewTranslate * m_visibleRectProjectionMatrix;
+    m_contentToInvViewMatrix = viewScale * viewTranslate * m_visibleContentRectProjectionMatrix;
 
     viewTranslate.scale3d(1, -1, 1);
-    m_documentToInvScreenMatrix = viewScale * viewTranslate * m_visibleRectProjectionMatrix;
+    m_contentToViewMatrix = viewScale * viewTranslate * m_visibleContentRectProjectionMatrix;
 
-    IntRect rect(0, 0, m_webViewRect.width(), m_webViewRect.height());
-    m_documentViewport = m_documentToScreenMatrix.inverse().mapRect(rect);
+    IntRect invViewRect(0, 0, m_screenRect.width(), m_screenRect.height());
+    m_contentViewport = m_contentToInvViewMatrix.inverse().mapRect(invViewRect);
 
 
     //// clipping ////
-    IntRect mclip = screenClip;
+    IntRect viewClip = screenClip;
 
-    // The incoming screenClip is in inverted global screen coordinates, we first
-    // translate it into inverted local screen coordinates.
-    // Then we convert it into local screen coordinates.
+    // The incoming screenClip is in screen coordinates, we first
+    // translate it into view coordinates.
+    // Then we convert it into inverted view coordinates.
     // Therefore, in the clip() function, we need to convert things back from
-    // local screen coordinates to global screen coordinates.
-    mclip.setX(screenClip.x() - m_webViewRect.x());
-    mclip.setY(screenClip.y() - m_webViewRect.y() - m_titleBarHeight);
-    FloatRect tclip = convertInvScreenCoordToScreenCoord(mclip);
-    m_screenClip.setLocation(IntPoint(tclip.x(), tclip.y()));
+    // inverted view coordinates to inverted screen coordinates which is used by GL.
+    viewClip.setX(screenClip.x() - m_screenRect.x());
+    viewClip.setY(screenClip.y() - m_screenRect.y() - m_titleBarHeight);
+    FloatRect invViewClip = convertViewCoordToInvViewCoord(viewClip);
+    m_invViewClip.setLocation(IntPoint(invViewClip.x(), invViewClip.y()));
     // use ceilf to handle view -> doc -> view coord rounding errors
-    m_screenClip.setSize(IntSize(ceilf(tclip.width()), ceilf(tclip.height())));
+    m_invViewClip.setSize(IntSize(ceilf(invViewClip.width()), ceilf(invViewClip.height())));
 
     resetBlending();
 
@@ -509,47 +515,47 @@ ShaderType ShaderProgram::getTextureShaderType(GLenum textureTarget)
 }
 
 // This function transform a clip rect extracted from the current layer
-// into a clip rect in screen coordinates -- used by the clipping rects
-FloatRect ShaderProgram::rectInScreenCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
+// into a clip rect in InvView coordinates -- used by the clipping rects
+FloatRect ShaderProgram::rectInInvViewCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
 {
     FloatRect srect(0, 0, size.width(), size.height());
-    TransformationMatrix renderMatrix = m_documentToScreenMatrix * drawMatrix;
+    TransformationMatrix renderMatrix = m_contentToInvViewMatrix * drawMatrix;
     return renderMatrix.mapRect(srect);
 }
 
 // used by the partial screen invals
-FloatRect ShaderProgram::rectInInvScreenCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
+FloatRect ShaderProgram::rectInViewCoord(const TransformationMatrix& drawMatrix, const IntSize& size)
 {
     FloatRect srect(0, 0, size.width(), size.height());
-    TransformationMatrix renderMatrix = m_documentToInvScreenMatrix * drawMatrix;
+    TransformationMatrix renderMatrix = m_contentToViewMatrix * drawMatrix;
     return renderMatrix.mapRect(srect);
 }
 
-FloatRect ShaderProgram::rectInInvScreenCoord(const FloatRect& rect)
+FloatRect ShaderProgram::rectInViewCoord(const FloatRect& rect)
 {
-    return m_documentToInvScreenMatrix.mapRect(rect);
+    return m_contentToViewMatrix.mapRect(rect);
 }
 
-FloatRect ShaderProgram::rectInScreenCoord(const FloatRect& rect)
+FloatRect ShaderProgram::rectInInvViewCoord(const FloatRect& rect)
 {
-    return m_documentToScreenMatrix.mapRect(rect);
+    return m_contentToInvViewMatrix.mapRect(rect);
 }
 
-FloatRect ShaderProgram::convertScreenCoordToDocumentCoord(const FloatRect& rect)
+FloatRect ShaderProgram::convertInvViewCoordToContentCoord(const FloatRect& rect)
 {
-    return m_documentToScreenMatrix.inverse().mapRect(rect);
+    return m_contentToInvViewMatrix.inverse().mapRect(rect);
 }
 
-FloatRect ShaderProgram::convertInvScreenCoordToScreenCoord(const FloatRect& rect)
+FloatRect ShaderProgram::convertViewCoordToInvViewCoord(const FloatRect& rect)
 {
-    FloatRect documentRect = m_documentToInvScreenMatrix.inverse().mapRect(rect);
-    return rectInScreenCoord(documentRect);
+    FloatRect visibleContentRect = m_contentToViewMatrix.inverse().mapRect(rect);
+    return rectInInvViewCoord(visibleContentRect);
 }
 
-FloatRect ShaderProgram::convertScreenCoordToInvScreenCoord(const FloatRect& rect)
+FloatRect ShaderProgram::convertInvViewCoordToViewCoord(const FloatRect& rect)
 {
-    FloatRect documentRect = m_documentToScreenMatrix.inverse().mapRect(rect);
-    return rectInInvScreenCoord(documentRect);
+    FloatRect visibleContentRect = m_contentToInvViewMatrix.inverse().mapRect(rect);
+    return rectInViewCoord(visibleContentRect);
 }
 
 // clip is in screen coordinates
@@ -568,14 +574,14 @@ void ShaderProgram::clip(const FloatRect& clip)
                        clip.y(),
                        clip.width(), clip.height());
 
-    if (!m_screenClip.isEmpty())
-        screenClip.intersect(m_screenClip);
+    if (!m_invViewClip.isEmpty())
+        screenClip.intersect(m_invViewClip);
 
     // The previous intersection calculation is using local screen coordinates.
     // Now we need to convert things from local screen coordinates to global
     // screen coordinates and pass to the GL functions.
-    screenClip.setX(screenClip.x() + m_viewRect.x());
-    screenClip.setY(screenClip.y() + m_viewRect.y());
+    screenClip.setX(screenClip.x() + m_invScreenRect.x());
+    screenClip.setY(screenClip.y() + m_invScreenRect.y());
     if (screenClip.x() < 0) {
         int w = screenClip.width();
         w += screenClip.x();
@@ -594,10 +600,11 @@ void ShaderProgram::clip(const FloatRect& clip)
     m_clipRect = clip;
 }
 
-IntRect ShaderProgram::clippedRectWithViewport(const IntRect& rect, int margin)
+IntRect ShaderProgram::clippedRectWithVisibleContentRect(const IntRect& rect, int margin)
 {
-    IntRect viewport(m_viewport.fLeft - margin, m_viewport.fTop - margin,
-                     m_viewport.width() + margin, m_viewport.height() + margin);
+    IntRect viewport(m_visibleContentRect.fLeft - margin, m_visibleContentRect.fTop - margin,
+                     m_visibleContentRect.width() + margin,
+                     m_visibleContentRect.height() + margin);
     viewport.intersect(rect);
     return viewport;
 }
@@ -606,7 +613,8 @@ float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, flo
 {
     TransformationMatrix modifiedDrawMatrix = drawMatrix;
     modifiedDrawMatrix.scale3d(w, h, 1);
-    TransformationMatrix renderMatrix = m_visibleRectProjectionMatrix * modifiedDrawMatrix;
+    TransformationMatrix renderMatrix =
+        m_visibleContentRectProjectionMatrix * modifiedDrawMatrix;
     FloatPoint3D point(0.5, 0.5, 0.0);
     FloatPoint3D result = renderMatrix.mapPoint(point);
     return result.z();

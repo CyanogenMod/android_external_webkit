@@ -48,8 +48,8 @@ public:
     virtual ~SurfaceCollection();
 
     // Tiled painting methods (executed on groups)
-    void prepareGL(const SkRect& visibleRect);
-    bool drawGL(const SkRect& visibleRect);
+    void prepareGL(const SkRect& visibleContentRect);
+    bool drawGL(const SkRect& visibleContentRect);
     Color getBackgroundColor();
     void swapTiles();
     bool isReady();
@@ -67,7 +67,7 @@ public:
     void updateScrollableLayer(int layerId, int x, int y);
 
 private:
-    void updateLayerPositions(const SkRect& visibleRect);
+    void updateLayerPositions(const SkRect& visibleContentRect);
     LayerAndroid* m_compositedRoot;
     WTF::Vector<Surface*> m_surfaces;
 };
