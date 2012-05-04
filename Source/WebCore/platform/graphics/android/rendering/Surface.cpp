@@ -216,13 +216,11 @@ void Surface::prepareGL(bool layerTilesDisabled, bool updateWithBlit)
         m_surfaceBacking->prepareGL(getFirstLayer()->state(), allowZoom,
                                     prepareArea, fullArea,
                                     this, useAggressiveRendering(), updateWithBlit);
-        if (updateWithBlit) {
-            for (size_t i = 0; i < m_layers.size(); i++) {
-                LayerContent* content = m_layers[i]->content();
-                if (content)
-                    content->clearPrerenders();
-            }
-        }
+    }
+    for (size_t i = 0; i < m_layers.size(); i++) {
+        LayerContent* content = m_layers[i]->content();
+        if (content)
+            content->clearPrerenders();
     }
 }
 
@@ -397,6 +395,13 @@ bool Surface::blitFromContents(Tile* tile)
     // Extract the dirty rect from the region. Note that this is *NOT* constrained
     // to this tile
     IntRect dirtyRect = tile->dirtyArea().getBounds();
+    IntRect tileRect = IntRect(tile->x() * TilesManager::tileWidth(),
+                               tile->y() * TilesManager::tileHeight(),
+                               TilesManager::tileWidth(),
+                               TilesManager::tileHeight());
+    FloatRect tileRectInDoc = tileRect;
+    tileRectInDoc.scale(1 / tile->scale());
+    dirtyRect.intersect(enclosingIntRect(tileRectInDoc));
     PrerenderedInval* prerenderedInval = content->prerenderForRect(dirtyRect);
     if (!prerenderedInval || prerenderedInval->bitmap.isNull())
         return false;
@@ -406,10 +411,6 @@ bool Surface::blitFromContents(Tile* tile)
     FloatRect screenDirty = dirtyRect;
     screenDirty.scale(tile->scale());
     IntRect enclosingScreenDirty = enclosingIntRect(screenDirty);
-    IntRect tileRect = IntRect(tile->x() * TilesManager::tileWidth(),
-                               tile->y() * TilesManager::tileHeight(),
-                               TilesManager::tileWidth(),
-                               TilesManager::tileHeight());
     enclosingScreenDirty.intersect(tileRect);
     if (enclosingScreenDirty.isEmpty())
         return false;

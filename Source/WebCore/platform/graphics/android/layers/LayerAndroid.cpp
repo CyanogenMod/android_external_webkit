@@ -529,7 +529,10 @@ bool LayerAndroid::canUpdateWithBlit()
 {
     if (!m_content || !m_scale)
         return false;
-    PrerenderedInval* prerendered = m_content->prerenderForRect(m_dirtyRegion.getBounds());
+    IntRect clip = clippedRect();
+    IntRect dirty = m_dirtyRegion.getBounds();
+    dirty.intersect(clip);
+    PrerenderedInval* prerendered = m_content->prerenderForRect(dirty);
     if (!prerendered)
         return false;
     // Check that the scales are "close enough" to produce the same rects
