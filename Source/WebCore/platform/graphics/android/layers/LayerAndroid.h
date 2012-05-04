@@ -140,8 +140,8 @@ public:
     IntRect clippedRect() const;
     bool outsideViewport();
 
-    IntRect unclippedArea();
-    IntRect visibleArea();
+    IntRect fullContentArea();
+    IntRect visibleContentArea();
 
     virtual bool needsTexture();
 

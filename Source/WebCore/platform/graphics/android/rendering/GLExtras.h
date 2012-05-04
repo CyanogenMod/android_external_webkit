@@ -43,7 +43,10 @@ public:
 
     void drawGL(const LayerAndroid* layer);
     void setDrawExtra(android::DrawExtra* extra) { m_drawExtra = extra; }
-    void setViewport(const SkRect & viewport) { m_viewport = viewport; }
+    void setVisibleContentRect(const SkRect & visibleContentRect)
+    {
+        m_visibleContentRect = visibleContentRect;
+    }
 
     void drawRegion(const SkRegion& region, bool fill, bool drawBorder,
                     const TransformationMatrix* drawMat, Color color = COLOR_HOLO_LIGHT);
@@ -52,7 +55,7 @@ private:
     void drawRing(SkRect& srcRect, Color color, const TransformationMatrix* drawMat);
 
     android::DrawExtra* m_drawExtra;
-    SkRect m_viewport;
+    SkRect m_visibleContentRect;
 };
 
 } // namespace WebCore

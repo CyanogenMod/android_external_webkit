@@ -56,7 +56,7 @@ SurfaceBacking::~SurfaceBacking()
 }
 
 void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
-                               const IntRect& prepareArea, const IntRect& unclippedArea,
+                               const IntRect& prepareArea, const IntRect& fullContentArea,
                                TilePainter* painter, bool aggressiveRendering,
                                bool updateWithBlit)
 {
@@ -89,7 +89,7 @@ void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
     if (m_zooming && (m_zoomUpdateTime < WTF::currentTime())) {
         // prepare the visible portions of the back tile grid at the futureScale
         m_backTileGrid->prepareGL(state, m_futureScale,
-                                  prepareArea, unclippedArea, painter,
+                                  prepareArea, fullContentArea, painter,
                                   TileGrid::StandardRegion, false);
 
         if (m_backTileGrid->isReady()) {
@@ -114,29 +114,29 @@ void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
             // if the front grid hasn't already prepared, or needs to prepare
             // expanded bounds do so now
             m_frontTileGrid->prepareGL(state, m_scale,
-                                       prepareArea, unclippedArea, painter,
+                                       prepareArea, fullContentArea, painter,
                                        prepareRegionFlags, false, updateWithBlit);
         }
         if (aggressiveRendering) {
             // prepare low res content
             float lowResPrefetchScale = m_scale * LOW_RES_PREFETCH_SCALE_MODIFIER;
             m_lowResTileGrid->prepareGL(state, lowResPrefetchScale,
-                                       prepareArea, unclippedArea, painter,
+                                       prepareArea, fullContentArea, painter,
                                        TileGrid::StandardRegion | TileGrid::ExpandedRegion, true);
             m_lowResTileGrid->swapTiles();
         }
     }
 }
 
-void SurfaceBacking::drawGL(const IntRect& visibleArea, float opacity,
+void SurfaceBacking::drawGL(const IntRect& visibleContentArea, float opacity,
                             const TransformationMatrix* transform,
                             bool aggressiveRendering, const Color* background)
 {
     // draw low res prefetch page if zooming or front texture missing content
     if (aggressiveRendering && isMissingContent())
-        m_lowResTileGrid->drawGL(visibleArea, opacity, transform);
+        m_lowResTileGrid->drawGL(visibleContentArea, opacity, transform);
 
-    m_frontTileGrid->drawGL(visibleArea, opacity, transform, background);
+    m_frontTileGrid->drawGL(visibleContentArea, opacity, transform, background);
 }
 
 void SurfaceBacking::markAsDirty(const SkRegion& dirtyArea)
@@ -159,14 +159,14 @@ void SurfaceBacking::computeTexturesAmount(TexturesResult* result, LayerAndroid*
     if (!layer)
         return;
 
-    IntRect unclippedArea = layer->unclippedArea();
-    IntRect clippedVisibleArea = layer->visibleArea();
+    IntRect fullContentArea = layer->fullContentArea();
+    IntRect clippedVisibleArea = layer->visibleContentArea();
 
     // get two numbers here:
     // - textures needed for a clipped area
     // - textures needed for an un-clipped area
     TileGrid* tileGrid = m_zooming ? m_backTileGrid : m_frontTileGrid;
-    int nbTexturesUnclipped = tileGrid->nbTextures(unclippedArea, m_scale);
+    int nbTexturesUnclipped = tileGrid->nbTextures(fullContentArea, m_scale);
     int nbTexturesClipped = tileGrid->nbTextures(clippedVisibleArea, m_scale);
 
     // Set kFixedLayers level

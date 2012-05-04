@@ -50,7 +50,7 @@ public:
     void updateScrollableLayer(int layerId, int x, int y);
 
     int drawGL(double currentTime, IntRect& viewRect,
-                SkRect& visibleRect, float scale,
+                SkRect& visibleContentRect, float scale,
                 bool enterFastSwapMode, bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                 TexturesResult* texturesResultPtr, bool shouldDraw);
 

@@ -63,13 +63,13 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
     if (!layer.m_canvas) {
         // The canvas has already been destroyed - this shouldn't happen
         ALOGW("Creating a CanvasLayer for a destroyed canvas!");
-        m_contentRect = IntRect();
+        m_visibleContentRect = IntRect();
         m_offsetFromRenderer = IntSize();
         m_texture->setHwAccelerated(false);
         return;
     }
     // We are making a copy for the UI, sync the interesting bits
-    m_contentRect = layer.contentRect();
+    m_visibleContentRect = layer.visibleContentRect();
     m_offsetFromRenderer = layer.offsetFromRenderer();
     bool previousState = m_texture->hasValidTexture();
     if (!previousState && layer.m_dirtyCanvas.isEmpty()) {
@@ -86,7 +86,7 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
             // Merge the canvas invals with the layer's invals to repaint the needed
             // tiles.
             SkRegion::Iterator iter(layer.m_dirtyCanvas);
-            const IntPoint& offset = m_contentRect.location();
+            const IntPoint& offset = m_visibleContentRect.location();
             for (; !iter.done(); iter.next()) {
                 SkIRect diff = iter.rect();
                 diff.fLeft += offset.x();
@@ -98,8 +98,8 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
         }
         if (previousState != m_texture->hasValidTexture()) {
             // Need to do a full inval of the canvas content as we are mode switching
-            m_dirtyRegion.op(m_contentRect.x(), m_contentRect.y(),
-                    m_contentRect.maxX(), m_contentRect.maxY(), SkRegion::kUnion_Op);
+            m_dirtyRegion.op(m_visibleContentRect.x(), m_visibleContentRect.y(),
+                    m_visibleContentRect.maxX(), m_visibleContentRect.maxY(), SkRegion::kUnion_Op);
         }
     }
 }
@@ -160,7 +160,7 @@ SkBitmapRef* CanvasLayer::bitmap() const
     return m_canvas->copiedImage()->nativeImageForCurrentFrame();
 }
 
-IntRect CanvasLayer::contentRect() const
+IntRect CanvasLayer::visibleContentRect() const
 {
     if (!m_canvas
             || !m_canvas->renderer()
@@ -187,9 +187,9 @@ void CanvasLayer::contentDraw(SkCanvas* canvas, PaintStyle style)
     if (!m_bitmap || masksToBounds())
         return;
     SkBitmap& bitmap = m_bitmap->bitmap();
-    SkRect dst = SkRect::MakeXYWH(m_contentRect.x() - m_offsetFromRenderer.width(),
-                                  m_contentRect.y() - m_offsetFromRenderer.height(),
-                                  m_contentRect.width(), m_contentRect.height());
+    SkRect dst = SkRect::MakeXYWH(m_visibleContentRect.x() - m_offsetFromRenderer.width(),
+                                  m_visibleContentRect.y() - m_offsetFromRenderer.height(),
+                                  m_visibleContentRect.width(), m_visibleContentRect.height());
     canvas->drawBitmapRect(bitmap, 0, dst, 0);
 }
 
@@ -198,9 +198,9 @@ bool CanvasLayer::drawGL(bool layerTilesDisabled)
     bool ret = LayerAndroid::drawGL(layerTilesDisabled);
     m_texture->requireTexture();
     if (!m_bitmap && m_texture->updateTexImage()) {
-        SkRect rect = SkRect::MakeXYWH(m_contentRect.x() - m_offsetFromRenderer.width(),
-                                       m_contentRect.y() - m_offsetFromRenderer.height(),
-                                       m_contentRect.width(), m_contentRect.height());
+        SkRect rect = SkRect::MakeXYWH(m_visibleContentRect.x() - m_offsetFromRenderer.width(),
+                                       m_visibleContentRect.y() - m_offsetFromRenderer.height(),
+                                       m_visibleContentRect.width(), m_visibleContentRect.height());
         TextureQuadData data(m_texture->texture(), GL_TEXTURE_EXTERNAL_OES,
                              GL_LINEAR, LayerQuad, &m_drawTransform, &rect);
         TilesManager::instance()->shader()->drawQuad(&data);
