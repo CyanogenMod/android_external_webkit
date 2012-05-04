@@ -145,6 +145,7 @@ private:
     bool repaint();
     void needsNotifyClient();
 
+    SkPicture* paintPicture(const IntRect& rect);
     bool paintContext(LayerAndroid* layer, const IntRect& rect);
 
     bool m_needsSyncChildren;
@@ -159,7 +160,6 @@ private:
     SkRegion m_dirtyRegion;
 
     LayerAndroid* m_contentLayer;
-    LayerAndroid* m_backgroundDecorationsLayer;
     LayerAndroid* m_fixedBackgroundLayer;
     LayerAndroid* m_foregroundLayer;
     LayerAndroid* m_foregroundClipLayer;
