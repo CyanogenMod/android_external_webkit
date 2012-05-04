@@ -120,7 +120,6 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
     m_haveContents(false),
     m_newImage(false),
     m_image(0),
-    m_backgroundDecorationsLayer(0),
     m_fixedBackgroundLayer(0),
     m_foregroundLayer(0),
     m_foregroundClipLayer(0)
@@ -141,7 +140,6 @@ GraphicsLayerAndroid::~GraphicsLayerAndroid()
         m_image->deref();
 
     m_contentLayer->unref();
-    SkSafeUnref(m_backgroundDecorationsLayer);
     SkSafeUnref(m_fixedBackgroundLayer);
     SkSafeUnref(m_foregroundLayer);
     SkSafeUnref(m_foregroundClipLayer);
@@ -601,7 +599,6 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
     // m_contentLayer
     //   \- m_foregroundClipLayer
     //     \- m_fixedBackgroundLayer
-    //   \- m_backgroundDecorationsLayer
     //   \- m_foregroundLayer
 
     // Grab the background image and create a layer for it
@@ -617,14 +614,11 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
             m_fixedBackgroundLayer->setContentsImage(image->nativeImageForCurrentFrame());
             m_fixedBackgroundLayer->setSize(image->width(), image->height());
 
-            // TODO: add support for the correct CSS position attributes
-            //       for now, just pin to left(0) top(0)
-
             FixedPositioning* fixedPosition = new FixedPositioning(m_fixedBackgroundLayer);
             SkRect viewRect;
             SkLength left, top, right, bottom;
-            left.setFixedValue(0);
-            top.setFixedValue(0);
+            left = convertLength(view->style()->backgroundXPosition());
+            top = convertLength(view->style()->backgroundYPosition());
             right.setAuto();
             bottom.setAuto();
             SkLength marginLeft, marginTop, marginRight, marginBottom;
@@ -632,6 +626,13 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
             marginTop.setAuto();
             marginRight.setAuto();
             marginBottom.setAuto();
+
+            Color color = view->style()->visitedDependentColor(CSSPropertyBackgroundColor);
+            SkColor skiaColor = SkColorSetARGB(color.alpha(),
+                                               color.red(),
+                                               color.green(),
+                                               color.blue());
+            m_fixedBackgroundLayer->setBackgroundColor(skiaColor);
 
             viewRect.set(0, 0, view->width(), view->height());
             fixedPosition->setFixedPosition(left, top, right, bottom,
@@ -652,11 +653,8 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
     // allow to paint background and foreground separately. For now, we'll create
     // two layers; the one containing the background will be painted *without* the
     // background image (but with the decorations, e.g. border)
-    // TODO: use a single layer with a new type of content (joining background/foreground?)
-    m_backgroundDecorationsLayer = new LayerAndroid(renderLayer);
-    m_backgroundDecorationsLayer->setIntrinsicallyComposited(true);
     m_foregroundLayer = new LayerAndroid(renderLayer);
-    m_foregroundLayer->setIntrinsicallyComposited(false);
+    m_foregroundLayer->setIntrinsicallyComposited(true);
 
     // Finally, let's assemble all the layers under a FixedBackgroundLayerAndroid layer
     LayerAndroid* layer = new FixedBackgroundLayerAndroid(*m_contentLayer);
@@ -664,7 +662,6 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
     m_contentLayer = layer;
 
     m_contentLayer->addChild(m_foregroundClipLayer);
-    m_contentLayer->addChild(m_backgroundDecorationsLayer);
     m_contentLayer->addChild(m_foregroundLayer);
 
     m_needsRepaint = true;
@@ -756,22 +753,32 @@ bool GraphicsLayerAndroid::repaint()
             region.setRect(0, 0, contentsRect.width(), contentsRect.height());
             m_foregroundLayer->markAsDirty(region);
         } else if (m_contentLayer->isFixedBackground()) {
-            PaintingPhase phase(this);
-            // Paint the background into a separate context.
-            ALOGV("paint background of layer %d (%d x %d)", m_contentLayer->uniqueId(),
-                  layerBounds.width(), layerBounds.height());
+            SkPicture* picture = new SkPicture();
+            SkCanvas* canvas = picture->beginRecording(layerBounds.width(),
+                                                       layerBounds.height(), 0);
+            if (canvas) {
+                  PaintingPhase phase(this);
+                  PlatformGraphicsContextSkia platformContext(canvas);
+                  GraphicsContext graphicsContext(&platformContext);
 
-            m_backgroundDecorationsLayer->setSize(layerBounds.width(), layerBounds.height());
-            phase.set(GraphicsLayerPaintBackgroundDecorations);
-            paintContext(m_backgroundDecorationsLayer, layerBounds);
-            phase.clear(GraphicsLayerPaintBackgroundDecorations);
+                  // Paint the background (without the fixed image)...
+                  phase.set(GraphicsLayerPaintBackgroundDecorations);
+                  paintGraphicsLayerContents(graphicsContext, layerBounds);
+                  phase.clear(GraphicsLayerPaintBackgroundDecorations);
 
-            // Paint the foreground into a separate context.
-            ALOGV("paint foreground of layer %d", m_contentLayer->uniqueId());
+                  // Paint the foreground...
+                  phase.set(GraphicsLayerPaintForeground);
+                  paintGraphicsLayerContents(graphicsContext, layerBounds);
+                  picture->endRecording();
+
+                  // Now set the content for that layer.
+                  PictureLayerContent* layerContent = new PictureLayerContent(picture);
+                  m_foregroundLayer->setContent(layerContent);
+                  SkSafeUnref(layerContent);
+            }
+            SkSafeUnref(picture);
+
             m_foregroundLayer->setSize(layerBounds.width(), layerBounds.height());
-            phase.set(GraphicsLayerPaintForeground);
-            paintContext(m_foregroundLayer, layerBounds);
-
             m_foregroundClipLayer->setPosition(layerBounds.x(), layerBounds.y());
             m_foregroundClipLayer->setSize(layerBounds.width(), layerBounds.height());
         } else {
@@ -817,18 +824,14 @@ bool GraphicsLayerAndroid::repaint()
     return false;
 }
 
-bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
-                                        const IntRect& rect)
+SkPicture* GraphicsLayerAndroid::paintPicture(const IntRect& rect)
 {
-    if (!layer)
-        return false;
-
     SkPicture* picture = new SkPicture();
     SkCanvas* canvas = picture->beginRecording(rect.width(), rect.height(), 0);
     if (!canvas) {
         picture->endRecording();
         SkSafeUnref(picture);
-        return false;
+        return 0;
     }
 
     PlatformGraphicsContextSkia platformContext(canvas);
@@ -836,6 +839,18 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
 
     paintGraphicsLayerContents(graphicsContext, rect);
 
+    return picture;
+}
+
+bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
+                                        const IntRect& rect)
+{
+    if (!layer)
+        return false;
+
+    SkPicture* picture = paintPicture(rect);
+    if (!picture)
+        return false;
     picture->endRecording();
 
     PictureLayerContent* layerContent = new PictureLayerContent(picture);
@@ -1107,7 +1122,6 @@ void GraphicsLayerAndroid::syncChildren()
 
         if (m_contentLayer->isFixedBackground()) {
             m_contentLayer->addChild(m_foregroundClipLayer);
-            m_contentLayer->addChild(m_backgroundDecorationsLayer);
             m_contentLayer->addChild(m_foregroundLayer);
             layer = m_foregroundLayer;
             layer->removeChildren();
