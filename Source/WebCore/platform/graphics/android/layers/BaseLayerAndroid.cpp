@@ -30,9 +30,15 @@
 #include "BaseLayerAndroid.h"
 
 #include "AndroidLog.h"
+#include "CachedImage.h"
+#include "DrawQuadData.h"
 #include "FixedPositioning.h"
 #include "GLWebViewState.h"
+#include "ImagesManager.h"
 #include "LayerContent.h"
+#include "RenderStyle.h"
+#include "StyleCachedImage.h"
+#include "TilesManager.h"
 
 namespace WebCore {
 
@@ -83,35 +89,117 @@ ForegroundBaseLayerAndroid::ForegroundBaseLayerAndroid(LayerContent* content)
     setIntrinsicallyComposited(true);
 }
 
-FixedBackgroundBaseLayerAndroid::FixedBackgroundBaseLayerAndroid(LayerContent* content)
+FixedBackgroundImageLayerAndroid::FixedBackgroundImageLayerAndroid(PassRefPtr<RenderStyle> aStyle,
+                                                                   int w, int h)
     : LayerAndroid((RenderLayer*)0)
+    , m_width(w)
+    , m_height(h)
 {
-    if (content) {
-        setContent(content);
-        setSize(content->width(), content->height());
-    }
+    RefPtr<RenderStyle> style = aStyle;
+    FillLayer* layers = style->accessBackgroundLayers();
+    StyleImage* styleImage = layers->image();
+    CachedImage* cachedImage = static_cast<StyleCachedImage*>(styleImage)->cachedImage();
+    WebCore::Image* image = cachedImage->image();
+    setContentsImage(image->nativeImageForCurrentFrame());
+    setSize(image->width(), image->height());
+
     setIntrinsicallyComposited(true);
 
-    // TODO: add support for fixed positioning attributes
-    SkRect viewRect;
-    SkLength left, top, right, bottom;
-    left.setFixedValue(0);
-    top.setFixedValue(0);
-    right.setAuto();
-    bottom.setAuto();
-    SkLength marginLeft, marginTop, marginRight, marginBottom;
-    marginLeft.setAuto();
-    marginTop.setAuto();
-    marginRight.setAuto();
-    marginBottom.setAuto();
+    SkLength left, top;
+    left = SkLength::convertLength(style->backgroundXPosition());
+    top = SkLength::convertLength(style->backgroundYPosition());
 
-    viewRect.set(0, 0, content->width(), content->height());
-    FixedPositioning* fixedPosition = new FixedPositioning(this);
-    setFixedPosition(fixedPosition);
-    fixedPosition->setFixedPosition(left, top, right, bottom,
-                                    marginLeft, marginTop,
-                                    marginRight, marginBottom,
-                                    IntPoint(0, 0), viewRect);
+    BackgroundImagePositioning* position = new BackgroundImagePositioning(this);
+    position->setRepeatX(style->backgroundRepeatX() != WebCore::NoRepeatFill);
+    position->setRepeatY(style->backgroundRepeatY() != WebCore::NoRepeatFill);
+
+    setFixedPosition(position);
+    position->setPosition(left, top);
+}
+
+FixedBackgroundImageLayerAndroid::FixedBackgroundImageLayerAndroid(const FixedBackgroundImageLayerAndroid& layer)
+    : LayerAndroid(layer)
+    , m_width(layer.m_width)
+    , m_height(layer.m_height)
+{
+}
+
+static bool needToDisplayImage(bool repeatX, bool repeatY, float dx, float dy)
+{
+    // handles the repeat attribute for the background image
+    if (repeatX && repeatY)
+        return true;
+    if (repeatX && !repeatY && dy == 0)
+        return true;
+    if (!repeatX && repeatY && dx == 0)
+        return true;
+    if (dx == 0 && dy == 0)
+        return true;
+
+    return false;
+}
+
+bool FixedBackgroundImageLayerAndroid::drawGL(bool layerTilesDisabled)
+{
+    if (layerTilesDisabled)
+        return false;
+    if (!m_imageCRC)
+        return false;
+
+    ImageTexture* imageTexture = ImagesManager::instance()->retainImage(m_imageCRC);
+    if (!imageTexture) {
+        ImagesManager::instance()->releaseImage(m_imageCRC);
+        return false;
+    }
+
+    // We have a fixed background image, let's draw it
+    if (m_fixedPosition && m_fixedPosition->isBackgroundImagePositioning()) {
+        BackgroundImagePositioning* position =
+            static_cast<BackgroundImagePositioning*>(m_fixedPosition);
+
+        int nbX = position->nbRepeatX();
+        int nbY = position->nbRepeatY();
+        float startX = position->offsetX() * getWidth();
+        float startY = position->offsetY() * getHeight();
+
+        FloatPoint origin;
+        origin = drawTransform()->mapPoint(origin);
+
+        Color backgroundColor = Color((int)SkColorGetR(m_backgroundColor),
+                                      (int)SkColorGetG(m_backgroundColor),
+                                      (int)SkColorGetB(m_backgroundColor),
+                                      (int)SkColorGetA(m_backgroundColor));
+
+        // Cover the entire background
+        for (int i = 0; i < nbY; i++) {
+            float dy = (i * getHeight()) - startY;
+            for (int j = 0; j < nbX; j++) {
+                float dx = (j * getWidth()) - startX;
+                if (needToDisplayImage(position->repeatX(),
+                                       position->repeatY(),
+                                       dx, dy)) {
+                    FloatPoint p(dx, dy);
+                    imageTexture->drawGL(this, getOpacity(), &p);
+                } else {
+                    // If the image is not displayed, we still need to fill
+                    // with the background color
+                    SkRect rect;
+                    rect.fLeft = origin.x() + dx;
+                    rect.fTop = origin.y() + dy;
+                    rect.fRight = rect.fLeft + getWidth();
+                    rect.fBottom = rect.fTop + getHeight();
+                    PureColorQuadData backgroundData(backgroundColor, BaseQuad,
+                                                     0, &rect, 1.0);
+                    TilesManager::instance()->shader()->drawQuad(&backgroundData);
+                }
+            }
+        }
+    } else
+        imageTexture->drawGL(this, getOpacity());
+
+    ImagesManager::instance()->releaseImage(m_imageCRC);
+
+    return false;
 }
 
 } // namespace WebCore

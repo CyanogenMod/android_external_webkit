@@ -95,7 +95,7 @@ public:
     typedef enum { StandardLayer, ScrollableLayer,
                    IFrameLayer, IFrameContentLayer,
                    FixedBackgroundLayer,
-                   FixedBackgroundBaseLayer,
+                   FixedBackgroundImageLayer,
                    ForegroundBaseLayer,
                    CanvasLayer, BaseLayer } SubclassType;
     typedef enum { InvalidateNone = 0, InvalidateLayers } InvalidateFlags;
@@ -113,8 +113,8 @@ public:
                 return "IFrameContentLayer";
             case LayerAndroid::FixedBackgroundLayer:
                 return "FixedBackgroundLayer";
-            case LayerAndroid::FixedBackgroundBaseLayer:
-                return "FixedBackgroundBaseLayer";
+            case LayerAndroid::FixedBackgroundImageLayer:
+                return "FixedBackgroundImageLayer";
             case LayerAndroid::ForegroundBaseLayer:
                 return "ForegroundBaseLayer";
             case LayerAndroid::CanvasLayer:
@@ -315,14 +315,21 @@ private:
     bool m_backfaceVisibility;
     bool m_visible;
 
+protected:
     SkColor m_backgroundColor;
+
+private:
 
     bool m_preserves3D;
     float m_anchorPointZ;
     float m_drawOpacity;
 
     bool m_isPositionAbsolute;
+
+protected:
     FixedPositioning* m_fixedPosition;
+
+private:
 
     typedef HashMap<pair<String, int>, RefPtr<AndroidAnimation> > KeyframesMap;
     KeyframesMap m_animations;
@@ -345,7 +352,11 @@ private:
     // We do this as if the layer only contains an image, directly compositing
     // it is a much faster method than using m_content.
     LayerContent* m_content;
+
+protected:
     unsigned m_imageCRC;
+
+private:
 
     // used to signal the framework we need a repaint
     bool m_hasRunningAnimations;

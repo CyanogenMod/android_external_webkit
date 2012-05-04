@@ -29,6 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "LayerAndroid.h"
+#include "Length.h"
 
 namespace WebCore {
 
@@ -70,6 +71,23 @@ struct SkLength {
             return value;
         }
     }
+
+    static SkLength convertLength(Length len)
+    {
+        SkLength length;
+        length.type = SkLength::Undefined;
+        length.value = 0;
+        if (len.type() == WebCore::Percent) {
+            length.type = SkLength::Percent;
+            length.value = len.percent();
+        }
+        if (len.type() == WebCore::Fixed) {
+            length.type = SkLength::Fixed;
+            length.value = len.value();
+        }
+        return length;
+    }
+
 };
 
 class FixedPositioning {
@@ -78,6 +96,11 @@ public:
     FixedPositioning(LayerAndroid* layer = 0) : m_layer(layer) {}
     FixedPositioning(LayerAndroid* layer, const FixedPositioning& position);
     virtual ~FixedPositioning() {};
+
+    virtual bool isBackgroundImagePositioning() { return true; }
+    virtual FixedPositioning* copy(LayerAndroid* layer) const {
+        return new FixedPositioning(layer, *this);
+    }
 
     void setFixedPosition(SkLength left, // CSS left property
                           SkLength top, // CSS top property
@@ -101,8 +124,9 @@ public:
         m_renderLayerPos = renderLayerPos;
     }
 
-    IFrameLayerAndroid* updatePosition(SkRect viewPort,
-                                       IFrameLayerAndroid* parentIframeLayer);
+    SkRect getViewport(SkRect viewport, IFrameLayerAndroid* parentIframeLayer);
+    virtual IFrameLayerAndroid* updatePosition(SkRect viewPort,
+                                               IFrameLayerAndroid* parentIframeLayer);
 
     void contentDraw(SkCanvas* canvas, Layer::PaintStyle style);
 
@@ -112,7 +136,7 @@ public:
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
     friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
 
-private:
+protected:
     LayerAndroid* m_layer;
 
     SkLength m_fixedLeft;
@@ -128,6 +152,48 @@ private:
     // When fixed element is undefined or auto, the render layer's position
     // is needed for offset computation
     IntPoint m_renderLayerPos;
+};
+
+class BackgroundImagePositioning : public FixedPositioning {
+public:
+    BackgroundImagePositioning(LayerAndroid* layer)
+        : FixedPositioning(layer)
+        , m_repeatX(false)
+        , m_repeatY(false)
+        , m_nbRepeatX(0)
+        , m_nbRepeatY(0)
+        , m_offsetX(0)
+        , m_offsetY(0)
+    {}
+    BackgroundImagePositioning(LayerAndroid* layer, const BackgroundImagePositioning& position);
+    virtual bool isBackgroundImagePositioning() { return true; }
+    virtual FixedPositioning* copy(LayerAndroid* layer) const {
+        return new BackgroundImagePositioning(layer, *this);
+    }
+    void setPosition(SkLength left, SkLength top) {
+        m_fixedLeft = left;
+        m_fixedTop = top;
+    }
+    virtual IFrameLayerAndroid* updatePosition(SkRect viewPort,
+                                               IFrameLayerAndroid* parentIframeLayer);
+
+    // Measures the background image repetition
+    void setRepeatX(bool repeat) { m_repeatX = repeat; }
+    void setRepeatY(bool repeat) { m_repeatY = repeat; }
+    bool repeatX() { return m_repeatX; }
+    bool repeatY() { return m_repeatY; }
+    int nbRepeatX() { return m_nbRepeatX; }
+    int offsetX() { return m_offsetX; }
+    int nbRepeatY() { return m_nbRepeatY; }
+    int offsetY() { return m_offsetY; }
+
+private:
+    bool m_repeatX;
+    bool m_repeatY;
+    int  m_nbRepeatX;
+    int  m_nbRepeatY;
+    int  m_offsetX;
+    int  m_offsetY;
 };
 
 }

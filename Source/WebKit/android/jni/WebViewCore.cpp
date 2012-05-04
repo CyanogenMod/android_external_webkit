@@ -857,8 +857,12 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
     if (bodyHasFixedBackgroundImage) {
         base = new ForegroundBaseLayerAndroid(0);
         base->setSize(content->width(), content->height());
-        FixedBackgroundBaseLayerAndroid* baseBackground =
-            new FixedBackgroundBaseLayerAndroid(content);
+
+        Document* document = m_mainFrame->document();
+        RefPtr<RenderStyle> style = document->styleForElementIgnoringPendingStylesheets(document->body());
+
+        FixedBackgroundImageLayerAndroid* baseBackground =
+             new FixedBackgroundImageLayerAndroid(style, content->width(), content->height());
 
         realBase = new BaseLayerAndroid(0);
         realBase->setSize(content->width(), content->height());

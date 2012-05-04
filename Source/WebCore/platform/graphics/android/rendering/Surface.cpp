@@ -231,7 +231,7 @@ bool Surface::drawGL(bool layerTilesDisabled)
         return false;
 
     bool isBaseLayer = isBase()
-        || getFirstLayer()->subclassType() == LayerAndroid::FixedBackgroundBaseLayer
+        || getFirstLayer()->subclassType() == LayerAndroid::FixedBackgroundImageLayer
         || getFirstLayer()->subclassType() == LayerAndroid::ForegroundBaseLayer;
 
     if (!isBaseLayer) {

@@ -228,7 +228,8 @@ bool ImageTexture::paint(SkCanvas* canvas)
     return true;
 }
 
-void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
+void ImageTexture::drawGL(LayerAndroid* layer,
+                         float opacity, FloatPoint* offset)
 {
     if (!layer)
         return;
@@ -241,7 +242,10 @@ void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
     if (m_tileGrid) {
         bool force3dContentVisible = true;
         IntRect visibleContentArea = m_layer->visibleContentArea(force3dContentVisible);
-        m_tileGrid->drawGL(visibleContentArea, opacity, transform());
+        const TransformationMatrix* transformation = transform();
+        if (offset)
+            m_layerMatrix.translate(offset->x(), offset->y());
+        m_tileGrid->drawGL(visibleContentArea, opacity, transformation);
     }
     m_layer = 0;
 }
