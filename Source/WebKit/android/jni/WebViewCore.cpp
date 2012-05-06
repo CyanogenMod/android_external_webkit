@@ -124,6 +124,7 @@
 #include "SkUtils.h"
 #include "Text.h"
 #include "TextIterator.h"
+#include "TilesManager.h"
 #include "TypingCommand.h"
 #include "WebCache.h"
 #include "WebCoreFrameBridge.h"
@@ -736,12 +737,26 @@ void WebViewCore::paintContents(WebCore::GraphicsContext* gc, WebCore::IntRect& 
 
 SkCanvas* WebViewCore::createPrerenderCanvas(PrerenderedInval* prerendered)
 {
-    IntRect screen(m_scrollOffsetX, m_scrollOffsetY, m_screenWidth, m_screenHeight);
-    if (prerendered->area.isEmpty() || !prerendered->area.intersects(screen))
+    if (prerendered->area.isEmpty())
         return 0;
+    FloatRect scaleTemp(m_scrollOffsetX, m_scrollOffsetY, m_screenWidth, m_screenHeight);
+    scaleTemp.scale(m_scale);
+    IntRect visibleTileClip = enclosingIntRect(scaleTemp);
     FloatRect scaledArea = prerendered->area;
     scaledArea.scale(m_scale);
     IntRect enclosingScaledArea = enclosingIntRect(scaledArea);
+    if (enclosingScaledArea.isEmpty())
+        return 0;
+    // "round out" the screen to tile boundaries so that we can clip yet still
+    // cover any visible tiles with the prerender
+    int tw = TilesManager::tileWidth();
+    int th = TilesManager::tileHeight();
+    float left = tw * (int) (visibleTileClip.x() / tw);
+    float top = th * (int) (visibleTileClip.y() / th);
+    float right = tw * (int) ceilf(visibleTileClip.maxX() / (float) tw);
+    float bottom = th * (int) ceilf(visibleTileClip.maxY() / (float) th);
+    visibleTileClip = IntRect(left, top, right - left, bottom - top);
+    enclosingScaledArea.intersect(visibleTileClip);
     if (enclosingScaledArea.isEmpty())
         return 0;
     prerendered->screenArea = enclosingScaledArea;
@@ -750,24 +765,14 @@ SkCanvas* WebViewCore::createPrerenderCanvas(PrerenderedInval* prerendered)
     prerendered->area = enclosingIntRect(enclosingDocArea);
     if (prerendered->area.isEmpty())
         return 0;
-    // TODO: We need a better heuristic for this. We should change this to:
-    // 1) Limit by area, not width/height (as we care more about the RAM than size)
-    // 2) Clip by the screen, but "round out" to make sure we cover partially
-    // visible tiles
-    int maxWidth = ceilf(m_screenWidth * m_scale);
-    int maxHeight = ceilf(m_screenHeight * m_scale);
-    if (enclosingScaledArea.width() <= maxWidth
-            && enclosingScaledArea.height() <= maxHeight) {
-        prerendered->bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                                      enclosingScaledArea.width(),
-                                      enclosingScaledArea.height());
-        prerendered->bitmap.allocPixels();
-        SkCanvas* bitmapCanvas = new SkCanvas(prerendered->bitmap);
-        bitmapCanvas->scale(m_scale, m_scale);
-        bitmapCanvas->translate(-enclosingDocArea.x(), -enclosingDocArea.y());
-        return bitmapCanvas;
-    }
-    return 0;
+    prerendered->bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+                                  enclosingScaledArea.width(),
+                                  enclosingScaledArea.height());
+    prerendered->bitmap.allocPixels();
+    SkCanvas* bitmapCanvas = new SkCanvas(prerendered->bitmap);
+    bitmapCanvas->scale(m_scale, m_scale);
+    bitmapCanvas->translate(-enclosingDocArea.x(), -enclosingDocArea.y());
+    return bitmapCanvas;
 }
 
 void WebViewCore::notifyAnimationStarted()
