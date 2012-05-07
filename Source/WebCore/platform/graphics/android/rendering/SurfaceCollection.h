@@ -48,7 +48,7 @@ public:
     virtual ~SurfaceCollection();
 
     // Tiled painting methods (executed on groups)
-    void prepareGL(const SkRect& visibleContentRect);
+    void prepareGL(const SkRect& visibleContentRect, bool tryToFastBlit = false);
     bool drawGL(const SkRect& visibleContentRect);
     Color getBackgroundColor();
     void swapTiles();

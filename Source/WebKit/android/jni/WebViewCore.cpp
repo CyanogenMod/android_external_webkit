@@ -171,6 +171,10 @@ FILE* gRenderTreeFile = 0;
 #include "RenderLayerCompositor.h"
 #endif
 
+// How many ms to wait for the scroll to "settle" before we will consider doing
+// prerenders
+#define PRERENDER_AFTER_SCROLL_DELAY 750
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace android {
@@ -737,6 +741,8 @@ void WebViewCore::paintContents(WebCore::GraphicsContext* gc, WebCore::IntRect& 
 
 SkCanvas* WebViewCore::createPrerenderCanvas(PrerenderedInval* prerendered)
 {
+    if (currentTimeMS() - m_scrollSetTime < PRERENDER_AFTER_SCROLL_DELAY)
+        return 0;
     if (prerendered->area.isEmpty())
         return 0;
     FloatRect scaleTemp(m_scrollOffsetX, m_scrollOffsetY, m_screenWidth, m_screenHeight);
@@ -1049,6 +1055,7 @@ void WebViewCore::setScrollOffset(bool sendScrollEvent, int dx, int dy)
     if (m_scrollOffsetX != dx || m_scrollOffsetY != dy) {
         m_scrollOffsetX = dx;
         m_scrollOffsetY = dy;
+        m_scrollSetTime = currentTimeMS();
         // The visible rect is located within our coordinate space so it
         // contains the actual scroll position. Setting the location makes hit
         // testing work correctly.
