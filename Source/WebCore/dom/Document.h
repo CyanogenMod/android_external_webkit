@@ -76,6 +76,7 @@ class EntityReference;
 class Event;
 class EventListener;
 class EventQueue;
+class FontData;
 class FormAssociatedElement;
 class Frame;
 class FrameView;
@@ -525,6 +526,8 @@ public:
     void updateLayoutIgnorePendingStylesheets();
     PassRefPtr<RenderStyle> styleForElementIgnoringPendingStylesheets(Element*);
     PassRefPtr<RenderStyle> styleForPage(int pageIndex);
+
+    void retireCustomFont(FontData*);
 
     // Returns true if page box (margin boxes and page borders) is visible.
     bool isPageBoxVisible(int pageIndex);
@@ -1142,6 +1145,8 @@ private:
 
     void createStyleSelector();
 
+    void deleteRetiredCustomFonts();
+
     PassRefPtr<NodeList> handleZeroPadding(const HitTestRequest&, HitTestResult&) const;
 
     void loadEventDelayTimerFired(Timer<Document>*);
@@ -1151,7 +1156,8 @@ private:
     OwnPtr<CSSStyleSelector> m_styleSelector;
     bool m_didCalculateStyleSelector;
     bool m_hasDirtyStyleSelector;
-    
+    Vector<OwnPtr<FontData> > m_retiredCustomFonts;
+
     mutable RefPtr<CSSPrimitiveValueCache> m_cssPrimitiveValueCache;
 
     Frame* m_frame;
