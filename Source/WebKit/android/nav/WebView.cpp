@@ -590,7 +590,7 @@ const TransformationMatrix* getLayerTransform(int layerId) {
         // We need to make sure the drawTransform is up to date as this is
         // called before a draw() or drawGL()
         if (layer) {
-            m_baseLayer->updateLayerPositions(m_visibleContentRect);
+            m_baseLayer->updatePositionsRecursive(m_visibleContentRect);
             return layer->drawTransform();
         }
     }

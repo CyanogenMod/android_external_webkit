@@ -33,7 +33,7 @@
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
 #include "GLWebViewState.h"
-#include "LayerAndroid.h"
+#include "BaseLayerAndroid.h"
 #include "Surface.h"
 #include "ScrollableLayerAndroid.h"
 #include "TilesManager.h"
@@ -44,7 +44,7 @@ namespace WebCore {
 //                        TILED PAINTING / SURFACES                           //
 ////////////////////////////////////////////////////////////////////////////////
 
-SurfaceCollection::SurfaceCollection(LayerAndroid* layer)
+SurfaceCollection::SurfaceCollection(BaseLayerAndroid* layer)
         : m_compositedRoot(layer)
 {
     // layer must be non-null.
@@ -233,11 +233,7 @@ void SurfaceCollection::updateScrollableLayer(int layerId, int x, int y)
 
 void SurfaceCollection::updateLayerPositions(const SkRect& visibleContentRect)
 {
-    TransformationMatrix ident;
-    m_compositedRoot->updateLayerPositions(visibleContentRect);
-    FloatRect clip(0, 0, 1e10, 1e10);
-    m_compositedRoot->updateGLPositionsAndScale(
-        ident, clip, 1, m_compositedRoot->state()->scale());
+    m_compositedRoot->updatePositionsRecursive(visibleContentRect);
 
 #ifdef DEBUG
     m_compositedRoot->showLayer(0);

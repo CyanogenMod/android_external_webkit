@@ -42,6 +42,7 @@ public:
     virtual bool needsTexture() { return content(); }
     virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
                                                IFrameLayerAndroid* parentIframeLayer);
+    void updatePositionsRecursive(const SkRect& visibleContentRect);
     void setBackgroundColor(Color& color) { m_color = color; }
     Color getBackgroundColor() { return m_color; }
 
