@@ -56,6 +56,7 @@ public:
     static void toSkMatrix(SkMatrix& skmatrix, const TransformationMatrix& matrix);
     static void setOrthographicMatrix(TransformationMatrix& ortho, float left, float top,
                                       float right, float bottom, float nearZ, float farZ);
+    static bool has3dTransform(const TransformationMatrix& matrix);
 
     // GL & EGL error checks
     static void checkEglError(const char* op, EGLBoolean returnVal = EGL_TRUE);

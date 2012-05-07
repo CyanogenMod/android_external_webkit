@@ -71,7 +71,7 @@ public:
 
 private:
     IntRect computePrepareArea();
-    IntRect visibleContentArea();
+    IntRect visibleContentArea(bool force3dContentVisible = false);
     IntRect fullContentArea();
     bool singleLayer() { return m_layers.size() == 1; }
     bool useAggressiveRendering();

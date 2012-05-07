@@ -772,16 +772,21 @@ IntRect LayerAndroid::fullContentArea()
     return area;
 }
 
-IntRect LayerAndroid::visibleContentArea()
+IntRect LayerAndroid::visibleContentArea(bool force3dContentVisible)
 {
     IntRect area = fullContentArea();
     if (subclassType() == LayerAndroid::FixedBackgroundBaseLayer)
        return area;
+
+    // If transform isn't limited to 2D space, return the entire content area.
+    // Transforming from layers to content coordinates and back doesn't
+    // preserve 3D.
+    if (force3dContentVisible && GLUtils::has3dTransform(m_drawTransform))
+            return area;
+
     // First, we get the transformed area of the layer,
     // in content coordinates
     IntRect rect = m_drawTransform.mapRect(area);
-    int dx = rect.x();
-    int dy = rect.y();
 
     // Then we apply the clipping
     IntRect clip(m_clippingRect);
@@ -792,8 +797,7 @@ IntRect LayerAndroid::visibleContentArea()
     rect.intersect(contentViewport);
 
     // Finally, let's return the visible area, in layers coordinate
-    rect.move(-dx, -dy);
-    return rect;
+    return m_drawTransform.inverse().mapRect(rect);
 }
 
 bool LayerAndroid::drawCanvas(SkCanvas* canvas, bool drawChildren, PaintStyle style)

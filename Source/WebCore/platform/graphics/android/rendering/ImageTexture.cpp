@@ -239,7 +239,8 @@ void ImageTexture::drawGL(LayerAndroid* layer, float opacity)
     // transform and opacity, so we need to set m_layer
     m_layer = layer;
     if (m_tileGrid) {
-        IntRect visibleContentArea = m_layer->visibleContentArea();
+        bool force3dContentVisible = true;
+        IntRect visibleContentArea = m_layer->visibleContentArea(force3dContentVisible);
         m_tileGrid->drawGL(visibleContentArea, opacity, transform());
     }
     m_layer = 0;
