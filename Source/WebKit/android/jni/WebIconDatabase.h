@@ -28,6 +28,7 @@
 
 #include "IconDatabaseClient.h"
 #include "PlatformString.h"
+#include "SkBitmap.h"
 #include "utils/threads.h"
 #include <jni.h>
 #include <wtf/Vector.h>
@@ -73,6 +74,7 @@ namespace android {
         bool                    mDeliveryRequested;
     };
 
+    SkBitmap webcoreImageToSkBitmap(WebCore::Image* icon);
     jobject webcoreImageToJavaBitmap(JNIEnv* env, WebCore::Image* icon);
 
 };

@@ -28,6 +28,7 @@
 #include "config.h"
 #include "WebHistory.h"
 
+#include "AndroidLog.h"
 #include "BackForwardList.h"
 #include "BackForwardListImpl.h"
 #include "DocumentLoader.h"
@@ -35,6 +36,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClientAndroid.h"
 #include "FrameTree.h"
+#include "GraphicsJNI.h"
 #include "HistoryItem.h"
 #include "IconDatabase.h"
 #include "Page.h"
@@ -61,9 +63,6 @@ static bool readItemRecursive(WebCore::HistoryItem* child, const char** pData, i
 // Field ids for WebHistoryItems
 struct WebHistoryItemFields {
     jmethodID   mInit;
-    jmethodID   mUpdate;
-    jfieldID    mTitle;
-    jfieldID    mUrl;
 } gWebHistoryItem;
 
 struct WebBackForwardListFields {
@@ -156,7 +155,7 @@ static void WebHistoryRestoreIndex(JNIEnv* env, jobject obj, jint frame, jint in
     page->goToItem(currentItem, FrameLoadTypeIndexedBackForward);
 }
 
-static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray data)
+static jint WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray data)
 {
     ALOG_ASSERT(frame, "Inflate needs a valid frame pointer!");
     ALOG_ASSERT(data, "Inflate needs a valid data pointer!");
@@ -168,7 +167,7 @@ static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray d
     // Inflate the history tree into one HistoryItem or null if the inflation
     // failed.
     RefPtr<WebCore::HistoryItem> newItem = WebCore::HistoryItem::create();
-    WebHistoryItem* bridge = new WebHistoryItem(env, obj, newItem.get());
+    WebHistoryItem* bridge = new WebHistoryItem(newItem.get());
     newItem->setBridge(bridge);
 
     // Inflate the item recursively. If it fails, that is ok. We'll have an
@@ -188,16 +187,100 @@ static void WebHistoryInflate(JNIEnv* env, jobject obj, jint frame, jbyteArray d
 
     // Update the item.
     bridge->updateHistoryItem(newItem.get());
+    // Ref here because Java expects to adopt the reference, and as such will not
+    // call ref on it. However, setBridge has also adopted the reference
+    // TODO: This is confusing as hell, clean up ownership and have setBridge
+    // take a RefPtr instead of a raw ptr and calling adoptRef on it
+    bridge->ref();
+    return reinterpret_cast<jint>(bridge);
+}
+
+static void WebHistoryRef(JNIEnv* env, jobject obj, jint ptr)
+{
+    if (ptr)
+        reinterpret_cast<WebHistoryItem*>(ptr)->ref();
+}
+
+static void WebHistoryUnref(JNIEnv* env, jobject obj, jint ptr)
+{
+    if (ptr)
+        reinterpret_cast<WebHistoryItem*>(ptr)->deref();
+}
+
+static jobject WebHistoryGetTitle(JNIEnv* env, jobject obj, jint ptr)
+{
+    if (!ptr)
+        return 0;
+    WebHistoryItem* item = reinterpret_cast<WebHistoryItem*>(ptr);
+    MutexLocker locker(item->m_lock);
+    return wtfStringToJstring(env, item->m_title, false);
+}
+
+static jobject WebHistoryGetUrl(JNIEnv* env, jobject obj, jint ptr)
+{
+    if (!ptr)
+        return 0;
+    WebHistoryItem* item = reinterpret_cast<WebHistoryItem*>(ptr);
+    MutexLocker locker(item->m_lock);
+    return wtfStringToJstring(env, item->m_url, false);
+}
+
+static jobject WebHistoryGetOriginalUrl(JNIEnv* env, jobject obj, jint ptr)
+{
+    if (!ptr)
+        return 0;
+    WebHistoryItem* item = reinterpret_cast<WebHistoryItem*>(ptr);
+    MutexLocker locker(item->m_lock);
+    return wtfStringToJstring(env, item->m_originalUrl, false);
+}
+
+static jobject WebHistoryGetFlattenedData(JNIEnv* env, jobject obj, jint ptr)
+{
+    if (!ptr)
+        return 0;
+
+    WebHistoryItem* item = reinterpret_cast<WebHistoryItem*>(ptr);
+    MutexLocker locker(item->m_lock);
+
+    if (!item->m_dataCached) {
+        // Try to create a new java byte array.
+        jbyteArray b = env->NewByteArray(item->m_data.size());
+        if (!b)
+            return NULL;
+
+        // Write our flattened data to the java array.
+        env->SetByteArrayRegion(b, 0, item->m_data.size(),
+                                (const jbyte*)item->m_data.data());
+        item->m_dataCached = env->NewGlobalRef(b);
+        env->DeleteLocalRef(b);
+    }
+    return item->m_dataCached;
+}
+
+static jobject WebHistoryGetFavicon(JNIEnv* env, jobject obj, jint ptr)
+{
+    if (!ptr)
+        return 0;
+    WebHistoryItem* item = reinterpret_cast<WebHistoryItem*>(ptr);
+    MutexLocker locker(item->m_lock);
+    if (!item->m_faviconCached) {
+        jobject favicon = GraphicsJNI::createBitmap(env,
+                                                    new SkBitmap(item->m_favicon),
+                                                    false, NULL);
+        item->m_faviconCached = env->NewGlobalRef(favicon);
+        env->DeleteLocalRef(favicon);
+    }
+    return item->m_faviconCached;
 }
 
 // 6 empty strings + no document state + children count + 2 scales = 10 unsigned values
 // 1 char for isTargetItem.
 #define HISTORY_MIN_SIZE ((int)(sizeof(unsigned) * 10 + sizeof(char)))
 
-jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& vector, WebCore::HistoryItem* item)
+void WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& vector, WebCore::HistoryItem* item)
 {
     if (!item)
-        return NULL;
+        return;
 
     // Reserve a vector of chars with an initial size of HISTORY_MIN_SIZE.
     vector.reserveCapacity(HISTORY_MIN_SIZE);
@@ -207,30 +290,6 @@ jbyteArray WebHistory::Flatten(JNIEnv* env, WTF::Vector<char>& vector, WebCore::
     ALOG_ASSERT(item->bridge(), "Why don't we have a bridge object here?");
     writeItem(vector, item);
     writeChildrenRecursive(vector, item);
-
-    // Try to create a new java byte array.
-    jbyteArray b = env->NewByteArray(vector.size());
-    if (!b)
-        return NULL;
-
-    // Write our flattened data to the java array.
-    env->SetByteArrayRegion(b, 0, vector.size(), (const jbyte*)vector.data());
-    return b;
-}
-
-WebHistoryItem::WebHistoryItem(JNIEnv* env, jobject obj,
-        WebCore::HistoryItem* item) : WebCore::AndroidWebHistoryBridge(item) {
-    m_object = env->NewWeakGlobalRef(obj);
-    m_parent = 0;
-}
-
-WebHistoryItem::~WebHistoryItem() {
-    if (m_object) {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        if (!env)
-            return;
-        env->DeleteWeakGlobalRef(m_object);
-    }
 }
 
 void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
@@ -264,23 +323,15 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     if (!env)
         return;
 
-    // Don't do anything if the item has been gc'd already
-    AutoJObject realItem = getRealObject(env, webItem->m_object);
-    if (!realItem.get())
-        return;
+    MutexLocker locker(webItem->m_lock);
 
+    // TODO: Figure out if we can't just use item->urlString() instead...
     const WTF::String urlString = WebFrame::convertIDNToUnicode(item->url());
-    jstring urlStr = NULL;
-    if (!urlString.isNull())
-        urlStr = wtfStringToJstring(env, urlString);
+    webItem->m_url = urlString.threadsafeCopy();
     const WTF::String originalUrlString = WebFrame::convertIDNToUnicode(item->originalURL());
-    jstring originalUrlStr = NULL;
-    if (!originalUrlString.isNull())
-        originalUrlStr = wtfStringToJstring(env, originalUrlString);
+    webItem->m_originalUrl = originalUrlString.threadsafeCopy();
     const WTF::String& titleString = item->title();
-    jstring titleStr = NULL;
-    if (!titleString.isNull())
-        titleStr = wtfStringToJstring(env, titleString);
+    webItem->m_title = titleString.threadsafeCopy();
 
     // Try to get the favicon from the history item. For some pages like Grand
     // Prix, there are history items with anchors. If the icon fails for the
@@ -294,20 +345,35 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     // FIXME: This method should not be used from outside WebCore and will be removed.
     // http://trac.webkit.org/changeset/81484
     WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(url, WebCore::IntSize(16, 16));
+    webItem->m_favicon = webcoreImageToSkBitmap(icon);
+    if (webItem->m_faviconCached) {
+        env->DeleteGlobalRef(webItem->m_faviconCached);
+        webItem->m_faviconCached = 0;
+    }
 
-    if (icon)
-        favicon = webcoreImageToJavaBitmap(env, icon);
+    webItem->m_data.clear();
+    WebHistory::Flatten(env, webItem->m_data, item);
+    if (webItem->m_dataCached) {
+        env->DeleteGlobalRef(webItem->m_dataCached);
+        webItem->m_dataCached = 0;
+    }
+}
 
-    WTF::Vector<char> data;
-    jbyteArray array = WebHistory::Flatten(env, data, item);
-    env->CallVoidMethod(realItem.get(), gWebHistoryItem.mUpdate, urlStr,
-            originalUrlStr, titleStr, favicon, array);
-    env->DeleteLocalRef(urlStr);
-    env->DeleteLocalRef(originalUrlStr);
-    env->DeleteLocalRef(titleStr);
-    if (favicon)
-        env->DeleteLocalRef(favicon);
-    env->DeleteLocalRef(array);
+WebHistoryItem::~WebHistoryItem()
+{
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (!env) {
+        ALOGW("Failed to get JNIEnv*! Potential memory leak!");
+        return;
+    }
+    if (m_faviconCached) {
+        env->DeleteGlobalRef(m_faviconCached);
+        m_faviconCached = 0;
+    }
+    if (m_dataCached) {
+        env->DeleteGlobalRef(m_dataCached);
+        m_dataCached = 0;
+    }
 }
 
 static void historyItemChanged(WebCore::HistoryItem* item) {
@@ -325,15 +391,15 @@ void WebHistory::AddItem(const AutoJObject& list, WebCore::HistoryItem* item)
         return;
 
     JNIEnv* env = list.env();
-    // Allocate a blank WebHistoryItem
-    jclass clazz = env->FindClass("android/webkit/WebHistoryItem");
-    jobject newItem = env->NewObject(clazz, gWebHistoryItem.mInit);
-    env->DeleteLocalRef(clazz);
-
     // Create the bridge, make it active, and attach it to the item.
-    WebHistoryItem* bridge = new WebHistoryItem(env, newItem, item);
+    WebHistoryItem* bridge = new WebHistoryItem(item);
     bridge->setActive();
     item->setBridge(bridge);
+    // Allocate a blank WebHistoryItem
+    jclass clazz = env->FindClass("android/webkit/WebHistoryItem");
+    jobject newItem = env->NewObject(clazz, gWebHistoryItem.mInit,
+            reinterpret_cast<int>(bridge));
+    env->DeleteLocalRef(clazz);
 
     // Update the history item which will flatten the data and call update on
     // the java item.
@@ -884,8 +950,22 @@ static JNINativeMethod gWebBackForwardListMethods[] = {
 };
 
 static JNINativeMethod gWebHistoryItemMethods[] = {
-    { "inflate", "(I[B)V",
-        (void*) WebHistoryInflate }
+    { "inflate", "(I[B)I",
+        (void*) WebHistoryInflate },
+    { "nativeRef", "(I)V",
+        (void*) WebHistoryRef },
+    { "nativeUnref", "(I)V",
+        (void*) WebHistoryUnref },
+    { "nativeGetTitle", "(I)Ljava/lang/String;",
+        (void*) WebHistoryGetTitle },
+    { "nativeGetUrl", "(I)Ljava/lang/String;",
+        (void*) WebHistoryGetUrl },
+    { "nativeGetOriginalUrl", "(I)Ljava/lang/String;",
+        (void*) WebHistoryGetOriginalUrl },
+    { "nativeGetFlattenedData", "(I)[B",
+        (void*) WebHistoryGetFlattenedData },
+    { "nativeGetFavicon", "(I)Landroid/graphics/Bitmap;",
+        (void*) WebHistoryGetFavicon },
 };
 
 int registerWebHistory(JNIEnv* env)
@@ -898,17 +978,9 @@ int registerWebHistory(JNIEnv* env)
     // Find WebHistoryItem, its constructor, and the update method.
     jclass clazz = env->FindClass("android/webkit/WebHistoryItem");
     ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebHistoryItem");
-    gWebHistoryItem.mInit = env->GetMethodID(clazz, "<init>", "()V");
+    gWebHistoryItem.mInit = env->GetMethodID(clazz, "<init>", "(I)V");
     ALOG_ASSERT(gWebHistoryItem.mInit, "Could not find WebHistoryItem constructor");
-    gWebHistoryItem.mUpdate = env->GetMethodID(clazz, "update",
-            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Landroid/graphics/Bitmap;[B)V");
-    ALOG_ASSERT(gWebHistoryItem.mUpdate, "Could not find method update in WebHistoryItem");
 
-    // Find the field ids for mTitle and mUrl.
-    gWebHistoryItem.mTitle = env->GetFieldID(clazz, "mTitle", "Ljava/lang/String;");
-    ALOG_ASSERT(gWebHistoryItem.mTitle, "Could not find field mTitle in WebHistoryItem");
-    gWebHistoryItem.mUrl = env->GetFieldID(clazz, "mUrl", "Ljava/lang/String;");
-    ALOG_ASSERT(gWebHistoryItem.mUrl, "Could not find field mUrl in WebHistoryItem");
     env->DeleteLocalRef(clazz);
 
     // Find the WebBackForwardList object and method.
