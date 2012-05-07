@@ -82,6 +82,8 @@ static bool setBitmapDash(SkPaint* paint, int width) {
     s->setLocalMatrix(matrix);
 
     paint->setShader(s)->unref();
+    paint->setFilterBitmap(true);
+    paint->setAntiAlias(true);
     return true;
 }
 
