@@ -1824,7 +1824,49 @@ static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_er
     client->cancelSslCertError(cert_error);
 }
 
-static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray pkey, jobjectArray chain)
+static net::X509Certificate* getX509Cert(JNIEnv *env, jobjectArray chain)
+{
+    // Based on Android's NativeCrypto_SSL_use_certificate
+    int length = env->GetArrayLength(chain);
+    if (length == 0) {
+        return NULL;
+    }
+
+    base::ScopedOpenSSL<X509, X509_free> first;
+    ScopedVector<base::ScopedOpenSSL<X509, X509_free> > rest;
+    for (int i = 0; i < length; i++) {
+        ScopedLocalRef<jbyteArray> cert(env,
+                reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(chain, i)));
+        if (cert.get() == NULL) {
+            return NULL;
+        }
+        ScopedByteArrayRO certBytes(env, cert.get());
+        if (certBytes.get() == NULL) {
+            return NULL;
+        }
+        const char* data = reinterpret_cast<const char*>(certBytes.get());
+        int length = certBytes.size();
+        X509* x509 = net::X509Certificate::CreateOSCertHandleFromBytes(data, length);
+        if (x509 == NULL) {
+            return NULL;
+        }
+        if (i == 0) {
+            first.reset(x509);
+        } else {
+            rest.push_back(new base::ScopedOpenSSL<X509, X509_free>(x509));
+        }
+    }
+
+    std::vector<X509*> certChain(rest.size());
+    for (size_t i = 0; i < rest.size(); i++) {
+        certChain[i] = rest[i]->get();
+    }
+    return net::X509Certificate::CreateFromHandle(first.get(),
+                                                     net::X509Certificate::SOURCE_FROM_NETWORK,
+                                                     certChain);
+}
+
+static void SslClientCertPKCS8(JNIEnv *env, jobject obj, int handle, jbyteArray pkey, jobjectArray chain)
 {
     WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
     if (pkey == NULL || chain == NULL) {
@@ -1851,55 +1893,29 @@ static void SslClientCert(JNIEnv *env, jobject obj, int handle, jbyteArray pkey,
         client->sslClientCert(NULL, NULL);
         return;
     }
-
-    // Based on Android's NativeCrypto_SSL_use_certificate
-    int length = env->GetArrayLength(chain);
-    if (length == 0) {
-        client->sslClientCert(NULL, NULL);
-        return;
-    }
-
-    base::ScopedOpenSSL<X509, X509_free> first;
-    ScopedVector<base::ScopedOpenSSL<X509, X509_free> > rest;
-    for (int i = 0; i < length; i++) {
-        ScopedLocalRef<jbyteArray> cert(env,
-                reinterpret_cast<jbyteArray>(env->GetObjectArrayElement(chain, i)));
-        if (cert.get() == NULL) {
-            client->sslClientCert(NULL, NULL);
-            return;
-        }
-        ScopedByteArrayRO certBytes(env, cert.get());
-        if (certBytes.get() == NULL) {
-            client->sslClientCert(NULL, NULL);
-            return;
-        }
-        const char* data = reinterpret_cast<const char*>(certBytes.get());
-        int length = certBytes.size();
-        X509* x509 = net::X509Certificate::CreateOSCertHandleFromBytes(data, length);
-        if (x509 == NULL) {
-            client->sslClientCert(NULL, NULL);
-            return;
-        }
-        if (i == 0) {
-            first.reset(x509);
-        } else {
-            rest.push_back(new base::ScopedOpenSSL<X509, X509_free>(x509));
-        }
-    }
-
-    std::vector<X509*> certChain(rest.size());
-    for (size_t i = 0; i < rest.size(); i++) {
-        certChain[i] = rest[i]->get();
-    }
-    net::X509Certificate* certificate
-            = net::X509Certificate::CreateFromHandle(first.get(),
-                                                     net::X509Certificate::SOURCE_FROM_NETWORK,
-                                                     certChain);
+    net::X509Certificate* certificate = getX509Cert(env, chain);
     if (certificate == NULL) {
         client->sslClientCert(NULL, NULL);
         return;
     }
     client->sslClientCert(privateKey.release(), certificate);
+}
+
+static void SslClientCertCtx(JNIEnv *env, jobject obj, int handle, jint ctx, jobjectArray chain)
+{
+    WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
+    EVP_PKEY* pkey = reinterpret_cast<EVP_PKEY*>(static_cast<uintptr_t>(ctx));
+    if (pkey == NULL || chain == NULL) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+    net::X509Certificate* certificate = getX509Cert(env, chain);
+    if (certificate == NULL) {
+        client->sslClientCert(NULL, NULL);
+        return;
+    }
+    CRYPTO_add(&pkey->references, 1, CRYPTO_LOCK_EVP_PKEY);
+    client->sslClientCert(pkey, certificate);
 }
 
 // ----------------------------------------------------------------------------
@@ -1960,8 +1976,10 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) SslCertErrorProceed },
     { "nativeSslCertErrorCancel", "(II)V",
         (void*) SslCertErrorCancel },
+    { "nativeSslClientCert", "(II[[B)V",
+        (void*) SslClientCertCtx },
     { "nativeSslClientCert", "(I[B[[B)V",
-        (void*) SslClientCert },
+        (void*) SslClientCertPKCS8 },
     { "nativeGetShouldStartScrolledRight", "(I)Z",
         (void*) GetShouldStartScrolledRight },
 };
