@@ -463,6 +463,7 @@ private:
         HebrewBold,
         Naskh,
         Tamil,
+        TamilBold,
         Thai,
         NUM_SCRIPTS
     };
@@ -517,11 +518,12 @@ private:
 // Indexed using enum CustomScript
 const char* TextRunWalker::paths[] = {
     "/system/fonts/Lohit-Bengali.ttf",
-    "/system/fonts/Lohit-Devanagari.ttf",
+    "/system/fonts/DroidSansDevanagari-Regular.ttf",
     "/system/fonts/DroidSansHebrew-Regular.ttf",
     "/system/fonts/DroidSansHebrew-Bold.ttf",
     "/system/fonts/DroidNaskh-Regular.ttf",
-    "/system/fonts/Lohit-Tamil.ttf",
+    "/system/fonts/DroidSansTamil-Regular.ttf",
+    "/system/fonts/DroidSansTamil-Bold.ttf",
     "/system/fonts/DroidSansThai.ttf"
 };
 
@@ -713,7 +715,7 @@ void TextRunWalker::setupFontForScriptRun()
           complexPlatformData = setupComplexFont(Bengali, platformData);
           break;
         case HB_Script_Devanagari:
-            complexPlatformData = setupComplexFont(Devanagari, platformData);
+          complexPlatformData = setupComplexFont(Devanagari, platformData);
             break;
         case HB_Script_Hebrew:
             switch (platformData.typeface()->style()) {
@@ -732,7 +734,17 @@ void TextRunWalker::setupFontForScriptRun()
             complexPlatformData = setupComplexFont(Naskh, platformData);
             break;
         case HB_Script_Tamil:
-            complexPlatformData = setupComplexFont(Tamil, platformData);
+            switch (platformData.typeface()->style()) {
+                case SkTypeface::kBold:
+                case SkTypeface::kBoldItalic:
+                    complexPlatformData = setupComplexFont(TamilBold, platformData);
+                    break;
+                case SkTypeface::kNormal:
+                case SkTypeface::kItalic:
+                default:
+                    complexPlatformData = setupComplexFont(Tamil, platformData);
+                    break;
+            }
             break;
         case HB_Script_Thai:
             complexPlatformData = setupComplexFont(Thai, platformData);
