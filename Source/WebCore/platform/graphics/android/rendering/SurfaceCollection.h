@@ -37,14 +37,14 @@ class SkRegion;
 
 namespace WebCore {
 
-class LayerAndroid;
+class BaseLayerAndroid;
 class Surface;
 class TexturesResult;
 
 class SurfaceCollection : public SkRefCnt {
 // TODO: investigate webkit threadsafe ref counting
 public:
-    SurfaceCollection(LayerAndroid* compositedRoot);
+    SurfaceCollection(BaseLayerAndroid* compositedRoot);
     virtual ~SurfaceCollection();
 
     // Tiled painting methods (executed on groups)
@@ -68,7 +68,7 @@ public:
 
 private:
     void updateLayerPositions(const SkRect& visibleContentRect);
-    LayerAndroid* m_compositedRoot;
+    BaseLayerAndroid* m_compositedRoot;
     WTF::Vector<Surface*> m_surfaces;
 };
 

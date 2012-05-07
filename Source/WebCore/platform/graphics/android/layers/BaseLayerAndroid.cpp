@@ -69,6 +69,14 @@ IFrameLayerAndroid* BaseLayerAndroid::updatePosition(SkRect viewport,
     return LayerAndroid::updatePosition(viewport, parentIframeLayer);
 }
 
+void BaseLayerAndroid::updatePositionsRecursive(const SkRect& visibleContentRect)
+{
+    updateLayerPositions(visibleContentRect);
+    TransformationMatrix ident;
+    FloatRect clip(0, 0, 1e10, 1e10);
+    updateGLPositionsAndScale(ident, clip, 1, state()->scale());
+}
+
 ForegroundBaseLayerAndroid::ForegroundBaseLayerAndroid(LayerContent* content)
     : LayerAndroid((RenderLayer*)0)
 {
