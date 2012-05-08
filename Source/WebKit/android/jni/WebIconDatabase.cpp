@@ -50,17 +50,25 @@
 
 namespace android {
 
+SkBitmap webcoreImageToSkBitmap(WebCore::Image* icon)
+{
+    SkBitmap bm;
+    if (!icon)
+        return bm;
+    WebCore::SharedBuffer* buffer = icon->data();
+    if (!buffer)
+        return bm;
+    SkImageDecoder::DecodeMemory(buffer->data(), buffer->size(), &bm,
+                                 SkBitmap::kNo_Config,
+                                 SkImageDecoder::kDecodePixels_Mode);
+    return bm;
+}
+
 jobject webcoreImageToJavaBitmap(JNIEnv* env, WebCore::Image* icon)
 {
-    if (!icon)
+    SkBitmap bm = webcoreImageToSkBitmap(icon);
+    if (bm.isNull())
         return NULL;
-    SkBitmap bm;
-    WebCore::SharedBuffer* buffer = icon->data();
-    if (!buffer || !SkImageDecoder::DecodeMemory(buffer->data(), buffer->size(),
-                                                 &bm, SkBitmap::kNo_Config,
-                                            SkImageDecoder::kDecodePixels_Mode))
-        return NULL;
-
     return GraphicsJNI::createBitmap(env, new SkBitmap(bm), false, NULL);
 }
 

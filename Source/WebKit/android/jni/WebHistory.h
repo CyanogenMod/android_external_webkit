@@ -28,8 +28,12 @@
 
 #include "AndroidWebHistoryBridge.h"
 
+#include "PlatformString.h"
+#include "SkBitmap.h"
+
 #include <jni.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Threading.h>
 #include <wtf/Vector.h>
 
 namespace android {
@@ -38,7 +42,7 @@ class AutoJObject;
 
 class WebHistory {
 public:
-    static jbyteArray Flatten(JNIEnv*, WTF::Vector<char>&, WebCore::HistoryItem*);
+    static void Flatten(JNIEnv*, WTF::Vector<char>&, WebCore::HistoryItem*);
     static void AddItem(const AutoJObject&, WebCore::HistoryItem*);
     static void RemoveItem(const AutoJObject&, int);
     static void UpdateHistoryIndex(const AutoJObject&, int);
@@ -51,16 +55,34 @@ class WebHistoryItem : public WebCore::AndroidWebHistoryBridge {
 public:
     WebHistoryItem(WebHistoryItem* parent)
         : WebCore::AndroidWebHistoryBridge(0)
+        , m_faviconCached(0)
+        , m_dataCached(0)
         , m_parent(parent)
-        , m_object(NULL) { }
-    WebHistoryItem(JNIEnv*, jobject, WebCore::HistoryItem*);
+    {}
+    WebHistoryItem(WebCore::HistoryItem* item)
+        : WebCore::AndroidWebHistoryBridge(item)
+        , m_faviconCached(0)
+        , m_dataCached(0)
+        , m_parent(0)
+    {}
     ~WebHistoryItem();
     void updateHistoryItem(WebCore::HistoryItem* item);
     void setParent(WebHistoryItem* parent) { m_parent = parent; }
     WebHistoryItem* parent() const { return m_parent.get(); }
+
+    // TODO: This is ugly. Really the whole bindings of WebHistoryItem needs to be
+    // cleaned up, but this will do for now
+    WTF::Mutex m_lock;
+    String m_url;
+    String m_originalUrl;
+    String m_title;
+    SkBitmap m_favicon;
+    WTF::Vector<char> m_data;
+    jobject m_faviconCached;
+    jobject m_dataCached;
+
 private:
     RefPtr<WebHistoryItem> m_parent;
-    jweak m_object;
 };
 
 };

@@ -26,20 +26,20 @@
 #ifndef AndroidWebHistoryBridge_h
 #define AndroidWebHistoryBridge_h
 
-#include <wtf/RefCounted.h>
+#include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
 
 class HistoryItem;
 
-class AndroidWebHistoryBridge : public RefCounted<AndroidWebHistoryBridge> {
+class AndroidWebHistoryBridge : public ThreadSafeRefCounted<AndroidWebHistoryBridge> {
 public:
     AndroidWebHistoryBridge(HistoryItem* item)
         : m_scale(0)
         , m_textWrapScale(0)
         , m_active(false)
-        , m_historyItem(item) { }
-    virtual ~AndroidWebHistoryBridge() { }
+        , m_historyItem(item) {}
+    virtual ~AndroidWebHistoryBridge() {}
     virtual void updateHistoryItem(HistoryItem* item) = 0;
 
     void setScale(float s) { m_scale = s; }
