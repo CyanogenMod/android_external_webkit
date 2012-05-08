@@ -461,9 +461,12 @@ private:
         Devanagari,
         Hebrew,
         HebrewBold,
+        Kannada,
+        Malayalam,
         Naskh,
         Tamil,
         TamilBold,
+        Telugu,
         Thai,
         NUM_SCRIPTS
     };
@@ -521,9 +524,12 @@ const char* TextRunWalker::paths[] = {
     "/system/fonts/DroidSansDevanagari-Regular.ttf",
     "/system/fonts/DroidSansHebrew-Regular.ttf",
     "/system/fonts/DroidSansHebrew-Bold.ttf",
+    "/system/fonts/Lohit-Kannada.ttf",
+    "/system/fonts/AnjaliNewLipi-light.ttf",
     "/system/fonts/DroidNaskh-Regular.ttf",
     "/system/fonts/DroidSansTamil-Regular.ttf",
     "/system/fonts/DroidSansTamil-Bold.ttf",
+    "/system/fonts/Lohit-Telugu.ttf",
     "/system/fonts/DroidSansThai.ttf"
 };
 
@@ -730,6 +736,12 @@ void TextRunWalker::setupFontForScriptRun()
                     break;
             }
             break;
+        case HB_Script_Kannada:
+            complexPlatformData = setupComplexFont(Kannada, platformData);
+            break;
+        case HB_Script_Malayalam:
+            complexPlatformData = setupComplexFont(Malayalam, platformData);
+            break;
         case HB_Script_Arabic:
             complexPlatformData = setupComplexFont(Naskh, platformData);
             break;
@@ -745,6 +757,9 @@ void TextRunWalker::setupFontForScriptRun()
                     complexPlatformData = setupComplexFont(Tamil, platformData);
                     break;
             }
+            break;
+        case HB_Script_Telugu:
+            complexPlatformData = setupComplexFont(Telugu, platformData);
             break;
         case HB_Script_Thai:
             complexPlatformData = setupComplexFont(Thai, platformData);
