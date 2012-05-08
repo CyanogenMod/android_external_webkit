@@ -49,7 +49,7 @@ DoubleBufferedTexture::DoubleBufferedTexture(EGLContext sharedContext, SharedTex
     m_pContext = EGL_NO_CONTEXT;
     m_cContext = sharedContext;
     m_writeableTexture = m_textureA;
-    m_lockedConsumerTexture = GL_NO_TEXTURE;
+    m_lockedConsumerTexture = (SharedTexture*)GL_NO_TEXTURE;
     m_supportsEGLImage = GLUtils::isEGLImageSupported();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("DoubleBufferedTexture");

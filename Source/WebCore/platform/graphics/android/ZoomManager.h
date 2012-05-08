@@ -30,6 +30,10 @@
 
 #include "SkRect.h"
 
+#if __cplusplus < 201103L && !defined(__GXX_EXPERIMENTAL_CXX0X__) && !defined(constexpr)
+#define constexpr const
+#endif
+
 namespace WebCore {
 
 class GLWebViewState;
@@ -88,16 +92,16 @@ public:
 private:
     // Delay between scheduling a new page when the scale
     // factor changes (i.e. zooming in or out)
-    static const double s_updateInitialDelay = 0.3; // 300 ms
+    static constexpr double s_updateInitialDelay = 0.3; // 300 ms
     // If the scale factor continued to change and we completed
     // the original delay, we push back the update by this value
-    static const double s_updateDelay = 0.1; // 100 ms
+    static constexpr double s_updateDelay = 0.1; // 100 ms
 
     // Delay for the transition between the two pages
-    static const double s_zoomInTransitionDelay = 0.1; // 100 ms
-    static const double s_invZoomInTransitionDelay = 10;
-    static const double s_zoomOutTransitionDelay = 0.2; // 200 ms
-    static const double s_invZoomOutTransitionDelay = 5;
+    static constexpr double s_zoomInTransitionDelay = 0.1; // 100 ms
+    static constexpr double s_invZoomInTransitionDelay = 10;
+    static constexpr double s_zoomOutTransitionDelay = 0.2; // 200 ms
+    static constexpr double s_invZoomOutTransitionDelay = 5;
 
     GLScaleState m_scaleRequestState;
     float m_currentScale;

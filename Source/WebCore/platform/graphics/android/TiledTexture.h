@@ -35,6 +35,10 @@
 #include "TextureOwner.h"
 #include "TilePainter.h"
 
+#if __cplusplus < 201103L && !defined(__GXX_EXPERIMENTAL_CXX0X__) && !defined(constexpr)
+#define constexpr const
+#endif
+
 class SkCanvas;
 
 namespace WebCore {
@@ -132,7 +136,7 @@ public:
 
 private:
     // Delay before we schedule a new tile at the new scale factor
-    static const double s_zoomUpdateDelay = 0.2; // 200 ms
+    static constexpr double s_zoomUpdateDelay = 0.2; // 200 ms
 
     TiledTexture* m_frontTexture;
     TiledTexture* m_backTexture;
