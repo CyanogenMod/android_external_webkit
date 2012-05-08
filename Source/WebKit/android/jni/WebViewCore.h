@@ -760,6 +760,7 @@ namespace android {
         int m_maxYScroll;
         int m_scrollOffsetX; // webview.java's current scroll in X
         int m_scrollOffsetY; // webview.java's current scroll in Y
+        double m_scrollSetTime; // when the scroll was last set
         WebCore::IntPoint m_mousePos;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates

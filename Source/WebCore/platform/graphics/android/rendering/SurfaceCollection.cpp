@@ -83,21 +83,17 @@ SurfaceCollection::~SurfaceCollection()
 #endif
 }
 
-void SurfaceCollection::prepareGL(const SkRect& visibleContentRect)
+void SurfaceCollection::prepareGL(const SkRect& visibleContentRect, bool tryToFastBlit)
 {
     updateLayerPositions(visibleContentRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
-    bool updateWithBlit = true;
     if (!layerTilesDisabled) {
-        for (unsigned int i = 0; i < m_surfaces.size(); i++) {
-            updateWithBlit &= m_surfaces[i]->canUpdateWithBlit();
-            if (!updateWithBlit)
-                break;
-        }
+        for (unsigned int i = 0; tryToFastBlit && i < m_surfaces.size(); i++)
+            tryToFastBlit &= m_surfaces[i]->canUpdateWithBlit();
     }
     for (unsigned int i = 0; i < m_surfaces.size(); i++)
-        m_surfaces[i]->prepareGL(layerTilesDisabled, updateWithBlit);
+        m_surfaces[i]->prepareGL(layerTilesDisabled, tryToFastBlit);
 }
 
 static inline bool compareSurfaceZ(const Surface* a, const Surface* b)
