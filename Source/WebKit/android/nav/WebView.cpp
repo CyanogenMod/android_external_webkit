@@ -804,7 +804,7 @@ static jint nativeCreateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView
                                        jobject jvisiblecontentrect,
                                        jfloat scale, jint extras) {
     WebCore::IntRect invScreenRect = jrect_to_webrect(env, jinvscreenrect);
-    WebView *wvInstance = (WebView*) nativeView;
+    WebView *wvInstance = reinterpret_cast<WebView*>(nativeView);
     SkRect visibleContentRect = jrectf_to_rect(env, jvisiblecontentrect);
     wvInstance->setVisibleContentRect(visibleContentRect);
 
@@ -826,7 +826,7 @@ static jint nativeCreateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView
 }
 
 static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView) {
-    WebView *wvInstance = (WebView*) nativeView;
+    WebView *wvInstance = reinterpret_cast<WebView*>(nativeView);
     if (!wvInstance)
         return 0;
 
@@ -836,7 +836,7 @@ static jint nativeGetDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView) {
 static void nativeUpdateDrawGLFunction(JNIEnv *env, jobject obj, jint nativeView,
                                        jobject jinvscreenrect, jobject jscreenrect,
                                        jobject jvisiblecontentrect, jfloat scale) {
-    WebView *wvInstance = (WebView*) nativeView;
+    WebView *wvInstance = reinterpret_cast<WebView*>(nativeView);
     if (wvInstance) {
         GLDrawFunctor* functor = (GLDrawFunctor*) wvInstance->getFunctor();
         if (functor) {
@@ -858,7 +858,7 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint native
 {
     // only call in software rendering, initialize and evaluate animations
 #if USE(ACCELERATED_COMPOSITING)
-    BaseLayerAndroid* baseLayer = ((WebView*)nativeView)->getBaseLayer();
+    BaseLayerAndroid* baseLayer = reinterpret_cast<WebView*>(nativeView)->getBaseLayer();
     if (baseLayer) {
         baseLayer->initAnimations();
         return baseLayer->evaluateAnimations();
@@ -872,13 +872,13 @@ static bool nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint l
                                jboolean isPictureAfterFirstLayout)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
-    return ((WebView*)nativeView)->setBaseLayer(layerImpl, showVisualIndicator,
-                                                isPictureAfterFirstLayout);
+    return reinterpret_cast<WebView*>(nativeView)->setBaseLayer(layerImpl, showVisualIndicator,
+                                                                isPictureAfterFirstLayout);
 }
 
-static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj)
+static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj, jint nativeView)
 {
-    return GET_NATIVE_VIEW(env, obj)->getBaseLayer();
+    return reinterpret_cast<WebView*>(nativeView)->getBaseLayer();
 }
 
 static void nativeCopyBaseContentToPicture(JNIEnv *env, jobject obj, jobject pict)
@@ -1151,9 +1151,9 @@ static void nativeUseHardwareAccelSkia(JNIEnv*, jobject, jboolean enabled)
     BaseRenderer::setCurrentRendererType(enabled ? BaseRenderer::Ganesh : BaseRenderer::Raster);
 }
 
-static int nativeGetBackgroundColor(JNIEnv* env, jobject obj)
+static int nativeGetBackgroundColor(JNIEnv* env, jobject obj, jint nativeView)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
+    WebView* view = reinterpret_cast<WebView*>(nativeView);
     BaseLayerAndroid* baseLayer = view->getBaseLayer();
     if (baseLayer) {
         WebCore::Color color = baseLayer->getBackgroundColor();
@@ -1167,7 +1167,7 @@ static int nativeGetBackgroundColor(JNIEnv* env, jobject obj)
 static void nativeSetPauseDrawing(JNIEnv *env, jobject obj, jint nativeView,
                                       jboolean pause)
 {
-    ((WebView*)nativeView)->m_isDrawingPaused = pause;
+    reinterpret_cast<WebView*>(nativeView)->m_isDrawingPaused = pause;
 }
 
 static void nativeSetTextSelection(JNIEnv *env, jobject obj, jint nativeView,
@@ -1246,7 +1246,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(IIZZ)Z",
         (void*) nativeSetBaseLayer },
-    { "nativeGetBaseLayer", "()I",
+    { "nativeGetBaseLayer", "(I)I",
         (void*) nativeGetBaseLayer },
     { "nativeCopyBaseContentToPicture", "(Landroid/graphics/Picture;)V",
         (void*) nativeCopyBaseContentToPicture },
@@ -1278,7 +1278,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetIsScrolling },
     { "nativeUseHardwareAccelSkia", "(Z)V",
         (void*) nativeUseHardwareAccelSkia },
-    { "nativeGetBackgroundColor", "()I",
+    { "nativeGetBackgroundColor", "(I)I",
         (void*) nativeGetBackgroundColor },
     { "nativeSetProperty", "(Ljava/lang/String;Ljava/lang/String;)Z",
         (void*) nativeSetProperty },
