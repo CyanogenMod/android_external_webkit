@@ -141,7 +141,7 @@ public:
     bool outsideViewport();
 
     IntRect fullContentArea();
-    IntRect visibleContentArea();
+    IntRect visibleContentArea(bool force3dContentVisible = false);
 
     virtual bool needsTexture();
 

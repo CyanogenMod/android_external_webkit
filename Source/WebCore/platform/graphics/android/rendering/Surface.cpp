@@ -152,10 +152,10 @@ void Surface::addLayer(LayerAndroid* layer, const TransformationMatrix& transfor
         m_background = static_cast<BaseLayerAndroid*>(layer)->getBackgroundColor();
 }
 
-IntRect Surface::visibleContentArea()
+IntRect Surface::visibleContentArea(bool force3dContentVisible)
 {
     if (singleLayer())
-        return getFirstLayer()->visibleContentArea();
+        return getFirstLayer()->visibleContentArea(force3dContentVisible);
 
     IntRect rect = m_fullContentArea;
 
@@ -246,7 +246,8 @@ bool Surface::drawGL(bool layerTilesDisabled)
         ALOGV("drawGL on Surf %p with SurfBack %p, first layer %s (%d)", this, m_surfaceBacking,
               getFirstLayer()->subclassName().ascii().data(), getFirstLayer()->uniqueId());
 
-        IntRect drawArea = visibleContentArea();
+        bool force3dContentVisible = true;
+        IntRect drawArea = visibleContentArea(force3dContentVisible);
         m_surfaceBacking->drawGL(drawArea, opacity(), drawTransform(),
                                  useAggressiveRendering(), background());
     }

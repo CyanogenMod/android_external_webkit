@@ -107,6 +107,14 @@ void GLUtils::setOrthographicMatrix(TransformationMatrix& ortho, float left, flo
     ortho.setM43(-(nearZ + farZ) / deltaZ);
 }
 
+bool GLUtils::has3dTransform(const TransformationMatrix& matrix)
+{
+    return matrix.m13() != 0 || matrix.m23() != 0
+        || matrix.m31() != 0 || matrix.m32() != 0
+        || matrix.m33() != 1 || matrix.m34() != 0
+        || matrix.m43() != 0;
+}
+
 /////////////////////////////////////////////////////////////////////////////////////////
 // GL & EGL error checks
 /////////////////////////////////////////////////////////////////////////////////////////
