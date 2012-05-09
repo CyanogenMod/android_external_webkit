@@ -119,7 +119,7 @@ struct JavaGlue {
     jmethodID   m_scrollBy;
     jmethodID   m_getScaledMaxXScroll;
     jmethodID   m_getScaledMaxYScroll;
-    jmethodID   m_getVisibleRect;
+    jmethodID   m_updateRectsForGL;
     jmethodID   m_viewInvalidate;
     jmethodID   m_viewInvalidateRect;
     jmethodID   m_postInvalidateDelayed;
@@ -147,7 +147,7 @@ WebView(JNIEnv* env, jobject javaWebView, int viewImpl, WTF::String drawableDir,
     m_javaGlue.m_scrollBy = GetJMethod(env, clazz, "setContentScrollBy", "(IIZ)Z");
     m_javaGlue.m_getScaledMaxXScroll = GetJMethod(env, clazz, "getScaledMaxXScroll", "()I");
     m_javaGlue.m_getScaledMaxYScroll = GetJMethod(env, clazz, "getScaledMaxYScroll", "()I");
-    m_javaGlue.m_getVisibleRect = GetJMethod(env, clazz, "sendOurVisibleRect", "()Landroid/graphics/Rect;");
+    m_javaGlue.m_updateRectsForGL = GetJMethod(env, clazz, "updateRectsForGL", "()V");
     m_javaGlue.m_viewInvalidate = GetJMethod(env, clazz, "viewInvalidate", "()V");
     m_javaGlue.m_viewInvalidateRect = GetJMethod(env, clazz, "viewInvalidate", "(IIII)V");
     m_javaGlue.m_postInvalidateDelayed = GetJMethod(env, clazz,
@@ -352,27 +352,20 @@ int getScaledMaxYScroll()
     return result;
 }
 
-IntRect getVisibleRect()
+// Call through JNI to ask Java side to update the rectangles for GL functor.
+// This is called at every draw when it is not in process mode, so we should
+// keep this route as efficient as possible. Currently, its average cost on Xoom
+// is about 0.1ms - 0.2ms.
+// Alternatively, this can be achieved by adding more listener on Java side, but
+// that will be more likely causing jank when triggering GC.
+void updateRectsForGL()
 {
-    IntRect rect;
-    ALOG_ASSERT(m_javaGlue.m_obj, "A java object was not associated with this native WebView!");
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue.object(env);
     if (!javaObject.get())
-        return rect;
-    jobject jRect = env->CallObjectMethod(javaObject.get(), m_javaGlue.m_getVisibleRect);
+        return;
+    env->CallVoidMethod(javaObject.get(), m_javaGlue.m_updateRectsForGL);
     checkException(env);
-    rect.setX(env->GetIntField(jRect, m_javaGlue.m_rectLeft));
-    checkException(env);
-    rect.setY(env->GetIntField(jRect, m_javaGlue.m_rectTop));
-    checkException(env);
-    rect.setWidth(env->CallIntMethod(jRect, m_javaGlue.m_rectWidth));
-    checkException(env);
-    rect.setHeight(env->CallIntMethod(jRect, m_javaGlue.m_rectHeight));
-    checkException(env);
-    env->DeleteLocalRef(jRect);
-    checkException(env);
-    return rect;
 }
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -695,6 +688,9 @@ class GLDrawFunctor : Functor {
 
     status_t operator()(int messageId, void* data) {
         TRACE_METHOD();
+        bool shouldDraw = (messageId == uirenderer::DrawGlInfo::kModeDraw);
+        if (shouldDraw)
+            wvInstance->updateRectsForGL();
 
         if (invScreenRect.isEmpty()) {
             // NOOP operation if viewport is empty
@@ -716,7 +712,6 @@ class GLDrawFunctor : Functor {
             localInvScreenRect.setX(screenClip.x());
             localInvScreenRect.setY(info->height - screenClip.y() - screenClip.height());
         }
-        bool shouldDraw = (messageId == uirenderer::DrawGlInfo::kModeDraw);
         // Send the necessary info to the shader.
         TilesManager::instance()->shader()->setGLDrawInfo(info);
 
