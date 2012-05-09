@@ -1550,10 +1550,46 @@ void WebViewCore::layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& off
     }
 }
 
+void WebViewCore::setSelectionCaretInfo(SelectText* selectTextContainer,
+        const WebCore::Position& pos, const IntPoint& frameOffset,
+        SelectText::HandleId handleId, int offset, EAffinity affinity)
+{
+    Node* node = pos.anchorNode();
+    LayerAndroid* layer = 0;
+    int layerId = platformLayerIdFromNode(node, &layer);
+    selectTextContainer->setCaretLayerId(handleId, layerId);
+    IntPoint layerOffset;
+    layerToAbsoluteOffset(layer, layerOffset);
+    RenderObject* r = node->renderer();
+    RenderText* renderText = toRenderText(r);
+    int caretOffset;
+    InlineBox* inlineBox;
+    pos.getInlineBoxAndOffset(affinity, inlineBox, caretOffset);
+    IntRect caretRect = renderText->localCaretRect(inlineBox, caretOffset);
+    FloatPoint absoluteOffset = renderText->localToAbsolute(caretRect.location());
+    caretRect.setX(absoluteOffset.x() - layerOffset.x() + offset);
+    caretRect.setY(absoluteOffset.y() - layerOffset.y());
+    caretRect.move(-frameOffset.x(), -frameOffset.y());
+    selectTextContainer->setCaretRect(handleId, caretRect);
+    selectTextContainer->setTextRect(handleId,
+            positionToTextRect(pos, affinity));
+}
+
+bool WebViewCore::isLtr(const Position& position)
+{
+    InlineBox* inlineBox = 0;
+    int caretOffset = 0;
+    position.getInlineBoxAndOffset(DOWNSTREAM, inlineBox, caretOffset);
+    bool isLtr;
+    if (inlineBox)
+        isLtr = inlineBox->isLeftToRightDirection();
+    else
+        isLtr = position.primaryDirection() == LTR;
+    return isLtr;
+}
+
 SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 {
-    // We need to agressively check to see if this is an empty selection to prevent
-    // accidentally entering text selection mode
     bool isCaret = selection.isCaret();
     if (selection.isNone() || (!selection.isContentEditable() && isCaret))
         return 0;
@@ -1568,33 +1604,24 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
             && range->startOffset() == range->endOffset())
         return 0;
 
-    SelectText* selectTextContainer = new SelectText();
     IntPoint frameOffset = convertGlobalContentToFrameContent(IntPoint());
-
-    IntRect startHandle;
-    IntRect endHandle;
+    SelectText* selectTextContainer = new SelectText();
     if (isCaret) {
-        // Caret selection
-        Position start = selection.start();
-        Node* node = start.anchorNode();
-        LayerAndroid* layer = 0;
-        int layerId = platformLayerIdFromNode(node, &layer);
-        selectTextContainer->setCaretLayerId(SelectText::EndHandle, layerId);
-        selectTextContainer->setCaretLayerId(SelectText::StartHandle, layerId);
-        IntPoint layerOffset;
-        layerToAbsoluteOffset(layer, layerOffset);
-        RenderObject* r = node->renderer();
-        RenderText* renderText = toRenderText(r);
-        int caretOffset;
-        InlineBox* inlineBox;
-        start.getInlineBoxAndOffset(selection.affinity(), inlineBox, caretOffset);
-        startHandle = renderText->localCaretRect(inlineBox, caretOffset);
-        FloatPoint absoluteOffset = renderText->localToAbsolute(startHandle.location());
-        startHandle.setX(absoluteOffset.x() - layerOffset.x());
-        startHandle.setY(absoluteOffset.y() - layerOffset.y());
-        endHandle = startHandle;
+        setSelectionCaretInfo(selectTextContainer, selection.start(), frameOffset,
+                SelectText::LeftHandle, 0, selection.affinity());
+        setSelectionCaretInfo(selectTextContainer, selection.start(), frameOffset,
+                SelectText::RightHandle, 0, selection.affinity());
     } else {
-        // Selected range
+        bool ltr = isLtr(selection.start());
+        Position left = ltr ? selection.start() : selection.end();
+        Position right = ltr ? selection.end() : selection.start();
+        int leftOffset = isLtr(left) ? 0 : -1;
+        int rightOffset = isLtr(right) ? 0 : -1;
+        setSelectionCaretInfo(selectTextContainer, left, frameOffset,
+                SelectText::LeftHandle, leftOffset, selection.affinity());
+        setSelectionCaretInfo(selectTextContainer, right, frameOffset,
+                SelectText::RightHandle, rightOffset, selection.affinity());
+
         Node* stopNode = range->pastLastNode();
         for (Node* node = range->firstNode(); node != stopNode; node = node->traverseNextNode()) {
             RenderObject* r = node->renderer();
@@ -1607,39 +1634,10 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
             int layerId = platformLayerIdFromNode(node, &layer);
             Vector<IntRect> rects;
             renderText->absoluteRectsForRange(rects, startOffset, endOffset, true);
-            if (rects.size()) {
-                IntPoint offset;
-                layerToAbsoluteOffset(layer, offset);
-                endHandle = rects[rects.size() - 1];
-                endHandle.move(-offset.x(), -offset.y());
-                selectTextContainer->setCaretLayerId(SelectText::EndHandle, layerId);
-                if (startHandle.isEmpty()) {
-                    startHandle = rects[0];
-                    startHandle.move(-offset.x(), -offset.y());
-                    selectTextContainer->setCaretLayerId(SelectText::StartHandle, layerId);
-                }
-            }
             selectTextContainer->addHighlightRegion(layer, rects, frameOffset);
         }
     }
-
-    selectTextContainer->setBaseFirst(selection.isBaseFirst());
-
-    // Squish the handle rects
-    startHandle.setWidth(1);
-    endHandle.move(endHandle.width() - 1, 0);
-    endHandle.setWidth(1);
-    startHandle.move(-frameOffset.x(), -frameOffset.y());
-    selectTextContainer->setCaretRect(SelectText::StartHandle, startHandle);
-    endHandle.move(-frameOffset.x(), -frameOffset.y());
-    selectTextContainer->setCaretRect(SelectText::EndHandle, endHandle);
-
     selectTextContainer->setText(range->text());
-    selectTextContainer->setTextRect(SelectText::StartHandle,
-            positionToTextRect(selection.start(), selection.affinity()));
-    selectTextContainer->setTextRect(SelectText::EndHandle,
-            positionToTextRect(selection.end(), selection.affinity()));
-
     return selectTextContainer;
 }
 

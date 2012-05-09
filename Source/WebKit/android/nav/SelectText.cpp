@@ -144,17 +144,3 @@ void ReverseBidi(UChar* chars, int len) {
 
 }
 
-namespace android {
-
-SelectText::HandleId SelectText::mapId(HandleId id)
-{
-    if (id == StartHandle || id == EndHandle)
-        return id;
-    if (isBaseFirst())
-        return (HandleId) (id - 2);
-    if (id == BaseHandle)
-        return EndHandle;
-    return StartHandle;
-}
-
-}

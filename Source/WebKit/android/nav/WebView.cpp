@@ -1199,14 +1199,6 @@ static jint nativeGetHandleLayerId(JNIEnv *env, jobject obj, jint nativeView,
     return layerId;
 }
 
-static jboolean nativeIsBaseFirst(JNIEnv *env, jobject obj, jint nativeView)
-{
-    WebView* webview = reinterpret_cast<WebView*>(nativeView);
-    SelectText* select = static_cast<SelectText*>(
-            webview->getDrawExtra(WebView::DrawExtrasSelection));
-    return select ? select->isBaseFirst() : false;
-}
-
 static void nativeMapLayerRect(JNIEnv *env, jobject obj, jint nativeView,
         jint layerId, jobject rect)
 {
@@ -1298,8 +1290,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetTextSelection },
     { "nativeGetHandleLayerId", "(IILandroid/graphics/Point;Landroid/webkit/QuadF;)I",
         (void*) nativeGetHandleLayerId },
-    { "nativeIsBaseFirst", "(I)Z",
-        (void*) nativeIsBaseFirst },
     { "nativeMapLayerRect", "(IILandroid/graphics/Rect;)V",
         (void*) nativeMapLayerRect },
     { "nativeSetHwAccelerated", "(IZ)I",
