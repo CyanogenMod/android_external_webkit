@@ -74,7 +74,7 @@ public:
     virtual ~ImageTexture();
 
     bool prepareGL(GLWebViewState*);
-    void drawGL(LayerAndroid* layer, float opacity);
+    void drawGL(LayerAndroid* layer, float opacity, FloatPoint* offset = 0);
     void drawCanvas(SkCanvas*, SkRect&);
     bool hasContentToShow();
     SkBitmap* bitmap() { return m_image; }

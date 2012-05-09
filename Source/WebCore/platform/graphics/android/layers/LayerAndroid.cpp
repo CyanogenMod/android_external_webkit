@@ -113,7 +113,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_anchorPointZ = layer.m_anchorPointZ;
 
     if (layer.m_fixedPosition) {
-        m_fixedPosition = new FixedPositioning(this, *layer.m_fixedPosition);
+        m_fixedPosition = layer.m_fixedPosition->copy(this);
         Layer::setShouldInheritFromRootTransform(true);
     }
 
@@ -775,7 +775,7 @@ IntRect LayerAndroid::fullContentArea()
 IntRect LayerAndroid::visibleContentArea(bool force3dContentVisible)
 {
     IntRect area = fullContentArea();
-    if (subclassType() == LayerAndroid::FixedBackgroundBaseLayer)
+    if (subclassType() == LayerAndroid::FixedBackgroundImageLayer)
        return area;
 
     // If transform isn't limited to 2D space, return the entire content area.

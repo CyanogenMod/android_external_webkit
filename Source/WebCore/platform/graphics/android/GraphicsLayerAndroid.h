@@ -37,6 +37,7 @@ class SkRegion;
 namespace WebCore {
 
 class LayerAndroid;
+class FixedBackgroundImageLayerAndroid;
 class ScrollableLayerAndroid;
 
 class GraphicsLayerAndroid : public GraphicsLayer {
@@ -160,7 +161,7 @@ private:
     SkRegion m_dirtyRegion;
 
     LayerAndroid* m_contentLayer;
-    LayerAndroid* m_fixedBackgroundLayer;
+    FixedBackgroundImageLayerAndroid* m_fixedBackgroundLayer;
     LayerAndroid* m_foregroundLayer;
     LayerAndroid* m_foregroundClipLayer;
 };

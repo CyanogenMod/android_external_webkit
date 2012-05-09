@@ -30,18 +30,24 @@ FixedPositioning::FixedPositioning(LayerAndroid* layer, const FixedPositioning& 
 {
 }
 
-// Executed on the UI
-IFrameLayerAndroid* FixedPositioning::updatePosition(SkRect viewport,
-                                                     IFrameLayerAndroid* parentIframeLayer)
+SkRect FixedPositioning::getViewport(SkRect aViewport, IFrameLayerAndroid* parentIframeLayer)
 {
     // So if this is a fixed layer inside a iframe, use the iframe offset
     // and the iframe's size as the viewport and pass to the children
-    if (parentIframeLayer) {
-        viewport = SkRect::MakeXYWH(parentIframeLayer->iframeOffset().x(),
-                                    parentIframeLayer->iframeOffset().y(),
-                                    parentIframeLayer->getSize().width(),
-                                    parentIframeLayer->getSize().height());
-    }
+    if (parentIframeLayer)
+        return SkRect::MakeXYWH(parentIframeLayer->iframeOffset().x(),
+                                parentIframeLayer->iframeOffset().y(),
+                                parentIframeLayer->getSize().width(),
+                                parentIframeLayer->getSize().height());
+    return aViewport;
+}
+
+// Executed on the UI
+IFrameLayerAndroid* FixedPositioning::updatePosition(SkRect aViewport,
+                                                     IFrameLayerAndroid* parentIframeLayer)
+{
+    SkRect viewport = getViewport(aViewport, parentIframeLayer);
+
     float w = viewport.width();
     float h = viewport.height();
     float dx = viewport.fLeft;
@@ -99,6 +105,47 @@ void FixedPositioning::dumpLayer(FILE* file, int indentLevel) const
     writeLength(file, indentLevel + 1, "fixedMarginRight", m_fixedMarginRight);
     writeLength(file, indentLevel + 1, "fixedMarginBottom", m_fixedMarginBottom);
     writeRect(file, indentLevel + 1, "fixedRect", m_fixedRect);
+}
+
+BackgroundImagePositioning::BackgroundImagePositioning(LayerAndroid* layer, const BackgroundImagePositioning& position)
+        : FixedPositioning(layer, position)
+        , m_repeatX(position.m_repeatX)
+        , m_repeatY(position.m_repeatY)
+        , m_nbRepeatX(position.m_nbRepeatX)
+        , m_nbRepeatY(position.m_nbRepeatY)
+        , m_offsetX(position.m_offsetX)
+        , m_offsetY(position.m_offsetY)
+{
+}
+
+// Executed on the UI
+IFrameLayerAndroid* BackgroundImagePositioning::updatePosition(SkRect aViewport,
+                                                          IFrameLayerAndroid* parentIframeLayer)
+{
+    SkRect viewport = getViewport(aViewport, parentIframeLayer);
+
+    float w = viewport.width() - m_layer->getWidth();
+    float h = viewport.height() - m_layer->getHeight();
+    float x = 0;
+    float y = 0;
+
+    if (m_fixedLeft.defined())
+        x += m_fixedLeft.calcFloatValue(w);
+    if (m_fixedTop.defined())
+        y += m_fixedTop.calcFloatValue(h);
+
+    m_nbRepeatX = ceilf((viewport.width() / m_layer->getWidth()) + 1);
+    m_offsetX = ceilf(x / m_layer->getWidth());
+
+    m_nbRepeatY = ceilf((viewport.height() / m_layer->getHeight()) + 1);
+    m_offsetY = ceilf(y / m_layer->getHeight());
+
+    x += viewport.fLeft;
+    y += viewport.fTop;
+
+    m_layer->setPosition(x, y);
+
+    return parentIframeLayer;
 }
 
 } // namespace WebCore

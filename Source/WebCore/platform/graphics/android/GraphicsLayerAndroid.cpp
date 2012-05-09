@@ -25,6 +25,7 @@
 #include "AndroidAnimation.h"
 #include "AndroidLog.h"
 #include "Animation.h"
+#include "BaseLayerAndroid.h"
 #include "CachedImage.h"
 #include "CanvasLayer.h"
 #include "FixedBackgroundLayerAndroid.h"
@@ -88,22 +89,6 @@ static String propertyIdToString(AnimatedPropertyID property)
 PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
 {
     return new GraphicsLayerAndroid(client);
-}
-
-SkLength convertLength(Length len)
-{
-    SkLength length;
-    length.type = SkLength::Undefined;
-    length.value = 0;
-    if (len.type() == WebCore::Percent) {
-        length.type = SkLength::Percent;
-        length.value = len.percent();
-    }
-    if (len.type() == WebCore::Fixed) {
-        length.type = SkLength::Fixed;
-        length.value = len.value();
-    }
-    return length;
 }
 
 static RenderLayer* renderLayerFromClient(GraphicsLayerClient* client)
@@ -248,17 +233,17 @@ void GraphicsLayerAndroid::updatePositionedLayers()
         m_contentLayer->setAbsolutePosition(false);
         // We need to get the passed CSS properties for the element
         SkLength left, top, right, bottom;
-        left = convertLength(view->style()->left());
-        top = convertLength(view->style()->top());
-        right = convertLength(view->style()->right());
-        bottom = convertLength(view->style()->bottom());
+        left = SkLength::convertLength(view->style()->left());
+        top = SkLength::convertLength(view->style()->top());
+        right = SkLength::convertLength(view->style()->right());
+        bottom = SkLength::convertLength(view->style()->bottom());
 
         // We also need to get the margin...
         SkLength marginLeft, marginTop, marginRight, marginBottom;
-        marginLeft = convertLength(view->style()->marginLeft());
-        marginTop = convertLength(view->style()->marginTop());
-        marginRight = convertLength(view->style()->marginRight());
-        marginBottom = convertLength(view->style()->marginBottom());
+        marginLeft = SkLength::convertLength(view->style()->marginLeft());
+        marginTop = SkLength::convertLength(view->style()->marginTop());
+        marginRight = SkLength::convertLength(view->style()->marginRight());
+        marginBottom = SkLength::convertLength(view->style()->marginBottom());
 
         // In order to compute the fixed element's position, we need the width
         // and height of the element when bottom or right is defined.
@@ -603,29 +588,15 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
 
     // Grab the background image and create a layer for it
     // the layer will be fixed positioned.
-    // TODO: if there's a background color, we don't honor it.
     FillLayer* layers = view->style()->accessBackgroundLayers();
     StyleImage* styleImage = layers->image();
     if (styleImage->isCachedImage()) {
         CachedImage* cachedImage = static_cast<StyleCachedImage*>(styleImage)->cachedImage();
         Image* image = cachedImage->image();
         if (image) {
-            m_fixedBackgroundLayer = new LayerAndroid(renderLayer);
-            m_fixedBackgroundLayer->setContentsImage(image->nativeImageForCurrentFrame());
-            m_fixedBackgroundLayer->setSize(image->width(), image->height());
-
-            FixedPositioning* fixedPosition = new FixedPositioning(m_fixedBackgroundLayer);
-            SkRect viewRect;
-            SkLength left, top, right, bottom;
-            left = convertLength(view->style()->backgroundXPosition());
-            top = convertLength(view->style()->backgroundYPosition());
-            right.setAuto();
-            bottom.setAuto();
-            SkLength marginLeft, marginTop, marginRight, marginBottom;
-            marginLeft.setAuto();
-            marginTop.setAuto();
-            marginRight.setAuto();
-            marginBottom.setAuto();
+            m_fixedBackgroundLayer = new FixedBackgroundImageLayerAndroid(view->style(),
+                                                                          view->width(),
+                                                                          view->height());
 
             Color color = view->style()->visitedDependentColor(CSSPropertyBackgroundColor);
             SkColor skiaColor = SkColorSetARGB(color.alpha(),
@@ -633,14 +604,6 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
                                                color.green(),
                                                color.blue());
             m_fixedBackgroundLayer->setBackgroundColor(skiaColor);
-
-            viewRect.set(0, 0, view->width(), view->height());
-            fixedPosition->setFixedPosition(left, top, right, bottom,
-                                            marginLeft, marginTop,
-                                            marginRight, marginBottom,
-                                            IntPoint(0, 0), viewRect);
-
-            m_fixedBackgroundLayer->setFixedPosition(fixedPosition);
         }
     }
 

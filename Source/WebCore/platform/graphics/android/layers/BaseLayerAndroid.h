@@ -32,6 +32,7 @@
 namespace WebCore {
 
 class RenderLayerCompositor;
+class RenderStyle;
 
 class BaseLayerAndroid : public LayerAndroid {
 public:
@@ -59,11 +60,18 @@ public:
     virtual bool needsTexture() { return false; }
 };
 
-class FixedBackgroundBaseLayerAndroid : public LayerAndroid {
+class FixedBackgroundImageLayerAndroid : public LayerAndroid {
 public:
-    FixedBackgroundBaseLayerAndroid(LayerContent* content);
+    FixedBackgroundImageLayerAndroid(PassRefPtr<RenderStyle> style, int w, int h);
+    FixedBackgroundImageLayerAndroid(const FixedBackgroundImageLayerAndroid& layer);
+    virtual LayerAndroid* copy() const { return new FixedBackgroundImageLayerAndroid(*this); }
     virtual bool needsTexture() { return true; }
-    virtual SubclassType subclassType() { return LayerAndroid::FixedBackgroundBaseLayer; }
+    virtual SubclassType subclassType() { return LayerAndroid::FixedBackgroundImageLayer; }
+    virtual bool drawGL(bool layerTilesDisabled);
+
+private:
+    int m_width;
+    int m_height;
 };
 
 } // namespace WebCore
