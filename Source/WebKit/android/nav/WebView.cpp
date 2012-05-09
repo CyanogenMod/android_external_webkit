@@ -306,14 +306,10 @@ void draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras)
     // draw the content of the base layer first
     LayerContent* content = m_baseLayer->content();
     int sc = canvas->save(SkCanvas::kClip_SaveFlag);
-    int contentWidth = 0;
-    int contentHeight = 0;
     if (content) {
-        contentWidth = content->width();
-        contentHeight = content->height();
+        canvas->clipRect(SkRect::MakeLTRB(0, 0, content->width(), content->height()),
+                         SkRegion::kDifference_Op);
     }
-    canvas->clipRect(SkRect::MakeLTRB(0, 0, contentWidth, contentHeight),
-                     SkRegion::kDifference_Op);
     Color c = m_baseLayer->getBackgroundColor();
     canvas->drawColor(SkColorSetARGBInline(c.alpha(), c.red(), c.green(), c.blue()));
     canvas->restoreToCount(sc);
