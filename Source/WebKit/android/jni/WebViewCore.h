@@ -50,6 +50,7 @@
 #include <androidfw/KeycodeLabels.h>
 #include <ui/PixelFormat.h>
 #include <utils/threads.h>
+#include <wtf/Threading.h>
 
 namespace WebCore {
     class Color;
@@ -605,6 +606,8 @@ namespace android {
         int m_lastGeneration; // last action using up to date cache
         // end of shared members
 
+        void setPrerenderingEnabled(bool enable);
+
         // internal functions
     private:
         enum InputType {
@@ -740,6 +743,8 @@ namespace android {
         // called from destructor, to remove this from a global list
         static void removeInstance(WebViewCore*);
 
+        bool prerenderingEnabled();
+
         friend class ListBoxReply;
         struct JavaGlue;
         struct JavaGlue*       m_javaGlue;
@@ -792,6 +797,9 @@ namespace android {
 #endif
 
         scoped_refptr<WebRequestContext> m_webRequestContext;
+
+        WTF::Mutex m_prerenderLock;
+        bool m_prerenderEnabled;
     };
 
 }   // namespace android

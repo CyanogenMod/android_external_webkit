@@ -259,6 +259,9 @@ int drawGL(WebCore::IntRect& invScreenRect, WebCore::IntRect* invalRect,
     if (!m_baseLayer)
         return 0;
 
+    if (m_viewImpl)
+        m_viewImpl->setPrerenderingEnabled(!m_isDrawingPaused);
+
     if (!m_glWebViewState) {
         TilesManager::instance()->setHighEndGfx(m_isHighEndGfx);
         m_glWebViewState = new GLWebViewState();
@@ -648,8 +651,15 @@ int setHwAccelerated(bool hwAccelerated) {
     return 0;
 }
 
-    bool m_isDrawingPaused;
+void setDrawingPaused(bool isPaused)
+{
+    m_isDrawingPaused = isPaused;
+    if (m_viewImpl)
+        m_viewImpl->setPrerenderingEnabled(!isPaused);
+}
+
 private: // local state for WebView
+    bool m_isDrawingPaused;
     // private to getFrameCache(); other functions operate in a different thread
     WebViewCore* m_viewImpl;
     int m_generation; // associate unique ID with sent kit focus to match with ui
@@ -1167,7 +1177,7 @@ static int nativeGetBackgroundColor(JNIEnv* env, jobject obj, jint nativeView)
 static void nativeSetPauseDrawing(JNIEnv *env, jobject obj, jint nativeView,
                                       jboolean pause)
 {
-    reinterpret_cast<WebView*>(nativeView)->m_isDrawingPaused = pause;
+    reinterpret_cast<WebView*>(nativeView)->setDrawingPaused(pause);
 }
 
 static void nativeSetTextSelection(JNIEnv *env, jobject obj, jint nativeView,

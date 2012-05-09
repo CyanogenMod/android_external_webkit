@@ -444,6 +444,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_forwardingTouchEvents(false)
 #endif
     , m_webRequestContext(0)
+    , m_prerenderEnabled(false)
 {
     ALOG_ASSERT(m_mainFrame, "Uh oh, somehow a frameview was made without an initial frame!");
 
@@ -739,10 +740,30 @@ void WebViewCore::paintContents(WebCore::GraphicsContext* gc, WebCore::IntRect& 
     view->platformWidget()->draw(gc, drawArea);
 }
 
+void WebViewCore::setPrerenderingEnabled(bool enable)
+{
+    MutexLocker locker(m_prerenderLock);
+    m_prerenderEnabled = enable;
+}
+
+bool WebViewCore::prerenderingEnabled()
+{
+    MutexLocker locker(m_prerenderLock);
+    return m_prerenderEnabled;
+}
+
 SkCanvas* WebViewCore::createPrerenderCanvas(PrerenderedInval* prerendered)
 {
+    // Has WebView disabled prerenders (not attached, etc...)?
+    if (!prerenderingEnabled())
+        return 0;
+    // Does this WebView have focus?
+    if (!m_mainFrame->page()->focusController()->isActive())
+        return 0;
+    // Are we scrolling?
     if (currentTimeMS() - m_scrollSetTime < PRERENDER_AFTER_SCROLL_DELAY)
         return 0;
+    // Do we have anything to render?
     if (prerendered->area.isEmpty())
         return 0;
     FloatRect scaleTemp(m_scrollOffsetX, m_scrollOffsetY, m_screenWidth, m_screenHeight);
