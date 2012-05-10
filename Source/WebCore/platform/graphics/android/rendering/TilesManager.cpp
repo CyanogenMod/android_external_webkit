@@ -235,6 +235,21 @@ void TilesManager::gatherTexturesNumbers(int* nbTextures, int* nbAllocatedTextur
     }
 }
 
+void TilesManager::dirtyTexturesVector(WTF::Vector<TileTexture*>& textures)
+{
+    for (unsigned int i = 0; i < textures.size(); i++) {
+        Tile* currentOwner = static_cast<Tile*>(textures[i]->owner());
+        if (currentOwner)
+            currentOwner->markAsDirty();
+    }
+}
+
+void TilesManager::dirtyAllTiles()
+{
+    dirtyTexturesVector(m_textures);
+    dirtyTexturesVector(m_tilesTextures);
+}
+
 void TilesManager::printTextures()
 {
 #ifdef DEBUG
