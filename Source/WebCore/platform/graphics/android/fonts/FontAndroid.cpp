@@ -988,8 +988,8 @@ const TextRun& TextRunWalker::getNormalizedTextRun(const TextRun& originalRun,
 FloatRect Font::selectionRectForComplexText(const TextRun& run,
     const FloatPoint& point, int height, int from, int to) const
 {
-
-    int fromX = -1, toX = -1, fromAdvance = -1, toAdvance = -1;
+    int fromX = -1;
+    int toX = -1;
     TextRunWalker walker(run, 0, 0, this);
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
 
@@ -1001,6 +1001,10 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
     // We want to enumerate the script runs in code point order in the following
     // code. This call also resets |walker|.
     walker.setBackwardsIteration(false);
+    if (!from)
+        fromX = leftEdge;
+    if (!to)
+        toX = leftEdge;
 
     while (walker.nextScriptRun() && (fromX == -1 || toX == -1)) {
         // TextRunWalker will helpfully accumulate the x offsets for different
@@ -1018,15 +1022,17 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
             // position.
             int glyph = walker.logClusters()[from];
             fromX = base + walker.positions()[glyph].x();
-            fromAdvance = walker.advances()[glyph];
-        } else if (!walker.rtl())
+            if (walker.rtl())
+                fromX += truncateFixedPointToInteger(walker.advances()[glyph]);
+        } else
             from -= numCodePoints;
 
         if (toX == -1 && to < numCodePoints) {
             int glyph = walker.logClusters()[to];
             toX = base + walker.positions()[glyph].x();
-            toAdvance = walker.advances()[glyph];
-        } else if (!walker.rtl())
+            if (walker.rtl())
+                toX += truncateFixedPointToInteger(walker.advances()[glyph]);
+        } else
             to -= numCodePoints;
 
         if (!walker.rtl())
@@ -1036,10 +1042,7 @@ FloatRect Font::selectionRectForComplexText(const TextRun& run,
     // The position in question might be just after the text.
     const int rightEdge = base;
     if (fromX == -1 && !from)
-        fromX = leftEdge;
-    else if (walker.rtl())
-       fromX += truncateFixedPointToInteger(fromAdvance);
-
+        fromX = rightEdge;
     if (toX == -1 && !to)
         toX = rightEdge;
 
