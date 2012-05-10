@@ -263,7 +263,7 @@ static jobject WebHistoryGetFavicon(JNIEnv* env, jobject obj, jint ptr)
         return 0;
     WebHistoryItem* item = reinterpret_cast<WebHistoryItem*>(ptr);
     MutexLocker locker(item->m_lock);
-    if (!item->m_faviconCached) {
+    if (!item->m_faviconCached && !item->m_favicon.isNull()) {
         jobject favicon = GraphicsJNI::createBitmap(env,
                                                     new SkBitmap(item->m_favicon),
                                                     false, NULL);
