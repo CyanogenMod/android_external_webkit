@@ -698,11 +698,6 @@ class GLDrawFunctor : Functor {
         if (shouldDraw)
             wvInstance->updateRectsForGL();
 
-        if (invScreenRect.isEmpty()) {
-            // NOOP operation if viewport is empty
-            return 0;
-        }
-
         WebCore::IntRect inval;
         int titlebarHeight = screenRect.height() - invScreenRect.height();
 
@@ -710,6 +705,11 @@ class GLDrawFunctor : Functor {
         WebCore::IntRect screenClip(info->clipLeft, info->clipTop,
                                     info->clipRight - info->clipLeft,
                                     info->clipBottom - info->clipTop);
+
+        if (invScreenRect.isEmpty() || screenClip.isEmpty()) {
+            // NOOP operation if screenRect or clip is empty
+            return 0;
+        }
 
         WebCore::IntRect localInvScreenRect = invScreenRect;
         if (info->isLayer) {
