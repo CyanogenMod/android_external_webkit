@@ -351,7 +351,7 @@ bool Surface::paint(SkCanvas* canvas)
         if (isBase()
             && getFirstLayer()->countChildren()
             && getFirstLayer()->state()->layersRenderingMode() > GLWebViewState::kClippedTextures) {
-            for (unsigned int i = 0; i < getFirstLayer()->countChildren(); i++)
+            for (int i = 0; i < getFirstLayer()->countChildren(); i++)
                 getFirstLayer()->getChild(i)->drawCanvas(canvas, true, Layer::FlattenedLayers);
         }
     } else {

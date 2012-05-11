@@ -116,4 +116,14 @@ int PaintTileOperation::priority()
     return priority;
 }
 
+void PaintTileOperation::updatePainter(TilePainter* painter)
+{
+    if (m_painter == painter)
+        return;
+
+    SkSafeRef(painter);
+    SkSafeUnref(m_painter);
+    m_painter = painter;
+}
+
 }
