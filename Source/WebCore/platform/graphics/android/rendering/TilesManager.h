@@ -77,6 +77,8 @@ public:
 
     TileTexture* getAvailableTexture(Tile* owner);
 
+    void dirtyAllTiles();
+
     void printTextures();
 
     // m_highEndGfx is written/read only on UI thread, no need for a lock.
@@ -164,6 +166,7 @@ private:
     void discardTexturesVector(unsigned long long sparedDrawCount,
                                WTF::Vector<TileTexture*>& textures,
                                bool deallocateGLTextures);
+    void dirtyTexturesVector(WTF::Vector<TileTexture*>& textures);
     void markAllGLTexturesZero();
     bool updateContextIfChanged();
     int getMaxTextureAllocation();

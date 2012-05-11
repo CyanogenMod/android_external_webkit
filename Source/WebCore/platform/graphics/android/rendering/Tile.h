@@ -114,6 +114,7 @@ public:
                            SkRect& realTileRect);
     bool isTileVisible(const IntRect& viewTileBounds);
 
+    void markAsDirty();
     void markAsDirty(const SkRegion& dirtyArea);
     bool isDirty();
     const SkRegion& dirtyArea() { return m_dirtyArea; }
@@ -140,6 +141,7 @@ public:
     virtual bool removeTexture(TileTexture* texture);
 
 private:
+    void markAsDirtyInternal();
     void validatePaint();
 
     int m_x;
