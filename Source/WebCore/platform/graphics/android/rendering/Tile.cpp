@@ -54,7 +54,7 @@ Tile::Tile(bool isLayerTile)
     , m_backTexture(0)
     , m_scale(1)
     , m_dirty(true)
-    , m_repaintPending(false)
+    , m_repaintsPending(0)
     , m_fullRepaint(true)
     , m_isLayerTile(isLayerTile)
     , m_drawCount(0)
@@ -212,13 +212,13 @@ bool Tile::isDirty()
 bool Tile::isRepaintPending()
 {
     android::AutoMutex lock(m_atomicSync);
-    return m_repaintPending;
+    return m_repaintsPending != 0;
 }
 
 void Tile::setRepaintPending(bool pending)
 {
     android::AutoMutex lock(m_atomicSync);
-    m_repaintPending = pending;
+    m_repaintsPending += pending ? 1 : -1;
 }
 
 bool Tile::drawGL(float opacity, const SkRect& rect, float scale,

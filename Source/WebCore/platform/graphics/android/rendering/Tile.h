@@ -157,8 +157,8 @@ private:
     // redrawn in the backTexture
     bool m_dirty;
 
-    // used to signal that a repaint is pending
-    bool m_repaintPending;
+    // number of repaints pending
+    int m_repaintsPending;
 
     // store the dirty region
     SkRegion m_dirtyArea;
