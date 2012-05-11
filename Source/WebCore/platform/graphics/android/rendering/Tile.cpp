@@ -146,6 +146,13 @@ bool Tile::removeTexture(TileTexture* texture)
     return true;
 }
 
+void Tile::markAsDirty()
+{
+    android::AutoMutex lock(m_atomicSync);
+    m_dirtyArea.setEmpty(); // empty dirty rect prevents fast blit path
+    markAsDirtyInternal();
+}
+
 void Tile::markAsDirty(const SkRegion& dirtyArea)
 {
     if (dirtyArea.isEmpty())
@@ -170,6 +177,13 @@ void Tile::markAsDirty(const SkRegion& dirtyArea)
 
     if (!intersect)
         return;
+
+    markAsDirtyInternal();
+}
+
+void Tile::markAsDirtyInternal()
+{
+    // NOTE: callers must hold lock on m_atomicSync
 
     m_dirty = true;
     if (m_state == UpToDate) {

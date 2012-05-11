@@ -369,8 +369,10 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
     nbTexturesNeeded.full += nbTexturesForImages;
     nbTexturesNeeded.clipped += nbTexturesForImages;
 
-    if (setLayersRenderingMode(nbTexturesNeeded))
+    if (setLayersRenderingMode(nbTexturesNeeded)) {
+        TilesManager::instance()->dirtyAllTiles();
         returnFlags |= uirenderer::DrawGlInfo::kStatusDraw | uirenderer::DrawGlInfo::kStatusInvoke;
+    }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
