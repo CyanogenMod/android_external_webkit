@@ -26,6 +26,7 @@
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
 #include "SkPicture.h"
+#include "SkTypeface.h"
 #include "Surface.h"
 #include "TilesManager.h"
 
@@ -939,6 +940,16 @@ void LayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
         canvas->drawLine(0, h-1, w-1, h-1, paint);
         canvas->drawLine(w-1, h-1, w-1, 0, paint);
         canvas->drawLine(w-1, 0, 0, 0, paint);
+
+        static SkTypeface* s_typeface = 0;
+        if (!s_typeface)
+            s_typeface = SkTypeface::CreateFromName("", SkTypeface::kBold);
+        paint.setARGB(255, 0, 0, 255);
+        paint.setTextSize(17);
+        char str[256];
+        snprintf(str, 256, "%d", uniqueId());
+        paint.setTypeface(s_typeface);
+        canvas->drawText(str, strlen(str), 2, h - 2, paint);
     }
 
     if (m_fixedPosition)
