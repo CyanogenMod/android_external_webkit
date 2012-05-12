@@ -1164,6 +1164,16 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                         m_mainFrame->eventHandler()->hitTestResultAtPoint(
                                 anchorPoint, false);
                 node = hitTestResult.innerNode();
+                if (node && !node->isTextNode()) {
+                    // If the hitTestResultAtPoint didn't find a suitable node
+                    // for anchoring, try again with some slop.
+                    static const int HIT_SLOP = 30;
+                    anchorPoint.move(HIT_SLOP, HIT_SLOP);
+                    hitTestResult =
+                        m_mainFrame->eventHandler()->hitTestResultAtPoint(
+                                anchorPoint, false);
+                    node = hitTestResult.innerNode();
+                }
             }
             if (node) {
                 bounds = node->getRect();
