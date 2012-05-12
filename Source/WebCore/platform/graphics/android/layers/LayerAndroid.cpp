@@ -22,6 +22,7 @@
 #include "PictureLayerContent.h"
 #include "PrerenderedInval.h"
 #include "SkBitmapRef.h"
+#include "SkDevice.h"
 #include "SkDrawFilter.h"
 #include "SkPaint.h"
 #include "SkPicture.h"
@@ -72,7 +73,10 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_owningLayer(owner),
     m_type(LayerAndroid::WebCoreLayer),
     m_intrinsicallyComposited(true),
-    m_surface(0)
+    m_surface(0),
+    m_replicatedLayer(0),
+    m_originalLayer(0),
+    m_maskLayer(0)
 {
     m_backgroundColor = 0;
 
@@ -93,7 +97,10 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
     m_intrinsicallyComposited(layer.m_intrinsicallyComposited),
-    m_surface(0)
+    m_surface(0),
+    m_replicatedLayer(0),
+    m_originalLayer(0),
+    m_maskLayer(0)
 {
     m_imageCRC = layer.m_imageCRC;
     if (m_imageCRC)
@@ -122,6 +129,8 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_dirtyRegion = layer.m_dirtyRegion;
     m_scale = layer.m_scale;
     m_lastComputeTextureSize = 0;
+
+    m_replicatedLayerPosition = layer.m_replicatedLayerPosition;
 
     // If we have absolute elements, we may need to reorder them if they
     // are followed by another layer that is not also absolutely positioned.
@@ -165,6 +174,15 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
         m_animations.add(it->first, it->second);
     }
 
+    if (layer.m_replicatedLayer) {
+        // The replicated layer is always the first child
+        m_replicatedLayer = getChild(0);
+        m_replicatedLayer->setOriginalLayer(this);
+    }
+
+    if (layer.m_maskLayer)
+        m_maskLayer = layer.m_maskLayer->copy();
+
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid - recopy (UI)");
     ClassTracker::instance()->add(this);
@@ -178,6 +196,7 @@ LayerAndroid::~LayerAndroid()
     if (m_fixedPosition)
         delete m_fixedPosition;
 
+    SkSafeUnref(m_maskLayer);
     SkSafeUnref(m_content);
     // Don't unref m_surface, owned by BaseLayerAndroid
     m_animations.clear();
@@ -299,6 +318,7 @@ void LayerAndroid::removeAnimationsForKeyframes(const String& name)
 // FIXME: use a real mask?
 void LayerAndroid::setMaskLayer(LayerAndroid* layer)
 {
+    m_maskLayer = layer;
     if (layer)
         m_haveClip = true;
 }
@@ -418,7 +438,8 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
 {
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
-    FloatPoint position(getPosition().fX - m_offset.x(), getPosition().fY - m_offset.y());
+    FloatPoint position(getPosition().fX + m_replicatedLayerPosition.x() - m_offset.x(),
+                        getPosition().fY + m_replicatedLayerPosition.y() - m_offset.y());
     float originX = anchorPoint.x() * layerSize.width();
     float originY = anchorPoint.y() * layerSize.height();
     TransformationMatrix localMatrix;
@@ -552,7 +573,8 @@ bool LayerAndroid::canUpdateWithBlit()
 
 bool LayerAndroid::needsTexture()
 {
-    return m_content && !m_content->isEmpty();
+    return (m_content && !m_content->isEmpty())
+            || (m_originalLayer && m_originalLayer->needsTexture());
 }
 
 IntRect LayerAndroid::clippedRect() const
@@ -604,10 +626,10 @@ void LayerAndroid::showLayer(int indent)
     IntRect visible = visibleContentArea();
     IntRect clip(m_clippingRect.x(), m_clippingRect.y(),
                  m_clippingRect.width(), m_clippingRect.height());
-    ALOGD("%s %s %s (%d) [%d:0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
-          "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d",
+    ALOGD("%s %s %s (%d) [%d:%x - 0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
+          "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d originalLayer: %x %d",
           spaces, m_haveClip ? "CLIP LAYER" : "", subclassName().ascii().data(),
-          subclassType(), uniqueId(), m_owningLayer,
+          subclassType(), uniqueId(), this, m_owningLayer,
           needsTexture() ? "needs a texture" : "no texture",
           m_imageCRC ? "has an image" : "no image",
           tr.x(), tr.y(), tr.width(), tr.height(),
@@ -617,7 +639,8 @@ void LayerAndroid::showLayer(int indent)
           isPositionFixed() ? "FIXED" : "",
           m_content,
           m_content ? m_content->width() : -1,
-          m_content ? m_content->height() : -1);
+          m_content ? m_content->height() : -1,
+          m_originalLayer, m_originalLayer ? m_originalLayer->uniqueId() : -1);
 
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
@@ -879,7 +902,22 @@ bool LayerAndroid::drawChildrenCanvas(SkCanvas* canvas, PaintStyle style)
 
 void LayerAndroid::contentDraw(SkCanvas* canvas, PaintStyle style)
 {
-    if (m_content)
+    if (m_maskLayer && m_maskLayer->m_content) {
+        // TODO: we should use a shader instead of doing
+        // the masking in software
+
+        if (m_originalLayer)
+            m_originalLayer->m_content->draw(canvas);
+        else if (m_content)
+            m_content->draw(canvas);
+
+        SkPaint maskPaint;
+        maskPaint.setXfermodeMode(SkXfermode::kDstIn_Mode);
+        int count = canvas->saveLayer(0, &maskPaint, SkCanvas::kHasAlphaLayer_SaveFlag);
+        m_maskLayer->m_content->draw(canvas);
+        canvas->restoreToCount(count);
+
+    } else if (m_content)
         m_content->draw(canvas);
 
     if (TilesManager::instance()->getShowVisualIndicator()) {
