@@ -199,6 +199,22 @@ bool GraphicsLayerAndroid::replaceChild(GraphicsLayer* oldChild, GraphicsLayer* 
     return ret;
 }
 
+void GraphicsLayerAndroid::setReplicatedLayer(GraphicsLayer* layer)
+{
+    GraphicsLayer::setReplicatedLayer(layer);
+    if (m_replicatedLayer) {
+        GraphicsLayerAndroid* graphicsLayer = static_cast<GraphicsLayerAndroid*>(m_replicatedLayer);
+        if (graphicsLayer->m_contentLayer)
+            graphicsLayer->m_contentLayer->setReplicatedLayer(m_contentLayer);
+        if (maskLayer()) {
+            GraphicsLayerAndroid* maskLayer = static_cast<GraphicsLayerAndroid*>(GraphicsLayer::maskLayer());
+            m_contentLayer->setMaskLayer(maskLayer->m_contentLayer);
+        }
+        m_contentLayer->setReplicatedLayerPosition(replicatedLayerPosition());
+        askForSync();
+    }
+}
+
 void GraphicsLayerAndroid::removeFromParent()
 {
     ALOGV("(%x) removeFromParent()", this);
@@ -745,6 +761,16 @@ bool GraphicsLayerAndroid::repaint()
             m_foregroundClipLayer->setPosition(layerBounds.x(), layerBounds.y());
             m_foregroundClipLayer->setSize(layerBounds.width(), layerBounds.height());
         } else {
+
+            // If we are replicated, paint the mask
+            if (isReplicated()) {
+                GraphicsLayerAndroid* replicatedLayer = static_cast<GraphicsLayerAndroid*>(replicaLayer());
+                if (replicatedLayer->maskLayer()) {
+                     GraphicsLayerAndroid* mask = static_cast<GraphicsLayerAndroid*>(replicatedLayer->maskLayer());
+                     mask->paintContext(mask->m_contentLayer, layerBounds, false);
+                }
+            }
+
             // If there is no contents clip, we can draw everything into one
             // picture.
             bool painting = paintContext(m_contentLayer, layerBounds);
@@ -806,7 +832,8 @@ SkPicture* GraphicsLayerAndroid::paintPicture(const IntRect& rect)
 }
 
 bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
-                                        const IntRect& rect)
+                                        const IntRect& rect,
+                                        bool checkOptimisations)
 {
     if (!layer)
         return false;
@@ -817,7 +844,10 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
     picture->endRecording();
 
     PictureLayerContent* layerContent = new PictureLayerContent(picture);
-    layerContent->checkForOptimisations();
+    if (checkOptimisations)
+        layerContent->checkForOptimisations();
+    else
+        layerContent->setCheckForOptimisations(false);
     layer->setContent(layerContent);
     SkSafeUnref(layerContent);
     SkSafeUnref(picture);
@@ -1079,9 +1109,14 @@ void GraphicsLayerAndroid::askForSync()
 
 void GraphicsLayerAndroid::syncChildren()
 {
-    if (m_needsSyncChildren && !m_contentLayer->isFixedBackground()) {
+    if (m_needsSyncChildren || isReplicated()) {
         m_contentLayer->removeChildren();
         LayerAndroid* layer = m_contentLayer;
+
+        if (isReplicated()) {
+            GraphicsLayerAndroid* replicatedLayer = static_cast<GraphicsLayerAndroid*>(replicaLayer());
+            m_contentLayer->addChild(replicatedLayer->m_contentLayer);
+        }
 
         if (m_contentLayer->isFixedBackground()) {
             m_contentLayer->addChild(m_foregroundClipLayer);

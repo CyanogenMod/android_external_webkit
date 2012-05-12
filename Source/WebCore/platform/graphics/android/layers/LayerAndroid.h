@@ -289,6 +289,16 @@ public:
 
     int setHwAccelerated(bool hwAccelerated);
 
+    void setReplicatedLayer(LayerAndroid* layer) { m_replicatedLayer = layer; }
+    void setReplicatedLayerPosition(const FloatPoint& p) { m_replicatedLayerPosition = p; }
+    void setOriginalLayer(LayerAndroid* layer) { m_originalLayer = layer; }
+    bool hasReplicatedLayer() { return m_replicatedLayer; }
+    const TransformationMatrix* replicatedLayerDrawTransform() {
+        if (m_replicatedLayer)
+            return m_replicatedLayer->drawTransform();
+        return 0;
+    }
+
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style);
     virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated) { return InvalidateNone; }
@@ -380,6 +390,13 @@ private:
     bool m_intrinsicallyComposited;
 
     Surface* m_surface;
+
+    // link to a replicated layer (used e.g. for reflections)
+    LayerAndroid* m_replicatedLayer;
+    FloatPoint    m_replicatedLayerPosition;
+    LayerAndroid* m_originalLayer;
+    // link to a mask layer
+    LayerAndroid* m_maskLayer;
 
     typedef Layer INHERITED;
 };
