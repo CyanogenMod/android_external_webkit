@@ -601,7 +601,7 @@ void LayerAndroid::showLayer(int indent)
 
     int count = this->countChildren();
     for (int i = 0; i < count; i++)
-        this->getChild(i)->showLayer(indent + 1);
+        this->getChild(i)->showLayer(indent + 2);
 }
 
 void LayerAndroid::mergeInvalsInto(LayerAndroid* replacementTree)

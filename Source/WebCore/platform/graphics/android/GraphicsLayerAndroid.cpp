@@ -124,7 +124,7 @@ GraphicsLayerAndroid::~GraphicsLayerAndroid()
     if (m_image)
         m_image->deref();
 
-    m_contentLayer->unref();
+    SkSafeUnref(m_contentLayer);
     SkSafeUnref(m_fixedBackgroundLayer);
     SkSafeUnref(m_foregroundLayer);
     SkSafeUnref(m_foregroundClipLayer);
@@ -591,10 +591,10 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
         return;
     if (!view->style()->hasFixedBackgroundImage())
         return;
-    if (m_contentLayer->isFixedBackground())
-        return;
-    if (m_fixedBackgroundLayer) // already created
-        return;
+
+    SkSafeUnref(m_foregroundClipLayer);
+    SkSafeUnref(m_fixedBackgroundLayer);
+    SkSafeUnref(m_foregroundLayer);
 
     // we will have:
     // m_contentLayer
@@ -602,11 +602,10 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
     //     \- m_fixedBackgroundLayer
     //   \- m_foregroundLayer
 
-    // Grab the background image and create a layer for it
+    // use the background image and create a layer for it
     // the layer will be fixed positioned.
 
     Image* image = FixedBackgroundImageLayerAndroid::GetCachedImage(view->style());
-
     if (!image)
         return;
 
@@ -634,15 +633,23 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
     m_foregroundLayer->setIntrinsicallyComposited(true);
 
     // Finally, let's assemble all the layers under a FixedBackgroundLayerAndroid layer
-    LayerAndroid* layer = new FixedBackgroundLayerAndroid(*m_contentLayer);
-    m_contentLayer->unref();
-    m_contentLayer = layer;
+    if (!m_contentLayer->isFixedBackground()) {
+        m_contentLayer->removeChildren();
+        LayerAndroid* layer = new FixedBackgroundLayerAndroid(*m_contentLayer);
+        m_contentLayer->unref();
+        m_contentLayer = layer;
+    }
 
-    m_contentLayer->addChild(m_foregroundClipLayer);
-    m_contentLayer->addChild(m_foregroundLayer);
-
-    m_needsRepaint = true;
+    if (m_parent) {
+        // The content layer has changed so the parent needs to sync
+        // children.
+        static_cast<GraphicsLayerAndroid*>(m_parent)->m_needsSyncChildren = true;
+    }
+    // Children are all re-parented.
     m_needsSyncChildren = true;
+
+    setNeedsDisplay();
+    askForSync();
 }
 
 void GraphicsLayerAndroid::updateScrollOffset() {

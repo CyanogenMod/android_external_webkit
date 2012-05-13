@@ -29,13 +29,13 @@
 #include "SkBitmapRef.h"
 #include "Vector.h"
 
-class FloatPoint3D;
-class Image;
 class SkBitmapRef;
 class SkRegion;
 
 namespace WebCore {
 
+class FloatPoint3D;
+class Image;
 class LayerAndroid;
 class FixedBackgroundImageLayerAndroid;
 class ScrollableLayerAndroid;

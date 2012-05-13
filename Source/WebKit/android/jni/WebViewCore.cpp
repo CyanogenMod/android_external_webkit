@@ -872,6 +872,8 @@ BaseLayerAndroid* WebViewCore::createBaseLayer(GraphicsLayerAndroid* root)
         realBase->setSize(content->width(), content->height());
         realBase->addChild(baseBackground);
         realBase->addChild(base);
+        baseBackground->unref();
+        base->unref();
     } else {
         realBase = new BaseLayerAndroid(content);
         base = realBase;
