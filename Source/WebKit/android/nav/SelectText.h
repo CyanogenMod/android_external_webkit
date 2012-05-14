@@ -35,32 +35,24 @@ namespace android {
 class SelectText : public RegionLayerDrawExtra {
 public:
     enum HandleId {
-        StartHandle = 0,
-        EndHandle = 1,
-        BaseHandle = 2,
-        ExtentHandle = 3,
+        LeftHandle = 0,
+        RightHandle = 1,
     };
 
-    IntRect& caretRect(HandleId id) { return m_caretRects[mapId(id)]; }
-    void setCaretRect(HandleId id, const IntRect& rect) { m_caretRects[mapId(id)] = rect; }
-    IntRect& textRect(HandleId id) { return m_textRects[mapId(id)]; }
-    void setTextRect(HandleId id, const IntRect& rect) { m_textRects[mapId(id)] = rect; }
-    int caretLayerId(HandleId id) { return m_caretLayerId[mapId(id)]; }
-    void setCaretLayerId(HandleId id, int layerId) { m_caretLayerId[mapId(id)] = layerId; }
-
-    bool isBaseFirst() const { return m_baseIsFirst; }
-    void setBaseFirst(bool isFirst) { m_baseIsFirst = isFirst; }
+    IntRect& caretRect(HandleId id) { return m_caretRects[id]; }
+    void setCaretRect(HandleId id, const IntRect& rect) { m_caretRects[id] = rect; }
+    IntRect& textRect(HandleId id) { return m_textRects[id]; }
+    void setTextRect(HandleId id, const IntRect& rect) { m_textRects[id] = rect; }
+    int caretLayerId(HandleId id) { return m_caretLayerId[id]; }
+    void setCaretLayerId(HandleId id, int layerId) { m_caretLayerId[id] = layerId; }
 
     void setText(const String& text) { m_text = text.threadsafeCopy(); }
     String& getText() { return m_text; }
 
 private:
-    HandleId mapId(HandleId id);
-
     IntRect m_caretRects[2];
     IntRect m_textRects[2];
     int m_caretLayerId[2];
-    bool m_baseIsFirst;
     String m_text;
 };
 
