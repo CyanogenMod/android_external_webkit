@@ -41,7 +41,7 @@ public:
     virtual bool contentIsScrollable() const { return true; }
 
     virtual LayerAndroid* copy() const { return new ScrollableLayerAndroid(*this); }
-    virtual SubclassType subclassType() { return LayerAndroid::ScrollableLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::ScrollableLayer; }
 
     // Scrolls to the given position in the layer.
     // Returns whether or not any scrolling was required.

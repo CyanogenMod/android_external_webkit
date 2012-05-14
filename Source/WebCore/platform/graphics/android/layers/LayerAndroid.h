@@ -132,16 +132,14 @@ public:
     void setBackfaceVisibility(bool value) { m_backfaceVisibility = value; }
     void setTransform(const TransformationMatrix& matrix) { m_transform = matrix; }
     FloatPoint translation() const;
-    // Returns a rect describing the bounds of the layer with the local
-    // transformation applied, expressed relative to the parent layer.
-    // FIXME: Currently we use only the translation component of the local
-    // transformation.
-    SkRect bounds() const;
     IntRect clippedRect() const;
     bool outsideViewport();
 
-    IntRect fullContentArea();
-    IntRect visibleContentArea(bool force3dContentVisible = false);
+    // Returns the full area of the layer mapped into global content coordinates
+    FloatRect fullContentAreaMapped() const;
+
+    IntRect fullContentArea() const;
+    IntRect visibleContentArea(bool force3dContentVisible = false) const;
 
     virtual bool needsTexture();
 
@@ -220,7 +218,6 @@ public:
      */
     void updatePositions();
 
-    void clipArea(SkTDArray<SkRect>* region) const;
     const LayerAndroid* find(int* xPtr, int* yPtr, SkPicture* root) const;
     const LayerAndroid* findById(int uniqueID) const
     {
@@ -240,8 +237,6 @@ public:
         between layers.
     */
     void setContentsImage(SkBitmapRef* img);
-
-    void bounds(SkRect*) const;
 
     virtual LayerAndroid* copy() const { return new LayerAndroid(*this); }
 
@@ -271,7 +266,7 @@ public:
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
     LayerType type() { return m_type; }
-    virtual SubclassType subclassType() { return LayerAndroid::StandardLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::StandardLayer; }
 
     bool hasText();
 
@@ -313,7 +308,6 @@ private:
 
     void copyAnimationStartTimes(LayerAndroid* oldLayer);
     bool prepareContext(bool force = false);
-    void clipInner(SkTDArray<SkRect>* region, const SkRect& local) const;
 
     // -------------------------------------------------------------------
     // Fields to be serialized

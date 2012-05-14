@@ -52,7 +52,7 @@ public:
     virtual bool isIFrameContent() const { return true; }
 
     virtual LayerAndroid* copy() const { return new IFrameContentLayerAndroid(*this); }
-    virtual SubclassType subclassType() { return LayerAndroid::IFrameContentLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::IFrameContentLayer; }
 
     // Scrolls to the given position in the layer.
     // Returns whether or not any scrolling was required.

@@ -337,61 +337,6 @@ FloatPoint LayerAndroid::translation() const
     return p;
 }
 
-SkRect LayerAndroid::bounds() const
-{
-    SkRect rect;
-    bounds(&rect);
-    return rect;
-}
-
-void LayerAndroid::bounds(SkRect* rect) const
-{
-    const SkPoint& pos = this->getPosition();
-    const SkSize& size = this->getSize();
-
-    // The returned rect has the translation applied
-    // FIXME: apply the full transform to the rect,
-    // and fix the text selection accordingly
-    FloatPoint p(pos.fX, pos.fY);
-    p = m_transform.mapPoint(p);
-    rect->fLeft = p.x();
-    rect->fTop = p.y();
-    rect->fRight = p.x() + size.width();
-    rect->fBottom = p.y() + size.height();
-}
-
-static bool boundsIsUnique(const SkTDArray<SkRect>& region,
-                           const SkRect& local)
-{
-    for (int i = 0; i < region.count(); i++) {
-        if (region[i].contains(local))
-            return false;
-    }
-    return true;
-}
-
-void LayerAndroid::clipArea(SkTDArray<SkRect>* region) const
-{
-    SkRect local;
-    local.set(0, 0, std::numeric_limits<float>::max(),
-        std::numeric_limits<float>::max());
-    clipInner(region, local);
-}
-
-void LayerAndroid::clipInner(SkTDArray<SkRect>* region,
-                             const SkRect& local) const
-{
-    SkRect localBounds;
-    bounds(&localBounds);
-    localBounds.intersect(local);
-    if (localBounds.isEmpty())
-        return;
-    if (m_content && boundsIsUnique(*region, localBounds))
-        *region->append() = localBounds;
-    for (int i = 0; i < countChildren(); i++)
-        getChild(i)->clipInner(region, m_haveClip ? localBounds : local);
-}
-
 IFrameLayerAndroid* LayerAndroid::updatePosition(SkRect viewport,
                                                  IFrameLayerAndroid* parentIframeLayer)
 {
@@ -631,8 +576,8 @@ void LayerAndroid::showLayer(int indent)
           "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d originalLayer: %x %d",
           spaces, m_haveClip ? "CLIP LAYER" : "", subclassName().ascii().data(),
           subclassType(), uniqueId(), this, m_owningLayer,
-          needsTexture() ? "needs a texture" : "no texture",
-          m_imageCRC ? "has an image" : "no image",
+          needsTexture() ? "needsTexture" : "",
+          m_imageCRC ? "hasImage" : "",
           tr.x(), tr.y(), tr.width(), tr.height(),
           visible.x(), visible.y(), visible.width(), visible.height(),
           clip.x(), clip.y(), clip.width(), clip.height(),
@@ -786,17 +731,20 @@ int LayerAndroid::setHwAccelerated(bool hwAccelerated)
     return flags | onSetHwAccelerated(hwAccelerated);
 }
 
-IntRect LayerAndroid::fullContentArea()
+FloatRect LayerAndroid::fullContentAreaMapped() const
 {
-    IntRect area;
-    area.setX(0);
-    area.setY(0);
-    area.setWidth(getSize().width());
-    area.setHeight(getSize().height());
+    FloatRect area(0,0, getWidth(), getHeight());
+    FloatRect globalArea = m_drawTransform.mapRect(area);
+    return globalArea;
+}
+
+IntRect LayerAndroid::fullContentArea() const
+{
+    IntRect area(0,0, getWidth(), getHeight());
     return area;
 }
 
-IntRect LayerAndroid::visibleContentArea(bool force3dContentVisible)
+IntRect LayerAndroid::visibleContentArea(bool force3dContentVisible) const
 {
     IntRect area = fullContentArea();
     if (subclassType() == LayerAndroid::FixedBackgroundImageLayer)

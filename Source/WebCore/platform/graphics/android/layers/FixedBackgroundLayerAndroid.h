@@ -39,7 +39,7 @@ public:
 
     virtual bool isFixedBackground() const { return true; }
 
-    virtual SubclassType subclassType() { return LayerAndroid::FixedBackgroundLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::FixedBackgroundLayer; }
 };
 
 }
