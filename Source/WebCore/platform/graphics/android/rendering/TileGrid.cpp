@@ -241,11 +241,17 @@ void TileGrid::prepareTile(int x, int y, TilePainter* painter,
     if (tile->isDirty() || !tile->frontTexture())
         tile->reserveTexture();
 
-    if (tile->backTexture() && tile->isDirty() && !tile->isRepaintPending()) {
+    if (tile->backTexture() && tile->isDirty()) {
+        TilesManager* tilesManager = TilesManager::instance();
+
+        // if a scheduled repaint is still outstanding, update it with the new painter
+        if (tile->isRepaintPending() && tilesManager->tryUpdateOperationWithPainter(tile, painter))
+            return;
+
         ALOGV("painting TG %p's tile %d %d for LG %p", this, x, y, painter);
         PaintTileOperation *operation = new PaintTileOperation(tile, painter,
                                                                state, isLowResPrefetch);
-        TilesManager::instance()->scheduleOperation(operation);
+        tilesManager->scheduleOperation(operation);
     }
 }
 

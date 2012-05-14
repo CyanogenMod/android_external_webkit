@@ -33,6 +33,7 @@ public:
     virtual ~QueuedOperation() {}
     virtual void run() = 0;
     virtual bool operator==(const QueuedOperation* operation) = 0;
+    virtual void* uniquePtr() = 0;
     virtual int priority() = 0;
 };
 

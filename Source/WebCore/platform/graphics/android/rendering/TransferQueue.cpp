@@ -58,7 +58,6 @@ TransferQueue::TransferQueue(bool useMinimalMem)
     , m_fboID(0)
     , m_sharedSurfaceTextureId(0)
     , m_hasGLContext(true)
-    , m_interruptedByRemovingOp(false)
     , m_currentDisplay(EGL_NO_DISPLAY)
     , m_currentUploadType(DEFAULT_UPLOAD_TYPE)
 {
@@ -216,17 +215,8 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
 #endif
 }
 
-void TransferQueue::interruptTransferQueue(bool interrupt)
-{
-    m_transferQueueItemLocks.lock();
-    m_interruptedByRemovingOp = interrupt;
-    if (m_interruptedByRemovingOp)
-        m_transferQueueItemCond.signal();
-    m_transferQueueItemLocks.unlock();
-}
-
 // This function must be called inside the m_transferQueueItemLocks, for the
-// wait, m_interruptedByRemovingOp and getHasGLContext().
+// wait and getHasGLContext().
 // Only called by updateQueueWithBitmap() for now.
 bool TransferQueue::readyForUpdate()
 {
@@ -234,13 +224,8 @@ bool TransferQueue::readyForUpdate()
         return false;
     // Don't use a while loop since when the WebView tear down, the emptyCount
     // will still be 0, and we bailed out b/c of GL context lost.
-    if (!m_emptyItemCount) {
-        if (m_interruptedByRemovingOp)
-            return false;
+    if (!m_emptyItemCount)
         m_transferQueueItemCond.wait(m_transferQueueItemLocks);
-        if (m_interruptedByRemovingOp)
-            return false;
-    }
 
     if (!getHasGLContext())
         return false;
