@@ -39,6 +39,7 @@ public:
     virtual int width();
     virtual int height();
     virtual bool isEmpty();
+    virtual void setCheckForOptimisations(bool check) { m_checkedContent = !check; }
     virtual void checkForOptimisations();
     virtual bool hasText();
     virtual void draw(SkCanvas* canvas);

@@ -37,6 +37,7 @@ public:
 
     virtual int width() { return m_picturePile.size().width(); }
     virtual int height() { return m_picturePile.size().height(); }
+    virtual void setCheckForOptimisations(bool check) {}
     virtual void checkForOptimisations() {}
     virtual bool hasText() { return true; }
     virtual void draw(SkCanvas* canvas);

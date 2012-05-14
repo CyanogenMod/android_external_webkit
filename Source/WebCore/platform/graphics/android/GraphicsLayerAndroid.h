@@ -57,6 +57,7 @@ public:
     virtual void addChildAbove(GraphicsLayer* layer, GraphicsLayer* sibling);
     virtual void addChildBelow(GraphicsLayer* layer, GraphicsLayer* sibling);
     virtual bool replaceChild(GraphicsLayer* oldChild, GraphicsLayer* newChild);
+    virtual void setReplicatedLayer(GraphicsLayer* layer);
 
     virtual void removeFromParent();
 
@@ -147,7 +148,9 @@ private:
     void needsNotifyClient();
 
     SkPicture* paintPicture(const IntRect& rect);
-    bool paintContext(LayerAndroid* layer, const IntRect& rect);
+    bool paintContext(LayerAndroid* layer,
+                      const IntRect& rect,
+                      bool checkOptimisations = true);
 
     bool m_needsSyncChildren;
     bool m_needsSyncMask;
