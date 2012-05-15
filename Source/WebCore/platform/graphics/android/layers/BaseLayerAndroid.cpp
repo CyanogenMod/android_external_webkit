@@ -202,4 +202,35 @@ bool FixedBackgroundImageLayerAndroid::drawGL(bool layerTilesDisabled)
     return false;
 }
 
+Image* FixedBackgroundImageLayerAndroid::GetCachedImage(PassRefPtr<RenderStyle> aStyle)
+{
+    RefPtr<RenderStyle> style = aStyle;
+    if (!style)
+        return 0;
+
+    if (!style->hasFixedBackgroundImage())
+        return 0;
+
+    FillLayer* layers = style->accessBackgroundLayers();
+    StyleImage* styleImage = layers->image();
+
+    if (!styleImage)
+        return 0;
+
+    if (!styleImage->isLoaded())
+        return 0;
+
+    if (!styleImage->isCachedImage())
+        return 0;
+
+    CachedImage* cachedImage = static_cast<StyleCachedImage*>(styleImage)->cachedImage();
+
+    Image* image = cachedImage->image();
+
+    if (image == Image::nullImage())
+        return 0;
+
+    return image;
+}
+
 } // namespace WebCore

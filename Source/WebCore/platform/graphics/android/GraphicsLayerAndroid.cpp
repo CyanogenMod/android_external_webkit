@@ -604,24 +604,22 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
 
     // Grab the background image and create a layer for it
     // the layer will be fixed positioned.
-    FillLayer* layers = view->style()->accessBackgroundLayers();
-    StyleImage* styleImage = layers->image();
-    if (styleImage->isCachedImage()) {
-        CachedImage* cachedImage = static_cast<StyleCachedImage*>(styleImage)->cachedImage();
-        Image* image = cachedImage->image();
-        if (image) {
-            m_fixedBackgroundLayer = new FixedBackgroundImageLayerAndroid(view->style(),
-                                                                          view->width(),
-                                                                          view->height());
 
-            Color color = view->style()->visitedDependentColor(CSSPropertyBackgroundColor);
-            SkColor skiaColor = SkColorSetARGB(color.alpha(),
-                                               color.red(),
-                                               color.green(),
-                                               color.blue());
-            m_fixedBackgroundLayer->setBackgroundColor(skiaColor);
-        }
-    }
+    Image* image = FixedBackgroundImageLayerAndroid::GetCachedImage(view->style());
+
+    if (!image)
+        return;
+
+    m_fixedBackgroundLayer = new FixedBackgroundImageLayerAndroid(view->style(),
+                                                                  view->width(),
+                                                                  view->height());
+
+    Color color = view->style()->visitedDependentColor(CSSPropertyBackgroundColor);
+    SkColor skiaColor = SkColorSetARGB(color.alpha(),
+                                       color.red(),
+                                       color.green(),
+                                       color.blue());
+    m_fixedBackgroundLayer->setBackgroundColor(skiaColor);
 
     // We need to clip the background image to the bounds of the original element
     m_foregroundClipLayer = new LayerAndroid(renderLayer);
