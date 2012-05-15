@@ -835,7 +835,8 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
             Color viewBackground = view->baseBackgroundColor();
             background = bodyHasCSSBackground ? viewBackground.blend(background) : viewBackground;
         }
-        bodyHasFixedBackgroundImage = style->hasFixedBackgroundImage();
+        bodyHasFixedBackgroundImage = style->hasFixedBackgroundImage()
+           && FixedBackgroundImageLayerAndroid::GetCachedImage(style);
     }
 
     PicturePileLayerContent* content = new PicturePileLayerContent(m_content);
