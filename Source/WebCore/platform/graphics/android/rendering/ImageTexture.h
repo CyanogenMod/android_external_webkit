@@ -95,6 +95,7 @@ public:
 
 private:
     const TransformationMatrix* transform();
+    void getImageToLayerScale(float* scaleW, float* scaleH) const;
 
     SkBitmapRef* m_imageRef;
     SkBitmap* m_image;

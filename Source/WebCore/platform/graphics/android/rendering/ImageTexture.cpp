@@ -198,11 +198,12 @@ const TransformationMatrix* ImageTexture::transform()
     if (!m_layer)
         return 0;
 
-    IntRect layerArea = m_layer->fullContentArea();
-    float scaleW = static_cast<float>(layerArea.width()) / static_cast<float>(m_image->width());
-    float scaleH = static_cast<float>(layerArea.height()) / static_cast<float>(m_image->height());
     TransformationMatrix d = *(m_layer->drawTransform());
     TransformationMatrix m;
+    float scaleW = 1.0f;
+    float scaleH = 1.0f;
+    getImageToLayerScale(&scaleW, &scaleH);
+
     m.scaleNonUniform(scaleW, scaleH);
     m_layerMatrix = d.multiply(m);
     return &m_layerMatrix;
@@ -228,6 +229,24 @@ bool ImageTexture::paint(SkCanvas* canvas)
     return true;
 }
 
+void ImageTexture::getImageToLayerScale(float* scaleW, float* scaleH) const
+{
+    if (!scaleW || !scaleH)
+        return;
+
+
+    IntRect layerArea = m_layer->fullContentArea();
+
+    if (layerArea.width() == 0 || layerArea.height() == 0)
+        return;
+
+    // calculate X, Y scale difference between image pixel coordinates and layer
+    // content coordinates
+
+    *scaleW = static_cast<float>(layerArea.width()) / static_cast<float>(m_image->width());
+    *scaleH = static_cast<float>(layerArea.height()) / static_cast<float>(m_image->height());
+}
+
 void ImageTexture::drawGL(LayerAndroid* layer,
                          float opacity, FloatPoint* offset)
 {
@@ -242,6 +261,16 @@ void ImageTexture::drawGL(LayerAndroid* layer,
     if (m_tileGrid) {
         bool force3dContentVisible = true;
         IntRect visibleContentArea = m_layer->visibleContentArea(force3dContentVisible);
+
+        // transform visibleContentArea size to image size
+        float scaleW = 1.0f;
+        float scaleH = 1.0f;
+        getImageToLayerScale(&scaleW, &scaleH);
+        visibleContentArea.setX(visibleContentArea.x() / scaleW);
+        visibleContentArea.setWidth(visibleContentArea.width() / scaleW);
+        visibleContentArea.setY(visibleContentArea.y() / scaleH);
+        visibleContentArea.setHeight(visibleContentArea.height() / scaleH);
+
         const TransformationMatrix* transformation = transform();
         if (offset)
             m_layerMatrix.translate(offset->x(), offset->y());
