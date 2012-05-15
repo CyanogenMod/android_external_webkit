@@ -31,6 +31,7 @@
 
 namespace WebCore {
 
+class Image;
 class RenderLayerCompositor;
 class RenderStyle;
 
@@ -68,6 +69,7 @@ public:
     virtual bool needsTexture() { return true; }
     virtual SubclassType subclassType() const { return LayerAndroid::FixedBackgroundImageLayer; }
     virtual bool drawGL(bool layerTilesDisabled);
+    static Image* GetCachedImage(PassRefPtr<RenderStyle> style);
 
 private:
     int m_width;
