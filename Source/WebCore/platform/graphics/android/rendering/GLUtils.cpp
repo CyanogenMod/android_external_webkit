@@ -533,9 +533,11 @@ void GLUtils::createTextureWithBitmap(GLuint texture, const SkBitmap& bitmap, GL
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        ALOGE("GL ERROR: glTexImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+        ALOGE("GL ERROR: glTexImage2D parameters are : textureId %d,"
+              " bitmap.width() %d, bitmap.height() %d,"
               " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
-              bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+              texture, bitmap.width(), bitmap.height(), internalformat, type,
+              bitmap.getPixels());
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
@@ -563,9 +565,11 @@ void GLUtils::updateTextureWithBitmap(GLuint texture, const SkBitmap& bitmap,
 #ifndef DEBUG
         if (allowGLLog())
 #endif
-        ALOGE("GL ERROR: glTexSubImage2D parameters are : bitmap.width() %d, bitmap.height() %d,"
+        ALOGE("GL ERROR: glTexSubImage2D parameters are : textureId %d,"
+              " bitmap.width() %d, bitmap.height() %d,"
               " internalformat 0x%x, type 0x%x, bitmap.getPixels() %p",
-              bitmap.width(), bitmap.height(), internalformat, type, bitmap.getPixels());
+              texture, bitmap.width(), bitmap.height(), internalformat, type,
+              bitmap.getPixels());
     }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
