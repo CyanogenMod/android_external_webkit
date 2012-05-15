@@ -738,6 +738,8 @@ namespace android {
         static WebCore::IntRect positionToTextRect(const WebCore::Position& position,
                 WebCore::EAffinity affinity);
         static bool isLtr(const WebCore::Position& position);
+        static WebCore::Position trimSelectionPosition(
+                const WebCore::Position& start, const WebCore::Position& stop);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);

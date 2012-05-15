@@ -1686,6 +1686,35 @@ IntPoint WebViewCore::convertGlobalContentToFrameContent(const IntPoint& point, 
     return IntPoint(point.x() + frameOffset.x(), point.y() + frameOffset.y());
 }
 
+Position WebViewCore::trimSelectionPosition(const Position &start, const Position& stop)
+{
+    int direction = comparePositions(start, stop);
+    if (direction == 0)
+        return start;
+    bool forward = direction < 0;
+    EAffinity affinity = forward ? DOWNSTREAM : UPSTREAM;
+    bool move;
+    Position pos = start;
+    bool movedTooFar = false;
+    do {
+        move = true;
+        Node* node = pos.anchorNode();
+        if (node && node->isTextNode() && node->renderer()) {
+            RenderText *textRenderer = toRenderText(node->renderer());
+            move = !textRenderer->textLength();
+        }
+        if (move) {
+            Position nextPos = forward ? pos.next() : pos.previous();
+            movedTooFar = nextPos.isNull() || pos == nextPos
+                    || ((comparePositions(nextPos, stop) < 0) != forward);
+            pos = nextPos;
+        }
+    } while (move && !movedTooFar);
+    if (movedTooFar)
+        pos = stop;
+    return pos;
+}
+
 void WebViewCore::selectText(int startX, int startY, int endX, int endY)
 {
     SelectionController* sc = focusedFrame()->selection();
@@ -1722,7 +1751,11 @@ void WebViewCore::selectText(int startX, int startY, int endX, int endY)
             endPosition = prevEndPosition;
     }
 
-    VisibleSelection selection(startPosition, endPosition);
+    Position start = startPosition.deepEquivalent();
+    Position end = endPosition.deepEquivalent();
+    start = trimSelectionPosition(start, end);
+    end = trimSelectionPosition(end, start);
+    VisibleSelection selection(start, end);
     // Only allow changes between caret positions or to text selection.
     bool selectChangeAllowed = (!selection.isCaret() || sc->isCaret());
     if (selectChangeAllowed && sc->shouldChangeSelection(selection))
