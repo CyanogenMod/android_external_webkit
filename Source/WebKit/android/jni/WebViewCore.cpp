@@ -4726,11 +4726,9 @@ static void Pause(JNIEnv* env, jobject obj, jint nativeClass)
     // browser). The browser can only be killed by the system when it is in the
     // background, so saving the Geolocation permission state now ensures that
     // is maintained when the browser is killed.
-    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    ChromeClient* chromeClient = viewImpl->mainFrame()->page()->chrome()->client();
-    ChromeClientAndroid* chromeClientAndroid = static_cast<ChromeClientAndroid*>(chromeClient);
-    chromeClientAndroid->storeGeolocationPermissions();
+    GeolocationPermissions::maybeStorePermanentPermissions();
 
+    WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     Frame* mainFrame = viewImpl->mainFrame();
     for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
         Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();

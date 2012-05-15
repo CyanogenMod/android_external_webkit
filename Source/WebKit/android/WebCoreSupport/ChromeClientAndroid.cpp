@@ -516,8 +516,9 @@ void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame* frame, Geo
 {
     ASSERT(geolocation);
     if (!m_geolocationPermissions) {
-        m_geolocationPermissions = new GeolocationPermissions(android::WebViewCore::getWebViewCore(frame->view()),
-                                                              m_webFrame->page()->mainFrame());
+        WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frame->view());
+        ASSERT(webViewCore->mainFrame() == m_webFrame->page()->mainFrame());
+        m_geolocationPermissions = new GeolocationPermissions(webViewCore);
     }
     m_geolocationPermissions->queryPermissionState(frame);
 }
@@ -530,13 +531,7 @@ void ChromeClientAndroid::cancelGeolocationPermissionRequestForFrame(Frame* fram
 
 void ChromeClientAndroid::provideGeolocationPermissions(const String &origin, bool allow, bool remember)
 {
-    ASSERT(m_geolocationPermissions);
     m_geolocationPermissions->providePermissionState(origin, allow, remember);
-}
-
-void ChromeClientAndroid::storeGeolocationPermissions()
-{
-    GeolocationPermissions::maybeStorePermanentPermissions();
 }
 
 void ChromeClientAndroid::onMainFrameLoadStarted()

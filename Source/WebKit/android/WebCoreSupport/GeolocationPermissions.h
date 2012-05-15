@@ -26,9 +26,8 @@
 #ifndef GeolocationPermissions_h
 #define GeolocationPermissions_h
 
-#include "PlatformString.h"
-#include "Timer.h"
-
+#include <PlatformString.h>
+#include <Timer.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefCounted.h>
@@ -63,9 +62,8 @@ namespace android {
     class GeolocationPermissions : public RefCounted<GeolocationPermissions> {
       public:
         // Creates the GeolocationPermissions object to manage permissions for
-        // the specified main frame (i.e. tab). The WebViewCore is used to
-        // communicate with the browser to display UI.
-        GeolocationPermissions(WebViewCore* webViewCore, WebCore::Frame* mainFrame);
+        // the WebView.
+        GeolocationPermissions(WebViewCore* webViewCore);
         virtual ~GeolocationPermissions();
 
         // Queries the permission state for the specified frame. If the
@@ -140,7 +138,6 @@ namespace android {
         const WTF::String& nextOriginInQueue();
 
         WebViewCore* m_webViewCore;
-        WebCore::Frame* m_mainFrame;
         // A vector of the origins queued to make a permission request.
         // The first in the vector is the origin currently making the request.
         typedef Vector<WTF::String> OriginVector;

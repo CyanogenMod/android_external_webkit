@@ -151,7 +151,6 @@ namespace android {
         virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
         // Android-specific
         void provideGeolocationPermissions(const String &origin, bool allow, bool remember);
-        void storeGeolocationPermissions();
         void onMainFrameLoadStarted();
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
