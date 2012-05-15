@@ -53,9 +53,14 @@ public:
         return gInstance != 0;
     }
 
-    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning = false)
+    void removeOperationsForFilter(OperationFilter* filter)
     {
-        m_pixmapsGenerationThread->removeOperationsForFilter(filter, waitForRunning);
+        m_pixmapsGenerationThread->removeOperationsForFilter(filter);
+    }
+
+    bool tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter)
+    {
+        return m_pixmapsGenerationThread->tryUpdateOperationWithPainter(tile, painter);
     }
 
     void scheduleOperation(QueuedOperation* operation)

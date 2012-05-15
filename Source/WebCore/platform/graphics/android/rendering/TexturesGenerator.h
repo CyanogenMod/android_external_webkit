@@ -30,6 +30,7 @@
 
 #include "QueuedOperation.h"
 #include "TilePainter.h"
+#include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 
 #include <utils/threads.h>
@@ -43,13 +44,14 @@ class TilesManager;
 class TexturesGenerator : public Thread {
 public:
     TexturesGenerator(TilesManager* instance) : Thread(false)
-        , m_waitForCompletion(false)
         , m_currentOperation(0)
         , m_tilesManager(instance) { }
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
-    void removeOperationsForFilter(OperationFilter* filter, bool waitForRunning = true);
+    bool tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter);
+
+    void removeOperationsForFilter(OperationFilter* filter);
 
     void scheduleOperation(QueuedOperation* operation);
 
@@ -57,9 +59,9 @@ private:
     QueuedOperation* popNext();
     virtual bool threadLoop();
     WTF::Vector<QueuedOperation*> mRequestedOperations;
+    WTF::HashMap<void*, QueuedOperation*> mRequestedOperationsHash;
     android::Mutex mRequestedOperationsLock;
     android::Condition mRequestedOperationsCond;
-    bool m_waitForCompletion;
     QueuedOperation* m_currentOperation;
     TilesManager* m_tilesManager;
 };

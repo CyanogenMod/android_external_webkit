@@ -43,9 +43,12 @@ public:
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
     virtual void run();
+    virtual void* uniquePtr() { return m_tile; }
     // returns a rendering priority for m_tile, lower values are processed faster
     virtual int priority();
+
     TilePainter* painter() { return m_painter; }
+    void updatePainter(TilePainter* painter);
     float scale() { return m_tile->scale(); }
 
 private:
