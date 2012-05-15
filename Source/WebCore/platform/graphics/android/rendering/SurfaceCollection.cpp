@@ -238,4 +238,14 @@ void SurfaceCollection::updateLayerPositions(const SkRect& visibleContentRect)
 #endif
 }
 
+int SurfaceCollection::backedSize()
+{
+    int count = 0;
+    for (unsigned int i = 0; i < m_surfaces.size(); i++) {
+        if (m_surfaces[i]->needsTexture())
+            count++;
+    }
+    return count;
+}
+
 } // namespace WebCore

@@ -255,6 +255,12 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         GLUtils::clearBackgroundIfOpaque(&background);
     }
 
+#ifdef DEBUG
+    ALOGV("Drawing %d / %d surfaces",
+        m_drawingCollection ? m_drawingCollection->backedSize() : -1,
+        m_drawingCollection ? m_drawingCollection->size() : -1);
+#endif
+
     if (m_drawingCollection && m_drawingCollection->drawGL(visibleContentRect))
         returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
 
