@@ -52,8 +52,7 @@ SurfaceCollection::SurfaceCollection(BaseLayerAndroid* layer)
 
     // calculate draw transforms and z values
     SkRect visibleRect = SkRect::MakeLTRB(0, 0, 1, 1);
-    m_compositedRoot->updateLayerPositions(visibleRect);
-    // TODO: updateGLPositionsAndScale?
+    m_compositedRoot->updatePositionsRecursive(visibleRect);
 
     // allocate surfaces for layers, merging where possible
     ALOGV("new tree, allocating surfaces for tree %p", m_baseLayer);
