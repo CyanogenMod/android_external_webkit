@@ -48,7 +48,7 @@ public:
     virtual bool isIFrame() const { return true; }
 
     virtual LayerAndroid* copy() const { return new IFrameLayerAndroid(*this); }
-    virtual SubclassType subclassType() { return LayerAndroid::IFrameLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::IFrameLayer; }
 
     virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
                                                IFrameLayerAndroid* parentIframeLayer);

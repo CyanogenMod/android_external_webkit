@@ -46,7 +46,7 @@ public:
     virtual ~CanvasLayer();
 
     virtual LayerAndroid* copy() const { return new CanvasLayer(*this); }
-    virtual SubclassType subclassType() { return LayerAndroid::CanvasLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::CanvasLayer; }
     virtual void clearDirtyRegion();
 
     virtual bool drawGL(bool layerTilesDisabled);
