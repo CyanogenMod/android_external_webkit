@@ -124,10 +124,6 @@ public:
     };
     static String* globalLocalizedName(rawResId resId);
 
-    // Whether the WebView is paused.
-    // ANDROID
-    // TODO: Upstream to webkit.org. See https://bugs.webkit.org/show_bug.cgi?id=34082
-    static bool isWebViewPaused(const FrameView*);
     static String resolveFilePathForContentUri(const String&);
 
     static int screenDepth();
