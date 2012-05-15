@@ -370,22 +370,18 @@ void updateRectsForGL()
 #if USE(ACCELERATED_COMPOSITING)
 static const ScrollableLayerAndroid* findScrollableLayer(
     const LayerAndroid* parent, int x, int y, SkIRect* foundBounds) {
-    SkRect bounds;
-    parent->bounds(&bounds);
+    IntRect bounds = enclosingIntRect(parent->fullContentAreaMapped());
+
     // Check the parent bounds first; this will clip to within a masking layer's
     // bounds.
     if (parent->masksToBounds() && !bounds.contains(x, y))
         return 0;
-    // Move the hit test local to parent.
-    x -= bounds.fLeft;
-    y -= bounds.fTop;
+
     int count = parent->countChildren();
     while (count--) {
         const LayerAndroid* child = parent->getChild(count);
-        const ScrollableLayerAndroid* result = findScrollableLayer(child, x, y,
-            foundBounds);
+        const ScrollableLayerAndroid* result = findScrollableLayer(child, x, y, foundBounds);
         if (result) {
-            foundBounds->offset(bounds.fLeft, bounds.fTop);
             if (parent->masksToBounds()) {
                 if (bounds.width() < foundBounds->width())
                     foundBounds->fRight = foundBounds->fLeft + bounds.width();
@@ -396,7 +392,7 @@ static const ScrollableLayerAndroid* findScrollableLayer(
         }
     }
     if (parent->contentIsScrollable()) {
-        foundBounds->set(0, 0, bounds.width(), bounds.height());
+        foundBounds->set(bounds.x(), bounds.y(), bounds.width(), bounds.height());
         return static_cast<const ScrollableLayerAndroid*>(parent);
     }
     return 0;
@@ -898,25 +894,6 @@ static bool nativeHasContent(JNIEnv *env, jobject obj)
     return GET_NATIVE_VIEW(env, obj)->hasContent();
 }
 
-static jobject nativeLayerBounds(JNIEnv* env, jobject obj, jint jlayer)
-{
-    SkRect r;
-#if USE(ACCELERATED_COMPOSITING)
-    LayerAndroid* layer = (LayerAndroid*) jlayer;
-    r = layer->bounds();
-#else
-    r.setEmpty();
-#endif
-    SkIRect irect;
-    r.round(&irect);
-    jclass rectClass = env->FindClass("android/graphics/Rect");
-    jmethodID init = env->GetMethodID(rectClass, "<init>", "(IIII)V");
-    jobject rect = env->NewObject(rectClass, init, irect.fLeft, irect.fTop,
-        irect.fRight, irect.fBottom);
-    env->DeleteLocalRef(rectClass);
-    return rect;
-}
-
 static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
 {
     WebView* view = GET_NATIVE_VIEW(env, obj);
@@ -1238,8 +1215,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeEvaluateLayersAnimations },
     { "nativeGetSelection", "()Ljava/lang/String;",
         (void*) nativeGetSelection },
-    { "nativeLayerBounds", "(I)Landroid/graphics/Rect;",
-        (void*) nativeLayerBounds },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
     { "nativeSetBaseLayer", "(IIZZ)Z",

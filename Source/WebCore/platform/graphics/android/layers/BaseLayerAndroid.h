@@ -37,7 +37,7 @@ class RenderStyle;
 class BaseLayerAndroid : public LayerAndroid {
 public:
     BaseLayerAndroid(LayerContent* content);
-    virtual SubclassType subclassType() { return LayerAndroid::BaseLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::BaseLayer; }
     virtual void getLocalTransform(SkMatrix* matrix) const;
     virtual const TransformationMatrix* drawTransform() const { return 0; }
     virtual bool needsTexture() { return content(); }
@@ -55,7 +55,7 @@ private:
 class ForegroundBaseLayerAndroid : public LayerAndroid {
 public:
     ForegroundBaseLayerAndroid(LayerContent* content);
-    virtual SubclassType subclassType() { return LayerAndroid::ForegroundBaseLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::ForegroundBaseLayer; }
 
     virtual bool needsTexture() { return false; }
 };
@@ -66,7 +66,7 @@ public:
     FixedBackgroundImageLayerAndroid(const FixedBackgroundImageLayerAndroid& layer);
     virtual LayerAndroid* copy() const { return new FixedBackgroundImageLayerAndroid(*this); }
     virtual bool needsTexture() { return true; }
-    virtual SubclassType subclassType() { return LayerAndroid::FixedBackgroundImageLayer; }
+    virtual SubclassType subclassType() const { return LayerAndroid::FixedBackgroundImageLayer; }
     virtual bool drawGL(bool layerTilesDisabled);
 
 private:
