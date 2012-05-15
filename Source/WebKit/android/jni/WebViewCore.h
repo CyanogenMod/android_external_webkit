@@ -161,11 +161,6 @@ namespace android {
          */
         void contentDraw();
 
-        /**
-         * copy the layers to the UI side
-         */
-        void layersDraw();
-
 #if USE(ACCELERATED_COMPOSITING)
         WebCore::GraphicsLayerAndroid* graphicsRootLayer() const;
 #endif
@@ -517,7 +512,7 @@ namespace android {
         // This creates a new BaseLayerAndroid by copying the current m_content
         // and doing a copy of the layers. The layers' content may be updated
         // as we are calling layersSync().
-        WebCore::BaseLayerAndroid* createBaseLayer();
+        WebCore::BaseLayerAndroid* createBaseLayer(GraphicsLayerAndroid* root);
         bool updateLayers(WebCore::LayerAndroid*);
         void notifyAnimationStarted();
 
@@ -618,6 +613,7 @@ namespace android {
         };
 
         WebCore::Node* currentFocus();
+        void layout();
         // Create a set of pictures to represent the drawn DOM, driven by
         // the invalidated region and the time required to draw (used to draw)
         void recordPicturePile();

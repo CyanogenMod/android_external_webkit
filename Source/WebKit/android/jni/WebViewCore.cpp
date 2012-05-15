@@ -617,7 +617,7 @@ WebCore::Node* WebViewCore::currentFocus()
     return focusedFrame()->document()->focusedNode();
 }
 
-void WebViewCore::recordPicturePile()
+void WebViewCore::layout()
 {
     TRACE_METHOD();
 
@@ -631,9 +631,7 @@ void WebViewCore::recordPicturePile()
     // it's fine for layout to gather invalidates, but defeat sending a message
     // back to java to call webkitDraw, since we're already in the middle of
     // doing that
-    m_skipContentDraw = true;
     bool success = layoutIfNeededRecursive(m_mainFrame);
-    m_skipContentDraw = false;
 
     // We may be mid-layout and thus cannot draw.
     if (!success)
@@ -699,16 +697,16 @@ void WebViewCore::recordPicturePile()
         view->forceLayout();
 
         // Relayout similar to above
-        m_skipContentDraw = true;
-        bool success = layoutIfNeededRecursive(m_mainFrame);
-        m_skipContentDraw = false;
-        if (!success)
-            return;
-
-        // Set the computed content width
-        width = view->contentsWidth();
-        height = view->contentsHeight();
+        layoutIfNeededRecursive(m_mainFrame);
     }
+}
+
+void WebViewCore::recordPicturePile()
+{
+    // if the webkit page dimensions changed, discard the pictureset and redraw.
+    WebCore::FrameView* view = m_mainFrame->view();
+    int width = view ? view->contentsWidth() : 0;
+    int height = view ? view->contentsHeight() : 0;
 
     m_content.setSize(IntSize(width, height));
 
@@ -732,6 +730,11 @@ bool WebViewCore::focusBoundsChanged()
 void WebViewCore::paintContents(WebCore::GraphicsContext* gc, WebCore::IntRect& dirty)
 {
     WebCore::FrameView* view = m_mainFrame->view();
+    if (!view) {
+        gc->setFillColor(WebCore::Color::white, WebCore::ColorSpaceDeviceRGB);
+        gc->fillColor();
+        return;
+    }
 
     IntPoint origin = view->minimumScrollPosition();
     IntRect drawArea = dirty;
@@ -813,7 +816,7 @@ void WebViewCore::notifyAnimationStarted()
 
 }
 
-BaseLayerAndroid* WebViewCore::createBaseLayer()
+BaseLayerAndroid* WebViewCore::createBaseLayer(GraphicsLayerAndroid* root)
 {
     // We set the background color
     Color background = Color::white;
@@ -877,15 +880,7 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
 
     SkSafeUnref(content);
 
-    m_skipContentDraw = true;
-    bool layoutSucceeded = layoutIfNeededRecursive(m_mainFrame);
-    m_skipContentDraw = false;
-    // Layout only fails if called during a layout.
-    ALOG_ASSERT(layoutSucceeded, "Can never be called recursively");
-
     // We update the layers
-    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
-    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
     if (root) {
         LayerAndroid* copyLayer = new LayerAndroid(*root->contentLayer());
         base->addChild(copyLayer);
@@ -898,9 +893,14 @@ BaseLayerAndroid* WebViewCore::createBaseLayer()
 
 BaseLayerAndroid* WebViewCore::recordContent(SkIPoint* point)
 {
+    m_skipContentDraw = true;
+    layout();
+    ChromeClientAndroid* chromeC = static_cast<ChromeClientAndroid*>(m_mainFrame->page()->chrome()->client());
+    GraphicsLayerAndroid* root = static_cast<GraphicsLayerAndroid*>(chromeC->layersSync());
+    m_skipContentDraw = false;
     recordPicturePile();
 
-    BaseLayerAndroid* baseLayer = createBaseLayer();
+    BaseLayerAndroid* baseLayer = createBaseLayer(root);
 
     baseLayer->markAsDirty(m_content.dirtyRegion());
     m_content.dirtyRegion().setEmpty();
