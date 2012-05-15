@@ -248,7 +248,7 @@ void TileGrid::prepareTile(int x, int y, TilePainter* painter,
         if (tile->isRepaintPending() && tilesManager->tryUpdateOperationWithPainter(tile, painter))
             return;
 
-        ALOGV("painting TG %p's tile %d %d for LG %p", this, x, y, painter);
+        ALOGV("painting TG %p's tile %d %d for LG %p, scale %f", this, x, y, painter, m_scale);
         PaintTileOperation *operation = new PaintTileOperation(tile, painter,
                                                                state, isLowResPrefetch);
         tilesManager->scheduleOperation(operation);

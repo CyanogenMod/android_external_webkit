@@ -51,12 +51,20 @@ bool TexturesGenerator::tryUpdateOperationWithPainter(Tile* tile, TilePainter* p
 
 void TexturesGenerator::scheduleOperation(QueuedOperation* operation)
 {
+    bool signal = false;
     {
         android::Mutex::Autolock lock(mRequestedOperationsLock);
         mRequestedOperations.append(operation);
         mRequestedOperationsHash.set(operation->uniquePtr(), operation);
+
+        bool deferrable = operation->priority() >= gDeferPriorityCutoff;
+        m_deferredMode &= deferrable;
+
+        // signal if we weren't in deferred mode, or if we can no longer defer
+        signal = !m_deferredMode || !deferrable;
     }
-    mRequestedOperationsCond.signal();
+    if (signal)
+        mRequestedOperationsCond.signal();
 }
 
 void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
@@ -115,6 +123,13 @@ QueuedOperation* TexturesGenerator::popNext()
             currentIndex = i;
         }
     }
+
+    if (!m_deferredMode && currentPriority >= gDeferPriorityCutoff) {
+        // finished with non-deferred rendering, enter deferred mode to wait
+        m_deferredMode = true;
+        return 0;
+    }
+
     mRequestedOperations.remove(currentIndex);
     mRequestedOperationsHash.remove(current->uniquePtr());
     return current;
@@ -124,36 +139,46 @@ bool TexturesGenerator::threadLoop()
 {
     // Check if we have any pending operations.
     mRequestedOperationsLock.lock();
-    while (!mRequestedOperations.size())
-        mRequestedOperationsCond.wait(mRequestedOperationsLock);
 
-    ALOGV("threadLoop, got signal");
+    if (!m_deferredMode) {
+        // if we aren't currently deferring work, wait for new work to arrive
+        while (!mRequestedOperations.size())
+            mRequestedOperationsCond.wait(mRequestedOperationsLock);
+    } else {
+        // if we only have deferred work, wait for better work, or a timeout
+        mRequestedOperationsCond.waitRelative(mRequestedOperationsLock, gDeferNsecs);
+    }
+
     mRequestedOperationsLock.unlock();
 
-    m_currentOperation = 0;
     bool stop = false;
     while (!stop) {
+        QueuedOperation* currentOperation = 0;
+
         mRequestedOperationsLock.lock();
         ALOGV("threadLoop, %d operations in the queue", mRequestedOperations.size());
+
         if (mRequestedOperations.size())
-            m_currentOperation = popNext();
+            currentOperation = popNext();
         mRequestedOperationsLock.unlock();
 
-        if (m_currentOperation) {
+        if (currentOperation) {
             ALOGV("threadLoop, painting the request with priority %d",
-                  m_currentOperation->priority());
-            m_currentOperation->run();
+                  currentOperation->priority());
+            currentOperation->run();
         }
 
-        QueuedOperation* oldOperation = m_currentOperation;
         mRequestedOperationsLock.lock();
-        if (m_currentOperation)
-            m_currentOperation = 0;
-        if (!mRequestedOperations.size())
+        if (m_deferredMode && !currentOperation)
             stop = true;
+        if (!mRequestedOperations.size()) {
+            m_deferredMode = false;
+            stop = true;
+        }
         mRequestedOperationsLock.unlock();
-        if (oldOperation)
-            delete oldOperation; // delete outside lock
+
+        if (currentOperation)
+            delete currentOperation; // delete outside lock
     }
     ALOGV("threadLoop empty");
 

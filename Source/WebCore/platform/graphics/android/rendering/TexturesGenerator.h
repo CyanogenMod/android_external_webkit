@@ -44,8 +44,8 @@ class TilesManager;
 class TexturesGenerator : public Thread {
 public:
     TexturesGenerator(TilesManager* instance) : Thread(false)
-        , m_currentOperation(0)
-        , m_tilesManager(instance) { }
+        , m_tilesManager(instance)
+        , m_deferredMode(false) { }
     virtual ~TexturesGenerator() { }
     virtual status_t readyToRun();
 
@@ -55,6 +55,10 @@ public:
 
     void scheduleOperation(QueuedOperation* operation);
 
+    // low res tiles are put at or above this cutoff when not scrolling,
+    // signifying that they should be deferred
+    static const int gDeferPriorityCutoff = 500000000;
+
 private:
     QueuedOperation* popNext();
     virtual bool threadLoop();
@@ -62,8 +66,13 @@ private:
     WTF::HashMap<void*, QueuedOperation*> mRequestedOperationsHash;
     android::Mutex mRequestedOperationsLock;
     android::Condition mRequestedOperationsCond;
-    QueuedOperation* m_currentOperation;
     TilesManager* m_tilesManager;
+
+    bool m_deferredMode;
+
+    // defer painting for one second if best in queue has priority
+    // QueuedOperation::gDeferPriorityCutoff or higher
+    static const nsecs_t gDeferNsecs = 1000000000;
 };
 
 } // namespace WebCore

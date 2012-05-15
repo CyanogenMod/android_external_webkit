@@ -34,6 +34,7 @@
 #include "ImageTexture.h"
 #include "ImagesManager.h"
 #include "LayerAndroid.h"
+#include "TexturesGenerator.h"
 #include "TilesManager.h"
 
 namespace WebCore {
@@ -89,9 +90,9 @@ int PaintTileOperation::priority()
 
     int priority = 200000;
 
-    // prioritize low res while scrolling
+    // prioritize low res while scrolling, otherwise set priority above gDeferPriorityCutoff
     if (m_isLowResPrefetch)
-        priority = m_state->isScrolling() ? 0 : 400000;
+        priority = m_state->isScrolling() ? 0 : TexturesGenerator::gDeferPriorityCutoff;
 
     // prioritize higher draw count
     unsigned long long currentDraw = TilesManager::instance()->getDrawGLCount();
