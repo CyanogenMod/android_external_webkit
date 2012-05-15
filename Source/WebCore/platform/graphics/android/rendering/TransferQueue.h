@@ -37,6 +37,7 @@
 namespace WebCore {
 
 class Tile;
+class TilePainter;
 class TileTexture;
 
 struct GLState {
@@ -75,6 +76,7 @@ public:
     TileTransferData()
     : status(emptyItem)
     , savedTilePtr(0)
+    , savedTilePainter(0)
     , savedTileTexturePtr(0)
     , uploadType(DEFAULT_UPLOAD_TYPE)
     , bitmap(0)
@@ -90,6 +92,7 @@ public:
 
     TransferItemStatus status;
     Tile* savedTilePtr;
+    TilePainter* savedTilePainter; // Ref count the tilePainter to keep the tile alive.
     TileTexture* savedTileTexturePtr;
     TextureUploadType uploadType;
     // This is only useful in Cpu upload code path, so it will be dynamically
@@ -178,10 +181,12 @@ private:
                            GLuint srcTexId, GLenum srcTexTarget,
                            int index);
 
+    void clearItemInTranferQueue(int index);
     void addItemCommon(const TileRenderInfo* renderInfo,
                        TextureUploadType type, TileTransferData* data);
 
     void updatePureColorTiles();
+    void clearPureColorQueue();
     // Note that the m_transferQueueIndex only changed in the TexGen thread
     // where we are going to move on to update the next item in the queue.
     int m_transferQueueIndex;

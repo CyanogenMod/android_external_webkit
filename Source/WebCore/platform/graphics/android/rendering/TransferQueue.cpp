@@ -265,9 +265,9 @@ void TransferQueue::setHasGLContext(bool hasContext)
 void TransferQueue::emptyAndAbandonQueue()
 {
     for (int i = 0 ; i < m_transferQueueSize; i++)
-        m_transferQueue[i].status = emptyItem;
+        clearItemInTranferQueue(i);
     m_emptyItemCount = m_transferQueueSize;
-    m_pureColorTileQueue.clear();
+    clearPureColorQueue();
 
     if (m_sharedSurfaceTexture.get()) {
         m_sharedSurfaceTexture->abandon();
@@ -295,7 +295,7 @@ void TransferQueue::setPendingDiscard()
         if (m_transferQueue[i].status == pendingBlit)
             m_transferQueue[i].status = pendingDiscard;
 
-    m_pureColorTileQueue.clear();
+    clearPureColorQueue();
 
     bool GLContextExisted = getHasGLContext();
     // Unblock the Tex Gen thread first before Tile Page deletion.
@@ -305,6 +305,15 @@ void TransferQueue::setPendingDiscard()
     // Only signal once when GL context lost.
     if (GLContextExisted)
         m_transferQueueItemCond.signal();
+}
+
+void TransferQueue::clearPureColorQueue()
+{
+    for (unsigned int i = 0 ; i < m_pureColorTileQueue.size(); i++) {
+        SkSafeUnref(m_pureColorTileQueue[i].savedTilePainter);
+        m_pureColorTileQueue[i].savedTilePainter = 0;
+    }
+    m_pureColorTileQueue.clear();
 }
 
 void TransferQueue::updatePureColorTiles()
@@ -324,7 +333,7 @@ void TransferQueue::updatePureColorTiles()
             ALOGV("Warning: Don't expect an emptyItem here.");
         }
     }
-    m_pureColorTileQueue.clear();
+    clearPureColorQueue();
 }
 
 // Call on UI thread to copy from the shared Surface Texture to the Tile's texture.
@@ -363,8 +372,7 @@ void TransferQueue::updateDirtyTiles()
                 if (result != OK)
                     ALOGE("unexpected error: updateTexImage return %d", result);
             }
-            m_transferQueue[index].savedTilePtr = 0;
-            m_transferQueue[index].status = emptyItem;
+
             if (obsoleteTile) {
                 ALOGV("Warning: the texture is obsolete for this baseTile");
                 index = (index + 1) % m_transferQueueSize;
@@ -391,7 +399,7 @@ void TransferQueue::updateDirtyTiles()
 
             destTexture->setPure(false);
             destTexture->transferComplete();
-
+            clearItemInTranferQueue(index);
             ALOGV("Blit tile x, y %d %d with dest texture %p to destTexture->m_ownTextureId %d",
                   m_transferQueue[index].savedTilePtr,
                   destTexture,
@@ -469,6 +477,14 @@ void TransferQueue::addItemInPureColorQueue(const TileRenderInfo* renderInfo)
     m_pureColorTileQueue.append(data);
 }
 
+void TransferQueue::clearItemInTranferQueue(int index)
+{
+    m_transferQueue[index].savedTilePtr = 0;
+    SkSafeUnref(m_transferQueue[index].savedTilePainter);
+    m_transferQueue[index].savedTilePainter = 0;
+    m_transferQueue[index].status = emptyItem;
+}
+
 // Translates the info from TileRenderInfo and others to TileTransferData.
 // This is used by pure color tiles and normal tiles.
 void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
@@ -476,6 +492,8 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
                                   TileTransferData* data)
 {
     data->savedTileTexturePtr = renderInfo->baseTile->backTexture();
+    data->savedTilePainter = renderInfo->tilePainter;
+    SkSafeRef(data->savedTilePainter);
     data->savedTilePtr = renderInfo->baseTile;
     data->status = pendingBlit;
     data->uploadType = type;
@@ -552,10 +570,7 @@ void TransferQueue::cleanupPendingDiscard()
                 tile->discardBackTexture();
                 ALOGV("transfer queue discarded tile %p, removed texture", tile);
             }
-
-            m_transferQueue[index].savedTilePtr = 0;
-            m_transferQueue[index].savedTileTexturePtr = 0;
-            m_transferQueue[index].status = emptyItem;
+            clearItemInTranferQueue(index);
         }
         index = (index + 1) % m_transferQueueSize;
     }
