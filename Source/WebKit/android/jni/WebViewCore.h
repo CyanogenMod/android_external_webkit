@@ -45,6 +45,7 @@
 #include "WebRequestContext.h"
 #include "android_npapi.h"
 #include "VisiblePosition.h"
+#include "SelectText.h"
 
 #include <jni.h>
 #include <androidfw/KeycodeLabels.h>
@@ -105,7 +106,6 @@ namespace android {
 
     class ListBoxReply;
     class AndroidHitTestResult;
-    class SelectText;
 
     class WebCoreReply : public WebCoreRefObject {
     public:
@@ -590,11 +590,6 @@ namespace android {
         static void layerToAbsoluteOffset(const WebCore::LayerAndroid* layer,
                                           WebCore::IntPoint& offset);
 
-        /**
-         * Returns a text position at a given coordinate.
-         */
-        WebCore::VisiblePosition visiblePositionForWindowPoint(int x, int y);
-
         // Retrieves the current locale from system properties
         void getLocale(String& language, WTF::String& region);
 
@@ -730,6 +725,11 @@ namespace android {
         bool selectWordAroundPosition(WebCore::Frame* frame,
                                       WebCore::VisiblePosition pos);
         SelectText* createSelectText(const WebCore::VisibleSelection&);
+        void setSelectionCaretInfo(SelectText* selectTextContainer,
+                const WebCore::Position& position,
+                const WebCore::IntPoint& frameOffset,
+                SelectText::HandleId handleId, int offset,
+                EAffinity affinity);
         static int getMaxLength(WebCore::Node* node);
         static WTF::String getFieldName(WebCore::Node* node);
         static bool isAutoCompleteEnabled(WebCore::Node* node);
@@ -737,6 +737,7 @@ namespace android {
                 WebCore::LayerAndroid* layer);
         static WebCore::IntRect positionToTextRect(const WebCore::Position& position,
                 WebCore::EAffinity affinity);
+        static bool isLtr(const WebCore::Position& position);
 
         // called from constructor, to add this to a global list
         static void addInstance(WebViewCore*);
