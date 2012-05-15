@@ -71,9 +71,9 @@ public:
 
 private:
     IntRect computePrepareArea();
-    IntRect visibleContentArea(bool force3dContentVisible = false);
+    IntRect visibleContentArea(bool force3dContentVisible = false) const;
     IntRect fullContentArea();
-    bool singleLayer() { return m_layers.size() == 1; }
+    bool singleLayer() const { return m_layers.size() == 1; }
     bool useAggressiveRendering();
 
     const TransformationMatrix* drawTransform();

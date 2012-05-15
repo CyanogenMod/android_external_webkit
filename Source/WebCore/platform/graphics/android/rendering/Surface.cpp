@@ -106,8 +106,9 @@ bool Surface::tryUpdateSurface(Surface* oldSurface)
                     break;
                 } else if (!m_layers[i]->getInvalRegion()->isEmpty()) {
                     // merge layer inval - translate the layer's inval region into surface coordinates
-                    SkPoint pos = m_layers[i]->getPosition();
-                    m_layers[i]->getInvalRegion()->translate(pos.fX, pos.fY);
+                    // TODO: handle scale/3d transform mapping
+                    FloatRect layerPos = m_layers[i]->fullContentAreaMapped();
+                    m_layers[i]->getInvalRegion()->translate(layerPos.x(), layerPos.y());
                     invalRegion.op(*(m_layers[i]->getInvalRegion()), SkRegion::kUnion_Op);
                     break;
                 }
@@ -130,29 +131,27 @@ void Surface::addLayer(LayerAndroid* layer, const TransformationMatrix& transfor
     m_needsTexture |= layer->needsTexture();
     m_hasText |= layer->hasText();
 
-    // calculate area size for comparison later
-    IntRect rect = layer->fullContentArea();
-    SkPoint pos = layer->getPosition();
-    rect.setLocation(IntPoint(pos.fX, pos.fY));
+    // add this layer's size to the surface's area
+    // TODO: handle scale/3d transform mapping
+    IntRect rect = enclosingIntRect(layer->fullContentAreaMapped());
 
     if (layer->needsTexture()) {
         if (m_fullContentArea.isEmpty()) {
             m_drawTransform = transform;
-            m_drawTransform.translate3d(-pos.fX, -pos.fY, 0);
+            m_drawTransform.translate3d(-rect.x(), -rect.y(), 0);
             m_fullContentArea = rect;
         } else
             m_fullContentArea.unite(rect);
-        ALOGV("Surf %p adding LA %p, size  %d, %d  %dx%d, now Surf size %d,%d  %dx%d",
-              this, layer, rect.x(), rect.y(), rect.width(), rect.height(),
-              m_fullContentArea.x(), m_fullContentArea.y(),
-              m_fullContentArea.width(), m_fullContentArea.height());
+        ALOGV("Surf %p adding LA %p, size " INT_RECT_FORMAT
+              " now fullContentArea " INT_RECT_FORMAT,
+              this, layer, INT_RECT_ARGS(rect), INT_RECT_ARGS(m_fullContentArea));
     }
 
     if (isBase())
         m_background = static_cast<BaseLayerAndroid*>(layer)->getBackgroundColor();
 }
 
-IntRect Surface::visibleContentArea(bool force3dContentVisible)
+IntRect Surface::visibleContentArea(bool force3dContentVisible) const
 {
     if (singleLayer())
         return getFirstLayer()->visibleContentArea(force3dContentVisible);
