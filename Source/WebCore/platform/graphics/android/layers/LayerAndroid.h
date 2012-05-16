@@ -281,6 +281,8 @@ public:
     Surface* surface() { return m_surface; }
 
     void setIntrinsicallyComposited(bool intCom) { m_intrinsicallyComposited = intCom; }
+    bool needsIsolatedSurface() { return (needsTexture() && m_intrinsicallyComposited)
+        || subclassType() == LayerAndroid::FixedBackgroundLayer; }
 
     int setHwAccelerated(bool hwAccelerated);
 

@@ -531,8 +531,8 @@ void GraphicsLayerAndroid::updateScrollingLayers()
         if (layerNeedsOverflow) {
             ASSERT(!m_foregroundLayer && !m_foregroundClipLayer);
             m_foregroundLayer = new ScrollableLayerAndroid(layer);
+            m_foregroundLayer->setIntrinsicallyComposited(true);
 
-            // TODO: can clip layer be set to not intrinsically composited?
             m_foregroundClipLayer = new LayerAndroid(layer);
             m_foregroundClipLayer->setMasksToBounds(true);
             m_foregroundClipLayer->addChild(m_foregroundLayer);
