@@ -144,9 +144,11 @@ void PicturePile::setSize(const IntSize& size)
     // TODO: See above about just adding invals for new content
     m_pile.clear();
     m_webkitInvals.clear();
-    IntRect area(0, 0, size.width(), size.height());
-    m_webkitInvals.append(area);
-    m_pile.append(area);
+    if (!size.isEmpty()) {
+        IntRect area(0, 0, size.width(), size.height());
+        m_webkitInvals.append(area);
+        m_pile.append(area);
+    }
 }
 
 void PicturePile::updatePicturesIfNeeded(PicturePainter* painter)
