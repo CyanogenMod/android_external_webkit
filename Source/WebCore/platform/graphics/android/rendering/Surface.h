@@ -93,7 +93,7 @@ public:
     LayerMergeState(Vector<Surface*>* const allGroups)
         : surfaceList(allGroups)
         , currentSurface(0)
-        , nonMergeNestedLevel(0)
+        , nonMergeNestedLevel(-1) // start at -1 to ignore first LayerAndroid's clipping
         , depth(0)
         {}
 
