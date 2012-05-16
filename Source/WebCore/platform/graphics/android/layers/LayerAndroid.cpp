@@ -133,11 +133,13 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 
     m_replicatedLayerPosition = layer.m_replicatedLayerPosition;
 
+#ifdef ABSOLUTE_POSITION
     // If we have absolute elements, we may need to reorder them if they
     // are followed by another layer that is not also absolutely positioned.
     // (as absolutely positioned elements are out of the normal flow)
     bool hasAbsoluteChildren = false;
     bool hasOnlyAbsoluteFollowers = true;
+
     for (int i = 0; i < layer.countChildren(); i++) {
         if (layer.getChild(i)->isPositionAbsolute()) {
             hasAbsoluteChildren = true;
@@ -169,6 +171,10 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
         for (int i = 0; i < layer.countChildren(); i++)
             addChild(layer.getChild(i)->copy())->unref();
     }
+#else
+    for (int i = 0; i < layer.countChildren(); i++)
+        addChild(layer.getChild(i)->copy())->unref();
+#endif
 
     KeyframesMap::const_iterator end = layer.m_animations.end();
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it) {
