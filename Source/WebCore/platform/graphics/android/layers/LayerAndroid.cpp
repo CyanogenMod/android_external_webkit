@@ -620,8 +620,19 @@ bool LayerAndroid::canJoinSurface(Surface* surface)
 
     LayerAndroid* lastLayer = surface->getFirstLayer();
 
+    // isolate non-tiled layers
+    // TODO: remove this check so that multiple tiled layers with a invisible
+    // one inbetween can be merged
+    if (!needsTexture() || !lastLayer->needsTexture())
+        return false;
+
+    // isolate clipped layers
+    // TODO: paint correctly with clip when merged
+    if (m_haveClip || lastLayer->m_haveClip)
+        return false;
+
     // isolate intrinsically composited layers
-    if (needsIsolatedSurface() || lastLayer->needsIsolatedSurface())
+    if (m_intrinsicallyComposited || lastLayer->m_intrinsicallyComposited)
         return false;
 
     // TODO: investigate potential for combining transformed layers
@@ -632,9 +643,6 @@ bool LayerAndroid::canJoinSurface(Surface* surface)
     // currently, we don't surface zoomable with non-zoomable layers (unless the
     // surface or the layer doesn't need a texture)
     if (surface->needsTexture() && needsTexture() && m_content->hasText() != surface->hasText())
-        return false;
-
-    if (m_animations.size())
         return false;
 
     // TODO: compare other layer properties - fixed? overscroll? transformed?
@@ -656,25 +664,23 @@ void LayerAndroid::assignSurfaces(LayerMergeState* mergeState)
     }
 
 #ifdef LAYER_MERGING_DEBUG
-    ALOGD("%*slayer %p(%d) rl %p %s surface %p lvl: %d, fixed %d, anim %d, intCom %d, haveClip %d scroll %d hasText (layer: %d surface: %d) hasContent %d size %.2f x %.2f",
+    ALOGD("%*slayer %p(%d) rl %p %s surface %p, fixed %d, anim %d, intCom %d, haveClip %d scroll %d",
           4*mergeState->depth, "", this, m_uniqueId, m_owningLayer,
           needNewSurface ? "NEW" : "joins", mergeState->currentSurface,
-          mergeState->nonMergeNestedLevel,
           isPositionFixed(), m_animations.size() != 0,
           m_intrinsicallyComposited,
           m_haveClip,
-          contentIsScrollable(), m_content ? m_content->hasText() : -1,
-          mergeState->currentSurface ? mergeState->currentSurface->hasText() : -1,
-          needsTexture(), getWidth(), getHeight());
+          contentIsScrollable());
 #endif
 
     mergeState->currentSurface->addLayer(this, m_drawTransform);
     m_surface = mergeState->currentSurface;
 
-    if (contentIsScrollable() || isPositionFixed()) {
+    if (m_haveClip || contentIsScrollable() || isPositionFixed()) {
         // disable layer merging within the children of these layer types
         mergeState->nonMergeNestedLevel++;
     }
+
 
     // pass the surface through children in drawing order, so that they may
     // attach themselves (and paint on it) if possible, or ignore it and create
@@ -693,7 +699,7 @@ void LayerAndroid::assignSurfaces(LayerMergeState* mergeState)
         mergeState->depth--;
     }
 
-    if (contentIsScrollable() || isPositionFixed()) {
+    if (m_haveClip || contentIsScrollable() || isPositionFixed()) {
         // re-enable joining
         mergeState->nonMergeNestedLevel--;
 
