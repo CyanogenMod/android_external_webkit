@@ -299,7 +299,8 @@ namespace android {
         // scroll the selection on screen (if necessary).
         void revealSelection();
 
-        void moveMouse(int x, int y, WebCore::HitTestResult* hoveredNode = 0);
+        void moveMouse(int x, int y, WebCore::HitTestResult* hoveredNode = 0,
+                       bool isClickCandidate = false);
 
         // set the scroll amount that webview.java is currently showing
         void setScrollOffset(bool sendScrollEvent, int dx, int dy);
@@ -766,6 +767,13 @@ namespace android {
         int m_scrollOffsetY; // webview.java's current scroll in Y
         double m_scrollSetTime; // when the scroll was last set
         WebCore::IntPoint m_mousePos;
+        // This is the location at which we will click. This is tracked
+        // separately from m_mousePos, because m_mousePos may be updated
+        // in the interval between ACTION_UP and when the click fires since
+        // that occurs after a delay. This also works around potential hardware
+        // issues if we get onHoverEvents when using the touch screen, as that
+        // will nullify the slop checking we do in hitTest (aka, ACTION_DOWN)
+        WebCore::IntPoint m_mouseClickPos;
         int m_screenWidth; // width of the visible rect in document coordinates
         int m_screenHeight;// height of the visible rect in document coordinates
         int m_textWrapWidth;
