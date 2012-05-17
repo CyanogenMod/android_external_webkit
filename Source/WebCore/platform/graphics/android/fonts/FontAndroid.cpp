@@ -96,6 +96,10 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     float shadowBlur;
     Color shadowColor;
     ColorSpace shadowColorSpace;
+
+    if (RenderSkinAndroid::DrawableResolution() >= RenderSkinAndroid::HighRes)
+        paint->setAutohinted(false);
+
     bool hasShadow = gc->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
     bool hasBothStrokeAndFill =
         (mode & (TextModeStroke | TextModeFill)) == (TextModeStroke | TextModeFill);
