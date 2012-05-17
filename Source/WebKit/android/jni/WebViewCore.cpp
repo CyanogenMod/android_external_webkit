@@ -1783,7 +1783,7 @@ bool WebViewCore::nodeIsClickableOrFocusable(Node* node)
 AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool doMoveMouse)
 {
     if (doMoveMouse)
-        moveMouse(x, y);
+        moveMouse(x, y, 0, true);
     HitTestResult hitTestResult = m_mainFrame->eventHandler()->hitTestResultAtPoint(IntPoint(x, y),
             false, false, DontHitTestScrollbars, HitTestRequest::Active | HitTestRequest::ReadOnly, IntSize(slop, slop));
     AndroidHitTestResult androidHitResult(this, hitTestResult);
@@ -1942,7 +1942,7 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
             testRect.move(frameAdjust.x(), frameAdjust.y());
             testRect.intersect(rect);
             if (!testRect.contains(x, y))
-                moveMouse(testRect.center().x(), testRect.center().y());
+                moveMouse(testRect.center().x(), testRect.center().y(), 0, true);
         }
     } else {
         androidHitResult.searchContentDetectors();
@@ -2121,10 +2121,12 @@ static PluginView* nodeIsPlugin(Node* node) {
 ///////////////////////////////////////////////////////////////////////////////
 
 // Update mouse position
-void WebViewCore::moveMouse(int x, int y, HitTestResult* hoveredNode)
+void WebViewCore::moveMouse(int x, int y, HitTestResult* hoveredNode, bool isClickCandidate)
 {
     // mouse event expects the position in the window coordinate
     m_mousePos = WebCore::IntPoint(x - m_scrollOffsetX, y - m_scrollOffsetY);
+    if (isClickCandidate)
+        m_mouseClickPos = m_mousePos;
     // validNode will still return true if the node is null, as long as we have
     // a valid frame.  Do not want to make a call on frame unless it is valid.
     WebCore::PlatformMouseEvent mouseEvent(m_mousePos, m_mousePos,
@@ -3240,12 +3242,12 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
 
 bool WebViewCore::performMouseClick()
 {
-    WebCore::PlatformMouseEvent mouseDown(m_mousePos, m_mousePos, WebCore::LeftButton,
+    WebCore::PlatformMouseEvent mouseDown(m_mouseClickPos, m_mouseClickPos, WebCore::LeftButton,
             WebCore::MouseEventPressed, 1, false, false, false, false,
             WTF::currentTime());
     // ignore the return from as it will return true if the hit point can trigger selection change
     m_mainFrame->eventHandler()->handleMousePressEvent(mouseDown);
-    WebCore::PlatformMouseEvent mouseUp(m_mousePos, m_mousePos, WebCore::LeftButton,
+    WebCore::PlatformMouseEvent mouseUp(m_mouseClickPos, m_mouseClickPos, WebCore::LeftButton,
             WebCore::MouseEventReleased, 1, false, false, false, false,
             WTF::currentTime());
     bool handled = m_mainFrame->eventHandler()->handleMouseReleaseEvent(mouseUp);
