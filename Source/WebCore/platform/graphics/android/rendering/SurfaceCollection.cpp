@@ -156,6 +156,13 @@ bool SurfaceCollection::isReady()
     return true;
 }
 
+bool SurfaceCollection::isBaseSurfaceReady()
+{
+    if (!m_compositedRoot || !m_surfaces[0])
+        return false;
+    return m_surfaces[0]->isReady();
+}
+
 bool SurfaceCollection::isMissingBackgroundContent()
 {
     if (!m_compositedRoot)

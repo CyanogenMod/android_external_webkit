@@ -53,6 +53,7 @@ public:
     Color getBackgroundColor();
     void swapTiles();
     bool isReady();
+    bool isBaseSurfaceReady();
     bool isMissingBackgroundContent();
     void computeTexturesAmount(TexturesResult* result);
 
