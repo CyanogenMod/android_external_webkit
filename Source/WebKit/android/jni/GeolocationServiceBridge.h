@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2012, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,22 +26,31 @@
 #ifndef GeolocationServiceBridge_h
 #define GeolocationServiceBridge_h
 
-#include "JNIUtility.h"
+#include <JNIUtility.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
-
-class Frame;
-class GeolocationServiceAndroid;
 class Geoposition;
+class PositionError;
+}
+
+namespace android {
+
+class WebViewCore;
 
 // GeolocationServiceBridge is the bridge to the Java implementation. It manages
 // the lifetime of the Java object. It is an implementation detail of
 // GeolocationServiceAndroid.
 class GeolocationServiceBridge {
 public:
-    typedef GeolocationServiceAndroid ListenerInterface;
-    GeolocationServiceBridge(ListenerInterface* listener, Frame* frame);
+    class Listener {
+    public:
+        virtual ~Listener() {}
+        virtual void newPositionAvailable(PassRefPtr<WebCore::Geoposition>) = 0;
+        virtual void newErrorAvailable(PassRefPtr<WebCore::PositionError>) = 0;
+    };
+
+    GeolocationServiceBridge(Listener*, WebViewCore*);
     ~GeolocationServiceBridge();
 
     bool start();
@@ -51,16 +60,16 @@ public:
     // Static wrapper functions to hide JNI nastiness.
     static void newLocationAvailable(JNIEnv *env, jclass, jlong nativeObject, jobject location);
     static void newErrorAvailable(JNIEnv *env, jclass, jlong nativeObject, jstring message);
-    static PassRefPtr<Geoposition> toGeoposition(JNIEnv *env, const jobject &location);
+    static PassRefPtr<WebCore::Geoposition> toGeoposition(JNIEnv *env, const jobject &location);
 
 private:
-    void startJavaImplementation(Frame* frame);
+    void startJavaImplementation(WebViewCore*);
     void stopJavaImplementation();
 
-    ListenerInterface* m_listener;
+    Listener* m_listener;
     jobject m_javaGeolocationServiceObject;
 };
 
-} // namespace WebCore
+} // namespace android
 
 #endif // GeolocationServiceBridge_h

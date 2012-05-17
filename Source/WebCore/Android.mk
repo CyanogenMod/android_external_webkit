@@ -577,7 +577,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/FileChooserAndroid.cpp \
 	platform/android/FileSystemAndroid.cpp \
 	platform/android/GeolocationServiceAndroid.cpp \
-	platform/android/GeolocationServiceBridge.cpp \
 	platform/android/KeyEventAndroid.cpp \
 	platform/android/LanguageAndroid.cpp \
 	platform/android/LocalizedStringsAndroid.cpp \

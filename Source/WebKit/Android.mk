@@ -61,6 +61,7 @@ LOCAL_SRC_FILES += \
 	android/jni/DeviceMotionClientImpl.cpp \
 	android/jni/DeviceOrientationClientImpl.cpp \
 	android/jni/GeolocationPermissionsBridge.cpp \
+	android/jni/GeolocationServiceBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
 	android/jni/MIMETypeRegistry.cpp \
