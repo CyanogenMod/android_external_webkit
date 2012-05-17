@@ -226,19 +226,20 @@ void Surface::prepareGL(bool layerTilesDisabled, bool updateWithBlit)
 bool Surface::drawGL(bool layerTilesDisabled)
 {
     bool tilesDisabled = layerTilesDisabled && !isBase();
-    if (!getFirstLayer()->visible())
+    if (singleLayer() && !getFirstLayer()->visible())
         return false;
 
     bool isBaseLayer = isBase()
         || getFirstLayer()->subclassType() == LayerAndroid::FixedBackgroundImageLayer
         || getFirstLayer()->subclassType() == LayerAndroid::ForegroundBaseLayer;
 
-    if (!isBaseLayer) {
-        // TODO: why are clipping regions wrong for base layer?
-        FloatRect drawClip = getFirstLayer()->drawClip();
-        FloatRect clippingRect = TilesManager::instance()->shader()->rectInInvViewCoord(drawClip);
-        TilesManager::instance()->shader()->clip(clippingRect);
+    FloatRect drawClip = getFirstLayer()->drawClip();
+    if (!singleLayer()) {
+        for (unsigned int i = 1; i < m_layers.size(); i++)
+            drawClip.unite(m_layers[i]->drawClip());
     }
+    FloatRect clippingRect = TilesManager::instance()->shader()->rectInInvViewCoord(drawClip);
+    TilesManager::instance()->shader()->clip(clippingRect);
 
     bool askRedraw = false;
     if (m_surfaceBacking && !tilesDisabled) {

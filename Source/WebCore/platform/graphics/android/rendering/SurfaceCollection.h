@@ -66,6 +66,9 @@ public:
     bool hasCompositedAnimations();
     void updateScrollableLayer(int layerId, int x, int y);
 
+    int size() { return m_surfaces.size(); }
+    int backedSize();
+
 private:
     void updateLayerPositions(const SkRect& visibleContentRect);
     BaseLayerAndroid* m_compositedRoot;
