@@ -28,7 +28,6 @@
 
 #include "ChromeClient.h"
 
-#include "GeolocationPermissions.h"
 #include "PopupMenu.h"
 #include "SearchPopupMenu.h"
 #include "Timer.h"
@@ -47,13 +46,13 @@ namespace android {
 
     class ChromeClientAndroid : public ChromeClient {
     public:
-        ChromeClientAndroid() : m_webFrame(0), m_geolocationPermissions(0)
+        ChromeClientAndroid() : m_webFrame(0)
 #if USE(ACCELERATED_COMPOSITING)
-                                , m_rootGraphicsLayer(0)
-                                , m_needsLayerSync(false)
+                              , m_rootGraphicsLayer(0)
+                              , m_needsLayerSync(false)
 #endif
-                                , m_triedToReclaimDBQuota(false)
-                                { }
+                              , m_triedToReclaimDBQuota(false)
+                              { }
         virtual void chromeDestroyed();
         
         virtual void setWindowRect(const FloatRect&);
@@ -147,11 +146,9 @@ namespace android {
 #endif
 
         // Methods used to request and provide Geolocation permissions.
-        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
-        virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*);
-        // Android-specific
-        void provideGeolocationPermissions(const String &origin, bool allow, bool remember);
-        void onMainFrameLoadStarted();
+        // Not used with client-based Geolocation
+        virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*) { ASSERT_NOT_REACHED(); }
+        virtual void cancelGeolocationPermissionRequestForFrame(WebCore::Frame*, WebCore::Geolocation*) { ASSERT_NOT_REACHED(); }
 
         virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
         virtual void setCursor(const Cursor&);
@@ -201,8 +198,6 @@ namespace android {
 
     private:
         android::WebFrame* m_webFrame;
-        // The Geolocation permissions manager.
-        OwnPtr<GeolocationPermissions> m_geolocationPermissions;
 #if USE(ACCELERATED_COMPOSITING)
         WebCore::GraphicsLayer* m_rootGraphicsLayer;
         bool m_needsLayerSync;

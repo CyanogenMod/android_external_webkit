@@ -23,53 +23,39 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef GeolocationServiceBridge_h
-#define GeolocationServiceBridge_h
+#ifndef GeolocationClientAndroid_h
+#define GeolocationClientAndroid_h
 
-#include <JNIUtility.h>
-#include <wtf/PassRefPtr.h>
-
-namespace WebCore {
-class GeolocationError;
-class GeolocationPosition;
-}
+#include <GeolocationClient.h>
 
 namespace android {
 
 class WebViewCore;
 
-// GeolocationServiceBridge is the bridge to the Java implementation. It manages
-// the lifetime of the Java object. It is an implementation detail of
-// GeolocationClientAndroid.
-class GeolocationServiceBridge {
+// The Android implementation of GeolocationClient. Acts as a proxy to
+// the real or mock impl, which is owned by the GeolocationManager.
+class GeolocationClientAndroid : public WebCore::GeolocationClient {
 public:
-    class Listener {
-    public:
-        virtual ~Listener() {}
-        virtual void newPositionAvailable(PassRefPtr<WebCore::GeolocationPosition>) = 0;
-        virtual void newErrorAvailable(PassRefPtr<WebCore::GeolocationError>) = 0;
-    };
+    GeolocationClientAndroid();
+    virtual ~GeolocationClientAndroid();
 
-    GeolocationServiceBridge(Listener*, WebViewCore*);
-    ~GeolocationServiceBridge();
+    // GeolocationClient
+    virtual void geolocationDestroyed();
+    virtual void startUpdating();
+    virtual void stopUpdating();
+    virtual void setEnableHighAccuracy(bool);
+    virtual WebCore::GeolocationPosition* lastPosition();
+    virtual void requestPermission(WebCore::Geolocation*);
+    virtual void cancelPermissionRequest(WebCore::Geolocation*);
 
-    bool start();
-    void stop();
-    void setEnableGps(bool enable);
-
-    // Static wrapper functions to hide JNI nastiness.
-    static void newLocationAvailable(JNIEnv *env, jclass, jlong nativeObject, jobject location);
-    static void newErrorAvailable(JNIEnv *env, jclass, jlong nativeObject, jstring message);
-    static PassRefPtr<WebCore::GeolocationPosition> toGeolocationPosition(JNIEnv *env, const jobject &location);
+    void setWebViewCore(WebViewCore*);
 
 private:
-    void startJavaImplementation(WebViewCore*);
-    void stopJavaImplementation();
+    WebCore::GeolocationClient* client() const;
 
-    Listener* m_listener;
-    jobject m_javaGeolocationServiceObject;
+    WebViewCore* m_webViewCore;
 };
 
 } // namespace android
 
-#endif // GeolocationServiceBridge_h
+#endif // GeolocationClientAndroid_h

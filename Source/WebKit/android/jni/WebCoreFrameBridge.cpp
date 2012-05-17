@@ -50,6 +50,7 @@
 #include "FrameLoadRequest.h"
 #include "FrameTree.h"
 #include "FrameView.h"
+#include "GeolocationClientAndroid.h"
 #include "GraphicsContext.h"
 #include "HistoryItem.h"
 #include "HTMLCollection.h"
@@ -497,15 +498,9 @@ WebFrame::loadStarted(WebCore::Frame* frame)
     if (favicon)
         env->DeleteLocalRef(favicon);
 
-    // Inform the client that the main frame has started a new load.
-    if (isMainFrame && mPage) {
-        Chrome* chrome = mPage->chrome();
-        if (chrome) {
-            ChromeClientAndroid* client = static_cast<ChromeClientAndroid*>(chrome->client());
-            if (client)
-                client->onMainFrameLoadStarted();
-        }
-    }
+    // The main frame has started a new load.
+    if (isMainFrame && mPage)
+        WebViewCore::getWebViewCore(mPage->mainFrame()->view())->geolocationManager()->resetRealClientTemporaryPermissionStates();
 }
 
 void
@@ -1099,6 +1094,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     EditorClientAndroid* editorC = new EditorClientAndroid;
     DeviceMotionClientAndroid* deviceMotionC = new DeviceMotionClientAndroid;
     DeviceOrientationClientAndroid* deviceOrientationC = new DeviceOrientationClientAndroid;
+    GeolocationClientAndroid* geolocationC = new GeolocationClientAndroid;
 
     WebCore::Page::PageClients pageClients;
     pageClients.chromeClient = chromeC;
@@ -1108,6 +1104,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     pageClients.inspectorClient = new InspectorClientAndroid;
     pageClients.deviceMotionClient = deviceMotionC;
     pageClients.deviceOrientationClient = deviceOrientationC;
+    pageClients.geolocationClient = geolocationC;
     WebCore::Page* page = new WebCore::Page(pageClients);
 
     editorC->setPage(page);
@@ -1150,6 +1147,7 @@ static void CreateFrame(JNIEnv* env, jobject obj, jobject javaview, jobject jAss
     frame->page()->focusController()->setFocused(true);
     deviceMotionC->setWebViewCore(webViewCore);
     deviceOrientationC->setWebViewCore(webViewCore);
+    geolocationC->setWebViewCore(webViewCore);
 
     // Allow local access to file:/// and substitute data
     WebCore::SecurityOrigin::setLocalLoadPolicy(

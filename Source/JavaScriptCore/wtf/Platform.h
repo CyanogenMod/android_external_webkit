@@ -726,6 +726,7 @@
 #define ENABLE_OFFLINE_WEB_APPLICATIONS 1
 #define ENABLE_TOUCH_EVENTS 1
 #define ENABLE_GEOLOCATION 1
+#define ENABLE_CLIENT_BASED_GEOLOCATION 1
 #define ENABLE_INSPECTOR 0
 #define ENABLE_EVENT_SOURCE 0
 #define ENABLE_DEVICE_ORIENTATION 1
@@ -1284,7 +1285,12 @@
    Client based implementations will have option to choose between pre-emptive and nonpre-emptive permission policy.
    pre-emptive permission policy is enabled by default for all client-based implementations. */
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
+#if PLATFORM(ANDROID)
+// Consider enabling preemptive permissions. See b/4500947.
+#define WTF_USE_PREEMPT_GEOLOCATION_PERMISSION 0
+#else
 #define WTF_USE_PREEMPT_GEOLOCATION_PERMISSION 1
+#endif
 #endif
 
 #if CPU(ARM_THUMB2)

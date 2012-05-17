@@ -512,34 +512,6 @@ void ChromeClientAndroid::populateVisitedLinks()
     android::WebViewCore::getWebViewCore(view)->populateVisitedLinks(&page->group());
 }
 
-void ChromeClientAndroid::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
-{
-    ASSERT(geolocation);
-    if (!m_geolocationPermissions) {
-        WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frame->view());
-        ASSERT(webViewCore->mainFrame() == m_webFrame->page()->mainFrame());
-        m_geolocationPermissions = new GeolocationPermissions(webViewCore);
-    }
-    m_geolocationPermissions->queryPermissionState(frame);
-}
-
-void ChromeClientAndroid::cancelGeolocationPermissionRequestForFrame(Frame* frame, WebCore::Geolocation*)
-{
-    if (m_geolocationPermissions)
-        m_geolocationPermissions->cancelPermissionStateQuery(frame);
-}
-
-void ChromeClientAndroid::provideGeolocationPermissions(const String &origin, bool allow, bool remember)
-{
-    m_geolocationPermissions->providePermissionState(origin, allow, remember);
-}
-
-void ChromeClientAndroid::onMainFrameLoadStarted()
-{
-    if (m_geolocationPermissions.get())
-        m_geolocationPermissions->resetTemporaryPermissionStates();
-}
-
 void ChromeClientAndroid::runOpenPanel(Frame* frame,
         PassRefPtr<FileChooser> chooser)
 {

@@ -443,6 +443,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_screenOnCounter(0)
     , m_currentNodeDomNavigationAxis(0)
     , m_deviceMotionAndOrientationManager(this)
+    , m_geolocationManager(this)
 #if ENABLE(TOUCH_EVENTS)
     , m_forwardingTouchEvents(false)
 #endif
@@ -4751,10 +4752,7 @@ static void GeolocationPermissionsProvide(JNIEnv* env, jobject obj,
         jint nativeClass, jstring origin, jboolean allow, jboolean remember)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    Frame* frame = viewImpl->mainFrame();
-
-    ChromeClientAndroid* chromeClient = static_cast<ChromeClientAndroid*>(frame->page()->chrome()->client());
-    chromeClient->provideGeolocationPermissions(jstringToWtfString(env, origin), allow, remember);
+    viewImpl->geolocationManager()->provideRealClientPermissionState(jstringToWtfString(env, origin), allow, remember);
 }
 
 static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jint nativeClass,
@@ -4788,15 +4786,11 @@ static void Pause(JNIEnv* env, jobject obj, jint nativeClass)
 
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     Frame* mainFrame = viewImpl->mainFrame();
-    for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
-        Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
-        if (geolocation)
-            geolocation->suspend();
-    }
     if (mainFrame)
         mainFrame->settings()->setMinDOMTimerInterval(BACKGROUND_TIMER_INTERVAL);
 
     viewImpl->deviceMotionAndOrientationManager()->maybeSuspendClients();
+    viewImpl->geolocationManager()->suspendRealClient();
 
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
@@ -4810,15 +4804,11 @@ static void Resume(JNIEnv* env, jobject obj, jint nativeClass)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
     Frame* mainFrame = viewImpl->mainFrame();
-    for (Frame* frame = mainFrame; frame; frame = frame->tree()->traverseNext()) {
-        Geolocation* geolocation = frame->domWindow()->navigator()->optionalGeolocation();
-        if (geolocation)
-            geolocation->resume();
-    }
     if (mainFrame)
         mainFrame->settings()->setMinDOMTimerInterval(FOREGROUND_TIMER_INTERVAL);
 
     viewImpl->deviceMotionAndOrientationManager()->maybeResumeClients();
+    viewImpl->geolocationManager()->resumeRealClient();
 
     ANPEvent event;
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);

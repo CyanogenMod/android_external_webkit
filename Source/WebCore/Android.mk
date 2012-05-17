@@ -496,6 +496,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	page/FrameTree.cpp \
 	page/FrameView.cpp \
 	page/Geolocation.cpp \
+	page/GeolocationController.cpp \
 	page/GeolocationPositionCache.cpp \
 	page/GroupSettings.cpp \
 	page/History.cpp \
@@ -576,7 +577,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/android/EventLoopAndroid.cpp \
 	platform/android/FileChooserAndroid.cpp \
 	platform/android/FileSystemAndroid.cpp \
-	platform/android/GeolocationServiceAndroid.cpp \
 	platform/android/KeyEventAndroid.cpp \
 	platform/android/LanguageAndroid.cpp \
 	platform/android/LocalizedStringsAndroid.cpp \

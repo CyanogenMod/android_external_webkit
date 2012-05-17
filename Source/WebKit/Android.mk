@@ -27,6 +27,9 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/EditorClientAndroid.cpp \
 	android/WebCoreSupport/FrameLoaderClientAndroid.cpp \
 	android/WebCoreSupport/FrameNetworkingContextAndroid.cpp \
+	android/WebCoreSupport/GeolocationClientAndroid.cpp \
+	android/WebCoreSupport/GeolocationClientImpl.cpp \
+	android/WebCoreSupport/GeolocationManager.cpp \
 	android/WebCoreSupport/GeolocationPermissions.cpp \
 	android/WebCoreSupport/MediaPlayerPrivateAndroid.cpp \
 	android/WebCoreSupport/MemoryUsage.cpp \

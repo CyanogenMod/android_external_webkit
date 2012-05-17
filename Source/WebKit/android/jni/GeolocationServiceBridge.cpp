@@ -26,17 +26,15 @@
 #include "config.h"
 #include "GeolocationServiceBridge.h"
 
-#include "GeolocationServiceAndroid.h"
 #include "WebViewCore.h"
 
-#include <Geoposition.h>
+#include <GeolocationError.h>
+#include <GeolocationPosition.h>
 #include <JNIHelp.h>
-#include <PositionError.h>
 
 using JSC::Bindings::getJNIEnv;
-using WebCore::Coordinates;
-using WebCore::Geoposition;
-using WebCore::PositionError;
+using WebCore::GeolocationError;
+using WebCore::GeolocationPosition;
 
 namespace android {
 
@@ -118,18 +116,17 @@ void GeolocationServiceBridge::newLocationAvailable(JNIEnv* env, jclass, jlong n
     ASSERT(nativeObject);
     ASSERT(location);
     GeolocationServiceBridge* object = reinterpret_cast<GeolocationServiceBridge*>(nativeObject);
-    object->m_listener->newPositionAvailable(toGeoposition(env, location));
+    object->m_listener->newPositionAvailable(toGeolocationPosition(env, location));
 }
 
 void GeolocationServiceBridge::newErrorAvailable(JNIEnv* env, jclass, jlong nativeObject, jstring message)
 {
     GeolocationServiceBridge* object = reinterpret_cast<GeolocationServiceBridge*>(nativeObject);
-    RefPtr<PositionError> error =
-        PositionError::create(PositionError::POSITION_UNAVAILABLE, android::jstringToWtfString(env, message));
+    RefPtr<GeolocationError> error = GeolocationError::create(GeolocationError::PositionUnavailable, jstringToWtfString(env, message));
     object->m_listener->newErrorAvailable(error.release());
 }
 
-PassRefPtr<Geoposition> GeolocationServiceBridge::toGeoposition(JNIEnv *env, const jobject &location)
+PassRefPtr<GeolocationPosition> GeolocationServiceBridge::toGeolocationPosition(JNIEnv *env, const jobject &location)
 {
     // Altitude is optional and may not be supplied.
     bool hasAltitude =
@@ -158,18 +155,15 @@ PassRefPtr<Geoposition> GeolocationServiceBridge::toGeoposition(JNIEnv *env, con
         env->CallFloatMethod(location, javaLocationClassMethodIDs[LocationMethodGetSpeed]) :
         0.0;
 
-    RefPtr<Coordinates> newCoordinates = Coordinates::create(
+    return GeolocationPosition::create(
+        env->CallLongMethod(location, javaLocationClassMethodIDs[LocationMethodGetTime]) / 1000.0,
         env->CallDoubleMethod(location, javaLocationClassMethodIDs[LocationMethodGetLatitude]),
         env->CallDoubleMethod(location, javaLocationClassMethodIDs[LocationMethodGetLongitude]),
-        hasAltitude, Altitude,
         Accuracy,
+        hasAltitude, Altitude,
         false, 0.0,  // AltitudeAccuracy not provided.
         hasHeading, heading,
         hasSpeed, speed);
-
-    return Geoposition::create(
-         newCoordinates.release(),
-         env->CallLongMethod(location, javaLocationClassMethodIDs[LocationMethodGetTime]));
 }
 
 void GeolocationServiceBridge::startJavaImplementation(WebViewCore* webViewCore)
@@ -240,10 +234,9 @@ void GeolocationServiceBridge::startJavaImplementation(WebViewCore* webViewCore)
 
 void GeolocationServiceBridge::stopJavaImplementation()
 {
-    // Called by GeolocationServiceAndroid on WebKit thread.
     if (!m_javaGeolocationServiceObject)
         return;
     getJNIEnv()->DeleteGlobalRef(m_javaGeolocationServiceObject);
 }
 
-} // namespace WebCore
+} // namespace android

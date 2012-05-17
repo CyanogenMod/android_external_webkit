@@ -30,6 +30,7 @@
 #include "DOMSelection.h"
 #include "FileChooser.h"
 #include "FocusDirection.h"
+#include "GeolocationManager.h"
 #include "HitTestResult.h"
 #include "PicturePile.h"
 #include "PlatformGraphicsContext.h"
@@ -543,6 +544,7 @@ namespace android {
         void setWebTextViewAutoFillable(int queryId, const string16& previewSummary);
 
         DeviceMotionAndOrientationManager* deviceMotionAndOrientationManager() { return &m_deviceMotionAndOrientationManager; }
+        GeolocationManager* geolocationManager() { return &m_geolocationManager; }
 
         void listBoxRequest(WebCoreReply* reply, const uint16_t** labels,
                 size_t count, const int enabled[], size_t enabledCount,
@@ -798,6 +800,7 @@ namespace android {
         int m_screenOnCounter;
         WebCore::Node* m_currentNodeDomNavigationAxis;
         DeviceMotionAndOrientationManager m_deviceMotionAndOrientationManager;
+        GeolocationManager m_geolocationManager;
 
 #if ENABLE(TOUCH_EVENTS)
         bool m_forwardingTouchEvents;
