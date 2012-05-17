@@ -80,7 +80,9 @@ void BaseLayerAndroid::updatePositionsRecursive(const SkRect& visibleContentRect
     updateLayerPositions(visibleContentRect);
     TransformationMatrix ident;
     FloatRect clip(0, 0, getWidth(), getHeight());
-    updateGLPositionsAndScale(ident, clip, 1, state()->scale());
+
+    float scale = state() ? state()->scale() : 1.0f;
+    updateGLPositionsAndScale(ident, clip, 1, scale);
 }
 
 ForegroundBaseLayerAndroid::ForegroundBaseLayerAndroid(LayerContent* content)
