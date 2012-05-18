@@ -273,6 +273,11 @@ void LayerAndroid::initAnimations() {
 
 void LayerAndroid::addDirtyArea()
 {
+    if (m_drawTransform.hasPerspective()) {
+        state()->doFrameworkFullInval();
+        return;
+    }
+
     IntSize layerSize(getSize().width(), getSize().height());
 
     FloatRect area =
@@ -816,12 +821,10 @@ bool LayerAndroid::drawGL(bool layerTilesDisabled)
     bool askScreenUpdate = false;
 
     m_atomicSync.lock();
-    if (m_hasRunningAnimations || m_drawTransform.hasPerspective()) {
+    if (m_hasRunningAnimations)
         askScreenUpdate = true;
-        addDirtyArea();
-    }
-
     m_atomicSync.unlock();
+
     return askScreenUpdate;
 }
 

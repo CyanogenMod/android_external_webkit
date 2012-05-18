@@ -68,12 +68,14 @@ void SurfaceCollectionManager::swap()
     // if we have a drawing collection, discard it since the painting collection is done
     if (m_drawingCollection) {
         ALOGV("destroying drawing collection %p", m_drawingCollection);
+        m_drawingCollection->addFrameworkInvals();
         SkSafeUnref(m_drawingCollection);
     }
 
     // painting collection becomes the drawing collection
     ALOGV("drawing collection %p", m_paintingCollection);
     m_paintingCollection->setIsDrawing(); // initialize animations
+    m_paintingCollection->addFrameworkInvals();
 
     if (m_queuedCollection) {
         // start painting with the queued collection
@@ -203,6 +205,10 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
           m_drawingCollection, m_paintingCollection,
           m_queuedCollection, m_fastSwapMode, shouldDraw);
 
+    // ask for kStatusInvoke while painting, kStatusDraw if we have content to be redrawn next frame
+    // returning 0 indicates all painting complete, no framework inval needed.
+    int returnFlags = 0;
+
     bool didCollectionSwap = false;
     if (m_paintingCollection) {
         ALOGV("preparing painting collection %p", m_paintingCollection);
@@ -222,16 +228,13 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
             if (newCollectionHasAnimPtr)
                 *newCollectionHasAnimPtr = m_paintingCollection->hasCompositedAnimations();
             swap();
+            returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
         }
     } else if (m_drawingCollection) {
         ALOGV("preparing drawing collection %p", m_drawingCollection);
         m_drawingCollection->prepareGL(visibleContentRect);
         m_drawingCollection->computeTexturesAmount(texturesResultPtr);
     }
-
-    // ask for kStatusInvoke while painting, kStatusDraw if we have content to be redrawn next frame
-    // returning 0 indicates all painting complete, no framework inval needed.
-    int returnFlags = 0;
 
     if (m_paintingCollection)
         returnFlags |= DrawGlInfo::kStatusInvoke;

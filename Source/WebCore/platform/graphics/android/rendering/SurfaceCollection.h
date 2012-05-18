@@ -52,6 +52,7 @@ public:
     bool drawGL(const SkRect& visibleContentRect);
     Color getBackgroundColor();
     void swapTiles();
+    void addFrameworkInvals();
     bool isReady();
     bool isBaseSurfaceReady();
     bool isMissingBackgroundContent();

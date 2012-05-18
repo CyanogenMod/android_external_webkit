@@ -253,8 +253,12 @@ bool Surface::drawGL(bool layerTilesDisabled)
     }
 
     // draw member layers (draws image textures, glextras)
-    for (unsigned int i = 0; i < m_layers.size(); i++)
-        askRedraw |= m_layers[i]->drawGL(tilesDisabled);
+    for (unsigned int i = 0; i < m_layers.size(); i++) {
+        if (m_layers[i]->drawGL(tilesDisabled)) {
+           m_layers[i]->addDirtyArea();
+           askRedraw = true;
+        }
+    }
 
     return askRedraw;
 }
@@ -264,7 +268,16 @@ void Surface::swapTiles()
     if (!m_surfaceBacking)
         return;
 
-    m_surfaceBacking->swapTiles();
+    if (m_surfaceBacking->swapTiles())
+        addFrameworkInvals();
+}
+
+void Surface::addFrameworkInvals()
+{
+    // Let's return an inval area to framework that will
+    // contain all of our layers' areas
+    for (unsigned int i = 0; i < m_layers.size(); i++)
+        m_layers[i]->addDirtyArea();
 }
 
 bool Surface::isReady()
