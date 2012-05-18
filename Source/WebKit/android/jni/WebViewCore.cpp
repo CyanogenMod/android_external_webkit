@@ -1930,19 +1930,26 @@ AndroidHitTestResult WebViewCore::hitTestAtPoint(int x, int y, int slop, bool do
         } else {
             androidHitResult.setURLElement(0);
         }
-        IntPoint frameAdjust;
-        if (frame != m_mainFrame) {
-            frameAdjust = frame->view()->contentsToWindow(IntPoint());
-            frameAdjust.move(m_scrollOffsetX, m_scrollOffsetY);
-        }
-        IntRect rect = final.mBounds;
-        rect.move(frameAdjust.x(), frameAdjust.y());
-        if (doMoveMouse) {
-            // adjust m_mousePos if it is not inside the returned highlight rectangle
-            testRect.move(frameAdjust.x(), frameAdjust.y());
-            testRect.intersect(rect);
-            if (!testRect.contains(x, y))
-                moveMouse(testRect.center().x(), testRect.center().y(), 0, true);
+        Vector<IntRect>& highlightRects = androidHitResult.highlightRects();
+        if (doMoveMouse && highlightRects.size() > 0) {
+            // adjust m_mousePos if it is not inside the returned highlight
+            // rectangles
+            IntRect foundIntersection;
+            IntRect inputRect = IntRect(x - slop, y - slop,
+                                        slop * 2 + 1, slop * 2 + 1);
+            for (size_t i = 0; i < highlightRects.size(); i++) {
+                IntRect& hr = highlightRects[i];
+                IntRect test = inputRect;
+                test.intersect(hr);
+                if (!test.isEmpty()) {
+                    foundIntersection = test;
+                    break;
+                }
+            }
+            if (!foundIntersection.isEmpty() && !foundIntersection.contains(x, y)) {
+                IntPoint pt = foundIntersection.center();
+                moveMouse(pt.x(), pt.y(), 0, true);
+            }
         }
     } else {
         androidHitResult.searchContentDetectors();
