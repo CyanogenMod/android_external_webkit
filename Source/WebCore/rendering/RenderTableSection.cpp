@@ -78,6 +78,12 @@ RenderTableSection::~RenderTableSection()
     clearGrid();
 }
 
+void RenderTableSection::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderBox::styleDidChange(diff, oldStyle);
+    propagateStyleToAnonymousChildren();
+}
+
 void RenderTableSection::destroy()
 {
     RenderTable* recalcTable = table();
@@ -100,7 +106,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
         RenderObject* last = beforeChild;
         if (!last)
             last = lastChild();
-        if (last && last->isAnonymous()) {
+        if (last && last->isAnonymous() && !last->isBeforeOrAfterContent()) {
             if (beforeChild == last)
                 beforeChild = last->firstChild();
             last->addChild(child, beforeChild);
@@ -112,7 +118,7 @@ void RenderTableSection::addChild(RenderObject* child, RenderObject* beforeChild
         RenderObject* lastBox = last;
         while (lastBox && lastBox->parent()->isAnonymous() && !lastBox->isTableRow())
             lastBox = lastBox->parent();
-        if (lastBox && lastBox->isAnonymous()) {
+        if (lastBox && lastBox->isAnonymous() && !lastBox->isBeforeOrAfterContent()) {
             lastBox->addChild(child, beforeChild);
             return;
         }
