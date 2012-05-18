@@ -28,6 +28,7 @@
 
 #include "GeolocationClientImpl.h"
 
+#include <GeolocationClientMock.h>
 #include <OwnPtr.h>
 #include <PassRefPtr.h>
 
@@ -45,7 +46,6 @@ class WebViewCore;
 // may be either the real implementation or a mock. It also handles setting the
 // data on the mock client. This class is owned by WebViewCore and exists to
 // keep cruft out of that class.
-// TODO: Add support for mock. See b/6511338.
 class GeolocationManager {
 public:
     GeolocationManager(WebViewCore*);
@@ -59,11 +59,20 @@ public:
     void resetRealClientTemporaryPermissionStates();
     void provideRealClientPermissionState(WTF::String origin, bool allow, bool remember);
 
+    // Sets use of the Geolocation mock client. Also resets that client.
+    void setUseMock();
+    void setMockPosition(PassRefPtr<WebCore::GeolocationPosition>);
+    void setMockError(PassRefPtr<WebCore::GeolocationError>);
+    void setMockPermission(bool allowed);
+
 private:
     GeolocationClientImpl* realClient() const;
+    WebCore::GeolocationClientMock* mockClient() const;
 
+    bool m_useMock;
     WebViewCore* m_webViewCore;
     mutable OwnPtr<GeolocationClientImpl> m_realClient;
+    mutable OwnPtr<WebCore::GeolocationClientMock> m_mockClient;
 };
 
 } // namespace android

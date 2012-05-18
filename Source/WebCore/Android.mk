@@ -546,7 +546,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/FileChooser.cpp \
 	platform/FileStream.cpp \
 	platform/FileSystem.cpp \
-	platform/GeolocationService.cpp \
 	platform/KURL.cpp \
 	platform/KURLGoogle.cpp \
 	platform/KillRingNone.cpp \
@@ -756,7 +755,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/mock/DeviceOrientationClientMock.cpp \
 	platform/mock/GeolocationClientMock.cpp \
-	platform/mock/GeolocationServiceMock.cpp \
 	platform/mock/SpeechInputClientMock.cpp \
 	\
 	platform/network/AuthenticationChallengeBase.cpp \

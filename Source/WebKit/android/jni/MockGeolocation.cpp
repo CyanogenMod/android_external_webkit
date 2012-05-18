@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2012, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -23,19 +23,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-// The functions in this file are used to configure the mock GeolocationService
+// The functions in this file are used to configure the mock Geolocation client
 // for the LayoutTests.
 
 #include "config.h"
 
-#include "Coordinates.h"
-#include "GeolocationServiceMock.h"
-#include "Geoposition.h"
-#include "JavaSharedClient.h"
-#include "PositionError.h"
-#include "WebCoreJni.h"
-#include <JNIHelp.h>
-#include <JNIUtility.h>
+#include "WebViewCore.h"
+
+#include <GeolocationError.h>
+#include <GeolocationPosition.h>
+#include "ScopedLocalRef.h"
 #include <wtf/CurrentTime.h>
 
 using namespace WebCore;
@@ -44,30 +41,46 @@ namespace android {
 
 static const char* javaMockGeolocationClass = "android/webkit/MockGeolocation";
 
-static void setPosition(JNIEnv* env, jobject, double latitude, double longitude, double accuracy)
+WebViewCore* getWebViewCore(JNIEnv* env, jobject webViewCore)
 {
-    RefPtr<Coordinates> coordinates = Coordinates::create(latitude,
-                                                          longitude,
-                                                          false, 0.0,  // altitude,
-                                                          accuracy,
-                                                          false, 0.0,  // altitudeAccuracy,
-                                                          false, 0.0,  // heading
-                                                          false, 0.0);  // speed
-    RefPtr<Geoposition> position = Geoposition::create(coordinates.release(), WTF::currentTimeMS());
-    GeolocationServiceMock::setPosition(position.release());
+    ScopedLocalRef<jclass> webViewCoreClass(env, env->FindClass("android/webkit/WebViewCore"));
+    jfieldID nativeClassField = env->GetFieldID(webViewCoreClass.get(), "mNativeClass", "I");
+    return reinterpret_cast<WebViewCore*>(env->GetIntField(webViewCore, nativeClassField));
 }
 
-static void setError(JNIEnv* env, jobject, int code, jstring message)
+static void setUseMock(JNIEnv* env, jobject, jobject webViewCore)
 {
-    PositionError::ErrorCode codeEnum = static_cast<PositionError::ErrorCode>(code);
-    String messageString = jstringToWtfString(env, message);
-    RefPtr<PositionError> error = PositionError::create(codeEnum, messageString);
-    GeolocationServiceMock::setError(error.release());
+    getWebViewCore(env, webViewCore)->geolocationManager()->setUseMock();
+}
+
+static void setPosition(JNIEnv* env, jobject, jobject webViewCore, double latitude, double longitude, double accuracy)
+{
+    getWebViewCore(env, webViewCore)->geolocationManager()->setMockPosition(GeolocationPosition::create(WTF::currentTime(),
+                                                                                                        latitude,
+                                                                                                        longitude,
+                                                                                                        accuracy,
+                                                                                                        false, 0.0,  // altitude,
+                                                                                                        false, 0.0,  // altitudeAccuracy,
+                                                                                                        false, 0.0,  // heading
+                                                                                                        false, 0.0));  // speed
+}
+
+static void setError(JNIEnv* env, jobject, jobject webViewCore, int code, jstring message)
+{
+    GeolocationError::ErrorCode codeEnum = static_cast<GeolocationError::ErrorCode>(code);
+    getWebViewCore(env, webViewCore)->geolocationManager()->setMockError(GeolocationError::create(codeEnum, jstringToWtfString(env, message)));
+}
+
+static void setPermission(JNIEnv* env, jobject, jobject webViewCore, bool allow)
+{
+    getWebViewCore(env, webViewCore)->geolocationManager()->setMockPermission(allow);
 }
 
 static JNINativeMethod gMockGeolocationMethods[] = {
-    { "nativeSetPosition", "(DDD)V", (void*) setPosition },
-    { "nativeSetError", "(ILjava/lang/String;)V", (void*) setError }
+    { "nativeSetUseMock", "(Landroid/webkit/WebViewCore;)V", (void*) setUseMock },
+    { "nativeSetPosition", "(Landroid/webkit/WebViewCore;DDD)V", (void*) setPosition },
+    { "nativeSetError", "(Landroid/webkit/WebViewCore;ILjava/lang/String;)V", (void*) setError },
+    { "nativeSetPermission", "(Landroid/webkit/WebViewCore;Z)V", (void*) setPermission },
 };
 
 int registerMockGeolocation(JNIEnv* env)

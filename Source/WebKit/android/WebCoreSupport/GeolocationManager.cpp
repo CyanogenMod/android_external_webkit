@@ -29,22 +29,27 @@
 #include "GeolocationClientImpl.h"
 #include "WebViewCore.h"
 
+#include <Frame.h>
 #include <GeolocationError.h>
 #include <GeolocationPosition.h>
 #include <JNIHelp.h>
+#include <Page.h>
 
 using WebCore::GeolocationClient;
+using WebCore::GeolocationClientMock;
 
 namespace android {
 
 GeolocationManager::GeolocationManager(WebViewCore* webViewCore)
-    : m_webViewCore(webViewCore)
+    : m_useMock(false)
+    , m_webViewCore(webViewCore)
 {
 }
 
 GeolocationClient* GeolocationManager::client() const
 {
-    // TODO: Return the mock client when appropriate. See http://b/6511338.
+    if (m_useMock)
+        return mockClient();
     return realClient();
 }
 
@@ -76,11 +81,45 @@ void GeolocationManager::provideRealClientPermissionState(WTF::String origin, bo
         m_realClient->providePermissionState(origin, allow, remember);
 }
 
+void GeolocationManager::setUseMock()
+{
+    m_useMock = true;
+    m_mockClient.clear();
+}
+
+void GeolocationManager::setMockPosition(PassRefPtr<WebCore::GeolocationPosition> position)
+{
+    ASSERT(m_useMock);
+    mockClient()->setPosition(position);
+}
+
+void GeolocationManager::setMockError(PassRefPtr<WebCore::GeolocationError> error)
+{
+    ASSERT(m_useMock);
+    mockClient()->setError(error);
+}
+
+void GeolocationManager::setMockPermission(bool allowed)
+{
+    ASSERT(m_useMock);
+    mockClient()->setPermission(allowed);
+}
+
 GeolocationClientImpl* GeolocationManager::realClient() const
 {
     if (!m_realClient)
         m_realClient.set(new GeolocationClientImpl(m_webViewCore));
     return m_realClient.get();
+}
+
+GeolocationClientMock* GeolocationManager::mockClient() const
+{
+    ASSERT(m_useMock);
+    if (!m_mockClient) {
+        m_mockClient.set(new GeolocationClientMock);
+        m_mockClient->setController(m_webViewCore->mainFrame()->page()->geolocationController());
+    }
+    return m_mockClient.get();
 }
 
 } // namespace android
