@@ -292,7 +292,11 @@ TileTexture* TilesManager::getAvailableTexture(Tile* owner)
 
     // Sanity check that the tile does not already own a texture
     if (owner->backTexture() && owner->backTexture()->owner() == owner) {
-        availableTexturePool->remove(availableTexturePool->find(owner->backTexture()));
+        int removeIndex = availableTexturePool->find(owner->backTexture());
+
+        // TODO: investigate why texture isn't found
+        if (removeIndex >= 0)
+            availableTexturePool->remove(removeIndex);
         return owner->backTexture();
     }
 
