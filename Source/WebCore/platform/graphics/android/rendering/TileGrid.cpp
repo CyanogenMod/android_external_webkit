@@ -97,13 +97,14 @@ bool TileGrid::isMissingContent()
     return false;
 }
 
-void TileGrid::swapTiles()
+bool TileGrid::swapTiles()
 {
     int swaps = 0;
     for (unsigned int i = 0; i < m_tiles.size(); i++)
         if (m_tiles[i]->swapTexturesIfNeeded())
             swaps++;
     ALOGV("TG %p swapping, swaps = %d", this, swaps);
+    return swaps != 0;
 }
 
 IntRect TileGrid::computeTilesArea(const IntRect& contentArea, float scale)

@@ -52,6 +52,7 @@ public:
     void prepareGL(bool layerTilesDisabled, bool updateWithBlit);
     bool drawGL(bool layerTilesDisabled);
     void swapTiles();
+    void addFrameworkInvals();
     bool isReady();
     bool isMissingContent();
     bool canUpdateWithBlit();

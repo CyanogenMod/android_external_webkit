@@ -64,6 +64,7 @@ using namespace android::uirenderer;
 
 GLWebViewState::GLWebViewState()
     : m_frameworkLayersInval(0, 0, 0, 0)
+    , m_doFrameworkFullInval(false)
     , m_isScrolling(false)
     , m_isVisibleContentRectScrolling(false)
     , m_goingDown(true)
@@ -194,6 +195,12 @@ void GLWebViewState::resetLayersDirtyArea()
     m_frameworkLayersInval.setY(0);
     m_frameworkLayersInval.setWidth(0);
     m_frameworkLayersInval.setHeight(0);
+    m_doFrameworkFullInval = false;
+}
+
+void GLWebViewState::doFrameworkFullInval()
+{
+    m_doFrameworkFullInval = true;
 }
 
 double GLWebViewState::setupDrawing(const IntRect& invScreenRect,
@@ -383,7 +390,7 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
         // returnFlags & kStatusDraw && empty inval region means we've inval'd everything,
         // but don't have new content. Keep redrawing full view (0,0,0,0)
         // until tile generation catches up and we swap pages.
-        bool fullScreenInval = m_frameworkLayersInval.isEmpty();
+        bool fullScreenInval = m_frameworkLayersInval.isEmpty() || m_doFrameworkFullInval;
 
         if (!fullScreenInval) {
             m_frameworkLayersInval.inflate(1);

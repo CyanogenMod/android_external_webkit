@@ -52,7 +52,7 @@ public:
                    const IntRect& prepareArea, const IntRect& fullContentArea,
                    TilePainter* painter, int regionFlags = StandardRegion,
                    bool isLowResPrefetch = false, bool updateWithBlit = false);
-    void swapTiles();
+    bool swapTiles();
     void drawGL(const IntRect& visibleContentArea, float opacity,
                 const TransformationMatrix* transform, const Color* background = 0);
 

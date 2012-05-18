@@ -139,6 +139,12 @@ void SurfaceCollection::swapTiles()
          m_surfaces[i]->swapTiles();
 }
 
+void SurfaceCollection::addFrameworkInvals()
+{
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+         m_surfaces[i]->addFrameworkInvals();
+}
+
 bool SurfaceCollection::isReady()
 {
     // Override layer readiness check for single surface mode
