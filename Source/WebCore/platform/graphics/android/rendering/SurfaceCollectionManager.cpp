@@ -36,11 +36,15 @@
 
 namespace WebCore {
 
+using namespace android::uirenderer;
+
 SurfaceCollectionManager::SurfaceCollectionManager()
     : m_drawingCollection(0)
     , m_paintingCollection(0)
     , m_queuedCollection(0)
     , m_fastSwapMode(false)
+    , m_previouslyScrolling(false)
+    , m_newPaintingCollection(false)
 {
 }
 
@@ -95,6 +99,13 @@ void SurfaceCollectionManager::clearCollections()
     m_queuedCollection = 0;
 }
 
+void SurfaceCollectionManager::updatePaintingCollection(SurfaceCollection* newCollection)
+{
+    m_paintingCollection = newCollection;
+    m_paintingCollection->setIsPainting(m_drawingCollection);
+    m_newPaintingCollection = true;
+}
+
 // a new layer collection has arrived, queue it if we're painting something already,
 // or start painting it if we aren't. Returns true if the manager has two collections
 // already queued.
@@ -106,10 +117,8 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
 
     if (!newCollection || brandNew) {
         clearCollections();
-        if (brandNew) {
-            m_paintingCollection = newCollection;
-            m_paintingCollection->setIsPainting(m_drawingCollection);
-        }
+        if (brandNew)
+            updatePaintingCollection(newCollection);
         return false;
     }
 
@@ -137,8 +146,7 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
         m_queuedCollection = newCollection;
     } else {
         // don't have painting collection, paint this one!
-        m_paintingCollection = newCollection;
-        m_paintingCollection->setIsPainting(m_drawingCollection);
+        updatePaintingCollection(newCollection);
     }
     return m_drawingCollection && TilesManager::instance()->useDoubleBuffering();
 }
@@ -153,13 +161,43 @@ void SurfaceCollectionManager::updateScrollableLayer(int layerId, int x, int y)
         m_drawingCollection->updateScrollableLayer(layerId, x, y);
 }
 
+
+int SurfaceCollectionManager::singleSurfaceModeInvalidation(bool scrolling,
+                                                            bool shouldDraw)
+{
+    int returnFlags = 0;
+    // In single surface mode, we need to dirty all the tiles when we are finishing
+    // scrolling or have an incoming painting tree.
+    bool requireDirtyAll = (m_previouslyScrolling && !scrolling)
+                           || m_newPaintingCollection;
+    if (requireDirtyAll)
+        TilesManager::instance()->dirtyAllTiles();
+
+    // We also need to tell the framework to continue to invoke until
+    // the base layer is ready.
+    bool drawingBaseSurfaceReady = m_drawingCollection
+                                   && m_drawingCollection->isBaseSurfaceReady();
+    bool requireInvoke = requireDirtyAll || !drawingBaseSurfaceReady;
+    if (requireInvoke)
+        returnFlags |= DrawGlInfo::kStatusInvoke;
+
+    // When the base layer is ready, we can ask the framework to draw.
+    if (!shouldDraw && drawingBaseSurfaceReady)
+        returnFlags |= DrawGlInfo::kStatusDraw;
+
+    m_newPaintingCollection = false;
+    m_previouslyScrolling = scrolling;
+
+    return returnFlags;
+}
+
 int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
                             SkRect& visibleContentRect, float scale,
-                            bool enterFastSwapMode,
+                            bool scrolling, bool singleSurfaceMode,
                             bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                             TexturesResult* texturesResultPtr, bool shouldDraw)
 {
-    m_fastSwapMode |= enterFastSwapMode;
+    m_fastSwapMode |= scrolling || singleSurfaceMode;
 
     ALOGV("drawGL, D %p, P %p, Q %p, fastSwap %d shouldDraw %d",
           m_drawingCollection, m_paintingCollection,
@@ -196,7 +234,10 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     int returnFlags = 0;
 
     if (m_paintingCollection)
-        returnFlags |= uirenderer::DrawGlInfo::kStatusInvoke;
+        returnFlags |= DrawGlInfo::kStatusInvoke;
+
+    if (singleSurfaceMode)
+        returnFlags |= singleSurfaceModeInvalidation(scrolling, shouldDraw);
 
     if (!shouldDraw) {
         if (didCollectionSwap
@@ -205,11 +246,11 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
                 && m_drawingCollection->isReady())) {
             // either a swap just occurred, or there is no more work to be done: do a full draw
             m_drawingCollection->swapTiles();
-            returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
+            returnFlags |= DrawGlInfo::kStatusDraw;
         } else {
             // current collection not ready - invoke functor in process mode
             // until either drawing or painting collection is ready
-            returnFlags |= uirenderer::DrawGlInfo::kStatusInvoke;
+            returnFlags |= DrawGlInfo::kStatusInvoke;
         }
 
         return returnFlags;
@@ -234,7 +275,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
             m_fastSwapMode = false;
         } else {
             // drawing isn't ready, must redraw
-            returnFlags |= uirenderer::DrawGlInfo::kStatusInvoke;
+            returnFlags |= DrawGlInfo::kStatusInvoke;
         }
 
         m_drawingCollection->evaluateAnimations(currentTime);
@@ -262,7 +303,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
 #endif
 
     if (m_drawingCollection && m_drawingCollection->drawGL(visibleContentRect))
-        returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
+        returnFlags |= DrawGlInfo::kStatusDraw;
 
     ALOGV("returnFlags %d,  m_paintingCollection %d ", returnFlags, m_paintingCollection);
     return returnFlags;
