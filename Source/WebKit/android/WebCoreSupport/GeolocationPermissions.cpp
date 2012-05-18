@@ -26,16 +26,16 @@
 #include "config.h"
 #include "GeolocationPermissions.h"
 
-#include "DOMWindow.h"
-#include "Frame.h"
-#include "Geolocation.h"
-#include "Navigator.h"
-#include "SQLiteDatabase.h"
-#include "SQLiteFileSystem.h"
-#include "SQLiteStatement.h"
-#include "SQLiteTransaction.h"
 #include "WebViewCore.h"
 
+#include <DOMWindow.h>
+#include <Frame.h>
+#include <Geolocation.h>
+#include <Navigator.h>
+#include <SQLiteDatabase.h>
+#include <SQLiteFileSystem.h>
+#include <SQLiteStatement.h>
+#include <SQLiteTransaction.h>
 #include <text/CString.h>
 
 using namespace WebCore;
@@ -51,9 +51,8 @@ String GeolocationPermissions::s_databasePath;
 
 static const char* databaseName = "GeolocationPermissions.db";
 
-GeolocationPermissions::GeolocationPermissions(WebViewCore* webViewCore, Frame* mainFrame)
+GeolocationPermissions::GeolocationPermissions(WebViewCore* webViewCore)
     : m_webViewCore(webViewCore)
-    , m_mainFrame(mainFrame)
     , m_timer(this, &GeolocationPermissions::timerFired)
 
 {
@@ -266,7 +265,7 @@ void GeolocationPermissions::maybeCallbackFrames(String origin, bool allow)
     // or have their contents replaced. Even uniqueChildName is not unique when
     // frames are dynamically deleted and created. Instead, we simply call back
     // to the Geolocation object in all frames from the correct origin.
-    for (Frame* frame = m_mainFrame; frame; frame = frame->tree()->traverseNext()) {
+    for (Frame* frame = m_webViewCore->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
         if (origin == frame->document()->securityOrigin()->toString()) {
             // If the page has changed, it may no longer have a Geolocation
             // object.

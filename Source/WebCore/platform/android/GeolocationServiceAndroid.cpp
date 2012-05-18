@@ -26,11 +26,13 @@
 #include "config.h"
 #include "GeolocationServiceAndroid.h"
 
+#include "Frame.h"
 #include "Geolocation.h"
-#include "GeolocationServiceBridge.h"
 #include "Geoposition.h"
 #include "PositionError.h"
 #include "PositionOptions.h"
+
+#include <WebViewCore.h>
 
 #if PLATFORM(ANDROID)
 // Required for sim-eng build
@@ -39,6 +41,8 @@
 #include <wtf/CurrentTime.h>
 
 using JSC::Bindings::getJNIEnv;
+using android::GeolocationServiceBridge;
+using android::WebViewCore;
 using namespace std;
 
 namespace WebCore {
@@ -89,7 +93,7 @@ bool GeolocationServiceAndroid::startUpdating(PositionOptions* options, bool sus
     // Lazilly create the Java object.
     bool haveJavaBridge = m_javaBridge;
     if (!haveJavaBridge)
-        m_javaBridge.set(new GeolocationServiceBridge(this, frame));
+        m_javaBridge.set(new GeolocationServiceBridge(this, WebViewCore::getWebViewCore(frame->view())));
     ASSERT(m_javaBridge);
 
     // On Android, high power == GPS. Set whether to use GPS before we start the

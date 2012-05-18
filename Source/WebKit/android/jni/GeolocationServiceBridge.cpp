@@ -1,5 +1,5 @@
 /*
- * Copyright 2009, The Android Open Source Project
+ * Copyright 2012, The Android Open Source Project
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,16 +26,19 @@
 #include "config.h"
 #include "GeolocationServiceBridge.h"
 
-#include "Frame.h"
 #include "GeolocationServiceAndroid.h"
-#include "Geoposition.h"
-#include "PositionError.h"
 #include "WebViewCore.h"
-#include <JNIHelp.h>
 
-namespace WebCore {
+#include <Geoposition.h>
+#include <JNIHelp.h>
+#include <PositionError.h>
 
 using JSC::Bindings::getJNIEnv;
+using WebCore::Coordinates;
+using WebCore::Geoposition;
+using WebCore::PositionError;
+
+namespace android {
 
 static const char* javaGeolocationServiceClassName = "android/webkit/GeolocationService";
 enum javaGeolocationServiceClassMethods {
@@ -71,12 +74,12 @@ enum javaLocationClassMethods {
 };
 static jmethodID javaLocationClassMethodIDs[LocationMethodCount];
 
-GeolocationServiceBridge::GeolocationServiceBridge(ListenerInterface* listener, Frame* frame)
+GeolocationServiceBridge::GeolocationServiceBridge(Listener* listener, WebViewCore* webViewCore)
     : m_listener(listener)
     , m_javaGeolocationServiceObject(0)
 {
     ASSERT(m_listener);
-    startJavaImplementation(frame);
+    startJavaImplementation(webViewCore);
 }
 
 GeolocationServiceBridge::~GeolocationServiceBridge()
@@ -155,7 +158,7 @@ PassRefPtr<Geoposition> GeolocationServiceBridge::toGeoposition(JNIEnv *env, con
         env->CallFloatMethod(location, javaLocationClassMethodIDs[LocationMethodGetSpeed]) :
         0.0;
 
-    RefPtr<Coordinates> newCoordinates = WebCore::Coordinates::create(
+    RefPtr<Coordinates> newCoordinates = Coordinates::create(
         env->CallDoubleMethod(location, javaLocationClassMethodIDs[LocationMethodGetLatitude]),
         env->CallDoubleMethod(location, javaLocationClassMethodIDs[LocationMethodGetLongitude]),
         hasAltitude, Altitude,
@@ -164,12 +167,12 @@ PassRefPtr<Geoposition> GeolocationServiceBridge::toGeoposition(JNIEnv *env, con
         hasHeading, heading,
         hasSpeed, speed);
 
-    return WebCore::Geoposition::create(
+    return Geoposition::create(
          newCoordinates.release(),
          env->CallLongMethod(location, javaLocationClassMethodIDs[LocationMethodGetTime]));
 }
 
-void GeolocationServiceBridge::startJavaImplementation(Frame* frame)
+void GeolocationServiceBridge::startJavaImplementation(WebViewCore* webViewCore)
 {
     JNIEnv* env = getJNIEnv();
 
@@ -188,7 +191,7 @@ void GeolocationServiceBridge::startJavaImplementation(Frame* frame)
             env->GetMethodID(javaGeolocationServiceClass, "setEnableGps", "(Z)V");
 
     // Create the Java GeolocationService object.
-    jobject context = android::WebViewCore::getWebViewCore(frame->view())->getContext();
+    jobject context = webViewCore->getContext();
     if (!context)
         return;
     jlong nativeObject = reinterpret_cast<jlong>(this);
