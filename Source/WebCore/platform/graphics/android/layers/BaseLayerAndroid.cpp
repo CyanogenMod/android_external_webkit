@@ -79,7 +79,7 @@ void BaseLayerAndroid::updatePositionsRecursive(const SkRect& visibleContentRect
 {
     updateLayerPositions(visibleContentRect);
     TransformationMatrix ident;
-    FloatRect clip(0, 0, 1e10, 1e10);
+    FloatRect clip(0, 0, getWidth(), getHeight());
     updateGLPositionsAndScale(ident, clip, 1, state()->scale());
 }
 
