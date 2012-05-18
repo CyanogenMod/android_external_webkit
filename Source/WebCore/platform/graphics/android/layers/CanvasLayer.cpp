@@ -52,6 +52,8 @@ CanvasLayer::CanvasLayer(RenderLayer* owner, HTMLCanvasElement* canvas)
 {
     init();
     m_canvas->addObserver(this);
+    // Make sure we initialize in case the canvas has already been laid out
+    canvasResized(m_canvas);
 }
 
 CanvasLayer::CanvasLayer(const CanvasLayer& layer)
