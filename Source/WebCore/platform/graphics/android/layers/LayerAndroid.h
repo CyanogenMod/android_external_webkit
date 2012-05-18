@@ -281,7 +281,7 @@ public:
     Surface* surface() { return m_surface; }
 
     void setIntrinsicallyComposited(bool intCom) { m_intrinsicallyComposited = intCom; }
-    bool needsIsolatedSurface() {
+    virtual bool needsIsolatedSurface() {
         return (needsTexture() && m_intrinsicallyComposited) || m_animations.size();
     }
 
