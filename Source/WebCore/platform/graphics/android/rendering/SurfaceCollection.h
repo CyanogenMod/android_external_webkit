@@ -72,7 +72,7 @@ public:
 
 private:
     void updateLayerPositions(const SkRect& visibleContentRect);
-    BaseLayerAndroid* m_compositedRoot;
+    BaseLayerAndroid* const m_compositedRoot;
     WTF::Vector<Surface*> m_surfaces;
 };
 
