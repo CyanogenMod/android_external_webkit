@@ -49,7 +49,9 @@ Widget::~Widget()
 
 IntRect Widget::frameRect() const
 {
-    return m_frame;
+    if (!platformWidget())
+        return m_frame;
+    return platformWidget()->getBounds();
 }
 
 void Widget::setFocus(bool focused)
@@ -89,6 +91,11 @@ void Widget::hide()
 void Widget::setFrameRect(const IntRect& rect)
 {
     m_frame = rect;
+    // platformWidget() is 0 when called from Scrollbar
+    if (!platformWidget())
+        return;
+    platformWidget()->setLocation(rect.x(), rect.y());
+    platformWidget()->setSize(rect.width(), rect.height());
 }
 
 void Widget::setIsSelected(bool isSelected)

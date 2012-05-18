@@ -172,6 +172,10 @@ public:
     virtual void setContentsSize(const IntSize&);
 
 #if PLATFORM(ANDROID)
+    int actualWidth() const;
+    int actualHeight() const;
+    int actualScrollX() const;
+    int actualScrollY() const;
     FrameView* frameView();
 #endif
 
@@ -400,6 +404,13 @@ private:
     bool platformIsOffscreen() const;
    
     void platformSetScrollOrigin(const IntPoint&, bool updatePositionAtAll, bool updatePositionSynchronously);
+
+#if PLATFORM(ANDROID)
+    int platformActualWidth() const;
+    int platformActualHeight() const;
+    int platformActualScrollX() const;
+    int platformActualScrollY() const;
+#endif
 
 #if PLATFORM(MAC) && defined __OBJC__
 public:
