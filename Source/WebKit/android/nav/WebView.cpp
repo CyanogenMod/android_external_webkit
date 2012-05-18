@@ -650,6 +650,84 @@ void setDrawingPaused(bool isPaused)
         m_viewImpl->setPrerenderingEnabled(!isPaused);
 }
 
+// Finds the rectangles within world to the left, right, top, and bottom
+// of rect and adds them to rects. If no intersection exists, false is returned.
+static bool findMaskedRects(const FloatRect& world,
+        const FloatRect& rect, Vector<FloatRect>& rects) {
+    if (!world.intersects(rect))
+        return false; // nothing to subtract
+
+    // left rectangle
+    if (rect.x() > world.x())
+        rects.append(FloatRect(world.x(), world.y(),
+                rect.x() - world.x(), world.height()));
+    // top rectangle
+    if (rect.y() > world.y())
+        rects.append(FloatRect(world.x(), world.y(),
+                world.width(), rect.y() - world.y()));
+    // right rectangle
+    if (rect.maxX() < world.maxX())
+        rects.append(FloatRect(rect.maxX(), world.y(),
+                world.maxX() - rect.maxX(), world.height()));
+    // bottom rectangle
+    if (rect.maxY() < world.maxY())
+        rects.append(FloatRect(world.x(), rect.maxY(),
+                world.width(), world.maxY() - rect.maxY()));
+    return true;
+}
+
+// Returns false if layerId is a fixed position layer, otherwise
+// all fixed position layer rectangles are subtracted from those within
+// rects. Rects will be modified to contain rectangles that don't include
+// the fixed position layer rectangles.
+static bool findMaskedRectsForLayer(LayerAndroid* layer,
+        Vector<FloatRect>& rects, int layerId)
+{
+    if (layer->isPositionFixed()) {
+        if (layerId == layer->uniqueId())
+            return false;
+        FloatRect layerRect = layer->fullContentAreaMapped();
+        for (int i = rects.size() - 1; i >= 0; i--)
+            if (findMaskedRects(rects[i], layerRect, rects))
+                rects.remove(i);
+    }
+
+    int childIndex = 0;
+    while (LayerAndroid* child = layer->getChild(childIndex++))
+        if (!findMaskedRectsForLayer(child, rects, layerId))
+            return false;
+
+    return true;
+}
+
+// Finds the largest rectangle not masked by any fixed layer.
+void findMaxVisibleRect(int movingLayerId, SkIRect& visibleContentRect)
+{
+    if (!m_baseLayer)
+        return;
+
+    FloatRect visibleContentFloatRect(visibleContentRect);
+    m_baseLayer->updatePositionsRecursive(visibleContentFloatRect);
+    Vector<FloatRect> rects;
+    rects.append(visibleContentFloatRect);
+    if (findMaskedRectsForLayer(m_baseLayer, rects, movingLayerId)) {
+        float maxSize = 0.0;
+        const FloatRect* largest = 0;
+        for (int i = 0; i < rects.size(); i++) {
+            const FloatRect& rect = rects[i];
+            float size = rect.width() * rect.height();
+            if (size > maxSize) {
+                maxSize = size;
+                largest = &rect;
+            }
+        }
+        if (largest) {
+            SkRect largeRect = *largest;
+            largeRect.round(&visibleContentRect);
+        }
+    }
+}
+
 private: // local state for WebView
     bool m_isDrawingPaused;
     // private to getFrameCache(); other functions operate in a different thread
@@ -1194,6 +1272,16 @@ static jint nativeSetHwAccelerated(JNIEnv *env, jobject obj, jint nativeView,
     return webview->setHwAccelerated(hwAccelerated);
 }
 
+static void nativeFindMaxVisibleRect(JNIEnv *env, jobject obj, jint nativeView,
+        jint movingLayerId, jobject visibleContentRect)
+{
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    SkIRect nativeRect;
+    GraphicsJNI::jrect_to_irect(env, visibleContentRect, &nativeRect);
+    webview->findMaxVisibleRect(movingLayerId, nativeRect);
+    GraphicsJNI::irect_to_jrect(nativeRect, env, visibleContentRect);
+}
+
 /*
  * JNI registration
  */
@@ -1270,6 +1358,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeMapLayerRect },
     { "nativeSetHwAccelerated", "(IZ)I",
         (void*) nativeSetHwAccelerated },
+    { "nativeFindMaxVisibleRect", "(IILandroid/graphics/Rect;)V",
+        (void*) nativeFindMaxVisibleRect },
 };
 
 int registerWebView(JNIEnv* env)
