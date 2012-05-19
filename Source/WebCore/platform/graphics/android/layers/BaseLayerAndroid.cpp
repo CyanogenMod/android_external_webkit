@@ -244,6 +244,9 @@ Image* FixedBackgroundImageLayerAndroid::GetCachedImage(PassRefPtr<RenderStyle> 
 
     Image* image = cachedImage->image();
 
+    if (image && !image->nativeImageForCurrentFrame())
+        return 0;
+
     if (image == Image::nullImage())
         return 0;
 
