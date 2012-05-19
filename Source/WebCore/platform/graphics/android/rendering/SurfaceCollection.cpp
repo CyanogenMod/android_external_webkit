@@ -33,7 +33,7 @@
 #include "BaseLayerAndroid.h"
 #include "ClassTracker.h"
 #include "GLWebViewState.h"
-#include "BaseLayerAndroid.h"
+#include "PaintTileOperation.h"
 #include "Surface.h"
 #include "ScrollableLayerAndroid.h"
 #include "TilesManager.h"
@@ -173,6 +173,12 @@ bool SurfaceCollection::isMissingBackgroundContent()
     // return true when the first surface is missing content (indicating the
     // entire viewport isn't covered)
     return m_surfaces[0]->isMissingContent();
+}
+
+void SurfaceCollection::removePainterOperations()
+{
+    for (unsigned int i = 0; i < m_surfaces.size(); i++)
+        TilesManager::instance()->removeOperationsForFilter(new TilePainterFilter(m_surfaces[i]));
 }
 
 void SurfaceCollection::computeTexturesAmount(TexturesResult* result)
