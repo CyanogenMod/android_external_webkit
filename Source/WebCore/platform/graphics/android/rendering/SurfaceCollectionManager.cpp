@@ -69,6 +69,7 @@ void SurfaceCollectionManager::swap()
     if (m_drawingCollection) {
         ALOGV("destroying drawing collection %p", m_drawingCollection);
         m_drawingCollection->addFrameworkInvals();
+        m_drawingCollection->removePainterOperations();
         SkSafeUnref(m_drawingCollection);
     }
 
@@ -93,6 +94,12 @@ void SurfaceCollectionManager::swap()
 // clear all of the content in the three collections held by the collection manager
 void SurfaceCollectionManager::clearCollections()
 {
+    // remove all painting operations, since they're no longer relevant
+    if (m_drawingCollection)
+        m_drawingCollection->removePainterOperations();
+    if (m_paintingCollection)
+        m_paintingCollection->removePainterOperations();
+
     SkSafeUnref(m_drawingCollection);
     m_drawingCollection = 0;
     SkSafeUnref(m_paintingCollection);

@@ -65,6 +65,7 @@ class FixedBackgroundImageLayerAndroid : public LayerAndroid {
 public:
     FixedBackgroundImageLayerAndroid(PassRefPtr<RenderStyle> style, int w, int h);
     FixedBackgroundImageLayerAndroid(const FixedBackgroundImageLayerAndroid& layer);
+    virtual ~FixedBackgroundImageLayerAndroid();
     virtual LayerAndroid* copy() const { return new FixedBackgroundImageLayerAndroid(*this); }
     virtual bool needsTexture() { return true; }
     virtual SubclassType subclassType() const { return LayerAndroid::FixedBackgroundImageLayer; }
