@@ -68,6 +68,34 @@ IntSize ScrollView::platformContentsSize() const
     return m_contentsSize;
 }
 
+int ScrollView::platformActualWidth() const
+{
+    if (parent())
+        return width();
+    return platformWidget()->visibleWidth();
+}
+
+int ScrollView::platformActualHeight() const
+{
+    if (parent())
+        return height();
+    return platformWidget()->visibleHeight();
+}
+
+int ScrollView::platformActualScrollX() const
+{
+    if (parent())
+        return scrollX();
+    return platformWidget()->visibleX();
+}
+
+int ScrollView::platformActualScrollY() const
+{
+    if (parent())
+        return scrollY();
+    return platformWidget()->visibleY();
+}
+
 void ScrollView::platformSetScrollPosition(const WebCore::IntPoint& pt)
 {
     PlatformBridge::setScrollPosition(this, m_scrollOrigin.x() + pt.x(),

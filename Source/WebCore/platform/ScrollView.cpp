@@ -308,6 +308,30 @@ void ScrollView::setContentsSize(const IntSize& newSize)
 }
 
 #if PLATFORM(ANDROID)
+int ScrollView::actualWidth() const {
+    if (platformWidget())
+        return platformActualWidth();
+    return width();
+}
+
+int ScrollView::actualHeight() const {
+    if (platformWidget())
+        return platformActualHeight();
+    return height();
+}
+
+int ScrollView::actualScrollX() const {
+    if (platformWidget())
+        return platformActualScrollX();
+    return scrollX();
+}
+
+int ScrollView::actualScrollY() const {
+    if (platformWidget())
+        return platformActualScrollY();
+    return scrollY();
+}
+
 FrameView* ScrollView::frameView() {
     if (this->isFrameView()) {
         FrameView* frameView = reinterpret_cast<FrameView*>(this);
