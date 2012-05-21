@@ -52,6 +52,7 @@ public:
     virtual bool drawGL(bool layerTilesDisabled);
     virtual void contentDraw(SkCanvas* canvas, PaintStyle style);
     virtual bool needsTexture();
+    virtual bool needsIsolatedSurface() { return true; }
 
 protected:
     virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated);
