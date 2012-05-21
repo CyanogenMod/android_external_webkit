@@ -51,7 +51,7 @@ void setSharedTimerFireTime(double fireTime)
 {
     long long timeInMs = static_cast<long long>((fireTime - WTF::currentTime()) * 1000);
 
-    ALOGV("setSharedTimerFireTime: in %ld millisec", timeInMs);
+    ALOGV("setSharedTimerFireTime: in %d millisec", (int)timeInMs);
     if (JavaSharedClient::GetTimerClient())
         JavaSharedClient::GetTimerClient()->setSharedTimer(timeInMs);
 }
