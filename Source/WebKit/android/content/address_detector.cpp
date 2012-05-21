@@ -892,7 +892,7 @@ static const char* s_rawStreetSuffixes[] = {
     "pnes", "point", "points", "port", "ports", "pr", "prairie", "prarie",
     "prk", "prr", "prt", "prts", "psge", "pt", "pts", "rad", "radial",
     "radiel", "radl", "ramp", "ranch", "ranches", "rapid", "rapids", "rd",
-    "rdg", "rdge", "rdgs", "rds", "rest", "ridge", "ridges", "riv", "river",
+    "rdg", "rdge", "rdgs", "rds", "real", "rest", "ridge", "ridges", "riv", "river",
     "rivr", "rnch", "rnchs", "road", "roads", "route", "row", "rpd", "rpds",
     "rst", "rte", "rue", "run", "rvr", "shl", "shls", "shoal", "shoals",
     "shoar", "shoars", "shore", "shores", "shr", "shrs", "skwy", "skyway",
