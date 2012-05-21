@@ -530,7 +530,7 @@ bool setBaseLayer(BaseLayerAndroid* newBaseLayer, bool showVisualIndicator,
 
 void copyBaseContentToPicture(SkPicture* picture)
 {
-    if (!m_baseLayer)
+    if (!m_baseLayer || !m_baseLayer->content())
         return;
     LayerContent* content = m_baseLayer->content();
     content->draw(picture->beginRecording(content->width(), content->height(),
@@ -539,7 +539,7 @@ void copyBaseContentToPicture(SkPicture* picture)
 }
 
 bool hasContent() {
-    if (!m_baseLayer)
+    if (!m_baseLayer || !m_baseLayer->content())
         return false;
     return !m_baseLayer->content()->isEmpty();
 }
