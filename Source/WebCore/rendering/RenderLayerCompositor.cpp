@@ -302,6 +302,7 @@ void RenderLayerCompositor::updateCompositingLayers(CompositingUpdateType update
         bool layersChanged = false;
 
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
+        compState.m_positionedSibling = false;
         compState.m_hasFixedElement = false;
 #endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
@@ -657,27 +658,25 @@ bool RenderLayerCompositor::checkForPositionedElements(Vector<RenderLayer*>* lis
     // composited. The layers' surfaces will be merged if needed UI-side.
     for (int j = 0; j < listSize; ++j) {
         RenderLayer* currentLayer = list->at(j);
-        if (currentLayer->shouldComposite())
-            continue;
+
+        // clear the composited flag first
+        currentLayer->setShouldComposite(false);
 
         if (currentLayer->isFixed() && needsToBeComposited(currentLayer)) {
-            haveFixedLayer = j;
-            fixedSibling = true;
+            // Ignore fixed layers with a width or height or 1 or less...
+            IntRect currentLayerBounds = currentLayer->renderer()->localToAbsoluteQuad(
+                FloatRect(currentLayer->localBoundingBox())).enclosingBoundingBox();
+            if (currentLayerBounds.width() > 1 && currentLayerBounds.height() > 1) {
+                haveFixedLayer = j;
+                fixedSibling = true;
+            }
+            continue;
         }
 
-        // Bypass fixed layers with a width or height or 1 or less...
-        IntRect currentLayerBounds = currentLayer->renderer()->localToAbsoluteQuad(
-            FloatRect(currentLayer->localBoundingBox())).enclosingBoundingBox();
-        if ((currentLayerBounds.width() <= 1
-            || currentLayerBounds.height() <= 1)
-            && haveFixedLayer == j) {
-            haveFixedLayer = -1;
-            fixedSibling = false;
-        }
-
-        if (haveFixedLayer != -1 && haveFixedLayer != j)
+        if (haveFixedLayer != -1)
             currentLayer->setShouldComposite(true);
     }
+
     return positionedSibling || fixedSibling;
 }
 
@@ -867,6 +866,8 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 #if ENABLE(COMPOSITED_FIXED_ELEMENTS)
     if (childState.m_hasFixedElement)
         compositingState.m_hasFixedElement = true;
+    if (childState.m_positionedSibling)
+        compositingState.m_positionedSibling = true;
 #endif
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     if (childState.m_hasScrollableElement)
@@ -889,7 +890,9 @@ void RenderLayerCompositor::computeCompositingRequirements(RenderLayer* layer, O
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
     // We also need to check that we don't have a scrollable layer, as this
     // would not have set the m_subtreeIsCompositing flag
-    if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !childState.m_hasScrollableElement && !childState.m_hasFixedElement && !requiresCompositingLayer(layer) && !m_forceCompositingMode) {
+    if (layer->isRootLayer() && !childState.m_subtreeIsCompositing
+        && !childState.m_hasScrollableElement && !childState.m_positionedSibling && !childState.m_hasFixedElement
+        && !requiresCompositingLayer(layer) && !m_forceCompositingMode) {
 #else
     if (layer->isRootLayer() && !childState.m_subtreeIsCompositing && !requiresCompositingLayer(layer) && !m_forceCompositingMode) {
 #endif
