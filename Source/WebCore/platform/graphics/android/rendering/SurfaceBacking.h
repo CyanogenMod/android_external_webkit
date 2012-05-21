@@ -44,7 +44,7 @@ public:
                    const IntRect& prepareArea, const IntRect& fullContentArea,
                    TilePainter* painter, bool aggressiveRendering,
                    bool updateWithBlit);
-    void swapTiles();
+    bool swapTiles();
     void drawGL(const IntRect& visibleContentArea, float opacity,
                 const TransformationMatrix* transform, bool aggressiveRendering,
                 const Color* background);

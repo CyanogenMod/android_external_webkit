@@ -146,11 +146,12 @@ void SurfaceBacking::markAsDirty(const SkRegion& dirtyArea)
     m_lowResTileGrid->markAsDirty(dirtyArea);
 }
 
-void SurfaceBacking::swapTiles()
+bool SurfaceBacking::swapTiles()
 {
-    m_backTileGrid->swapTiles();
-    m_frontTileGrid->swapTiles();
-    m_lowResTileGrid->swapTiles();
+    bool swap = m_backTileGrid->swapTiles();
+    swap |= m_frontTileGrid->swapTiles();
+    swap |= m_lowResTileGrid->swapTiles();
+    return swap;
 }
 
 void SurfaceBacking::computeTexturesAmount(TexturesResult* result, LayerAndroid* layer)
