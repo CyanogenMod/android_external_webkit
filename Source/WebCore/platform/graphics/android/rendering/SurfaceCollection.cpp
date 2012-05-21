@@ -164,16 +164,12 @@ bool SurfaceCollection::isReady()
 
 bool SurfaceCollection::isBaseSurfaceReady()
 {
-    if (!m_compositedRoot || !m_surfaces[0])
-        return false;
+    // m_surfaces[0] should be the base surface when in single surface mode.
     return m_surfaces[0]->isReady();
 }
 
 bool SurfaceCollection::isMissingBackgroundContent()
 {
-    if (!m_compositedRoot)
-        return true;
-
     // return true when the first surface is missing content (indicating the
     // entire viewport isn't covered)
     return m_surfaces[0]->isMissingContent();
