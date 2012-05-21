@@ -51,18 +51,25 @@ public:
 
     int drawGL(double currentTime, IntRect& viewRect,
                 SkRect& visibleContentRect, float scale,
-                bool enterFastSwapMode, bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
+                bool scrolling, bool singleSurfaceMode,
+                bool* collectionsSwappedPtr, bool* newCollectionHasAnimPtr,
                 TexturesResult* texturesResultPtr, bool shouldDraw);
 
 private:
     void swap();
     void clearCollections();
-
+    void updatePaintingCollection(SurfaceCollection* newCollection);
+    int singleSurfaceModeInvalidation(bool scrolling, bool shouldDraw);
     SurfaceCollection* m_drawingCollection;
     SurfaceCollection* m_paintingCollection;
     SurfaceCollection* m_queuedCollection;
 
     bool m_fastSwapMode;
+    // Used in single surface mode only. True if the previous frame is scrolling.
+    bool m_previouslyScrolling;
+    // Used in single surface mode only. True if there is a new painting tree
+    // added for the current frame.
+    bool m_newPaintingCollection;
 };
 
 } // namespace WebCore

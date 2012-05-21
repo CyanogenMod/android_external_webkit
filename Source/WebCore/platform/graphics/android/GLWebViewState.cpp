@@ -60,7 +60,7 @@
 
 namespace WebCore {
 
-using namespace android;
+using namespace android::uirenderer;
 
 GLWebViewState::GLWebViewState()
     : m_frameworkLayersInval(0, 0, 0, 0)
@@ -338,7 +338,7 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
     // TODO: upload as many textures as possible within a certain time limit
     int returnFlags = 0;
     if (ImagesManager::instance()->prepareTextures(this))
-        returnFlags |= uirenderer::DrawGlInfo::kStatusDraw;
+        returnFlags |= DrawGlInfo::kStatusDraw;
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING) {
         ALOGW("WARNING, scale seems corrupted after update: %e", scale);
@@ -352,11 +352,14 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
                                       titleBarHeight, screenClip, scale);
 
     TexturesResult nbTexturesNeeded;
-    bool fastSwap = isScrolling() || m_layersRenderingMode == kSingleSurfaceRendering;
+    bool scrolling = isScrolling();
+    bool singleSurfaceMode = m_layersRenderingMode == kSingleSurfaceRendering;
     m_glExtras.setVisibleContentRect(visibleContentRect);
+
     returnFlags |= m_surfaceCollectionManager.drawGL(currentTime, invScreenRect,
                                                      visibleContentRect,
-                                                     scale, fastSwap,
+                                                     scale, scrolling,
+                                                     singleSurfaceMode,
                                                      collectionsSwappedPtr,
                                                      newCollectionHasAnimPtr,
                                                      &nbTexturesNeeded, shouldDraw);
@@ -371,12 +374,12 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
 
     if (setLayersRenderingMode(nbTexturesNeeded)) {
         TilesManager::instance()->dirtyAllTiles();
-        returnFlags |= uirenderer::DrawGlInfo::kStatusDraw | uirenderer::DrawGlInfo::kStatusInvoke;
+        returnFlags |= DrawGlInfo::kStatusDraw | DrawGlInfo::kStatusInvoke;
     }
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 
-    if (returnFlags & uirenderer::DrawGlInfo::kStatusDraw) {
+    if (returnFlags & DrawGlInfo::kStatusDraw) {
         // returnFlags & kStatusDraw && empty inval region means we've inval'd everything,
         // but don't have new content. Keep redrawing full view (0,0,0,0)
         // until tile generation catches up and we swap pages.
@@ -390,8 +393,8 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
             invalRect->setWidth(m_frameworkLayersInval.width());
             invalRect->setHeight(m_frameworkLayersInval.height());
 
-            ALOGV("invalRect(%d, %d, %d, %d)", inval.x(),
-                  inval.y(), inval.width(), inval.height());
+            ALOGV("invalRect(%d, %d, %d, %d)", invalRect->x(),
+                  invalRect->y(), invalRect->width(), invalRect->height());
 
             if (!invalRect->intersects(invScreenRect)) {
                 // invalidate is occurring offscreen, do full inval to guarantee redraw
