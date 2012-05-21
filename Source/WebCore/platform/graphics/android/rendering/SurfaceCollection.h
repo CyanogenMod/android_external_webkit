@@ -47,7 +47,7 @@ public:
     SurfaceCollection(BaseLayerAndroid* compositedRoot);
     virtual ~SurfaceCollection();
 
-    // Tiled painting methods (executed on groups)
+    // Tiled painting methods (executed on Surfaces)
     void prepareGL(const SkRect& visibleContentRect, bool tryToFastBlit = false);
     bool drawGL(const SkRect& visibleContentRect);
     Color getBackgroundColor();
@@ -56,6 +56,7 @@ public:
     bool isReady();
     bool isBaseSurfaceReady();
     bool isMissingBackgroundContent();
+    void removePainterOperations();
     void computeTexturesAmount(TexturesResult* result);
 
     // Recursive tree methods (animations, invals, etc)

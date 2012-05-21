@@ -31,6 +31,7 @@
 
 #include "AndroidLog.h"
 #include "Color.h"
+#include "ClassTracker.h"
 #include "GLWebViewState.h"
 #include "LayerAndroid.h"
 
@@ -46,6 +47,9 @@ SurfaceBacking::SurfaceBacking(bool isBaseSurface)
     m_scale = -1;
     m_futureScale = -1;
     m_zooming = false;
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("SurfaceBacking");
+#endif
 }
 
 SurfaceBacking::~SurfaceBacking()
@@ -53,6 +57,9 @@ SurfaceBacking::~SurfaceBacking()
     delete m_frontTileGrid;
     delete m_backTileGrid;
     delete m_lowResTileGrid;
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->decrement("SurfaceBacking");
+#endif
 }
 
 void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,

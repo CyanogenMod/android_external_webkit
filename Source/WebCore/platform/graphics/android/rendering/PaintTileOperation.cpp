@@ -30,6 +30,7 @@
 #include "PaintTileOperation.h"
 
 #include "AndroidLog.h"
+#include "ClassTracker.h"
 #include "GLWebViewState.h"
 #include "ImageTexture.h"
 #include "ImagesManager.h"
@@ -49,6 +50,9 @@ PaintTileOperation::PaintTileOperation(Tile* tile, TilePainter* painter,
     if (m_tile)
         m_tile->setRepaintPending(true);
     SkSafeRef(m_painter);
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("PaintTileOperation");
+#endif
 }
 
 PaintTileOperation::~PaintTileOperation()
@@ -64,6 +68,9 @@ PaintTileOperation::~PaintTileOperation()
     } else {
         SkSafeUnref(m_painter);
     }
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->decrement("PaintTileOperation");
+#endif
 }
 
 bool PaintTileOperation::operator==(const QueuedOperation* operation)

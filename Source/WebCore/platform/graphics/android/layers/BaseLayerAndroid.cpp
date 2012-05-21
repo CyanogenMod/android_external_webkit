@@ -31,6 +31,7 @@
 
 #include "AndroidLog.h"
 #include "CachedImage.h"
+#include "ClassTracker.h"
 #include "DrawQuadData.h"
 #include "FixedPositioning.h"
 #include "GLWebViewState.h"
@@ -117,6 +118,10 @@ FixedBackgroundImageLayerAndroid::FixedBackgroundImageLayerAndroid(PassRefPtr<Re
 
     setFixedPosition(position);
     position->setPosition(left, top);
+
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("FixedBackgroundImageLayerAndroid");
+#endif
 }
 
 FixedBackgroundImageLayerAndroid::FixedBackgroundImageLayerAndroid(const FixedBackgroundImageLayerAndroid& layer)
@@ -124,6 +129,16 @@ FixedBackgroundImageLayerAndroid::FixedBackgroundImageLayerAndroid(const FixedBa
     , m_width(layer.m_width)
     , m_height(layer.m_height)
 {
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->increment("FixedBackgroundImageLayerAndroid");
+#endif
+}
+
+FixedBackgroundImageLayerAndroid::~FixedBackgroundImageLayerAndroid()
+{
+#ifdef DEBUG_COUNT
+    ClassTracker::instance()->decrement("FixedBackgroundImageLayerAndroid");
+#endif
 }
 
 static bool needToDisplayImage(bool repeatX, bool repeatY, float dx, float dy)
