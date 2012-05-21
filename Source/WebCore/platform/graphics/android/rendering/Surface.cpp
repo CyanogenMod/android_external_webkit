@@ -99,7 +99,8 @@ bool Surface::tryUpdateSurface(Surface* oldSurface)
         bool fullInval = m_layers.size() != oldSurface->m_layers.size();
         if (!fullInval) {
             for (unsigned int i = 0; i < m_layers.size(); i++) {
-                if (m_layers[i]->uniqueId() != oldSurface->m_layers[i]->uniqueId()) {
+                if ((m_layers[i]->uniqueId() != oldSurface->m_layers[i]->uniqueId())
+                    || (m_layers[i]->fullContentAreaMapped() != oldSurface->m_layers[i]->fullContentAreaMapped())) {
                     // layer list has changed, fully invalidate
                     // TODO: partially invalidate based on layer size/position
                     fullInval = true;
