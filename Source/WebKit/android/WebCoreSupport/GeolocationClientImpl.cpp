@@ -41,6 +41,7 @@
 using WebCore::Geolocation;
 using WebCore::GeolocationError;
 using WebCore::GeolocationPosition;
+using WebCore::Timer;
 
 using namespace std;
 
@@ -78,6 +79,7 @@ namespace android {
 
 GeolocationClientImpl::GeolocationClientImpl(WebViewCore* webViewCore)
     : m_webViewCore(webViewCore)
+    , m_timer(this, &GeolocationClientImpl::timerFired)
     , m_isSuspended(false)
     , m_useGps(false)
 {
@@ -94,9 +96,17 @@ void GeolocationClientImpl::geolocationDestroyed()
 
 void GeolocationClientImpl::startUpdating()
 {
+    // This method is called every time a new watch or one-shot position request
+    // is started. If we already have a position or an error, call back
+    // immediately.
+    if (m_lastPosition || m_lastError) {
+        m_timer.startOneShot(0);
+    }
+
     // Lazilly create the Java object.
-    ASSERT(!m_javaBridge);
-    m_javaBridge.set(new GeolocationServiceBridge(this, m_webViewCore));
+    bool haveJavaBridge = m_javaBridge;
+    if (!haveJavaBridge)
+        m_javaBridge.set(new GeolocationServiceBridge(this, m_webViewCore));
     ASSERT(m_javaBridge);
 
     // Set whether to use GPS before we start the implementation.
@@ -104,7 +114,7 @@ void GeolocationClientImpl::startUpdating()
 
     // If we're suspended, don't start the service. It will be started when we
     // get the call to resume().
-    if (!m_isSuspended)
+    if (!haveJavaBridge && !m_isSuspended)
         m_javaBridge->start();
 }
 
@@ -116,6 +126,9 @@ void GeolocationClientImpl::stopUpdating()
     // new position from the client when a request is first made.
     m_lastPosition = 0;
     m_lastError = 0;
+
+    if (m_timer.isActive())
+        m_timer.stop();
 }
 
 void GeolocationClientImpl::setEnableHighAccuracy(bool enableHighAccuracy)
@@ -194,6 +207,16 @@ GeolocationPermissions* GeolocationClientImpl::permissions() const
     if (!m_permissions)
         m_permissions = new GeolocationPermissions(m_webViewCore);
     return m_permissions.get();
+}
+
+void GeolocationClientImpl::timerFired(Timer<GeolocationClientImpl>* timer)
+{
+    ASSERT(&m_timer == timer);
+    ASSERT(m_lastPosition || m_lastError);
+    if (m_lastPosition)
+        m_webViewCore->mainFrame()->page()->geolocationController()->positionChanged(m_lastPosition.get());
+    else
+        m_webViewCore->mainFrame()->page()->geolocationController()->errorOccurred(m_lastError.get());
 }
 
 } // namespace android

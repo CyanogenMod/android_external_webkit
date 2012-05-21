@@ -30,6 +30,7 @@
 #include "GeolocationClient.h"
 #include "GeolocationPermissions.h"
 
+#include <Timer.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
 
@@ -68,12 +69,14 @@ public:
 
 private:
     GeolocationPermissions* permissions() const;
+    void timerFired(WebCore::Timer<GeolocationClientImpl>*);
 
     WebViewCore* m_webViewCore;
     RefPtr<WebCore::GeolocationPosition> m_lastPosition;
     RefPtr<WebCore::GeolocationError> m_lastError;
     OwnPtr<GeolocationServiceBridge> m_javaBridge;
     mutable OwnPtr<GeolocationPermissions> m_permissions;
+    WebCore::Timer<GeolocationClientImpl> m_timer;
     bool m_isSuspended;
     bool m_useGps;
 };

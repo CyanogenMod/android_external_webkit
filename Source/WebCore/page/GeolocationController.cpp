@@ -59,7 +59,10 @@ void GeolocationController::addObserver(Geolocation* observer, bool enableHighAc
     if (m_client) {        
         if (enableHighAccuracy)
             m_client->setEnableHighAccuracy(true);
+// See https://bugs.webkit.org/show_bug.cgi?id=87030
+#if !PLATFORM(ANDROID)
         if (wasEmpty)
+#endif
             m_client->startUpdating();
     }
 }
