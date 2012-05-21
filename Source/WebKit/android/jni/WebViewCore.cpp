@@ -171,6 +171,9 @@ FILE* gRenderTreeFile = 0;
 #include "RenderLayerCompositor.h"
 #endif
 
+#define FOREGROUND_TIMER_INTERVAL 0.004 // 4ms
+#define BACKGROUND_TIMER_INTERVAL 1.0 // 1s
+
 // How many ms to wait for the scroll to "settle" before we will consider doing
 // prerenders
 #define PRERENDER_AFTER_SCROLL_DELAY 750
@@ -549,6 +552,8 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
 
     // HTML5 History API
     RuntimeEnabledFeatures::setPushStateEnabled(true);
+    if (m_mainFrame)
+        m_mainFrame->settings()->setMinDOMTimerInterval(FOREGROUND_TIMER_INTERVAL);
 }
 
 WebViewCore::~WebViewCore()
@@ -4790,6 +4795,8 @@ static void Pause(JNIEnv* env, jobject obj, jint nativeClass)
         if (geolocation)
             geolocation->suspend();
     }
+    if (mainFrame)
+        mainFrame->settings()->setMinDOMTimerInterval(BACKGROUND_TIMER_INTERVAL);
 
     viewImpl->deviceMotionAndOrientationManager()->maybeSuspendClients();
 
@@ -4810,6 +4817,8 @@ static void Resume(JNIEnv* env, jobject obj, jint nativeClass)
         if (geolocation)
             geolocation->resume();
     }
+    if (mainFrame)
+        mainFrame->settings()->setMinDOMTimerInterval(FOREGROUND_TIMER_INTERVAL);
 
     viewImpl->deviceMotionAndOrientationManager()->maybeResumeClients();
 

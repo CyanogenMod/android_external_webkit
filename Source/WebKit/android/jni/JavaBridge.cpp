@@ -370,10 +370,7 @@ void JavaBridge::Finalize(JNIEnv* env, jobject obj)
 void JavaBridge::SharedTimerFired(JNIEnv* env, jobject)
 {
     if (sSharedTimerFiredCallback)
-    {
-        SkAutoMemoryUsageProbe  mup("JavaBridge::sharedTimerFired");
         sSharedTimerFiredCallback();
-    }
 }
 
 void JavaBridge::SetCacheSize(JNIEnv* env, jobject obj, jint bytes)
