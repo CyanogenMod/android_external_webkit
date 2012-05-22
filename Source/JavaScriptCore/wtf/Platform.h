@@ -1285,12 +1285,7 @@
    Client based implementations will have option to choose between pre-emptive and nonpre-emptive permission policy.
    pre-emptive permission policy is enabled by default for all client-based implementations. */
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
-#if PLATFORM(ANDROID)
-// Consider enabling preemptive permissions. See b/4500947.
-#define WTF_USE_PREEMPT_GEOLOCATION_PERMISSION 0
-#else
 #define WTF_USE_PREEMPT_GEOLOCATION_PERMISSION 1
-#endif
 #endif
 
 #if CPU(ARM_THUMB2)
