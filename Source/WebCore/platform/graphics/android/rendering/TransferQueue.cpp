@@ -375,6 +375,7 @@ void TransferQueue::updateDirtyTiles()
 
             if (obsoleteTile) {
                 ALOGV("Warning: the texture is obsolete for this baseTile");
+                clearItemInTranferQueue(index);
                 index = (index + 1) % m_transferQueueSize;
                 continue;
             }
