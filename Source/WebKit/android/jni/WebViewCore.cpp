@@ -433,7 +433,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_textWrapWidth(320)
     , m_scale(1.0f)
     , m_groupForVisitedLinks(0)
-    , m_isPaused(false)
     , m_cacheMode(0)
     , m_fullscreenVideoMode(false)
     , m_matchCount(0)
@@ -4766,15 +4765,6 @@ static bool FocusBoundsChanged(JNIEnv* env, jobject obj, jint nativeClass)
     return reinterpret_cast<WebViewCore*>(nativeClass)->focusBoundsChanged();
 }
 
-static void SetIsPaused(JNIEnv* env, jobject obj, jint nativeClass,
-        jboolean isPaused)
-{
-    // tell the webcore thread to stop thinking while we do other work
-    // (selection and scrolling). This has nothing to do with the lifecycle
-    // pause and resume.
-    reinterpret_cast<WebViewCore*>(nativeClass)->setIsPaused(isPaused);
-}
-
 static void Pause(JNIEnv* env, jobject obj, jint nativeClass)
 {
     // This is called for the foreground tab when the browser is put to the
@@ -4796,8 +4786,6 @@ static void Pause(JNIEnv* env, jobject obj, jint nativeClass)
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kPause_ANPLifecycleAction;
     viewImpl->sendPluginEvent(event);
-
-    viewImpl->setIsPaused(true);
 }
 
 static void Resume(JNIEnv* env, jobject obj, jint nativeClass)
@@ -4814,8 +4802,6 @@ static void Resume(JNIEnv* env, jobject obj, jint nativeClass)
     SkANP::InitEvent(&event, kLifecycle_ANPEventType);
     event.data.lifecycle.action = kResume_ANPLifecycleAction;
     viewImpl->sendPluginEvent(event);
-
-    viewImpl->setIsPaused(false);
 }
 
 static void FreeMemory(JNIEnv* env, jobject obj, jint nativeClass)
@@ -5048,7 +5034,6 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SetNewStorageLimit },
     { "nativeGeolocationPermissionsProvide", "(ILjava/lang/String;ZZ)V",
         (void*) GeolocationPermissionsProvide },
-    { "nativeSetIsPaused", "(IZ)V", (void*) SetIsPaused },
     { "nativePause", "(I)V", (void*) Pause },
     { "nativeResume", "(I)V", (void*) Resume },
     { "nativeFreeMemory", "(I)V", (void*) FreeMemory },
