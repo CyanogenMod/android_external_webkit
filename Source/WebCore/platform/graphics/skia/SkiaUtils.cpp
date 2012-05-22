@@ -40,6 +40,11 @@
 #include "SkRegion.h"
 #include "SkUnPreMultiply.h"
 
+#if PLATFORM(ANDROID)
+#include "GraphicsContext.h"
+#include "PlatformGraphicsContextSkia.h"
+#endif
+
 namespace WebCore {
 
 #if PLATFORM(ANDROID)
@@ -246,6 +251,20 @@ bool SkPathContainsPoint(SkPath* originalPath, const FloatPoint& point, SkPath::
     return contains;
 }
 
+#if PLATFORM(ANDROID)
+GraphicsContext* scratchContext()
+{
+    static GraphicsContext* scratch = 0;
+    if (!scratch) {
+        SkBitmap bm;
+        bm.setConfig(SkBitmap::kNo_Config, 1, 1);
+        SkCanvas* canvas = new SkCanvas(bm);
+        PlatformGraphicsContextSkia* pgc = new PlatformGraphicsContextSkia(canvas);
+        scratch = new GraphicsContext(pgc);
+    }
+    return scratch;
+}
+#else
 GraphicsContext* scratchContext()
 {
     static ImageBuffer* scratch = ImageBuffer::create(IntSize(1, 1)).leakPtr();
@@ -253,5 +272,6 @@ GraphicsContext* scratchContext()
     // ImageBuffer initializer won't fail.
     return scratch->context();
 }
+#endif
 
 }  // namespace WebCore
