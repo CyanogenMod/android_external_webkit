@@ -411,9 +411,12 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
                             -anchorPointZ());
 
     setDrawTransform(localMatrix);
-    if (m_drawTransform.isIdentityOrTranslation()) {
+    if (m_drawTransform.isIdentityOrTranslation()
+        && surface() && surface()->allowTransformFudging()) {
         // adjust the translation coordinates of the draw transform matrix so
         // that layers (defined in content coordinates) will align to display/view pixels
+
+        // the surface may not allow fudging if it uses the draw transform at paint time
         float desiredContentX = round(m_drawTransform.m41() * scale) / scale;
         float desiredContentY = round(m_drawTransform.m42() * scale) / scale;
         ALOGV("fudging translation from %f, %f to %f, %f",
