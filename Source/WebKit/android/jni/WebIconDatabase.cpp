@@ -50,26 +50,31 @@
 
 namespace android {
 
-SkBitmap webcoreImageToSkBitmap(WebCore::Image* icon)
+SkBitmap* webcoreImageToSkBitmap(WebCore::Image* icon)
 {
-    SkBitmap bm;
     if (!icon)
-        return bm;
+        return 0;
     WebCore::SharedBuffer* buffer = icon->data();
     if (!buffer)
-        return bm;
-    SkImageDecoder::DecodeMemory(buffer->data(), buffer->size(), &bm,
-                                 SkBitmap::kNo_Config,
-                                 SkImageDecoder::kDecodePixels_Mode);
+        return 0;
+    SkBitmap* bm = new SkBitmap;
+    if (!SkImageDecoder::DecodeMemory(buffer->data(), buffer->size(), bm,
+                                      SkBitmap::kNo_Config,
+                                      SkImageDecoder::kDecodePixels_Mode)
+            || bm->isNull() || !bm->width() || !bm->height()
+            || bm->config() == SkBitmap::kNo_Config) {
+        delete bm;
+        return 0;
+    }
     return bm;
 }
 
 jobject webcoreImageToJavaBitmap(JNIEnv* env, WebCore::Image* icon)
 {
-    SkBitmap bm = webcoreImageToSkBitmap(icon);
-    if (bm.isNull())
-        return NULL;
-    return GraphicsJNI::createBitmap(env, new SkBitmap(bm), false, NULL);
+    SkBitmap* bm = webcoreImageToSkBitmap(icon);
+    if (!bm)
+        return 0;
+    return GraphicsJNI::createBitmap(env, bm, false, NULL);
 }
 
 static WebIconDatabase* gIconDatabaseClient = new WebIconDatabase();
