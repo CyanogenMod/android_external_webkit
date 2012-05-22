@@ -55,12 +55,14 @@ class WebHistoryItem : public WebCore::AndroidWebHistoryBridge {
 public:
     WebHistoryItem(WebHistoryItem* parent)
         : WebCore::AndroidWebHistoryBridge(0)
+        , m_favicon(0)
         , m_faviconCached(0)
         , m_dataCached(0)
         , m_parent(parent)
     {}
     WebHistoryItem(WebCore::HistoryItem* item)
         : WebCore::AndroidWebHistoryBridge(item)
+        , m_favicon(0)
         , m_faviconCached(0)
         , m_dataCached(0)
         , m_parent(0)
@@ -76,7 +78,7 @@ public:
     String m_url;
     String m_originalUrl;
     String m_title;
-    SkBitmap m_favicon;
+    SkBitmap* m_favicon;
     WTF::Vector<char> m_data;
     jobject m_faviconCached;
     jobject m_dataCached;
