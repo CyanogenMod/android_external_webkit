@@ -1202,9 +1202,10 @@ static bool nativeScrollLayer(JNIEnv* env, jobject obj,
 
 static void nativeSetIsScrolling(JNIEnv* env, jobject jwebview, jboolean isScrolling)
 {
+    // TODO: Pass in the native pointer instead
     WebView* view = GET_NATIVE_VIEW(env, jwebview);
-    ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
-    view->setIsScrolling(isScrolling);
+    if (view)
+        view->setIsScrolling(isScrolling);
 }
 
 static void nativeUseHardwareAccelSkia(JNIEnv*, jobject, jboolean enabled)
