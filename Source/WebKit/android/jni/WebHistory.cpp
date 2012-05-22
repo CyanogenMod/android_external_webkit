@@ -263,10 +263,11 @@ static jobject WebHistoryGetFavicon(JNIEnv* env, jobject obj, jint ptr)
         return 0;
     WebHistoryItem* item = reinterpret_cast<WebHistoryItem*>(ptr);
     MutexLocker locker(item->m_lock);
-    if (!item->m_faviconCached && !item->m_favicon.isNull()) {
+    if (!item->m_faviconCached && item->m_favicon) {
         jobject favicon = GraphicsJNI::createBitmap(env,
-                                                    new SkBitmap(item->m_favicon),
+                                                    item->m_favicon,
                                                     false, NULL);
+        item->m_favicon = 0; // Framework now owns the pointer
         item->m_faviconCached = env->NewGlobalRef(favicon);
         env->DeleteLocalRef(favicon);
     }
@@ -345,6 +346,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
     // FIXME: This method should not be used from outside WebCore and will be removed.
     // http://trac.webkit.org/changeset/81484
     WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(url, WebCore::IntSize(16, 16));
+    delete webItem->m_favicon;
     webItem->m_favicon = webcoreImageToSkBitmap(icon);
     if (webItem->m_faviconCached) {
         env->DeleteGlobalRef(webItem->m_faviconCached);
@@ -361,6 +363,7 @@ void WebHistoryItem::updateHistoryItem(WebCore::HistoryItem* item) {
 
 WebHistoryItem::~WebHistoryItem()
 {
+    delete m_favicon;
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     if (!env) {
         ALOGW("Failed to get JNIEnv*! Potential memory leak!");

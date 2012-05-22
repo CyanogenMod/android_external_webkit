@@ -74,7 +74,7 @@ namespace android {
         bool                    mDeliveryRequested;
     };
 
-    SkBitmap webcoreImageToSkBitmap(WebCore::Image* icon);
+    SkBitmap* webcoreImageToSkBitmap(WebCore::Image* icon);
     jobject webcoreImageToJavaBitmap(JNIEnv* env, WebCore::Image* icon);
 
 };
