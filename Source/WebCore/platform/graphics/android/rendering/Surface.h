@@ -64,6 +64,10 @@ public:
     bool hasText() { return m_hasText; }
     bool isBase();
 
+    // don't allow transform fudging for merged layers - they need the transform
+    // static at paint time, and are always aligned to 0,0 doc coordinates.
+    bool allowTransformFudging() const { return singleLayer(); }
+
     // TilePainter methods
     virtual bool paint(SkCanvas* canvas);
     virtual float opacity();
