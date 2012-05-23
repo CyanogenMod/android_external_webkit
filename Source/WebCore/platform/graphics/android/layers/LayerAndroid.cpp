@@ -330,6 +330,8 @@ void LayerAndroid::removeAnimationsForKeyframes(const String& name)
 // FIXME: use a real mask?
 void LayerAndroid::setMaskLayer(LayerAndroid* layer)
 {
+    SkSafeRef(layer);
+    SkSafeUnref(m_maskLayer);
     m_maskLayer = layer;
     if (layer)
         m_haveClip = true;
