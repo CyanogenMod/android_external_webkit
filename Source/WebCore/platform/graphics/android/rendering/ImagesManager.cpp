@@ -52,6 +52,7 @@ ImageTexture* ImagesManager::setImage(SkBitmapRef* imgRef)
     if (!imgRef)
         return 0;
 
+    TRACE_METHOD();
     SkBitmap* bitmap = &imgRef->bitmap();
     ImageTexture* image = 0;
     SkBitmap* img = 0;
