@@ -80,7 +80,6 @@ public:
     , savedTileTexturePtr(0)
     , uploadType(DEFAULT_UPLOAD_TYPE)
     , bitmap(0)
-    , m_syncKHR(EGL_NO_SYNC_KHR)
     {
     }
 
@@ -101,15 +100,6 @@ public:
 
     // Specific data to the pure color tiles' queue.
     Color pureColor;
-
-    // Sync object for GPU fence, this is the only the info passed from UI
-    // thread to Tex Gen thread. The reason of having this is due to the
-    // missing sync mechanism on Surface Texture on some vendor. b/5122031.
-    // Bascially the idea is that when UI thread utilize one buffer from
-    // the surface texture, we'll need to kick off the GPU commands, and only
-    // when those particular commands finish, we could write into this buffer
-    // again in Tex Gen thread.
-    EGLSyncKHR m_syncKHR;
 };
 
 class TransferQueue {
@@ -177,7 +167,6 @@ private:
     void cleanupGLResources();
 
     void blitTileFromQueue(GLuint fboID, TileTexture* destTex,
-                           TileTexture* frontTex,
                            GLuint srcTexId, GLenum srcTexTarget,
                            int index);
 
