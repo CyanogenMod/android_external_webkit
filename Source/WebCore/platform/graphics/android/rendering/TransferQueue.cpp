@@ -154,7 +154,6 @@ bool TransferQueue::checkObsolete(const TileTransferData* data)
 }
 
 void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
-                                      TileTexture* frontTex,
                                       GLuint srcTexId, GLenum srcTexTarget,
                                       int index)
 {
@@ -173,7 +172,14 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
 
     glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0,
                         textureWidth, textureHeight);
-
+    if (GLUtils::checkGlError("At the end of blitTileFromQueue()")) {
+#ifndef DEBUG
+        if (GLUtils::allowGLLog())
+#endif
+        ALOGE("blitTileFromQueue ERROR: fboId %d, destTexId %d, srcTexId %d,"
+              " textureWidth %d, textureHeight %d", fboID, destTex->m_ownTextureId,
+              srcTexId, textureWidth, textureHeight);
+    }
 #else
     // Then set up the FBO and copy the SurfTex content in.
     glBindFramebuffer(GL_FRAMEBUFFER, fboID);
@@ -195,23 +201,6 @@ void TransferQueue::blitTileFromQueue(GLuint fboID, TileTexture* destTex,
 
     TextureQuadData data(srcTexId, GL_NEAREST, srcTexTarget, Blit, 0, 0, 1.0, false);
     TilesManager::instance()->shader()->drawQuad(&data);
-
-    // To workaround a sync issue on some platforms, we should insert the sync
-    // here while in the current FBO.
-    // This will essentially kick off the GPU command buffer, and the Tex Gen
-    // thread will then have to wait for this buffer to finish before writing
-    // into the same memory.
-    EGLDisplay dpy = eglGetCurrentDisplay();
-    if (m_currentDisplay != dpy)
-        m_currentDisplay = dpy;
-    if (m_currentDisplay != EGL_NO_DISPLAY) {
-        if (m_transferQueue[index].m_syncKHR != EGL_NO_SYNC_KHR)
-            eglDestroySyncKHR(m_currentDisplay, m_transferQueue[index].m_syncKHR);
-        m_transferQueue[index].m_syncKHR = eglCreateSyncKHR(m_currentDisplay,
-                                                            EGL_SYNC_FENCE_KHR,
-                                                            0);
-    }
-    GLUtils::checkEglError("CreateSyncKHR");
 #endif
 }
 
@@ -229,22 +218,6 @@ bool TransferQueue::readyForUpdate()
 
     if (!getHasGLContext())
         return false;
-
-    // Disable this wait until we figure out why this didn't work on some
-    // drivers b/5332112.
-#if 0
-    if (m_currentUploadType == GpuUpload
-        && m_currentDisplay != EGL_NO_DISPLAY) {
-        // Check the GPU fence
-        EGLSyncKHR syncKHR = m_transferQueue[getNextTransferQueueIndex()].m_syncKHR;
-        if (syncKHR != EGL_NO_SYNC_KHR)
-            eglClientWaitSyncKHR(m_currentDisplay,
-                                 syncKHR,
-                                 EGL_SYNC_FLUSH_COMMANDS_BIT_KHR,
-                                 EGL_FOREVER_KHR);
-    }
-    GLUtils::checkEglError("WaitSyncKHR");
-#endif
 
     return true;
 }
@@ -359,13 +332,8 @@ void TransferQueue::updateDirtyTiles()
             // Save the needed info, update the Surf Tex, clean up the item in
             // the queue. Then either move on to next item or copy the content.
             TileTexture* destTexture = 0;
-            TileTexture* frontTexture = 0;
-            if (!obsoleteTile) {
+            if (!obsoleteTile)
                 destTexture = m_transferQueue[index].savedTilePtr->backTexture();
-                // while destTexture is guaranteed to not be null, frontTexture
-                // might be (first transfer)
-                frontTexture = m_transferQueue[index].savedTilePtr->frontTexture();
-            }
 
             if (m_transferQueue[index].uploadType == GpuUpload) {
                 status_t result = m_sharedSurfaceTexture->updateTexImage();
@@ -382,7 +350,7 @@ void TransferQueue::updateDirtyTiles()
 
             // guarantee that we have a texture to blit into
             destTexture->requireGLTexture();
-
+            GLUtils::checkGlError("before blitTileFromQueue");
             if (m_transferQueue[index].uploadType == CpuUpload) {
                 // Here we just need to upload the bitmap content to the GL Texture
                 GLUtils::updateTextureWithBitmap(destTexture->m_ownTextureId,
@@ -392,8 +360,7 @@ void TransferQueue::updateDirtyTiles()
                     saveGLState();
                     usedFboForUpload = true;
                 }
-                blitTileFromQueue(m_fboID, destTexture, frontTexture,
-                                  m_sharedSurfaceTextureId,
+                blitTileFromQueue(m_fboID, destTexture, m_sharedSurfaceTextureId,
                                   m_sharedSurfaceTexture->getCurrentTextureTarget(),
                                   index);
             }
