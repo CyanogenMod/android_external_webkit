@@ -173,7 +173,6 @@ private:
                                bool deallocateGLTextures);
     void dirtyTexturesVector(WTF::Vector<TileTexture*>& textures);
     void markAllGLTexturesZero();
-    bool updateContextIfChanged();
     int getMaxTextureAllocation();
 
     WTF::Vector<TileTexture*> m_textures;

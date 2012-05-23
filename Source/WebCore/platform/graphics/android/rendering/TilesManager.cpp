@@ -456,15 +456,26 @@ void TilesManager::cleanupGLResources()
 
 void TilesManager::updateTilesIfContextVerified()
 {
-    if (updateContextIfChanged()) {
-        // A change in EGL context is an unexpected error, but we don't want to
-        // crash or ANR. Therefore, abandon the Surface Texture and GL resources;
-        // they'll be recreated later in setupDrawing. (We can't delete them
-        // since the context is gone)
-        transferQueue()->resetQueue();
-        shader()->forceNeedsInit();
-        videoLayerManager()->forceNeedsInit();
-        markAllGLTexturesZero();
+    EGLContext ctx = eglGetCurrentContext();
+    GLUtils::checkEglError("contextChanged");
+    if (ctx != m_eglContext) {
+        if (m_eglContext != EGL_NO_CONTEXT) {
+            // A change in EGL context is an unexpected error, but we don't want to
+            // crash or ANR. Therefore, abandon the Surface Texture and GL resources;
+            // they'll be recreated later in setupDrawing. (We can't delete them
+            // since the context is gone)
+            ALOGE("Unexpected : EGLContext changed! current %x , expected %x",
+                  ctx, m_eglContext);
+            transferQueue()->resetQueue();
+            shader()->forceNeedsInit();
+            videoLayerManager()->forceNeedsInit();
+            markAllGLTexturesZero();
+        } else {
+            // This is the first time we went into this new EGL context.
+            // We will have the GL resources to be re-inited and we can't update
+            // dirty tiles yet.
+            ALOGD("new EGLContext from framework: %x ", ctx);
+        }
     } else {
         // Here before we draw, update the Tile which has updated content.
         // Inside this function, just do GPU blits from the transfer queue into
@@ -473,21 +484,8 @@ void TilesManager::updateTilesIfContextVerified()
         // Clean up GL textures for video layer.
         videoLayerManager()->deleteUnusedTextures();
     }
-}
-
-// Return true if context has changed, which indicate an error we should look
-// into.
-bool TilesManager::updateContextIfChanged()
-{
-    bool changed = false;
-    EGLContext ctx = eglGetCurrentContext();
-    GLUtils::checkEglError("contextChanged");
-    if (ctx != m_eglContext && m_eglContext != EGL_NO_CONTEXT) {
-        ALOGE("Unexpected : EGLContext changed! current %x , expected %x", ctx, m_eglContext);
-        changed = true;
-    }
     m_eglContext = ctx;
-    return changed;
+    return;
 }
 
 int TilesManager::tileWidth()
