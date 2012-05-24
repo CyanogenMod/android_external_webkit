@@ -49,6 +49,7 @@ public:
     SkScalar getOpacity() const { return m_opacity; }
     const SkSize& getSize() const { return m_size; }
     const SkPoint& getPosition() const { return m_position; }
+    const IntPoint& getScrollOffset() const { return m_scrollOffset; }
     const SkPoint& getAnchorPoint() const { return m_anchorPoint; }
     const SkMatrix& getMatrix() const { return m_matrix; }
     const SkMatrix& getChildrenMatrix() const { return m_childrenMatrix; }
@@ -60,6 +61,7 @@ public:
     void setOpacity(SkScalar opacity) { m_opacity = opacity; }
     void setSize(SkScalar w, SkScalar h) { m_size.set(w, h); }
     void setPosition(SkScalar x, SkScalar y) { m_position.set(x, y); }
+    void setScrollOffset(IntPoint scrollOffset) { m_scrollOffset = scrollOffset; }
     void setAnchorPoint(SkScalar x, SkScalar y) { m_anchorPoint.set(x, y); }
     void setMatrix(const SkMatrix& matrix) { m_matrix = matrix; }
     void setChildrenMatrix(const SkMatrix& matrix) { m_childrenMatrix = matrix; }
@@ -167,6 +169,8 @@ private:
     SkSize m_size;
     // The position of the origin of the layer, relative to the parent layer.
     SkPoint m_position;
+    // The scroll offset of the layer
+    IntPoint m_scrollOffset;
     // The point in the layer used as the origin for local transformations,
     // expressed as a fraction of the layer size.
     SkPoint m_anchorPoint;

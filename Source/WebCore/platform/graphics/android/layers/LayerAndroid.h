@@ -171,8 +171,6 @@ public:
     void setDrawClip(const FloatRect& rect) { m_clippingRect = rect; }
     const FloatRect& drawClip() { return m_clippingRect; }
 
-    const IntPoint& scrollOffset() const { return m_offset; }
-    void setScrollOffset(IntPoint offset) { m_offset = offset; }
     void setBackgroundColor(SkColor color);
     void setMaskLayer(LayerAndroid*);
     void setMasksToBounds(bool masksToBounds)
@@ -300,7 +298,6 @@ public:
 protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style);
     virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated) { return InvalidateNone; }
-    IntPoint m_offset;
     TransformationMatrix m_drawTransform;
     int m_uniqueId;
 
