@@ -1288,12 +1288,12 @@ static void LoadData(JNIEnv *env, jobject obj, jstring baseUrl, jstring data,
     WebCore::ResourceRequest request(jstringToWtfString(env, baseUrl));
 
     // Setup the substituteData
-    const char* dataStr = env->GetStringUTFChars(data, NULL);
+    WTF::CString cData = jstringToWtfString(env, data).utf8();
+    const char* dataStr = cData.data();
     WTF::RefPtr<WebCore::SharedBuffer> sharedBuffer =
         WebCore::SharedBuffer::create();
     ALOG_ASSERT(dataStr, "nativeLoadData has a null data string.");
-    sharedBuffer->append(dataStr, strlen(dataStr));
-    env->ReleaseStringUTFChars(data, dataStr);
+    sharedBuffer->append(dataStr, strlen(dataStr)); // copy dataStr
 
     WebCore::SubstituteData substituteData(sharedBuffer,
             jstringToWtfString(env, mimeType), jstringToWtfString(env, encoding),
