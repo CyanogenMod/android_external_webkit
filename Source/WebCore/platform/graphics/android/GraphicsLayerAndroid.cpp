@@ -592,6 +592,13 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
     if (!view->style()->hasFixedBackgroundImage())
         return;
 
+    Image* image = FixedBackgroundImageLayerAndroid::GetCachedImage(view->style());
+    if (!image)
+        return;
+
+    if (image->width() == 1 && image->height() == 1)
+        return;
+
     SkSafeUnref(m_foregroundClipLayer);
     SkSafeUnref(m_fixedBackgroundLayer);
     SkSafeUnref(m_foregroundLayer);
@@ -604,10 +611,6 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
 
     // use the background image and create a layer for it
     // the layer will be fixed positioned.
-
-    Image* image = FixedBackgroundImageLayerAndroid::GetCachedImage(view->style());
-    if (!image)
-        return;
 
     m_fixedBackgroundLayer = new FixedBackgroundImageLayerAndroid(view->style(),
                                                                   view->width(),
