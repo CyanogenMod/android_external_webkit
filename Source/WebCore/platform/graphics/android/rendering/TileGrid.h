@@ -67,7 +67,7 @@ public:
     bool isMissingContent();
     bool isDirty() { return !m_dirtyRegion.isEmpty(); }
 
-    int nbTextures(IntRect& area, float scale);
+    int nbTextures(const IntRect& area, float scale);
 
 private:
     void prepareTile(int x, int y, TilePainter* painter,

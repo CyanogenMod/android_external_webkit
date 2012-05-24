@@ -275,7 +275,7 @@ Tile* TileGrid::getTile(int x, int y)
     return 0;
 }
 
-int TileGrid::nbTextures(IntRect& area, float scale)
+int TileGrid::nbTextures(const IntRect& area, float scale)
 {
     IntRect tileBounds = computeTilesArea(area, scale);
     int numberTextures = tileBounds.width() * tileBounds.height();
