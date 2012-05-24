@@ -51,6 +51,7 @@ public:
 private:
     // TODO: move to SurfaceCollection.
     Color m_color;
+    bool m_positionsCalculated;
 };
 
 class ForegroundBaseLayerAndroid : public LayerAndroid {

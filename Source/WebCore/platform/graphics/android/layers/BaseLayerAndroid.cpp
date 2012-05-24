@@ -49,6 +49,7 @@ namespace WebCore {
 BaseLayerAndroid::BaseLayerAndroid(LayerContent* content)
     : LayerAndroid((RenderLayer*)0)
     , m_color(Color::white)
+    , m_positionsCalculated(false)
 {
     if (content) {
         setContent(content);
@@ -79,12 +80,15 @@ IFrameLayerAndroid* BaseLayerAndroid::updatePosition(SkRect viewport,
 void BaseLayerAndroid::updatePositionsRecursive(const SkRect& visibleContentRect)
 {
     TRACE_METHOD();
+
     updateLayerPositions(visibleContentRect);
     TransformationMatrix ident;
     FloatRect clip(0, 0, getWidth(), getHeight());
 
+    bool forcePositionCalculation = !m_positionsCalculated;
     float scale = state() ? state()->scale() : 1.0f;
-    updateGLPositionsAndScale(ident, clip, 1, scale);
+    updateGLPositionsAndScale(ident, clip, 1, scale, forcePositionCalculation);
+    m_positionsCalculated = true;
 }
 
 ForegroundBaseLayerAndroid::ForegroundBaseLayerAndroid(LayerContent* content)
