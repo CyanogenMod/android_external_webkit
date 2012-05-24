@@ -1602,7 +1602,11 @@ bool WebViewCore::isLtr(const Position& position)
 SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 {
     bool isCaret = selection.isCaret();
-    if (selection.isNone() || (!selection.isContentEditable() && isCaret))
+    if (selection.isNone() || (!selection.isContentEditable() && isCaret)
+            || !selection.start().anchorNode()
+            || !selection.start().anchorNode()->renderer()
+            || !selection.end().anchorNode()
+            || !selection.end().anchorNode()->renderer())
         return 0;
 
     RefPtr<Range> range = selection.firstRange();
