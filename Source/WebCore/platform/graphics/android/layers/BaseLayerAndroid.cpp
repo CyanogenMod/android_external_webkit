@@ -78,6 +78,7 @@ IFrameLayerAndroid* BaseLayerAndroid::updatePosition(SkRect viewport,
 
 void BaseLayerAndroid::updatePositionsRecursive(const SkRect& visibleContentRect)
 {
+    TRACE_METHOD();
     updateLayerPositions(visibleContentRect);
     TransformationMatrix ident;
     FloatRect clip(0, 0, getWidth(), getHeight());

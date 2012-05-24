@@ -84,6 +84,7 @@ SurfaceCollection::~SurfaceCollection()
 
 void SurfaceCollection::prepareGL(const SkRect& visibleContentRect, bool tryToFastBlit)
 {
+    TRACE_METHOD();
     updateLayerPositions(visibleContentRect);
     bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
         > GLWebViewState::kClippedTextures;
@@ -106,6 +107,7 @@ static inline bool compareSurfaceZ(const Surface* a, const Surface* b)
 
 bool SurfaceCollection::drawGL(const SkRect& visibleContentRect)
 {
+    TRACE_METHOD();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->show();
 #endif
@@ -135,6 +137,7 @@ Color SurfaceCollection::getBackgroundColor()
 
 void SurfaceCollection::swapTiles()
 {
+    TRACE_METHOD();
     for (unsigned int i = 0; i < m_surfaces.size(); i++)
          m_surfaces[i]->swapTiles();
 }
