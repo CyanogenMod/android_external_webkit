@@ -333,6 +333,11 @@ WEBKIT_LDLIBS := $(LOCAL_LDLIBS)
 WEBKIT_SHARED_LIBRARIES := $(LOCAL_SHARED_LIBRARIES)
 WEBKIT_STATIC_LIBRARIES := $(LOCAL_STATIC_LIBRARIES)
 
+ifneq ($(strip $(WITH_ADDRESS_SANITIZER)),)
+    LOCAL_MODULE_PATH := $(TARGET_OUT_STATIC_LIBRARIES)/asan
+    LOCAL_ADDRESS_SANITIZER := true
+endif
+
 # Build the library all at once
 include $(BUILD_STATIC_LIBRARY)
 
@@ -374,6 +379,12 @@ endif
 # We make all of our object files depend on those files so that they are built
 # before we try to compile the file.
 LOCAL_ADDITIONAL_DEPENDENCIES := $(filter %.h, $(WEBKIT_GENERATED_SOURCES))
+
+ifneq ($(strip $(WITH_ADDRESS_SANITIZER)),)
+    LOCAL_MODULE_PATH := $(TARGET_OUT_SHARED_LIBRARIES)/asan
+    LOCAL_ADDRESS_SANITIZER := true
+endif
+
 include $(BUILD_SHARED_LIBRARY)
 
 # Build the wds client
