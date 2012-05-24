@@ -112,8 +112,6 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_visible = layer.m_visible;
     m_backgroundColor = layer.m_backgroundColor;
 
-    m_offset = layer.m_offset;
-
     m_content = layer.m_content;
     SkSafeRef(m_content);
 
@@ -395,10 +393,11 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
 {
     IntSize layerSize(getSize().width(), getSize().height());
     FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
-    FloatPoint position(getPosition().fX + m_replicatedLayerPosition.x() - m_offset.x(),
-                        getPosition().fY + m_replicatedLayerPosition.y() - m_offset.y());
+    FloatPoint position(getPosition().fX + m_replicatedLayerPosition.x() - getScrollOffset().x(),
+                        getPosition().fY + m_replicatedLayerPosition.y() - getScrollOffset().y());
     float originX = anchorPoint.x() * layerSize.width();
     float originY = anchorPoint.y() * layerSize.height();
+
     TransformationMatrix localMatrix;
     if (!isPositionFixed())
         localMatrix = parentMatrix;
@@ -479,7 +478,7 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
 
     TransformationMatrix childMatrix;
     childMatrix = localMatrix;
-    childMatrix.translate3d(m_offset.x(), m_offset.y(), 0);
+    childMatrix.translate3d(getScrollOffset().x(), getScrollOffset().y(), 0);
     if (!m_childrenTransform.isIdentity()) {
         childMatrix.translate(getSize().width() * 0.5f, getSize().height() * 0.5f);
         childMatrix.multiply(m_childrenTransform);

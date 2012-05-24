@@ -1552,7 +1552,7 @@ void WebViewCore::layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& off
     while (layer) {
         const SkPoint& pos = layer->getPosition();
         offset.move(pos.fX, pos.fY);
-        const IntPoint& scroll = layer->scrollOffset();
+        const IntPoint& scroll = layer->getScrollOffset();
         offset.move(-scroll.x(), -scroll.y());
         layer = static_cast<LayerAndroid*>(layer->getParent());
     }
