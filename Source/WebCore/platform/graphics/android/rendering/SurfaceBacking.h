@@ -49,7 +49,10 @@ public:
                 const TransformationMatrix* transform, bool aggressiveRendering,
                 const Color* background);
     void markAsDirty(const SkRegion& dirtyArea);
-    void computeTexturesAmount(TexturesResult* result, LayerAndroid* layer);
+    void computeTexturesAmount(TexturesResult* result,
+                               const IntRect& visibleContentArea,
+                               const IntRect& fullContentArea,
+                               LayerAndroid* layer);
     void discardTextures()
     {
         m_frontTileGrid->discardTextures();

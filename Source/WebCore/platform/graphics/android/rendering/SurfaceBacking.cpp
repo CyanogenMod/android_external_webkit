@@ -161,36 +161,37 @@ bool SurfaceBacking::swapTiles()
     return swap;
 }
 
-void SurfaceBacking::computeTexturesAmount(TexturesResult* result, LayerAndroid* layer)
+void SurfaceBacking::computeTexturesAmount(TexturesResult* result,
+                                           const IntRect& visibleContentArea,
+                                           const IntRect& fullContentArea,
+                                           LayerAndroid* layer)
 {
-    // TODO: shouldn't use layer, as this SB may paint multiple layers
-    if (!layer)
-        return;
-
-    IntRect fullContentArea = layer->fullContentArea();
-    IntRect clippedVisibleArea = layer->visibleContentArea();
 
     // get two numbers here:
     // - textures needed for a clipped area
     // - textures needed for an un-clipped area
     TileGrid* tileGrid = m_zooming ? m_backTileGrid : m_frontTileGrid;
     int nbTexturesUnclipped = tileGrid->nbTextures(fullContentArea, m_scale);
-    int nbTexturesClipped = tileGrid->nbTextures(clippedVisibleArea, m_scale);
+    int nbTexturesClipped = tileGrid->nbTextures(visibleContentArea, m_scale);
 
-    // Set kFixedLayers level
-    if (layer->isPositionFixed())
-        result->fixed += nbTexturesClipped;
+    if (layer) {
+        // TODO: should handle multi-layer case better
 
-    // Set kScrollableAndFixedLayers level
-    if (layer->contentIsScrollable()
-        || layer->isPositionFixed())
-        result->scrollable += nbTexturesClipped;
+        // Set kFixedLayers level
+        if (layer->isPositionFixed())
+            result->fixed += nbTexturesClipped;
+
+        // Set kScrollableAndFixedLayers level
+        if (layer->contentIsScrollable()
+            || layer->isPositionFixed())
+            result->scrollable += nbTexturesClipped;
+    }
 
     // Set kClippedTextures level
     result->clipped += nbTexturesClipped;
 
     // Set kAllTextures level
-    if (layer->contentIsScrollable())
+    if (layer && layer->contentIsScrollable())
         result->full += nbTexturesClipped;
     else
         result->full += nbTexturesUnclipped;

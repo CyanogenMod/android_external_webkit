@@ -341,7 +341,13 @@ void Surface::computeTexturesAmount(TexturesResult* result)
     if (!m_surfaceBacking || isBase())
         return;
 
-    m_surfaceBacking->computeTexturesAmount(result, getFirstLayer());
+
+    LayerAndroid* layer = 0;
+    if (singleLayer())
+        layer = getFirstLayer();
+
+    m_surfaceBacking->computeTexturesAmount(result, visibleContentArea(),
+                                            fullContentArea(), layer);
 }
 
 bool Surface::isBase()
