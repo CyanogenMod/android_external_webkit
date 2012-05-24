@@ -41,6 +41,7 @@ Layer::Layer(const Layer& src) : INHERITED() {
     m_opacity = src.m_opacity;
     m_size = src.m_size;
     m_position = src.m_position;
+    m_scrollOffset = src.m_scrollOffset;
     m_anchorPoint = src.m_anchorPoint;
 
     m_matrix = src.m_matrix;
@@ -122,7 +123,8 @@ Layer* Layer::getRootLayer() const {
 ///////////////////////////////////////////////////////////////////////////////
 
 void Layer::getLocalTransform(SkMatrix* matrix) const {
-    matrix->setTranslate(m_position.fX, m_position.fY);
+    matrix->setTranslate(m_position.fX - m_scrollOffset.x(),
+                         m_position.fY - m_scrollOffset.y());
 
     SkScalar tx = SkScalarMul(m_anchorPoint.fX, m_size.width());
     SkScalar ty = SkScalarMul(m_anchorPoint.fY, m_size.height());
