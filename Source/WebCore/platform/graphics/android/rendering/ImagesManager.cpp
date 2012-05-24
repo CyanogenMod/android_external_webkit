@@ -58,8 +58,7 @@ ImageTexture* ImagesManager::setImage(SkBitmapRef* imgRef)
     SkBitmap* img = 0;
     unsigned crc = 0;
 
-    img = ImageTexture::convertBitmap(bitmap);
-    crc = ImageTexture::computeCRC(img);
+    crc = ImageTexture::computeCRC(bitmap);
 
     {
         android::Mutex::Autolock lock(m_imagesLock);
@@ -72,6 +71,7 @@ ImageTexture* ImagesManager::setImage(SkBitmapRef* imgRef)
 
     // the image is not in the map, we add it
 
+    img = ImageTexture::convertBitmap(bitmap);
     image = new ImageTexture(img, crc);
 
     android::Mutex::Autolock lock(m_imagesLock);
