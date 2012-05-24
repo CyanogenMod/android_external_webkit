@@ -33,6 +33,9 @@ namespace WebCore {
 
 TouchEvent::TouchEvent()
 {
+#if PLATFORM(ANDROID)
+    m_hitTouchHandler = false;
+#endif
 }
 
 TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
@@ -45,6 +48,9 @@ TouchEvent::TouchEvent(TouchList* touches, TouchList* targetTouches,
     , m_targetTouches(targetTouches)
     , m_changedTouches(changedTouches)
 {
+#if PLATFORM(ANDROID)
+    m_hitTouchHandler = false;
+#endif
 }
 
 TouchEvent::~TouchEvent()

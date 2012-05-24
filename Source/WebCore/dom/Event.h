@@ -136,6 +136,10 @@ namespace WebCore {
         virtual bool isErrorEvent() const;
 #if ENABLE(TOUCH_EVENTS)
         virtual bool isTouchEvent() const;
+#if PLATFORM(ANDROID)
+        virtual bool hitTouchHandler() const { return false; }
+        virtual void setHitTouchHandler() { }
+#endif
 #endif
 #if ENABLE(DEVICE_ORIENTATION)
         virtual bool isDeviceMotionEvent() const;

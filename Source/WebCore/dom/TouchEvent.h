@@ -62,6 +62,11 @@ public:
     TouchList* targetTouches() const { return m_targetTouches.get(); }
     TouchList* changedTouches() const { return m_changedTouches.get(); }
 
+#if PLATFORM(ANDROID)
+    virtual bool hitTouchHandler() const { return m_hitTouchHandler; }
+    virtual void setHitTouchHandler() { m_hitTouchHandler = true; }
+#endif
+
 private:
     TouchEvent();
     TouchEvent(TouchList* touches, TouchList* targetTouches,
@@ -71,6 +76,10 @@ private:
             bool ctrlKey, bool altKey, bool shiftKey, bool metaKey);
 
     virtual bool isTouchEvent() const { return true; }
+
+#if PLATFORM(ANDROID)
+    bool m_hitTouchHandler;
+#endif
 
     RefPtr<TouchList> m_touches;
     RefPtr<TouchList> m_targetTouches;
