@@ -168,6 +168,11 @@ void MediaPlayerPrivate::onEnded()
     m_networkState = MediaPlayer::Idle;
 }
 
+void MediaPlayerPrivate::onRequestPlay()
+{
+    play();
+}
+
 void MediaPlayerPrivate::onRestoreState()
 {
     if (!m_paused) {
@@ -545,6 +550,14 @@ static void OnEnded(JNIEnv* env, jobject obj, int pointer)
     }
 }
 
+static void OnRequestPlay(JNIEnv* env, jobject obj, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onRequestPlay();
+    }
+}
+
 static void OnPaused(JNIEnv* env, jobject obj, int pointer)
 {
     if (pointer) {
@@ -662,6 +675,8 @@ static JNINativeMethod g_MediaAudioPlayerMethods[] = {
         (void*) OnEnded },
     { "nativeOnPrepared", "(IIII)V",
         (void*) OnPrepared },
+    { "nativeOnRequestPlay", "(I)V",
+        (void*) OnRequestPlay },
     { "nativeOnTimeupdate", "(II)V",
         (void*) OnTimeupdate },
 };
