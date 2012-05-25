@@ -322,8 +322,11 @@ namespace android {
 
         /**
          * Handle touch event
+         * Returns an int with the following flags:
+         * bit 0: hit an event handler
+         * bit 1: preventDefault was called
          */
-        bool handleTouchEvent(int action, WTF::Vector<int>& ids,
+        int handleTouchEvent(int action, WTF::Vector<int>& ids,
                               WTF::Vector<WebCore::IntPoint>& points,
                               int actionIndex, int metaState);
 

@@ -68,6 +68,8 @@ public:
     PlatformTouchEvent(QTouchEvent*);
 #elif PLATFORM(ANDROID)
     PlatformTouchEvent(const Vector<int>&, const Vector<IntPoint>&, TouchEventType, const Vector<PlatformTouchPoint::State>&, int metaState);
+    bool hitTouchHandler() { return m_hitTouchHandler; }
+    void setHitTouchHandler() { m_hitTouchHandler = true; }
 #elif PLATFORM(BREWMP)
     PlatformTouchEvent(AEEEvent, uint16 wParam, uint32 dwParam);
 #elif PLATFORM(EFL)
@@ -93,6 +95,9 @@ protected:
     bool m_shiftKey;
     bool m_metaKey;
     double m_timestamp;
+#if PLATFORM(ANDROID)
+    bool m_hitTouchHandler;
+#endif
 };
 
 }
