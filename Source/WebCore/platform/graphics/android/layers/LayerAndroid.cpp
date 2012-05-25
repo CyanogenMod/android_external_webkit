@@ -62,6 +62,7 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_haveClip(false),
     m_backfaceVisibility(true),
     m_visible(true),
+    m_backgroundColor(0),
     m_preserves3D(false),
     m_anchorPointZ(0),
     m_isPositionAbsolute(false),
@@ -79,9 +80,6 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
     m_originalLayer(0),
     m_maskLayer(0)
 {
-    m_backgroundColor = 0;
-
-    m_preserves3D = false;
     m_dirtyRegion.setEmpty();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("LayerAndroid");
@@ -92,9 +90,18 @@ LayerAndroid::LayerAndroid(RenderLayer* owner) : Layer(),
 LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_uniqueId(layer.m_uniqueId),
     m_haveClip(layer.m_haveClip),
+    m_backfaceVisibility(layer.m_backfaceVisibility),
+    m_visible(layer.m_visible),
+    m_backgroundColor(layer.m_backgroundColor),
+    m_preserves3D(layer.m_preserves3D),
+    m_anchorPointZ(layer.m_anchorPointZ),
     m_isPositionAbsolute(layer.m_isPositionAbsolute),
     m_fixedPosition(0),
     m_zValue(layer.m_zValue),
+    m_content(layer.m_content),
+    m_imageCRC(layer.m_imageCRC),
+    m_scale(layer.m_scale),
+    m_lastComputeTextureSize(0),
     m_owningLayer(layer.m_owningLayer),
     m_type(LayerAndroid::UILayer),
     m_intrinsicallyComposited(layer.m_intrinsicallyComposited),
@@ -103,31 +110,20 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
     m_originalLayer(0),
     m_maskLayer(0)
 {
-    m_imageCRC = layer.m_imageCRC;
     if (m_imageCRC)
         ImagesManager::instance()->retainImage(m_imageCRC);
 
-    m_transform = layer.m_transform;
-    m_backfaceVisibility = layer.m_backfaceVisibility;
-    m_visible = layer.m_visible;
-    m_backgroundColor = layer.m_backgroundColor;
-
-    m_content = layer.m_content;
     SkSafeRef(m_content);
-
-    m_preserves3D = layer.m_preserves3D;
-    m_anchorPointZ = layer.m_anchorPointZ;
 
     if (layer.m_fixedPosition) {
         m_fixedPosition = layer.m_fixedPosition->copy(this);
         Layer::setShouldInheritFromRootTransform(true);
     }
 
+    m_transform = layer.m_transform;
     m_drawTransform = layer.m_drawTransform;
     m_childrenTransform = layer.m_childrenTransform;
     m_dirtyRegion = layer.m_dirtyRegion;
-    m_scale = layer.m_scale;
-    m_lastComputeTextureSize = 0;
 
     m_replicatedLayerPosition = layer.m_replicatedLayerPosition;
 
@@ -389,29 +385,30 @@ void LayerAndroid::updatePositions()
         this->getChild(i)->updatePositions();
 }
 
-void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
-                                             const FloatRect& clipping, float opacity,
-                                             float scale)
+void LayerAndroid::updateLocalGLPositionsAndScale(const TransformationMatrix& parentMatrix,
+                                                  const FloatRect& clipping, float opacity,
+                                                  float scale)
 {
-    IntSize layerSize(getSize().width(), getSize().height());
-    FloatPoint anchorPoint(getAnchorPoint().fX, getAnchorPoint().fY);
-    FloatPoint position(getPosition().fX + m_replicatedLayerPosition.x() - getScrollOffset().x(),
-                        getPosition().fY + m_replicatedLayerPosition.y() - getScrollOffset().y());
-    float originX = anchorPoint.x() * layerSize.width();
-    float originY = anchorPoint.y() * layerSize.height();
+    TRACE_METHOD();
+    FloatPoint position(getPosition().x() + m_replicatedLayerPosition.x() - getScrollOffset().x(),
+                        getPosition().y() + m_replicatedLayerPosition.y() - getScrollOffset().y());
+    float originX = getAnchorPoint().x() * getWidth();
+    float originY = getAnchorPoint().y() * getHeight();
 
     TransformationMatrix localMatrix;
-    if (!isPositionFixed())
-        localMatrix = parentMatrix;
-    localMatrix.translate3d(originX + position.x(),
-                            originY + position.y(),
-                            anchorPointZ());
-    localMatrix.multiply(m_transform);
-    localMatrix.translate3d(-originX,
-                            -originY,
-                            -anchorPointZ());
 
-    setDrawTransform(localMatrix);
+    if (isPositionFixed())
+        m_drawTransform.makeIdentity();
+    else
+        m_drawTransform = parentMatrix;
+    m_drawTransform.translate3d(originX + position.x(),
+                                originY + position.y(),
+                                anchorPointZ());
+    m_drawTransform.multiply(m_transform);
+    m_drawTransform.translate3d(-originX,
+                                -originY,
+                                -anchorPointZ());
+
     if (m_drawTransform.isIdentityOrTranslation()
         && surface() && surface()->allowTransformFudging()) {
         // adjust the translation coordinates of the draw transform matrix so
@@ -441,7 +438,7 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     if (m_haveClip) {
         // The clipping rect calculation and intersetion will be done in content
         // coordinates.
-        FloatRect rect(0, 0, layerSize.width(), layerSize.height());
+        FloatRect rect(0, 0, getWidth(), getHeight());
         FloatRect clip = m_drawTransform.mapRect(rect);
         clip.intersect(clipping);
         setDrawClip(clip);
@@ -460,10 +457,24 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     } else {
          setVisible(true);
     }
+}
 
-    int count = this->countChildren();
-    if (!count)
+void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
+                                             const FloatRect& clipping, float opacity,
+                                             float scale, bool forceCalculation)
+{
+    // constantly recalculate the draw transform of layers that may require it (and their children)
+    forceCalculation |= isPositionFixed()
+        || contentIsScrollable()
+        || (m_animations.size() != 0);
+
+    if (forceCalculation)
+        updateLocalGLPositionsAndScale(parentMatrix, clipping, opacity, scale);
+
+    if (!countChildren())
         return;
+
+    TransformationMatrix localMatrix = m_drawTransform;
 
     // Flatten to 2D if the layer doesn't preserve 3D.
     if (!preserves3D()) {
@@ -486,8 +497,8 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
         childMatrix.multiply(m_childrenTransform);
         childMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
     }
-    for (int i = 0; i < count; i++)
-        this->getChild(i)->updateGLPositionsAndScale(childMatrix, drawClip(), opacity, scale);
+    for (int i = 0; i < countChildren(); i++)
+        this->getChild(i)->updateGLPositionsAndScale(childMatrix, drawClip(), opacity, scale, forceCalculation);
 }
 
 bool LayerAndroid::visible() {

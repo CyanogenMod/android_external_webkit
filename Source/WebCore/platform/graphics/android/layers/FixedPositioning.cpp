@@ -120,7 +120,7 @@ BackgroundImagePositioning::BackgroundImagePositioning(LayerAndroid* layer, cons
 
 // Executed on the UI
 IFrameLayerAndroid* BackgroundImagePositioning::updatePosition(SkRect aViewport,
-                                                          IFrameLayerAndroid* parentIframeLayer)
+                                                               IFrameLayerAndroid* parentIframeLayer)
 {
     SkRect viewport = getViewport(aViewport, parentIframeLayer);
 
