@@ -486,28 +486,23 @@ void postInvalidateDelayed(int64_t delay, const WebCore::IntRect& bounds)
 }
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-static void copyScrollPositionRecursive(const LayerAndroid* from,
-                                        LayerAndroid* root)
+static void copyScrollPosition(const LayerAndroid* fromRoot,
+                               LayerAndroid* toRoot, int layerId)
 {
-    if (!from || !root)
+    if (!fromRoot || !toRoot)
         return;
-    for (int i = 0; i < from->countChildren(); i++) {
-        const LayerAndroid* l = from->getChild(i);
-        if (l->contentIsScrollable()) {
-            const SkPoint& pos = l->getPosition();
-            LayerAndroid* match = root->findById(l->uniqueId());
-            if (match && match->contentIsScrollable())
-                match->setPosition(pos.fX, pos.fY);
-        }
-        copyScrollPositionRecursive(l, root);
-    }
+    const LayerAndroid* from = fromRoot->findById(layerId);
+    LayerAndroid* to = toRoot->findById(layerId);
+    if (!from || !to || !from->contentIsScrollable() || !to->contentIsScrollable())
+        return;
+    to->setScrollOffset(from->getScrollOffset());
 }
 #endif
 
 BaseLayerAndroid* getBaseLayer() const { return m_baseLayer; }
 
 bool setBaseLayer(BaseLayerAndroid* newBaseLayer, bool showVisualIndicator,
-                  bool isPictureAfterFirstLayout)
+                  bool isPictureAfterFirstLayout, int scrollingLayer)
 {
     bool queueFull = false;
 #if USE(ACCELERATED_COMPOSITING)
@@ -517,10 +512,7 @@ bool setBaseLayer(BaseLayerAndroid* newBaseLayer, bool showVisualIndicator,
 #endif
 
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (newBaseLayer) {
-        // TODO: the below tree position copies are only necessary in software rendering
-        copyScrollPositionRecursive(m_baseLayer, newBaseLayer);
-    }
+    copyScrollPosition(m_baseLayer, newBaseLayer, scrollingLayer);
 #endif
     SkSafeUnref(m_baseLayer);
     m_baseLayer = newBaseLayer;
@@ -949,11 +941,13 @@ static bool nativeEvaluateLayersAnimations(JNIEnv *env, jobject obj, jint native
 
 static bool nativeSetBaseLayer(JNIEnv *env, jobject obj, jint nativeView, jint layer,
                                jboolean showVisualIndicator,
-                               jboolean isPictureAfterFirstLayout)
+                               jboolean isPictureAfterFirstLayout,
+                               jint scrollingLayer)
 {
     BaseLayerAndroid* layerImpl = reinterpret_cast<BaseLayerAndroid*>(layer);
     return reinterpret_cast<WebView*>(nativeView)->setBaseLayer(layerImpl, showVisualIndicator,
-                                                                isPictureAfterFirstLayout);
+                                                                isPictureAfterFirstLayout,
+                                                                scrollingLayer);
 }
 
 static BaseLayerAndroid* nativeGetBaseLayer(JNIEnv *env, jobject obj, jint nativeView)
@@ -1306,7 +1300,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetSelection },
     { "nativeSetHeightCanMeasure", "(Z)V",
         (void*) nativeSetHeightCanMeasure },
-    { "nativeSetBaseLayer", "(IIZZ)Z",
+    { "nativeSetBaseLayer", "(IIZZI)Z",
         (void*) nativeSetBaseLayer },
     { "nativeGetBaseLayer", "(I)I",
         (void*) nativeGetBaseLayer },
