@@ -39,11 +39,18 @@
 #include "public/android/WebDOMTextContentWalker.h"
 #include "public/android/WebHitTestInfo.h"
 
+#include "Document.h"
+#include "Node.h"
+#include "Page.h"
+#include "Settings.h"
+
 using WebKit::WebDOMTextContentWalker;
 using WebKit::WebRange;
 
 ContentDetector::Result ContentDetector::FindTappedContent(
     const WebKit::WebHitTestInfo& hit_test) {
+  if (!IsEnabled(hit_test))
+    return Result();
   WebKit::WebRange range = FindContentRange(hit_test);
   if (range.isNull())
     return Result();
@@ -83,4 +90,10 @@ WebRange ContentDetector::FindContentRange(
   }
 
   return WebRange();
+}
+
+WebCore::Settings* ContentDetector::GetSettings(const WebKit::WebHitTestInfo& hit_test) {
+  if (!hit_test.node() || !hit_test.node()->document())
+    return 0;
+  return hit_test.node()->document()->page()->settings();
 }

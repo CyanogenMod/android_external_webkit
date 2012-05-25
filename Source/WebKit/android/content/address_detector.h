@@ -60,6 +60,7 @@ class AddressDetector : public ContentDetector {
   virtual std::string GetContentText(const WebKit::WebRange& range) OVERRIDE;
   virtual GURL GetIntentURL(const std::string& content_text) OVERRIDE;
   virtual size_t GetMaximumContentLength() OVERRIDE;
+  virtual bool IsEnabled(const WebKit::WebHitTestInfo& hit_test) OVERRIDE;
 
   // Internal structs and classes. Required to be visible by the unit tests.
   struct Word {

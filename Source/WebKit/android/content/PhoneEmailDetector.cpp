@@ -31,6 +31,7 @@
 #include "base/utf_string_conversions.h"
 #include "net/base/escape.h"
 #include "PhoneEmailDetector.h"
+#include "Settings.h"
 #include "WebString.h"
 
 #define LOG_TAG "PhoneNumberDetector"
@@ -56,18 +57,31 @@ PhoneEmailDetector::PhoneEmailDetector()
 {
 }
 
+bool PhoneEmailDetector::IsEnabled(const WebKit::WebHitTestInfo& hit_test)
+{
+    WebCore::Settings* settings = GetSettings(hit_test);
+    if (!settings)
+        return false;
+    m_isPhoneDetectionEnabled = settings->formatDetectionTelephone();
+    m_isEmailDetectionEnabled = settings->formatDetectionEmail();
+    return m_isEmailDetectionEnabled || m_isPhoneDetectionEnabled;
+}
+
 bool PhoneEmailDetector::FindContent(const string16::const_iterator& begin,
                              const string16::const_iterator& end,
                              size_t* start_pos,
                              size_t* end_pos)
 {
     FindReset(&m_findState);
-    m_foundResult = FindPartialNumber(begin, end - begin, &m_findState);
+    m_foundResult = FOUND_NONE;
+    if (m_isPhoneDetectionEnabled)
+        m_foundResult = FindPartialNumber(begin, end - begin, &m_findState);
     if (m_foundResult == FOUND_COMPLETE)
         m_prefix = kTelSchemaPrefix;
     else {
         FindReset(&m_findState);
-        m_foundResult = FindPartialEMail(begin, end - begin, &m_findState);
+        if (m_isEmailDetectionEnabled)
+            m_foundResult = FindPartialEMail(begin, end - begin, &m_findState);
         m_prefix = kEmailSchemaPrefix;
     }
     *start_pos = m_findState.mStartResult;
