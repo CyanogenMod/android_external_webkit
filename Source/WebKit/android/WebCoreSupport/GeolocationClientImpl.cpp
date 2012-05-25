@@ -122,6 +122,7 @@ void GeolocationClientImpl::stopUpdating()
 {
     // TODO: It would be good to re-use the Java bridge object.
     m_javaBridge.clear();
+    m_useGps = false;
     // Reset last position and error to make sure that we always try to get a
     // new position from the client when a request is first made.
     m_lastPosition = 0;
