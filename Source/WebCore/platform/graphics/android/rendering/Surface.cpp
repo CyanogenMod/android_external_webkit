@@ -264,12 +264,12 @@ bool Surface::drawGL(bool layerTilesDisabled)
     return askRedraw;
 }
 
-void Surface::swapTiles()
+void Surface::swapTiles(bool calculateFrameworkInvals)
 {
     if (!m_surfaceBacking)
         return;
 
-    if (m_surfaceBacking->swapTiles())
+    if (m_surfaceBacking->swapTiles() && calculateFrameworkInvals)
         addFrameworkInvals();
 }
 

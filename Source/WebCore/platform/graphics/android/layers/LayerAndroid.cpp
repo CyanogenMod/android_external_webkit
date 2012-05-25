@@ -385,11 +385,9 @@ void LayerAndroid::updatePositions()
         this->getChild(i)->updatePositions();
 }
 
-void LayerAndroid::updateLocalGLPositionsAndScale(const TransformationMatrix& parentMatrix,
-                                                  const FloatRect& clipping, float opacity,
-                                                  float scale)
+void LayerAndroid::updateLocalTransformAndClip(const TransformationMatrix& parentMatrix,
+                                               const FloatRect& clipping)
 {
-    TRACE_METHOD();
     FloatPoint position(getPosition().x() + m_replicatedLayerPosition.x() - getScrollOffset().x(),
                         getPosition().y() + m_replicatedLayerPosition.y() - getScrollOffset().y());
     float originX = getAnchorPoint().x() * getWidth();
@@ -415,8 +413,8 @@ void LayerAndroid::updateLocalGLPositionsAndScale(const TransformationMatrix& pa
         // that layers (defined in content coordinates) will align to display/view pixels
 
         // the surface may not allow fudging if it uses the draw transform at paint time
-        float desiredContentX = round(m_drawTransform.m41() * scale) / scale;
-        float desiredContentY = round(m_drawTransform.m42() * scale) / scale;
+        float desiredContentX = round(m_drawTransform.m41() * m_scale) / m_scale;
+        float desiredContentY = round(m_drawTransform.m42() * m_scale) / m_scale;
         ALOGV("fudging translation from %f, %f to %f, %f",
               m_drawTransform.m41(), m_drawTransform.m42(),
               desiredContentX, desiredContentY);
@@ -427,13 +425,6 @@ void LayerAndroid::updateLocalGLPositionsAndScale(const TransformationMatrix& pa
     m_zValue = TilesManager::instance()->shader()->zValue(m_drawTransform,
                                                           getSize().width(),
                                                           getSize().height());
-
-    m_atomicSync.lock();
-    m_scale = scale;
-    m_atomicSync.unlock();
-
-    opacity *= getOpacity();
-    setDrawOpacity(opacity);
 
     if (m_haveClip) {
         // The clipping rect calculation and intersetion will be done in content
@@ -450,28 +441,27 @@ void LayerAndroid::updateLocalGLPositionsAndScale(const TransformationMatrix& pa
           m_haveClip, m_clippingRect.x(), m_clippingRect.y(),
           m_clippingRect.width(), m_clippingRect.height());
 
-    if (!m_backfaceVisibility
-         && m_drawTransform.inverse().m33() < 0) {
-         setVisible(false);
-         return;
-    } else {
-         setVisible(true);
-    }
+    setVisible(m_backfaceVisibility || m_drawTransform.inverse().m33() >= 0);
 }
 
 void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                              const FloatRect& clipping, float opacity,
                                              float scale, bool forceCalculation)
 {
+    m_scale = scale;
+
+    opacity *= getOpacity();
+    setDrawOpacity(opacity);
+
     // constantly recalculate the draw transform of layers that may require it (and their children)
     forceCalculation |= isPositionFixed()
         || contentIsScrollable()
         || (m_animations.size() != 0);
 
     if (forceCalculation)
-        updateLocalGLPositionsAndScale(parentMatrix, clipping, opacity, scale);
+        updateLocalTransformAndClip(parentMatrix, clipping);
 
-    if (!countChildren())
+    if (!countChildren() || !m_visible)
         return;
 
     TransformationMatrix localMatrix = m_drawTransform;
@@ -815,11 +805,6 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas, bool drawChildren, PaintStyle st
 
     // When the layer is dirty, the UI thread should be notified to redraw.
     askScreenUpdate |= drawChildrenCanvas(canvas, style);
-    m_atomicSync.lock();
-    if (askScreenUpdate || m_hasRunningAnimations || m_drawTransform.hasPerspective())
-        addDirtyArea();
-
-    m_atomicSync.unlock();
     return askScreenUpdate;
 }
 
@@ -835,10 +820,8 @@ bool LayerAndroid::drawGL(bool layerTilesDisabled)
     state()->glExtras()->drawGL(this);
     bool askScreenUpdate = false;
 
-    m_atomicSync.lock();
     if (m_hasRunningAnimations)
         askScreenUpdate = true;
-    m_atomicSync.unlock();
 
     return askScreenUpdate;
 }
