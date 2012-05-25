@@ -171,8 +171,8 @@ void SurfaceBacking::computeTexturesAmount(TexturesResult* result,
     // - textures needed for a clipped area
     // - textures needed for an un-clipped area
     TileGrid* tileGrid = m_zooming ? m_backTileGrid : m_frontTileGrid;
-    int nbTexturesUnclipped = tileGrid->nbTextures(fullContentArea, m_scale);
-    int nbTexturesClipped = tileGrid->nbTextures(visibleContentArea, m_scale);
+    int nbTexturesUnclipped = tileGrid->nbTextures(fullContentArea, m_futureScale);
+    int nbTexturesClipped = tileGrid->nbTextures(visibleContentArea, m_futureScale);
 
     if (layer) {
         // TODO: should handle multi-layer case better
