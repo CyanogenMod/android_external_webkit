@@ -66,10 +66,16 @@ private:
     virtual size_t GetMaximumContentLength() {
         return NAVIGATION_MAX_PHONE_LENGTH * 4;
     }
+    virtual bool IsEnabled(const WebKit::WebHitTestInfo& hit_test) OVERRIDE;
 
     DISALLOW_COPY_AND_ASSIGN(PhoneEmailDetector);
 
     FindState m_findState;
     FoundState m_foundResult;
     const char* m_prefix;
+    // TODO: This shouldn't be done like this. PhoneEmailDetector should be
+    // refactored into two pieces and follow the IsEnabled style. This will
+    // only work because we always call IsEnabled before FindContent
+    bool m_isPhoneDetectionEnabled;
+    bool m_isEmailDetectionEnabled;
 };
