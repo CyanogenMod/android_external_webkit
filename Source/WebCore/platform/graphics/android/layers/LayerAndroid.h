@@ -155,7 +155,8 @@ public:
     bool drawChildrenCanvas(SkCanvas* canvas, PaintStyle style);
 
     void updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
-                                   const FloatRect& clip, float opacity, float scale);
+                                   const FloatRect& clip, float opacity, float scale,
+                                   bool forceCalculations);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
     float drawOpacity() { return m_drawOpacity; }
     bool visible();
@@ -302,6 +303,9 @@ protected:
     int m_uniqueId;
 
 private:
+    void updateLocalGLPositionsAndScale(const TransformationMatrix& parentMatrix,
+                                        const FloatRect& clip, float opacity, float scale);
+
 #if DUMP_NAV_CACHE
     friend class CachedLayer::Debug; // debugging access only
 #endif
