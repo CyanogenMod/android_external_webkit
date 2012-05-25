@@ -3239,6 +3239,10 @@ bool EventHandler::handleTouchEvent(const PlatformTouchEvent& event)
             ExceptionCode ec = 0;
             touchEventTarget->dispatchEvent(touchEvent.get(), ec);
             defaultPrevented |= touchEvent->defaultPrevented();
+#if PLATFORM(ANDROID)
+            if (touchEvent->hitTouchHandler())
+                const_cast<PlatformTouchEvent&>(event).setHitTouchHandler();
+#endif
         }
     }
 

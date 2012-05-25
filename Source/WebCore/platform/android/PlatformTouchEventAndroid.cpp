@@ -42,6 +42,7 @@ PlatformTouchEvent::PlatformTouchEvent(const Vector<int>& ids, const Vector<IntP
     : m_type(type)
     , m_metaKey(false)
     , m_timestamp(WTF::currentTime())
+    , m_hitTouchHandler(false)
 {
     m_touchPoints.reserveCapacity(windowPoints.size());
     for (unsigned c = 0; c < windowPoints.size(); c++)

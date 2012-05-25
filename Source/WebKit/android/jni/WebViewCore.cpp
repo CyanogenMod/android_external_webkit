@@ -178,6 +178,9 @@ FILE* gRenderTreeFile = 0;
 // prerenders
 #define PRERENDER_AFTER_SCROLL_DELAY 750
 
+#define TOUCH_FLAG_HIT_HANDLER 0x1
+#define TOUCH_FLAG_PREVENT_DEFAULT 0x2
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 namespace android {
@@ -3185,9 +3188,9 @@ GraphicsLayerAndroid* WebViewCore::graphicsRootLayer() const
 }
 #endif
 
-bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int actionIndex, int metaState)
+int WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint>& points, int actionIndex, int metaState)
 {
-    bool preventDefault = false;
+    int flags = 0;
 
 #if USE(ACCELERATED_COMPOSITING)
     GraphicsLayerAndroid* rootLayer = graphicsRootLayer();
@@ -3251,14 +3254,17 @@ bool WebViewCore::handleTouchEvent(int action, Vector<int>& ids, Vector<IntPoint
     }
 
     WebCore::PlatformTouchEvent te(ids, points, type, touchStates, metaState);
-    preventDefault = m_mainFrame->eventHandler()->handleTouchEvent(te);
+    if (m_mainFrame->eventHandler()->handleTouchEvent(te))
+        flags |= TOUCH_FLAG_PREVENT_DEFAULT;
+    if (te.hitTouchHandler())
+        flags |= TOUCH_FLAG_HIT_HANDLER;
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
     if (rootLayer)
       rootLayer->pauseDisplay(false);
 #endif
-    return preventDefault;
+    return flags;
 }
 
 bool WebViewCore::performMouseClick()
@@ -4596,7 +4602,7 @@ static jstring FindAddress(JNIEnv* env, jobject obj, jstring addr,
     return ret;
 }
 
-static jboolean HandleTouchEvent(JNIEnv* env, jobject obj, jint nativeClass,
+static jint HandleTouchEvent(JNIEnv* env, jobject obj, jint nativeClass,
         jint action, jintArray idArray, jintArray xArray, jintArray yArray,
         jint count, jint actionIndex, jint metaState)
 {
@@ -5011,7 +5017,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) SaveDocumentState },
     { "nativeFindAddress", "(Ljava/lang/String;Z)Ljava/lang/String;",
         (void*) FindAddress },
-    { "nativeHandleTouchEvent", "(II[I[I[IIII)Z",
+    { "nativeHandleTouchEvent", "(II[I[I[IIII)I",
         (void*) HandleTouchEvent },
     { "nativeMouseClick", "(I)Z",
         (void*) MouseClick },
