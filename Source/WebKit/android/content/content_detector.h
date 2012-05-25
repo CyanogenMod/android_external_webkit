@@ -44,6 +44,10 @@ namespace WebKit {
 class WebHitTestInfo;
 }
 
+namespace WebCore {
+class Settings;
+}
+
 // Base class for text-based content detectors.
 class ContentDetector {
  public:
@@ -81,6 +85,9 @@ class ContentDetector {
                            const string16::const_iterator& end,
                            size_t* start_pos,
                            size_t* end_pos) = 0;
+
+  virtual bool IsEnabled(const WebKit::WebHitTestInfo& hit_test) = 0;
+  WebCore::Settings* GetSettings(const WebKit::WebHitTestInfo& hit_test);
 
   // Extracts and processes the text of the detected content.
   virtual std::string GetContentText(const WebKit::WebRange& range) = 0;

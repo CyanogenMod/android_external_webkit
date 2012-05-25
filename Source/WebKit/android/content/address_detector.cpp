@@ -40,6 +40,7 @@
 
 #include "base/utf_string_conversions.h"
 #include "net/base/escape.h"
+#include "Settings.h"
 #include "WebString.h"
 
 #include <wtf/HashSet.h>
@@ -155,6 +156,11 @@ GURL AddressDetector::GetIntentURL(const std::string& content_text) {
 
 size_t AddressDetector::GetMaximumContentLength() {
   return kMaxAddressLength;
+}
+
+bool AddressDetector::IsEnabled(const WebKit::WebHitTestInfo& hit_test) {
+  WebCore::Settings* settings = GetSettings(hit_test);
+  return settings && settings->formatDetectionAddress();
 }
 
 bool AddressDetector::FindContent(const string16::const_iterator& begin,
