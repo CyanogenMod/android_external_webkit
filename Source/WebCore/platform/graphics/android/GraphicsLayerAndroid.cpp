@@ -670,6 +670,14 @@ void GraphicsLayerAndroid::updateScrollOffset() {
     askForSync();
 }
 
+static void setScrollLimits(ScrollableLayerAndroid* scrollableLayer, RenderLayer* renderLayer)
+{
+    RenderBox* box = renderLayer->renderBox();
+    scrollableLayer->setScrollLimits(0, 0,
+            renderLayer->scrollWidth() - box->clientWidth(),
+            renderLayer->scrollHeight() - box->clientHeight());
+}
+
 bool GraphicsLayerAndroid::repaint()
 {
     ALOGV("(%x) repaint(), gPaused(%d) m_needsRepaint(%d) m_haveContents(%d) ",
@@ -730,7 +738,7 @@ bool GraphicsLayerAndroid::repaint()
             // for the contents to be in the correct position.
             m_foregroundLayer->setPosition(-x, -y);
             // Set the scrollable bounds of the layer.
-            static_cast<ScrollableLayerAndroid*>(m_foregroundLayer)->setScrollLimits(-x, -y, m_size.width(), m_size.height());
+            setScrollLimits(static_cast<ScrollableLayerAndroid*>(m_foregroundLayer), layer);
 
             // Invalidate the entire layer for now, as webkit will only send the
             // setNeedsDisplayInRect() for the visible (clipped) scrollable area,
@@ -788,8 +796,7 @@ bool GraphicsLayerAndroid::repaint()
             // limits based on the view size.
             if (m_contentLayer->isIFrameContent()) {
                 FrameView* view = layer->renderer()->frame()->view();
-                static_cast<IFrameContentLayerAndroid*>(m_contentLayer)->setScrollLimits(
-                    m_position.x(), m_position.y(), view->layoutWidth(), view->layoutHeight());
+                setScrollLimits(static_cast<ScrollableLayerAndroid*>(m_contentLayer), layer);
                 ALOGV("setScrollLimits(%.2f, %.2f, w: %d h: %d) layer %d, frame scroll position is %d, %d",
                       m_position.x(), m_position.y(), view->layoutWidth(), view->layoutHeight(),
                       m_contentLayer->uniqueId(), view->scrollX(), view->scrollY());
