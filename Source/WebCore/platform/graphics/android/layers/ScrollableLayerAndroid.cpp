@@ -29,21 +29,31 @@ bool ScrollableLayerAndroid::scrollTo(int x, int y)
 
 void ScrollableLayerAndroid::getScrollBounds(IntRect* out) const
 {
-    const SkPoint& pos = getPosition();
-    out->setX(m_scrollLimits.fLeft - pos.fX);
-    out->setY(m_scrollLimits.fTop - pos.fY);
-    out->setWidth(getSize().width() - m_scrollLimits.width());
-    out->setHeight(getSize().height() - m_scrollLimits.height());
+    out->setX(m_scrollLimits.fLeft);
+    out->setY(m_scrollLimits.fTop);
+    out->setWidth(m_scrollLimits.width());
+    out->setHeight(m_scrollLimits.height());
 }
 
 void ScrollableLayerAndroid::getScrollRect(SkIRect* out) const
 {
-    const SkPoint& pos = getPosition();
-    out->fLeft = m_scrollLimits.fLeft - pos.fX + getScrollOffset().x();
-    out->fTop = m_scrollLimits.fTop - pos.fY + getScrollOffset().y();
+    out->fLeft = getScrollOffset().x();
+    out->fTop = getScrollOffset().y();
 
-    out->fRight = getSize().width() - m_scrollLimits.width();
-    out->fBottom = getSize().height() - m_scrollLimits.height();
+    out->fRight = m_scrollLimits.width();
+    out->fBottom = m_scrollLimits.height();
+}
+
+void ScrollableLayerAndroid::setScrollLimits(float minX, float minY,
+                                             float maxX, float maxY)
+{
+    if (minX < 0) minX = 0;
+    if (minY < 0) minY = 0;
+    if (maxX < 0) maxX = 0;
+    if (maxY < 0) maxY = 0;
+    if (minX > maxX) minX = maxX;
+    if (minY > maxY) minY = maxY;
+    m_scrollLimits.set(minX, minY, minX + maxX, minY + maxY);
 }
 
 bool ScrollableLayerAndroid::scrollRectIntoView(const SkIRect& rect)
