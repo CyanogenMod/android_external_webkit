@@ -495,6 +495,9 @@ static void copyScrollPosition(const LayerAndroid* fromRoot,
     LayerAndroid* to = toRoot->findById(layerId);
     if (!from || !to || !from->contentIsScrollable() || !to->contentIsScrollable())
         return;
+    // TODO: Support this for iframes.
+    if (to->isIFrameContent() || from->isIFrameContent())
+        return;
     to->setScrollOffset(from->getScrollOffset());
 }
 #endif
