@@ -51,7 +51,7 @@ public:
     void addLayer(LayerAndroid* layer, const TransformationMatrix& transform);
     void prepareGL(bool layerTilesDisabled, bool updateWithBlit);
     bool drawGL(bool layerTilesDisabled);
-    void swapTiles();
+    void swapTiles(bool calculateFrameworkInvals);
     void addFrameworkInvals();
     bool isReady();
     bool isMissingContent();

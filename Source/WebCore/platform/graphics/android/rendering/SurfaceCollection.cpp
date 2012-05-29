@@ -137,9 +137,11 @@ Color SurfaceCollection::getBackgroundColor()
 
 void SurfaceCollection::swapTiles()
 {
+    bool calculateFrameworkInvals = !m_compositedRoot->state()->inUnclippedDraw();
+
     TRACE_METHOD();
     for (unsigned int i = 0; i < m_surfaces.size(); i++)
-         m_surfaces[i]->swapTiles();
+         m_surfaces[i]->swapTiles(calculateFrameworkInvals);
 }
 
 void SurfaceCollection::addFrameworkInvals()

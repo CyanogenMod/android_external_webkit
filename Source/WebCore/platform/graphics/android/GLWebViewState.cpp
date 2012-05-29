@@ -333,6 +333,8 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
           screenRect.x(), screenRect.y(), screenRect.width(), screenRect.height(),
           screenClip.x(), screenClip.y(), screenClip.width(), screenClip.height(), scale, titleBarHeight);
 
+    m_inUnclippedDraw = shouldDraw && (screenRect == screenClip);
+
     resetLayersDirtyArea();
 
     if (scale < MIN_SCALE_WARNING || scale > MAX_SCALE_WARNING)
