@@ -54,10 +54,7 @@ public:
     // fBottom = maxScrollY
     virtual void getScrollRect(SkIRect*) const;
 
-    void setScrollLimits(float x, float y, float width, float height)
-    {
-        m_scrollLimits.set(x, y, x + width, y + height);
-    }
+    void setScrollLimits(float minX, float minY, float maxX, float maxY);
 
     // Given a rect in the layer, scrolls to bring the rect into view. Uses a
     // lazy approach, whereby we scroll as little as possible to bring the
