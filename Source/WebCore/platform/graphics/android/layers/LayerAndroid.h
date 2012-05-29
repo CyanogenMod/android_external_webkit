@@ -303,8 +303,8 @@ protected:
     int m_uniqueId;
 
 private:
-    void updateLocalGLPositionsAndScale(const TransformationMatrix& parentMatrix,
-                                        const FloatRect& clip, float opacity, float scale);
+    void updateLocalTransformAndClip(const TransformationMatrix& parentMatrix,
+                                     const FloatRect& clip);
 
 #if DUMP_NAV_CACHE
     friend class CachedLayer::Debug; // debugging access only
@@ -374,11 +374,6 @@ private:
     // We try to not always compute the texture size, as this is quite heavy
     static const double s_computeTextureDelay = 0.2; // 200 ms
     double m_lastComputeTextureSize;
-
-    // This mutex serves two purposes. (1) It ensures that certain operations
-    // happen atomically and (2) it makes sure those operations are synchronized
-    // across all threads and cores.
-    android::Mutex m_atomicSync;
 
     RenderLayer* m_owningLayer;
 

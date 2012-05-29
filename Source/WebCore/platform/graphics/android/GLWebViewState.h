@@ -190,6 +190,7 @@ public:
     void addDirtyArea(const IntRect& rect);
     void resetLayersDirtyArea();
     void doFrameworkFullInval();
+    bool inUnclippedDraw() { return m_inUnclippedDraw; }
 
     bool goingDown() { return m_goingDown; }
     bool goingLeft() { return m_goingLeft; }
@@ -221,6 +222,7 @@ private:
     SkRect m_visibleContentRect;
     IntRect m_frameworkLayersInval;
     bool m_doFrameworkFullInval;
+    bool m_inUnclippedDraw;
 
 #ifdef MEASURES_PERF
     unsigned int m_totalTimeCounter;
