@@ -736,7 +736,7 @@ namespace android {
         WebCore::IntRect absoluteContentRect(WebCore::Node* node,
                 WebCore::LayerAndroid* layer);
         static WebCore::IntRect positionToTextRect(const WebCore::Position& position,
-                WebCore::EAffinity affinity);
+                WebCore::EAffinity affinity, const WebCore::IntPoint& offset);
         static bool isLtr(const WebCore::Position& position);
         static WebCore::Position trimSelectionPosition(
                 const WebCore::Position& start, const WebCore::Position& stop);
