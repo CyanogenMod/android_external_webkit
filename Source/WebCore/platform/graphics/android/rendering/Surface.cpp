@@ -370,7 +370,7 @@ bool Surface::paint(SkCanvas* canvas)
         // In single surface mode, draw layer content onto the base layer
         if (isBase()
             && getFirstLayer()->countChildren()
-            && getFirstLayer()->state()->layersRenderingMode() > GLWebViewState::kClippedTextures) {
+            && getFirstLayer()->state()->isSingleSurfaceRenderingMode()) {
             for (int i = 0; i < getFirstLayer()->countChildren(); i++)
                 getFirstLayer()->getChild(i)->drawCanvas(canvas, true, Layer::FlattenedLayers);
         }

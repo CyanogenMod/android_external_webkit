@@ -86,8 +86,7 @@ void SurfaceCollection::prepareGL(const SkRect& visibleContentRect, bool tryToFa
 {
     TRACE_METHOD();
     updateLayerPositions(visibleContentRect);
-    bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
-        > GLWebViewState::kClippedTextures;
+    bool layerTilesDisabled = m_compositedRoot->state()->isSingleSurfaceRenderingMode();
     if (!layerTilesDisabled) {
         for (unsigned int i = 0; tryToFastBlit && i < m_surfaces.size(); i++)
             tryToFastBlit &= m_surfaces[i]->canUpdateWithBlit();
@@ -114,8 +113,7 @@ bool SurfaceCollection::drawGL(const SkRect& visibleContentRect)
 
     bool needsRedraw = false;
     updateLayerPositions(visibleContentRect);
-    bool layerTilesDisabled = m_compositedRoot->state()->layersRenderingMode()
-        > GLWebViewState::kClippedTextures;
+    bool layerTilesDisabled = m_compositedRoot->state()->isSingleSurfaceRenderingMode();
 
     // create a duplicate vector of surfaces, sorted by z value
     Vector <Surface*> surfaces;
@@ -153,7 +151,7 @@ void SurfaceCollection::addFrameworkInvals()
 bool SurfaceCollection::isReady()
 {
     // Override layer readiness check for single surface mode
-    if (m_compositedRoot->state()->layersRenderingMode() > GLWebViewState::kClippedTextures) {
+    if (m_compositedRoot->state()->isSingleSurfaceRenderingMode()) {
         // TODO: single surface mode should be properly double buffered
         return true;
     }
