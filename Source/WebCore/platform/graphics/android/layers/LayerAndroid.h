@@ -156,7 +156,7 @@ public:
 
     void updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                    const FloatRect& clip, float opacity, float scale,
-                                   bool forceCalculations);
+                                   bool forceCalculations, bool disableFixedElemUpdate);
     void setDrawOpacity(float opacity) { m_drawOpacity = opacity; }
     float drawOpacity() { return m_drawOpacity; }
     bool visible();

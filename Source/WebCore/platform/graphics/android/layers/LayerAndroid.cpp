@@ -461,13 +461,14 @@ void LayerAndroid::updateLocalGLPositionsAndScale(const TransformationMatrix& pa
 
 void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentMatrix,
                                              const FloatRect& clipping, float opacity,
-                                             float scale, bool forceCalculation)
+                                             float scale, bool forceCalculation,
+                                             bool disableFixedElemUpdate)
 {
     // constantly recalculate the draw transform of layers that may require it (and their children)
     forceCalculation |= isPositionFixed()
         || contentIsScrollable()
         || (m_animations.size() != 0);
-
+    forceCalculation &= !(disableFixedElemUpdate && isPositionFixed());
     if (forceCalculation)
         updateLocalGLPositionsAndScale(parentMatrix, clipping, opacity, scale);
 
@@ -498,7 +499,9 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
         childMatrix.translate(-getSize().width() * 0.5f, -getSize().height() * 0.5f);
     }
     for (int i = 0; i < countChildren(); i++)
-        this->getChild(i)->updateGLPositionsAndScale(childMatrix, drawClip(), opacity, scale, forceCalculation);
+        this->getChild(i)->updateGLPositionsAndScale(childMatrix, drawClip(),
+                                                     opacity, scale, forceCalculation,
+                                                     disableFixedElemUpdate);
 }
 
 bool LayerAndroid::visible() {

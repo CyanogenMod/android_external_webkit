@@ -196,6 +196,8 @@ public:
 
     float scale() { return m_scale; }
 
+    // Currently, we only use 3 modes : kAllTextures, kClippedTextures and
+    // kSingleSurfaceRendering ( for every mode > kClippedTextures ) .
     enum LayersRenderingMode {
         kAllTextures              = 0, // all layers are drawn with textures fully covering them
         kClippedTextures          = 1, // all layers are drawn, but their textures will be clipped
@@ -206,6 +208,7 @@ public:
     };
 
     LayersRenderingMode layersRenderingMode() { return m_layersRenderingMode; }
+    bool isSingleSurfaceRenderingMode() { return m_layersRenderingMode == kSingleSurfaceRendering; }
     void scrollLayer(int layerId, int x, int y);
 
 private:
