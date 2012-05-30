@@ -96,7 +96,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     m_request = new net::URLRequest(gurl, this);
 
     m_request->SetExtraRequestHeaders(webResourceRequest.requestHeaders());
-    m_request->SetExtraRequestHeaderByName(kXRequestedWithHeader, s_packageName.Get().value, true);
+    m_request->SetExtraRequestHeaderByName(kXRequestedWithHeader, s_packageName.Get().value, false);
     m_request->set_referrer(webResourceRequest.referrer());
     m_request->set_method(webResourceRequest.method());
     m_request->set_load_flags(webResourceRequest.loadFlags());
