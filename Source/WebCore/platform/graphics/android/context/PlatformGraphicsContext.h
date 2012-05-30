@@ -59,6 +59,7 @@ public:
 
     // State values
     virtual void setAlpha(float alpha);
+    int getNormalizedAlpha() const;
     virtual void setCompositeOperation(CompositeOperator op);
     virtual void setFillColor(const Color& c);
     virtual void setFillShader(SkShader* fillShader);

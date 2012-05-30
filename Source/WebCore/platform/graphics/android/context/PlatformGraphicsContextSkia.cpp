@@ -234,7 +234,8 @@ void PlatformGraphicsContextSkia::drawBitmapPattern(
                                                     SkShader::kRepeat_TileMode);
     shader->setLocalMatrix(matrix);
     SkPaint paint;
-    setupPaintFill(&paint);
+    setupPaintCommon(&paint);
+    paint.setAlpha(getNormalizedAlpha());
     paint.setShader(shader);
     paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(compositeOp));
     fixPaintForBitmapsThatMaySeam(&paint);
@@ -246,7 +247,8 @@ void PlatformGraphicsContextSkia::drawBitmapRect(const SkBitmap& bitmap,
                                              CompositeOperator op)
 {
     SkPaint paint;
-    setupPaintFill(&paint);
+    setupPaintCommon(&paint);
+    paint.setAlpha(getNormalizedAlpha());
     paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(op));
     fixPaintForBitmapsThatMaySeam(&paint);
 
