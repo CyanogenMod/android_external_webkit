@@ -229,6 +229,16 @@ void PlatformGraphicsContext::setAlpha(float alpha)
     m_state->alpha = alpha;
 }
 
+int PlatformGraphicsContext::getNormalizedAlpha() const
+{
+    int alpha = roundf(m_state->alpha * 256);
+    if (alpha > 255)
+        alpha = 255;
+    else if (alpha < 0)
+        alpha = 0;
+    return alpha;
+}
+
 void PlatformGraphicsContext::setCompositeOperation(CompositeOperator op)
 {
     m_state->mode = WebCoreCompositeToSkiaComposite(op);
