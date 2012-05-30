@@ -59,7 +59,7 @@ private:
     void swap();
     void clearCollections();
     void updatePaintingCollection(SurfaceCollection* newCollection);
-    int singleSurfaceModeInvalidation(bool scrolling, bool shouldDraw);
+    int singleSurfaceModeInvalidation(bool hasRunningAnimation, bool scrolling, bool shouldDraw);
     SurfaceCollection* m_drawingCollection;
     SurfaceCollection* m_paintingCollection;
     SurfaceCollection* m_queuedCollection;

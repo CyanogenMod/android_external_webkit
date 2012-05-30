@@ -151,10 +151,8 @@ void SurfaceCollection::addFrameworkInvals()
 bool SurfaceCollection::isReady()
 {
     // Override layer readiness check for single surface mode
-    if (m_compositedRoot->state()->isSingleSurfaceRenderingMode()) {
-        // TODO: single surface mode should be properly double buffered
-        return true;
-    }
+    if (m_compositedRoot->state()->isSingleSurfaceRenderingMode())
+        return m_surfaces[0]->isReady();
 
     for (unsigned int i = 0; i < m_surfaces.size(); i++) {
         if (!m_surfaces[i]->isReady()) {
@@ -163,12 +161,6 @@ bool SurfaceCollection::isReady()
         }
     }
     return true;
-}
-
-bool SurfaceCollection::isBaseSurfaceReady()
-{
-    // m_surfaces[0] should be the base surface when in single surface mode.
-    return m_surfaces[0]->isReady();
 }
 
 bool SurfaceCollection::isMissingBackgroundContent()
@@ -222,9 +214,9 @@ void SurfaceCollection::mergeInvalsInto(SurfaceCollection* replacementSurface)
     m_compositedRoot->mergeInvalsInto(replacementSurface->m_compositedRoot);
 }
 
-void SurfaceCollection::evaluateAnimations(double currentTime)
+bool SurfaceCollection::evaluateAnimations(double currentTime)
 {
-    m_compositedRoot->evaluateAnimations(currentTime);
+    return m_compositedRoot->evaluateAnimations(currentTime);
 }
 
 bool SurfaceCollection::hasCompositedLayers()
