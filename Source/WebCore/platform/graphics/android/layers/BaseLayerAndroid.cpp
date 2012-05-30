@@ -60,6 +60,7 @@ BaseLayerAndroid::BaseLayerAndroid(LayerContent* content)
 
 void BaseLayerAndroid::getLocalTransform(SkMatrix* matrix) const
 {
+    matrix->reset();
     // base layer doesn't use size in transform calculation
     matrix->preConcat(getMatrix());
 }
