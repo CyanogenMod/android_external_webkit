@@ -528,8 +528,16 @@ void copyBaseContentToPicture(SkPicture* picture)
     if (!m_baseLayer || !m_baseLayer->content())
         return;
     LayerContent* content = m_baseLayer->content();
-    content->draw(picture->beginRecording(content->width(), content->height(),
-                                          SkPicture::kUsePathBoundsForClip_RecordingFlag));
+    SkCanvas* canvas = picture->beginRecording(content->width(), content->height(),
+                                              SkPicture::kUsePathBoundsForClip_RecordingFlag);
+
+    // clear the BaseLayerAndroid's previous matrix (set at each draw)
+    SkMatrix baseMatrix;
+    baseMatrix.reset();
+    m_baseLayer->setMatrix(baseMatrix);
+
+    m_baseLayer->draw(canvas, 0);
+
     picture->endRecording();
 }
 
