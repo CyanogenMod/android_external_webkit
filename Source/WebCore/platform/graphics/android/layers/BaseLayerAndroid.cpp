@@ -87,8 +87,20 @@ void BaseLayerAndroid::updatePositionsRecursive(const SkRect& visibleContentRect
     FloatRect clip(0, 0, getWidth(), getHeight());
 
     bool forcePositionCalculation = !m_positionsCalculated;
-    float scale = state() ? state()->scale() : 1.0f;
-    updateGLPositionsAndScale(ident, clip, 1, scale, forcePositionCalculation);
+    float scale = 1.0f;
+    // To minimize tearing in single surface mode, don't update the fixed element
+    // when scrolling. The fixed element will move incorrectly when scrolling,
+    // but its position will be corrected after scrolling.
+    bool disableFixedElemUpdate = false;
+    GLWebViewState* webViewState = state();
+    if (webViewState) {
+        scale = webViewState->scale();
+        disableFixedElemUpdate = webViewState->isScrolling()
+                                 && webViewState->isSingleSurfaceRenderingMode();
+    }
+    updateGLPositionsAndScale(ident, clip, 1, scale, forcePositionCalculation,
+                              disableFixedElemUpdate);
+
     m_positionsCalculated = true;
 }
 
