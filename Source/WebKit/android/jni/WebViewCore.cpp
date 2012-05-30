@@ -1566,14 +1566,14 @@ void WebViewCore::layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& off
 
 void WebViewCore::setSelectionCaretInfo(SelectText* selectTextContainer,
         const WebCore::Position& pos, const IntPoint& frameOffset,
-        SelectText::HandleId handleId, int offset, EAffinity affinity)
+        SelectText::HandleId handleId, int caretRectOffset, EAffinity affinity)
 {
     Node* node = pos.anchorNode();
     LayerAndroid* layer = 0;
     int layerId = platformLayerIdFromNode(node, &layer);
     selectTextContainer->setCaretLayerId(handleId, layerId);
-    IntPoint layerOffset;
-    layerToAbsoluteOffset(layer, layerOffset);
+    IntPoint offset = frameOffset;
+    layerToAbsoluteOffset(layer, offset);
     RenderObject* r = node->renderer();
     RenderText* renderText = toRenderText(r);
     int caretOffset;
@@ -1581,12 +1581,11 @@ void WebViewCore::setSelectionCaretInfo(SelectText* selectTextContainer,
     pos.getInlineBoxAndOffset(affinity, inlineBox, caretOffset);
     IntRect caretRect = renderText->localCaretRect(inlineBox, caretOffset);
     FloatPoint absoluteOffset = renderText->localToAbsolute(caretRect.location());
-    caretRect.setX(absoluteOffset.x() - layerOffset.x() + offset);
-    caretRect.setY(absoluteOffset.y() - layerOffset.y());
-    caretRect.move(-frameOffset.x(), -frameOffset.y());
+    caretRect.setX(absoluteOffset.x() - offset.x() + caretRectOffset);
+    caretRect.setY(absoluteOffset.y() - offset.y());
     selectTextContainer->setCaretRect(handleId, caretRect);
     selectTextContainer->setTextRect(handleId,
-            positionToTextRect(pos, affinity));
+            positionToTextRect(pos, affinity, offset));
 }
 
 bool WebViewCore::isLtr(const Position& position)
@@ -1659,12 +1658,13 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
     return selectTextContainer;
 }
 
-IntRect WebViewCore::positionToTextRect(const Position& position, EAffinity affinity)
+IntRect WebViewCore::positionToTextRect(const Position& position,
+        EAffinity affinity, const WebCore::IntPoint& offset)
 {
     IntRect textRect;
     InlineBox* inlineBox;
-    int offset;
-    position.getInlineBoxAndOffset(affinity, inlineBox, offset);
+    int offsetIndex;
+    position.getInlineBoxAndOffset(affinity, inlineBox, offsetIndex);
     if (inlineBox && inlineBox->isInlineTextBox()) {
         InlineTextBox* box = static_cast<InlineTextBox*>(inlineBox);
         RootInlineBox* root = box->root();
@@ -1674,12 +1674,6 @@ IntRect WebViewCore::positionToTextRect(const Position& position, EAffinity affi
         int top = root->selectionTop();
         int height = root->selectionHeight();
 
-        Node* node = position.anchorNode();
-        LayerAndroid* layer = 0;
-        int layerId = platformLayerIdFromNode(node, &layer);
-        IntPoint layerOffset;
-        layerToAbsoluteOffset(layer, layerOffset);
-
         if (!renderText->style()->isHorizontalWritingMode()) {
             swap(left, top);
             swap(width, height);
@@ -1687,9 +1681,9 @@ IntRect WebViewCore::positionToTextRect(const Position& position, EAffinity affi
         FloatPoint origin(left, top);
         FloatPoint absoluteOrigin = renderText->localToAbsolute(origin);
 
-        textRect.setX(absoluteOrigin.x() - layerOffset.x());
+        textRect.setX(absoluteOrigin.x() - offset.x());
         textRect.setWidth(width);
-        textRect.setY(absoluteOrigin.y() - layerOffset.y());
+        textRect.setY(absoluteOrigin.y() - offset.y());
         textRect.setHeight(height);
     }
     return textRect;
