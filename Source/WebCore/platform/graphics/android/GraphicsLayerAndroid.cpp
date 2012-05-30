@@ -274,7 +274,7 @@ void GraphicsLayerAndroid::updatePositionedLayers()
 
         SkRect viewRect;
         viewRect.set(paintingOffsetX, paintingOffsetY, paintingOffsetX + w, paintingOffsetY + h);
-        IntPoint renderLayerPos(renderLayer->x(), renderLayer->y());
+        IntPoint renderLayerPos(position().x(), position().y());
 
         FixedPositioning* fixedPosition = m_contentLayer->fixedPosition();
         if (!fixedPosition) {
