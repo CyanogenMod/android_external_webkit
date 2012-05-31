@@ -122,6 +122,7 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 
     m_transform = layer.m_transform;
     m_drawTransform = layer.m_drawTransform;
+    m_drawTransformUnfudged = layer.m_drawTransformUnfudged;
     m_childrenTransform = layer.m_childrenTransform;
     m_dirtyRegion = layer.m_dirtyRegion;
 
@@ -407,6 +408,7 @@ void LayerAndroid::updateLocalTransformAndClip(const TransformationMatrix& paren
                                 -originY,
                                 -anchorPointZ());
 
+    m_drawTransformUnfudged = m_drawTransform;
     if (m_drawTransform.isIdentityOrTranslation()
         && surface() && surface()->allowTransformFudging()) {
         // adjust the translation coordinates of the draw transform matrix so
@@ -455,9 +457,8 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     setDrawOpacity(opacity);
 
     // constantly recalculate the draw transform of layers that may require it (and their children)
-    forceCalculation |= isPositionFixed()
-        || contentIsScrollable()
-        || (m_animations.size() != 0);
+    forceCalculation |= hasDynamicTransform();
+
     forceCalculation &= !(disableFixedElemUpdate && isPositionFixed());
     if (forceCalculation)
         updateLocalTransformAndClip(parentMatrix, clipping);
@@ -465,7 +466,7 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     if (!countChildren() || !m_visible)
         return;
 
-    TransformationMatrix localMatrix = m_drawTransform;
+    TransformationMatrix localMatrix = m_drawTransformUnfudged;
 
     // Flatten to 2D if the layer doesn't preserve 3D.
     if (!preserves3D()) {
@@ -682,7 +683,7 @@ void LayerAndroid::assignSurfaces(LayerMergeState* mergeState)
     mergeState->currentSurface->addLayer(this, m_drawTransform);
     m_surface = mergeState->currentSurface;
 
-    if (contentIsScrollable() || isPositionFixed()) {
+    if (hasDynamicTransform()) {
         // disable layer merging within the children of these layer types
         mergeState->nonMergeNestedLevel++;
     }
@@ -704,7 +705,7 @@ void LayerAndroid::assignSurfaces(LayerMergeState* mergeState)
         mergeState->depth--;
     }
 
-    if (contentIsScrollable() || isPositionFixed()) {
+    if (hasDynamicTransform()) {
         // re-enable joining
         mergeState->nonMergeNestedLevel--;
 
