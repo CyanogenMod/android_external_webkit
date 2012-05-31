@@ -60,19 +60,19 @@ static void writeItem(WTF::Vector<char>& vector, WebCore::HistoryItem* item);
 static void writeChildrenRecursive(WTF::Vector<char>& vector, WebCore::HistoryItem* parent);
 static bool readItemRecursive(WebCore::HistoryItem* child, const char** pData, int length);
 
-// Field ids for WebHistoryItems
-struct WebHistoryItemFields {
+// Field ids for WebHistoryClassicItems
+struct WebHistoryItemClassicFields {
     jmethodID   mInit;
-} gWebHistoryItem;
+} gWebHistoryItemClassic;
 
-struct WebBackForwardListFields {
+struct WebBackForwardListClassicFields {
     jmethodID   mAddHistoryItem;
     jmethodID   mRemoveHistoryItem;
     jmethodID   mSetCurrentIndex;
-} gWebBackForwardList;
+} gWebBackForwardListClassic;
 
 //--------------------------------------------------------------------------
-// WebBackForwardList native methods.
+// WebBackForwardListClassic native methods.
 //--------------------------------------------------------------------------
 
 static void WebHistoryClose(JNIEnv* env, jobject obj, jint frame)
@@ -398,9 +398,9 @@ void WebHistory::AddItem(const AutoJObject& list, WebCore::HistoryItem* item)
     WebHistoryItem* bridge = new WebHistoryItem(item);
     bridge->setActive();
     item->setBridge(bridge);
-    // Allocate a blank WebHistoryItem
-    jclass clazz = env->FindClass("android/webkit/WebHistoryItem");
-    jobject newItem = env->NewObject(clazz, gWebHistoryItem.mInit,
+    // Allocate a blank WebHistoryItemClassic
+    jclass clazz = env->FindClass("android/webkit/WebHistoryItemClassic");
+    jobject newItem = env->NewObject(clazz, gWebHistoryItemClassic.mInit,
             reinterpret_cast<int>(bridge));
     env->DeleteLocalRef(clazz);
 
@@ -409,7 +409,7 @@ void WebHistory::AddItem(const AutoJObject& list, WebCore::HistoryItem* item)
     bridge->updateHistoryItem(item);
 
     // Add it to the list.
-    env->CallVoidMethod(list.get(), gWebBackForwardList.mAddHistoryItem, newItem);
+    env->CallVoidMethod(list.get(), gWebBackForwardListClassic.mAddHistoryItem, newItem);
 
     // Delete our local reference.
     env->DeleteLocalRef(newItem);
@@ -418,13 +418,13 @@ void WebHistory::AddItem(const AutoJObject& list, WebCore::HistoryItem* item)
 void WebHistory::RemoveItem(const AutoJObject& list, int index)
 {
     if (list.get())
-        list.env()->CallVoidMethod(list.get(), gWebBackForwardList.mRemoveHistoryItem, index);
+        list.env()->CallVoidMethod(list.get(), gWebBackForwardListClassic.mRemoveHistoryItem, index);
 }
 
 void WebHistory::UpdateHistoryIndex(const AutoJObject& list, int newIndex)
 {
     if (list.get())
-        list.env()->CallVoidMethod(list.get(), gWebBackForwardList.mSetCurrentIndex, newIndex);
+        list.env()->CallVoidMethod(list.get(), gWebBackForwardListClassic.mSetCurrentIndex, newIndex);
 }
 
 static void writeString(WTF::Vector<char>& vector, const WTF::String& str)
@@ -945,14 +945,14 @@ static void unitTest()
 //---------------------------------------------------------
 // JNI registration
 //---------------------------------------------------------
-static JNINativeMethod gWebBackForwardListMethods[] = {
+static JNINativeMethod gWebBackForwardListClassicMethods[] = {
     { "nativeClose", "(I)V",
         (void*) WebHistoryClose },
     { "restoreIndex", "(II)V",
         (void*) WebHistoryRestoreIndex }
 };
 
-static JNINativeMethod gWebHistoryItemMethods[] = {
+static JNINativeMethod gWebHistoryItemClassicMethods[] = {
     { "inflate", "(I[B)I",
         (void*) WebHistoryInflate },
     { "nativeRef", "(I)V",
@@ -978,31 +978,30 @@ int registerWebHistory(JNIEnv* env)
 #ifdef UNIT_TEST
     unitTest();
 #endif
-    // Find WebHistoryItem, its constructor, and the update method.
-    jclass clazz = env->FindClass("android/webkit/WebHistoryItem");
-    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebHistoryItem");
-    gWebHistoryItem.mInit = env->GetMethodID(clazz, "<init>", "(I)V");
-    ALOG_ASSERT(gWebHistoryItem.mInit, "Could not find WebHistoryItem constructor");
-
+    // Find WebHistoryItemClassic, its constructor, and the update method.
+    jclass clazz = env->FindClass("android/webkit/WebHistoryItemClassic");
+    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebHistoryItemClassic");
+    gWebHistoryItemClassic.mInit = env->GetMethodID(clazz, "<init>", "(I)V");
+    ALOG_ASSERT(gWebHistoryItemClassic.mInit, "Could not find WebHistoryItemClassic constructor");
     env->DeleteLocalRef(clazz);
 
-    // Find the WebBackForwardList object and method.
-    clazz = env->FindClass("android/webkit/WebBackForwardList");
-    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebBackForwardList");
-    gWebBackForwardList.mAddHistoryItem = env->GetMethodID(clazz, "addHistoryItem",
+    // Find the WebBackForwardListClassic object and method.
+    clazz = env->FindClass("android/webkit/WebBackForwardListClassic");
+    ALOG_ASSERT(clazz, "Unable to find class android/webkit/WebBackForwardListClassic");
+    gWebBackForwardListClassic.mAddHistoryItem = env->GetMethodID(clazz, "addHistoryItem",
             "(Landroid/webkit/WebHistoryItem;)V");
-    ALOG_ASSERT(gWebBackForwardList.mAddHistoryItem, "Could not find method addHistoryItem");
-    gWebBackForwardList.mRemoveHistoryItem = env->GetMethodID(clazz, "removeHistoryItem",
+    ALOG_ASSERT(gWebBackForwardListClassic.mAddHistoryItem, "Could not find method addHistoryItem");
+    gWebBackForwardListClassic.mRemoveHistoryItem = env->GetMethodID(clazz, "removeHistoryItem",
             "(I)V");
-    ALOG_ASSERT(gWebBackForwardList.mRemoveHistoryItem, "Could not find method removeHistoryItem");
-    gWebBackForwardList.mSetCurrentIndex = env->GetMethodID(clazz, "setCurrentIndex", "(I)V");
-    ALOG_ASSERT(gWebBackForwardList.mSetCurrentIndex, "Could not find method setCurrentIndex");
+    ALOG_ASSERT(gWebBackForwardListClassic.mRemoveHistoryItem, "Could not find method removeHistoryItem");
+    gWebBackForwardListClassic.mSetCurrentIndex = env->GetMethodID(clazz, "setCurrentIndex", "(I)V");
+    ALOG_ASSERT(gWebBackForwardListClassic.mSetCurrentIndex, "Could not find method setCurrentIndex");
     env->DeleteLocalRef(clazz);
 
-    int result = jniRegisterNativeMethods(env, "android/webkit/WebBackForwardList",
-            gWebBackForwardListMethods, NELEM(gWebBackForwardListMethods));
-    return (result < 0) ? result : jniRegisterNativeMethods(env, "android/webkit/WebHistoryItem",
-            gWebHistoryItemMethods, NELEM(gWebHistoryItemMethods));
+    int result = jniRegisterNativeMethods(env, "android/webkit/WebBackForwardListClassic",
+            gWebBackForwardListClassicMethods, NELEM(gWebBackForwardListClassicMethods));
+    return (result < 0) ? result : jniRegisterNativeMethods(env, "android/webkit/WebHistoryItemClassic",
+            gWebHistoryItemClassicMethods, NELEM(gWebHistoryItemClassicMethods));
 }
 
 } /* namespace android */
