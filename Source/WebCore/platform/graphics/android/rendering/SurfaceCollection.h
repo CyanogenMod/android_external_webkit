@@ -54,7 +54,6 @@ public:
     void swapTiles();
     void addFrameworkInvals();
     bool isReady();
-    bool isBaseSurfaceReady();
     bool isMissingBackgroundContent();
     void removePainterOperations();
     void computeTexturesAmount(TexturesResult* result);
@@ -63,7 +62,7 @@ public:
     void setIsPainting(SurfaceCollection* drawingSurfaceCollection);
     void setIsDrawing();
     void mergeInvalsInto(SurfaceCollection* replacementSurfaceCollection);
-    void evaluateAnimations(double currentTime);
+    bool evaluateAnimations(double currentTime);
 
     bool hasCompositedLayers();
     bool hasCompositedAnimations();

@@ -171,7 +171,8 @@ void SurfaceCollectionManager::updateScrollableLayer(int layerId, int x, int y)
 }
 
 
-int SurfaceCollectionManager::singleSurfaceModeInvalidation(bool scrolling,
+int SurfaceCollectionManager::singleSurfaceModeInvalidation(bool hasRunningAnimation,
+                                                            bool scrolling,
                                                             bool shouldDraw)
 {
     int returnFlags = 0;
@@ -179,20 +180,27 @@ int SurfaceCollectionManager::singleSurfaceModeInvalidation(bool scrolling,
     // scrolling or have an incoming painting tree.
     bool requireDirtyAll = (m_previouslyScrolling && !scrolling)
                            || m_newPaintingCollection;
-    if (requireDirtyAll)
-        TilesManager::instance()->dirtyAllTiles();
 
     // We also need to tell the framework to continue to invoke until
     // the base layer is ready.
     bool drawingBaseSurfaceReady = m_drawingCollection
-                                   && m_drawingCollection->isBaseSurfaceReady();
+                                   && m_drawingCollection->isReady();
+
+    // When the base layer is ready, we can ask the framework to draw. And if
+    // animation is running, dirty all the tiles, otherwise the animation will
+    // be paused.
+    if (drawingBaseSurfaceReady) {
+        if (!shouldDraw)
+            returnFlags |= DrawGlInfo::kStatusDraw;
+        else
+            requireDirtyAll |= hasRunningAnimation;
+    }
+    if (requireDirtyAll)
+        TilesManager::instance()->dirtyAllTiles();
+
     bool requireInvoke = requireDirtyAll || !drawingBaseSurfaceReady;
     if (requireInvoke)
         returnFlags |= DrawGlInfo::kStatusInvoke;
-
-    // When the base layer is ready, we can ask the framework to draw.
-    if (!shouldDraw && drawingBaseSurfaceReady)
-        returnFlags |= DrawGlInfo::kStatusDraw;
 
     m_newPaintingCollection = false;
     m_previouslyScrolling = scrolling;
@@ -246,9 +254,6 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     if (m_paintingCollection)
         returnFlags |= DrawGlInfo::kStatusInvoke;
 
-    if (singleSurfaceMode)
-        returnFlags |= singleSurfaceModeInvalidation(scrolling, shouldDraw);
-
     if (!shouldDraw) {
         if (didCollectionSwap
             || (!m_paintingCollection
@@ -270,6 +275,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     // Don't have a drawing collection, draw white background
     Color background = Color::white;
     bool drawBackground = true;
+    bool hasRunningAnimation = false;
     if (m_drawingCollection) {
         bool drawingReady = didCollectionSwap || m_drawingCollection->isReady();
 
@@ -288,7 +294,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
             returnFlags |= DrawGlInfo::kStatusInvoke;
         }
 
-        m_drawingCollection->evaluateAnimations(currentTime);
+        hasRunningAnimation = m_drawingCollection->evaluateAnimations(currentTime);
 
         ALOGV("drawing collection %p", m_drawingCollection);
         background = m_drawingCollection->getBackgroundColor();
@@ -298,6 +304,9 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         background = m_paintingCollection->getBackgroundColor();
     }
 
+    if (singleSurfaceMode)
+        returnFlags |= singleSurfaceModeInvalidation(hasRunningAnimation,
+                                                     scrolling, shouldDraw);
     // Start doing the actual GL drawing.
     if (drawBackground) {
         ALOGV("background is %x", background.rgb());
