@@ -166,7 +166,7 @@ public:
     void setPreserves3D(bool value) { m_preserves3D = value; }
     void setAnchorPointZ(float z) { m_anchorPointZ = z; }
     float anchorPointZ() { return m_anchorPointZ; }
-    void setDrawTransform(const TransformationMatrix& transform) { m_drawTransform = transform; }
+    void setDrawTransform(const TransformationMatrix& transform) { m_drawTransform = m_drawTransformUnfudged = transform; }
     virtual const TransformationMatrix* drawTransform() const { return &m_drawTransform; }
     void setChildrenTransform(const TransformationMatrix& t) { m_childrenTransform = t; }
     void setDrawClip(const FloatRect& rect) { m_clippingRect = rect; }
@@ -300,11 +300,15 @@ protected:
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style);
     virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated) { return InvalidateNone; }
     TransformationMatrix m_drawTransform;
+    TransformationMatrix m_drawTransformUnfudged;
     int m_uniqueId;
 
 private:
     void updateLocalTransformAndClip(const TransformationMatrix& parentMatrix,
                                      const FloatRect& clip);
+    bool hasDynamicTransform() {
+        return contentIsScrollable() || isPositionFixed() || (m_animations.size() != 0);
+    }
 
 #if DUMP_NAV_CACHE
     friend class CachedLayer::Debug; // debugging access only
