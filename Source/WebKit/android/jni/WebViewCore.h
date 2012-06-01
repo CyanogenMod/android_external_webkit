@@ -728,8 +728,8 @@ namespace android {
         void setSelectionCaretInfo(SelectText* selectTextContainer,
                 const WebCore::Position& position,
                 const WebCore::IntPoint& frameOffset,
-                SelectText::HandleId handleId, int offset,
-                EAffinity affinity);
+                SelectText::HandleId handleId, SelectText::HandleType handleType,
+                int offset, EAffinity affinity);
         static int getMaxLength(WebCore::Node* node);
         static WTF::String getFieldName(WebCore::Node* node);
         static bool isAutoCompleteEnabled(WebCore::Node* node);

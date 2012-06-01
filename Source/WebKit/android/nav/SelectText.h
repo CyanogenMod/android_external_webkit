@@ -35,8 +35,13 @@ namespace android {
 class SelectText : public RegionLayerDrawExtra {
 public:
     enum HandleId {
+        BaseHandle = 0,
+        ExtentHandle = 1,
+    };
+    enum HandleType {
         LeftHandle = 0,
-        RightHandle = 1,
+        CenterHandle = 1,
+        RightHandle = 2,
     };
 
     IntRect& caretRect(HandleId id) { return m_caretRects[id]; }
@@ -48,11 +53,14 @@ public:
 
     void setText(const String& text) { m_text = text.threadsafeCopy(); }
     String& getText() { return m_text; }
+    HandleType getHandleType(HandleId id) { return m_handleType[id]; }
+    void setHandleType(HandleId id, HandleType type) { m_handleType[id] = type; }
 
 private:
     IntRect m_caretRects[2];
     IntRect m_textRects[2];
     int m_caretLayerId[2];
+    HandleType m_handleType[2];
     String m_text;
 };
 

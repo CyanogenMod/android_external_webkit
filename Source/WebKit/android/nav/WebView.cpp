@@ -731,6 +731,15 @@ void findMaxVisibleRect(int movingLayerId, SkIRect& visibleContentRect)
     }
 }
 
+bool isHandleLeft(SelectText::HandleId handleId)
+{
+    SelectText* selectText = static_cast<SelectText*>(getDrawExtra(DrawExtrasSelection));
+    if (!selectText)
+        return (handleId == SelectText::BaseHandle);
+
+    return (selectText->getHandleType(handleId) == SelectText::LeftHandle);
+}
+
 private: // local state for WebView
     bool m_isDrawingPaused;
     // private to getFrameCache(); other functions operate in a different thread
@@ -1287,6 +1296,13 @@ static void nativeFindMaxVisibleRect(JNIEnv *env, jobject obj, jint nativeView,
     GraphicsJNI::irect_to_jrect(nativeRect, env, visibleContentRect);
 }
 
+static bool nativeIsHandleLeft(JNIEnv *env, jobject obj, jint nativeView,
+        jint handleId)
+{
+    WebView* webview = reinterpret_cast<WebView*>(nativeView);
+    return webview->isHandleLeft(static_cast<SelectText::HandleId>(handleId));
+}
+
 /*
  * JNI registration
  */
@@ -1365,6 +1381,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeSetHwAccelerated },
     { "nativeFindMaxVisibleRect", "(IILandroid/graphics/Rect;)V",
         (void*) nativeFindMaxVisibleRect },
+    { "nativeIsHandleLeft", "(II)Z",
+        (void*) nativeIsHandleLeft },
 };
 
 int registerWebView(JNIEnv* env)

@@ -1507,6 +1507,7 @@ bool WebViewCore::selectWordAroundPosition(Frame* frame, VisiblePosition pos)
     VisibleSelection selection(pos);
     selection.expandUsingGranularity(WordGranularity);
     SelectionController* selectionController = frame->selection();
+    selection = VisibleSelection(selection.start(), selection.end());
 
     bool wordSelected = false;
     if (selectionController->shouldChangeSelection(selection)) {
@@ -1566,7 +1567,8 @@ void WebViewCore::layerToAbsoluteOffset(const LayerAndroid* layer, IntPoint& off
 
 void WebViewCore::setSelectionCaretInfo(SelectText* selectTextContainer,
         const WebCore::Position& pos, const IntPoint& frameOffset,
-        SelectText::HandleId handleId, int caretRectOffset, EAffinity affinity)
+        SelectText::HandleId handleId, SelectText::HandleType handleType,
+        int caretRectOffset, EAffinity affinity)
 {
     Node* node = pos.anchorNode();
     LayerAndroid* layer = 0;
@@ -1584,6 +1586,7 @@ void WebViewCore::setSelectionCaretInfo(SelectText* selectTextContainer,
     caretRect.setX(absoluteOffset.x() - offset.x() + caretRectOffset);
     caretRect.setY(absoluteOffset.y() - offset.y());
     selectTextContainer->setCaretRect(handleId, caretRect);
+    selectTextContainer->setHandleType(handleId, handleType);
     selectTextContainer->setTextRect(handleId,
             positionToTextRect(pos, affinity, offset));
 }
@@ -1604,11 +1607,11 @@ bool WebViewCore::isLtr(const Position& position)
 SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 {
     bool isCaret = selection.isCaret();
+    Position base = selection.base();
+    Position extent = selection.extent();
     if (selection.isNone() || (!selection.isContentEditable() && isCaret)
-            || !selection.start().anchorNode()
-            || !selection.start().anchorNode()->renderer()
-            || !selection.end().anchorNode()
-            || !selection.end().anchorNode()->renderer())
+            || !base.anchorNode() || !base.anchorNode()->renderer()
+            || !extent.anchorNode() || !extent.anchorNode()->renderer())
         return 0;
 
     RefPtr<Range> range = selection.firstRange();
@@ -1624,20 +1627,27 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
     IntPoint frameOffset = convertGlobalContentToFrameContent(IntPoint());
     SelectText* selectTextContainer = new SelectText();
     if (isCaret) {
-        setSelectionCaretInfo(selectTextContainer, selection.start(), frameOffset,
-                SelectText::LeftHandle, 0, selection.affinity());
-        setSelectionCaretInfo(selectTextContainer, selection.start(), frameOffset,
-                SelectText::RightHandle, 0, selection.affinity());
+        setSelectionCaretInfo(selectTextContainer, base, frameOffset,
+                SelectText::BaseHandle, SelectText::CenterHandle, 0,
+                selection.affinity());
+        setSelectionCaretInfo(selectTextContainer, base, frameOffset,
+                SelectText::ExtentHandle, SelectText::CenterHandle, 0,
+                selection.affinity());
     } else {
-        bool ltr = isLtr(selection.start());
-        Position left = ltr ? selection.start() : selection.end();
-        Position right = ltr ? selection.end() : selection.start();
-        int leftOffset = isLtr(left) ? 0 : -1;
-        int rightOffset = isLtr(right) ? 0 : -1;
-        setSelectionCaretInfo(selectTextContainer, left, frameOffset,
-                SelectText::LeftHandle, leftOffset, selection.affinity());
-        setSelectionCaretInfo(selectTextContainer, right, frameOffset,
-                SelectText::RightHandle, rightOffset, selection.affinity());
+        bool isBaseLtr = isLtr(base);
+        bool isBaseStart = selection.base() == selection.start();
+        int baseOffset = isBaseLtr ? 0 : -1;
+        SelectText::HandleType baseHandleType = (isBaseLtr == isBaseStart)
+                ? SelectText::LeftHandle : SelectText::RightHandle;
+        EAffinity affinity = selection.affinity();
+        setSelectionCaretInfo(selectTextContainer, base, frameOffset,
+                SelectText::BaseHandle, baseHandleType, baseOffset, affinity);
+        bool isExtentLtr = isLtr(extent);
+        int extentOffset = isExtentLtr ? 0 : -1;
+        SelectText::HandleType extentHandleType = (isExtentLtr == isBaseStart)
+                ? SelectText::RightHandle : SelectText::LeftHandle;
+        setSelectionCaretInfo(selectTextContainer, extent, frameOffset,
+                SelectText::ExtentHandle, extentHandleType, extentOffset, affinity);
 
         Node* stopNode = range->pastLastNode();
         for (Node* node = range->firstNode(); node != stopNode; node = node->traverseNextNode()) {
@@ -1738,7 +1748,8 @@ void WebViewCore::selectText(int startX, int startY, int endX, int endY)
         return;
 
     // Ensure startPosition is before endPosition
-    if (comparePositions(startPosition, endPosition) > 0)
+    bool swapPositions = (comparePositions(startPosition, endPosition) > 0);
+    if (swapPositions)
         swap(startPosition, endPosition);
 
     if (sc->isContentEditable()) {
@@ -1766,7 +1777,9 @@ void WebViewCore::selectText(int startX, int startY, int endX, int endY)
     Position end = endPosition.deepEquivalent();
     start = trimSelectionPosition(start, end);
     end = trimSelectionPosition(end, start);
-    VisibleSelection selection(start, end);
+    Position& base = swapPositions ? end : start;
+    Position& extent = swapPositions ? start : end;
+    VisibleSelection selection(base, extent);
     // Only allow changes between caret positions or to text selection.
     bool selectChangeAllowed = (!selection.isCaret() || sc->isCaret());
     if (selectChangeAllowed && sc->shouldChangeSelection(selection))
