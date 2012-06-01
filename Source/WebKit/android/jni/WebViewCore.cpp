@@ -3413,7 +3413,7 @@ jobject WebViewCore::createTextFieldInitData(Node* node)
     env->SetObjectField(initData, classDef->m_name, fieldName.get());
     ScopedLocalRef<jstring> label(env,
             wtfStringToJstring(env, requestLabel(document->frame(), node), false));
-    env->SetObjectField(initData, classDef->m_name, label.get());
+    env->SetObjectField(initData, classDef->m_label, label.get());
     env->SetIntField(initData, classDef->m_maxLength, getMaxLength(node));
     LayerAndroid* layer = 0;
     int layerId = platformLayerIdFromNode(node, &layer);
