@@ -3888,11 +3888,18 @@ void WebViewCore::setBackgroundColor(SkColor c)
     // need (int) cast to find the right constructor
     WebCore::Color bcolor((int)SkColorGetR(c), (int)SkColorGetG(c),
                           (int)SkColorGetB(c), (int)SkColorGetA(c));
+
+    if (view->baseBackgroundColor() == bcolor)
+        return;
+
     view->setBaseBackgroundColor(bcolor);
 
     // Background color of 0 indicates we want a transparent background
     if (c == 0)
         view->setTransparent(true);
+
+    //invalidate so the new color is shown
+    contentInvalidateAll();
 }
 
 jclass WebViewCore::getPluginClass(const WTF::String& libName, const char* className)
