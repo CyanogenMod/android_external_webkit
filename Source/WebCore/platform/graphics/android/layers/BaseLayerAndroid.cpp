@@ -84,7 +84,12 @@ void BaseLayerAndroid::updatePositionsRecursive(const SkRect& visibleContentRect
 
     updateLayerPositions(visibleContentRect);
     TransformationMatrix ident;
-    FloatRect clip(0, 0, getWidth(), getHeight());
+
+    // Start with an unnecessarily large clip, since the base layer can
+    // dynamically increase in size to cover the viewport, and we cache its draw
+    // clip. This way the base layer will never have it's visible area clipped
+    // by its m_clippingRect, only the viewport.
+    FloatRect clip(0, 0, 1e10, 1e10);
 
     bool forcePositionCalculation = !m_positionsCalculated;
     float scale = 1.0f;
