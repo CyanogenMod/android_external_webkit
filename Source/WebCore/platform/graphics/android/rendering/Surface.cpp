@@ -230,17 +230,15 @@ bool Surface::drawGL(bool layerTilesDisabled)
     if (singleLayer() && !getFirstLayer()->visible())
         return false;
 
-    bool isBaseLayer = isBase()
-        || getFirstLayer()->subclassType() == LayerAndroid::FixedBackgroundImageLayer
-        || getFirstLayer()->subclassType() == LayerAndroid::ForegroundBaseLayer;
-
-    FloatRect drawClip = getFirstLayer()->drawClip();
-    if (!singleLayer()) {
-        for (unsigned int i = 1; i < m_layers.size(); i++)
-            drawClip.unite(m_layers[i]->drawClip());
+    if (!isBase()) {
+        FloatRect drawClip = getFirstLayer()->drawClip();
+        if (!singleLayer()) {
+            for (unsigned int i = 1; i < m_layers.size(); i++)
+                drawClip.unite(m_layers[i]->drawClip());
+        }
+        FloatRect clippingRect = TilesManager::instance()->shader()->rectInInvViewCoord(drawClip);
+        TilesManager::instance()->shader()->clip(clippingRect);
     }
-    FloatRect clippingRect = TilesManager::instance()->shader()->rectInInvViewCoord(drawClip);
-    TilesManager::instance()->shader()->clip(clippingRect);
 
     bool askRedraw = false;
     if (m_surfaceBacking && !tilesDisabled) {
