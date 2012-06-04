@@ -580,7 +580,7 @@ namespace android {
                 int startX, int startY, int endX, int endY);
         static int platformLayerIdFromNode(WebCore::Node* node,
                                            WebCore::LayerAndroid** outLayer = 0);
-        void selectText(int startX, int startY, int endX, int endY);
+        void selectText(SelectText::HandleId handleId, int x, int y);
         bool selectWordAt(int x, int y);
 
         // Converts from the global content coordinates that WebView sends
