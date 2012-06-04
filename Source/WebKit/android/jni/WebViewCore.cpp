@@ -1736,50 +1736,65 @@ Position WebViewCore::trimSelectionPosition(const Position &start, const Positio
     return pos;
 }
 
-void WebViewCore::selectText(int startX, int startY, int endX, int endY)
+void WebViewCore::selectText(SelectText::HandleId handleId, int x, int y)
 {
     SelectionController* sc = focusedFrame()->selection();
-    IntPoint startPoint = convertGlobalContentToFrameContent(IntPoint(startX, startY));
-    VisiblePosition startPosition(visiblePositionForContentPoint(startPoint));
-    IntPoint endPoint = convertGlobalContentToFrameContent(IntPoint(endX, endY));
-    VisiblePosition endPosition(visiblePositionForContentPoint(endPoint));
+    VisibleSelection selection = sc->selection();
+    Position base = selection.base();
+    Position extent = selection.extent();
+    IntPoint dragPoint = convertGlobalContentToFrameContent(IntPoint(x, y));
+    VisiblePosition dragPosition(visiblePositionForContentPoint(dragPoint));
 
-    if (startPosition.isNull() || endPosition.isNull())
+    if (base.isNull() || extent.isNull() || dragPosition.isNull())
         return;
+    bool draggingBase = (handleId == SelectText::BaseHandle);
+    if (draggingBase)
+        base = dragPosition.deepEquivalent();
+    else
+        extent = dragPosition.deepEquivalent();
 
-    // Ensure startPosition is before endPosition
-    bool swapPositions = (comparePositions(startPosition, endPosition) > 0);
-    if (swapPositions)
-        swap(startPosition, endPosition);
+    bool baseIsStart = (comparePositions(base, extent) <= 0);
+    Position& start = baseIsStart ? base : extent;
+    Position& end = baseIsStart ? extent : base;
+    VisiblePosition startPosition(start, selection.affinity());
+    VisiblePosition endPosition(end, selection.affinity());
+    bool draggingStart = (baseIsStart == draggingBase);
 
-    if (sc->isContentEditable()) {
-        startPosition = sc->selection().visibleStart().honorEditableBoundaryAtOrAfter(startPosition);
-        endPosition = sc->selection().visibleEnd().honorEditableBoundaryAtOrBefore(endPosition);
-        if (startPosition.isNull() || endPosition.isNull()) {
+    if (draggingStart) {
+        startPosition = endPosition.honorEditableBoundaryAtOrAfter(startPosition);
+        if (startPosition.isNull())
             return;
+        if (selection.isCaret())
+            start = end = startPosition.deepEquivalent();
+        else {
+            if ((startPosition != endPosition) && isEndOfBlock(startPosition)) {
+                // Ensure startPosition is not at end of block
+                VisiblePosition nextStartPosition(startPosition.next());
+                if (nextStartPosition.isNotNull())
+                    startPosition = nextStartPosition;
+            }
+            start = startPosition.deepEquivalent();
+            start = trimSelectionPosition(start, end);
+        }
+    } else {
+        endPosition = startPosition.honorEditableBoundaryAtOrAfter(endPosition);
+        if (endPosition.isNull())
+            return;
+        if (selection.isCaret())
+            start = end = endPosition.deepEquivalent();
+        else {
+            if ((startPosition != endPosition) && isStartOfBlock(endPosition)) {
+                // Ensure endPosition is not at start of block
+                VisiblePosition prevEndPosition(endPosition.previous());
+                if (!prevEndPosition.isNull())
+                    endPosition = prevEndPosition;
+            }
+            end = endPosition.deepEquivalent();
+            end = trimSelectionPosition(end, start);
         }
     }
 
-    // Ensure startPosition is not at end of block
-    if (startPosition != endPosition && isEndOfBlock(startPosition)) {
-        VisiblePosition nextStartPosition(startPosition.next());
-        if (!nextStartPosition.isNull())
-            startPosition = nextStartPosition;
-    }
-    // Ensure endPosition is not at start of block
-    if (startPosition != endPosition && isStartOfBlock(endPosition)) {
-        VisiblePosition prevEndPosition(endPosition.previous());
-        if (!prevEndPosition.isNull())
-            endPosition = prevEndPosition;
-    }
-
-    Position start = startPosition.deepEquivalent();
-    Position end = endPosition.deepEquivalent();
-    start = trimSelectionPosition(start, end);
-    end = trimSelectionPosition(end, start);
-    Position& base = swapPositions ? end : start;
-    Position& extent = swapPositions ? start : end;
-    VisibleSelection selection(base, extent);
+    selection = VisibleSelection(base, extent);
     // Only allow changes between caret positions or to text selection.
     bool selectChangeAllowed = (!selection.isCaret() || sc->isCaret());
     if (selectChangeAllowed && sc->shouldChangeSelection(selection))
@@ -2981,6 +2996,7 @@ WebCore::IntRect WebViewCore::scrollFocusedTextInput(float xPercent, int y)
     renderText->setScrollLeft(x);
     renderText->setScrollTop(y);
     focus->document()->frame()->selection()->recomputeCaretRect();
+    updateTextSelection();
     LayerAndroid* layer = 0;
     platformLayerIdFromNode(focus, &layer);
     return absoluteContentRect(focus, layer);
@@ -4948,10 +4964,10 @@ static jobject GetText(JNIEnv* env, jobject obj, jint nativeClass,
 }
 
 static void SelectText(JNIEnv* env, jobject obj, jint nativeClass,
-        jint startX, jint startY, jint endX, jint endY)
+        jint handleId, jint x, jint y)
 {
     WebViewCore* viewImpl = reinterpret_cast<WebViewCore*>(nativeClass);
-    viewImpl->selectText(startX, startY, endX, endY);
+    viewImpl->selectText(static_cast<SelectText::HandleId>(handleId), x, y);
 }
 
 static void ClearSelection(JNIEnv* env, jobject obj, jint nativeClass)
@@ -5088,7 +5104,7 @@ static JNINativeMethod gJavaWebViewCoreMethods[] = {
         (void*) InsertText },
     { "nativeGetText", "(IIIII)Ljava/lang/String;",
         (void*) GetText },
-    { "nativeSelectText", "(IIIII)V",
+    { "nativeSelectText", "(IIII)V",
         (void*) SelectText },
     { "nativeClearTextSelection", "(I)V",
         (void*) ClearSelection },
