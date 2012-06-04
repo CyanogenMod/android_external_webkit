@@ -90,13 +90,24 @@ bool Surface::tryUpdateSurface(Surface* oldSurface)
         return true;
     }
 
+    SkRegion invalRegion;
+    bool fullInval = false;
     if (singleLayer() && oldSurface->singleLayer()) {
         // both are single matching layers, simply apply inval
         SkRegion* layerInval = getFirstLayer()->getInvalRegion();
-        m_surfaceBacking->markAsDirty(*layerInval);
+        invalRegion = *layerInval;
+
+        if (isBase()) {
+            // the base layer paints outside it's content area to ensure the
+            // viewport is convered, so fully invalidate all tiles if its size
+            // changes to ensure no stale content remains
+            LayerContent* newContent = getFirstLayer()->content();
+            LayerContent* oldContent = oldSurface->getFirstLayer()->content();
+            fullInval = newContent->width() != oldContent->width()
+                || newContent->height() != oldContent->height();
+        }
     } else {
-        SkRegion invalRegion;
-        bool fullInval = m_layers.size() != oldSurface->m_layers.size();
+        fullInval = m_layers.size() != oldSurface->m_layers.size();
         if (!fullInval) {
             for (unsigned int i = 0; i < m_layers.size(); i++) {
                 if ((m_layers[i]->uniqueId() != oldSurface->m_layers[i]->uniqueId())
@@ -111,16 +122,15 @@ bool Surface::tryUpdateSurface(Surface* oldSurface)
                     FloatRect layerPos = m_layers[i]->fullContentAreaMapped();
                     m_layers[i]->getInvalRegion()->translate(layerPos.x(), layerPos.y());
                     invalRegion.op(*(m_layers[i]->getInvalRegion()), SkRegion::kUnion_Op);
-                    break;
                 }
             }
         }
-
-        if (fullInval)
-            invalRegion.setRect(-1e8, -1e8, 2e8, 2e8);
-
-        m_surfaceBacking->markAsDirty(invalRegion);
     }
+
+    if (fullInval)
+        invalRegion.setRect(-1e8, -1e8, 2e8, 2e8);
+
+    m_surfaceBacking->markAsDirty(invalRegion);
     return true;
 }
 
