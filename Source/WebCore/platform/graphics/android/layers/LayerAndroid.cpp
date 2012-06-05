@@ -273,6 +273,9 @@ void LayerAndroid::addDirtyArea()
         return;
     }
 
+    // TODO: rewrite this to handle partial invalidate, and to handle base
+    // layer's large clip correctly
+
     IntSize layerSize(getSize().width(), getSize().height());
 
     FloatRect area =
@@ -284,6 +287,7 @@ void LayerAndroid::addDirtyArea()
 
     area.intersect(clip);
     IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
+
     state()->addDirtyArea(dirtyArea);
 }
 
