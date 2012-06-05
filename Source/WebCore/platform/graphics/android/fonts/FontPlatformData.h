@@ -92,6 +92,9 @@ public:
     HB_FaceRec_* harfbuzzFace() const;
     SkTypeface* typeface() const { return mTypeface; }
 
+    bool isFakeBold() const { return mFakeBold; }
+    bool isFakeItalic() const { return mFakeItalic; }
+
 private:
     class RefCountedHarfbuzzFace : public RefCounted<RefCountedHarfbuzzFace> {
     public:
