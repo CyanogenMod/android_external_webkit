@@ -63,6 +63,7 @@ using namespace android;
 namespace WebCore {
 
 typedef std::pair<int, float> FallbackFontKey;
+
 typedef HashMap<FallbackFontKey, FontPlatformData*> FallbackHash;
 
 static void updateForFont(SkPaint* paint, const SimpleFontData* font) {
@@ -696,7 +697,17 @@ const FontPlatformData* TextRunWalker::setupComplexFont(
 {
     static FallbackHash fallbackPlatformData;
 
-    FallbackFontKey key(script, platformData.size());
+    // generate scriptStyleIndex - we need unique hash IDs for each style
+    // of each script - normal, bold, italic, bolditalic. the first set of
+    // NUM_SCRIPTS are the normal style version, followed by bold, then
+    // italic, then bold italic. additional fake style bits can be added.
+    int scriptStyleIndex = script;
+    if (platformData.isFakeBold())
+        scriptStyleIndex += NUM_SCRIPTS;
+    if (platformData.isFakeItalic())
+        scriptStyleIndex += NUM_SCRIPTS << 1;
+
+    FallbackFontKey key(scriptStyleIndex, platformData.size());
     FontPlatformData* newPlatformData = 0;
 
     if (!fallbackPlatformData.contains(key)) {
