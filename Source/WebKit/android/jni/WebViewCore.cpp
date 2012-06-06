@@ -1707,25 +1707,25 @@ IntPoint WebViewCore::convertGlobalContentToFrameContent(const IntPoint& point, 
     return IntPoint(point.x() + frameOffset.x(), point.y() + frameOffset.y());
 }
 
-Position WebViewCore::trimSelectionPosition(const Position &start, const Position& stop)
+VisiblePosition WebViewCore::trimSelectionPosition(const VisiblePosition &start,
+        const VisiblePosition& stop)
 {
     int direction = comparePositions(start, stop);
     if (direction == 0)
         return start;
     bool forward = direction < 0;
-    EAffinity affinity = forward ? DOWNSTREAM : UPSTREAM;
     bool move;
-    Position pos = start;
+    VisiblePosition pos = start;
     bool movedTooFar = false;
     do {
         move = true;
-        Node* node = pos.anchorNode();
+        Node* node = pos.deepEquivalent().anchorNode();
         if (node && node->isTextNode() && node->renderer()) {
             RenderText *textRenderer = toRenderText(node->renderer());
             move = !textRenderer->textLength();
         }
         if (move) {
-            Position nextPos = forward ? pos.next() : pos.previous();
+            VisiblePosition nextPos = forward ? pos.next() : pos.previous();
             movedTooFar = nextPos.isNull() || pos == nextPos
                     || ((comparePositions(nextPos, stop) < 0) != forward);
             pos = nextPos;
@@ -1761,37 +1761,37 @@ void WebViewCore::selectText(SelectText::HandleId handleId, int x, int y)
     bool draggingStart = (baseIsStart == draggingBase);
 
     if (draggingStart) {
-        startPosition = endPosition.honorEditableBoundaryAtOrAfter(startPosition);
-        if (startPosition.isNull())
-            return;
-        if (selection.isCaret())
-            start = end = startPosition.deepEquivalent();
-        else {
+        if (selection.isRange()) {
+            startPosition = trimSelectionPosition(startPosition, endPosition);
             if ((startPosition != endPosition) && isEndOfBlock(startPosition)) {
                 // Ensure startPosition is not at end of block
                 VisiblePosition nextStartPosition(startPosition.next());
                 if (nextStartPosition.isNotNull())
                     startPosition = nextStartPosition;
             }
-            start = startPosition.deepEquivalent();
-            start = trimSelectionPosition(start, end);
         }
-    } else {
-        endPosition = startPosition.honorEditableBoundaryAtOrAfter(endPosition);
-        if (endPosition.isNull())
+        startPosition = endPosition.honorEditableBoundaryAtOrAfter(startPosition);
+        if (startPosition.isNull())
             return;
+        start = startPosition.deepEquivalent();
         if (selection.isCaret())
-            start = end = endPosition.deepEquivalent();
-        else {
-            if ((startPosition != endPosition) && isStartOfBlock(endPosition)) {
+            end = start;
+    } else {
+        if (selection.isRange()) {
+            endPosition = trimSelectionPosition(endPosition, startPosition);
+            if ((start != end) && isStartOfBlock(endPosition)) {
                 // Ensure endPosition is not at start of block
                 VisiblePosition prevEndPosition(endPosition.previous());
                 if (!prevEndPosition.isNull())
                     endPosition = prevEndPosition;
             }
-            end = endPosition.deepEquivalent();
-            end = trimSelectionPosition(end, start);
         }
+        endPosition = startPosition.honorEditableBoundaryAtOrAfter(endPosition);
+        if (endPosition.isNull())
+            return;
+        end = endPosition.deepEquivalent();
+        if (selection.isCaret())
+            start = end;
     }
 
     selection = VisibleSelection(base, extent);
