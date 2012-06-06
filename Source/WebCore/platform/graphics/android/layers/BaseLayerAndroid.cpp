@@ -174,6 +174,110 @@ static bool needToDisplayImage(bool repeatX, bool repeatY, float dx, float dy)
     return false;
 }
 
+// Return true when fast draw succeeds.
+// For the repeated image content, we just need to draw a single quad and use
+// the GL shader to repeat.
+bool FixedBackgroundImageLayerAndroid::drawSimpleQuad(ImageTexture* imageTexture,
+                                                      BackgroundImagePositioning* position,
+                                                      const IntPoint& repeatTimes,
+                                                      const FloatPoint& startPoint,
+                                                      const FloatPoint& origin,
+                                                      const Color& backgroundColor)
+{
+    // The limitation for current implementation is that we can only speed up
+    // single tile size image.
+    // TODO: add the fast path to imageTexture which contains >1 tiles.
+    GLuint imageTextureId = imageTexture->getImageTextureId();
+    if (!imageTextureId)
+        return false;
+
+    int nbX = repeatTimes.x();
+    int nbY = repeatTimes.y();
+    float startX = startPoint.x();
+    float startY = startPoint.y();
+    bool repeatX = position->repeatX();
+    bool repeatY = position->repeatY();
+
+    // Draw the entire background when repeat only in one direction or no repeat.
+    if (!repeatX || !repeatY) {
+        SkRect backgroundRect;
+        backgroundRect.fLeft = origin.x() - startX;
+        backgroundRect.fTop = origin.y() - startY;
+        backgroundRect.fRight = backgroundRect.fLeft + getWidth() * nbX;
+        backgroundRect.fBottom = backgroundRect.fTop + getHeight() * nbY;
+        PureColorQuadData backgroundData(backgroundColor, BaseQuad,
+                                         0, &backgroundRect, 1.0, true);
+        TilesManager::instance()->shader()->drawQuad(&backgroundData);
+    }
+
+    // Now draw the repeated images.
+    // We set the quad size as the image size, then imageRepeatRanges will
+    // control how many times the image will be repeated by expanding the
+    // quad and texture coordinates.
+    // The image size can be smaller than a tile, so repeatScale will passed
+    // into the shader to scale the texture coordinates.
+    SkRect imageRect = SkRect::MakeXYWH(0, 0, getWidth(), getHeight());
+    FloatRect imageRepeatRanges(0, 0, repeatX ? nbX : 1, repeatY ? nbY : 1);
+
+    FloatSize repeatScale(float(getWidth()) / TilesManager::tileWidth(),
+                          float(getHeight()) / TilesManager::tileHeight());
+
+    ALOGV("repeatedQuadData: startX %f, startY %f , getWidth() %f, getHeight() %f,"
+          " nbX %d, nbY %d, repeatImageTimesX, repeatImageTimesY %d %d"
+          " repeatScale width %f, height %f, origin x %f y %f",
+          startX , startY  , getWidth(), getHeight(), nbX , nbY,
+          imageRepeatRanges.width(), imageRepeatRanges.height(),
+          repeatScale.width(), repeatScale.height(), origin.x(), origin.y());
+
+    // Adding startX and startY into the transform can handle the fixed right /
+    // fixed bottom case.
+    TransformationMatrix matrix = *drawTransform();
+    matrix.translate(repeatX ? -startX : 0, repeatY ? -startY : 0);
+
+    TextureQuadData repeatedQuadData(imageTextureId, GL_TEXTURE_2D, GL_LINEAR,
+                                     LayerQuad, &matrix, &imageRect, getOpacity(),
+                                     true, imageRepeatRanges, repeatScale);
+    TilesManager::instance()->shader()->drawQuad(&repeatedQuadData);
+    return true;
+}
+
+void FixedBackgroundImageLayerAndroid::drawRepeatedGrid(ImageTexture* imageTexture,
+                                                        BackgroundImagePositioning* position,
+                                                        const IntPoint& repeatTimes,
+                                                        const FloatPoint& startPoint,
+                                                        const FloatPoint& origin,
+                                                        const Color& backgroundColor)
+{
+    // Cover the entire background
+    int nbX = repeatTimes.x();
+    int nbY = repeatTimes.y();
+    float startX = startPoint.x();
+    float startY = startPoint.y();
+    for (int i = 0; i < nbY; i++) {
+        float dy = (i * getHeight()) - startY;
+        for (int j = 0; j < nbX; j++) {
+            float dx = (j * getWidth()) - startX;
+            if (needToDisplayImage(position->repeatX(),
+                                   position->repeatY(),
+                                   dx, dy)) {
+                FloatPoint p(dx, dy);
+                imageTexture->drawGL(this, getOpacity(), &p);
+            } else {
+                // If the image is not displayed, we still need to fill
+                // with the background color
+                SkRect rect;
+                rect.fLeft = origin.x() + dx;
+                rect.fTop = origin.y() + dy;
+                rect.fRight = rect.fLeft + getWidth();
+                rect.fBottom = rect.fTop + getHeight();
+                PureColorQuadData backgroundData(backgroundColor, BaseQuad,
+                                                 0, &rect, 1.0);
+                TilesManager::instance()->shader()->drawQuad(&backgroundData);
+            }
+        }
+    }
+}
+
 bool FixedBackgroundImageLayerAndroid::drawGL(bool layerTilesDisabled)
 {
     if (layerTilesDisabled)
@@ -192,10 +296,9 @@ bool FixedBackgroundImageLayerAndroid::drawGL(bool layerTilesDisabled)
         BackgroundImagePositioning* position =
             static_cast<BackgroundImagePositioning*>(m_fixedPosition);
 
-        int nbX = position->nbRepeatX();
-        int nbY = position->nbRepeatY();
-        float startX = position->offsetX() * getWidth();
-        float startY = position->offsetY() * getHeight();
+        IntPoint repeatTimes(position->nbRepeatX(), position->nbRepeatY());
+        FloatPoint startPoint(position->offsetX() * getWidth(),
+                              position->offsetY() * getHeight());
 
         FloatPoint origin;
         origin = drawTransform()->mapPoint(origin);
@@ -205,29 +308,13 @@ bool FixedBackgroundImageLayerAndroid::drawGL(bool layerTilesDisabled)
                                       (int)SkColorGetB(m_backgroundColor),
                                       (int)SkColorGetA(m_backgroundColor));
 
-        // Cover the entire background
-        for (int i = 0; i < nbY; i++) {
-            float dy = (i * getHeight()) - startY;
-            for (int j = 0; j < nbX; j++) {
-                float dx = (j * getWidth()) - startX;
-                if (needToDisplayImage(position->repeatX(),
-                                       position->repeatY(),
-                                       dx, dy)) {
-                    FloatPoint p(dx, dy);
-                    imageTexture->drawGL(this, getOpacity(), &p);
-                } else {
-                    // If the image is not displayed, we still need to fill
-                    // with the background color
-                    SkRect rect;
-                    rect.fLeft = origin.x() + dx;
-                    rect.fTop = origin.y() + dy;
-                    rect.fRight = rect.fLeft + getWidth();
-                    rect.fBottom = rect.fTop + getHeight();
-                    PureColorQuadData backgroundData(backgroundColor, BaseQuad,
-                                                     0, &rect, 1.0);
-                    TilesManager::instance()->shader()->drawQuad(&backgroundData);
-                }
-            }
+        bool drawSimpleQuadSuccess = drawSimpleQuad(imageTexture, position,
+                                                    repeatTimes, startPoint,
+                                                    origin, backgroundColor);
+
+        if (!drawSimpleQuadSuccess) {
+            drawRepeatedGrid(imageTexture, position, repeatTimes, startPoint,
+                             origin, backgroundColor);
         }
     } else
         imageTexture->drawGL(this, getOpacity());
