@@ -397,7 +397,7 @@ namespace android {
         /**
          * Scroll the focused textfield to (x, y) in document space
          */
-        WebCore::IntRect scrollFocusedTextInput(float x, int y);
+        void scrollFocusedTextInput(float x, int y);
         /**
          * Set the FocusController's active and focused states, so that
          * the caret will draw (true) or not.
@@ -733,7 +733,7 @@ namespace android {
         static int getMaxLength(WebCore::Node* node);
         static WTF::String getFieldName(WebCore::Node* node);
         static bool isAutoCompleteEnabled(WebCore::Node* node);
-        WebCore::IntRect absoluteContentRect(WebCore::Node* node,
+        WebCore::IntRect absoluteClientRect(WebCore::Node* node,
                 WebCore::LayerAndroid* layer);
         static WebCore::IntRect positionToTextRect(const WebCore::Position& position,
                 WebCore::EAffinity affinity, const WebCore::IntPoint& offset);
