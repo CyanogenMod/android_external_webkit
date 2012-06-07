@@ -716,7 +716,7 @@ void findMaxVisibleRect(int movingLayerId, SkIRect& visibleContentRect)
     if (findMaskedRectsForLayer(m_baseLayer, rects, movingLayerId)) {
         float maxSize = 0.0;
         const FloatRect* largest = 0;
-        for (int i = 0; i < rects.size(); i++) {
+        for (unsigned int i = 0; i < rects.size(); i++) {
             const FloatRect& rect = rects[i];
             float size = rect.width() * rect.height();
             if (size > maxSize) {
