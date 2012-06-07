@@ -1635,7 +1635,7 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
                 selection.affinity());
     } else {
         bool isBaseLtr = isLtr(base);
-        bool isBaseStart = selection.base() == selection.start();
+        bool isBaseStart = comparePositions(base, extent) <= 0;
         int baseOffset = isBaseLtr ? 0 : -1;
         SelectText::HandleType baseHandleType = (isBaseLtr == isBaseStart)
                 ? SelectText::LeftHandle : SelectText::RightHandle;
