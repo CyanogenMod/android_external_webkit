@@ -984,17 +984,18 @@ static void nativeSetHeightCanMeasure(JNIEnv *env, jobject obj, bool measure)
     view->setHeightCanMeasure(measure);
 }
 
-static void nativeDestroy(JNIEnv *env, jobject obj)
+static void nativeDestroy(JNIEnv *env, jobject obj, jint ptr)
 {
-    WebView* view = GET_NATIVE_VIEW(env, obj);
+    WebView* view = reinterpret_cast<WebView*>(ptr);
     ALOGD("nativeDestroy view: %p", view);
     ALOG_ASSERT(view, "view not set in nativeDestroy");
     delete view;
 }
 
-static void nativeStopGL(JNIEnv *env, jobject obj)
+static void nativeStopGL(JNIEnv *env, jobject obj, jint ptr)
 {
-    GET_NATIVE_VIEW(env, obj)->stopGL();
+    if (ptr)
+        reinterpret_cast<WebView*>(ptr)->stopGL();
 }
 
 static jobject nativeGetSelection(JNIEnv *env, jobject obj)
@@ -1293,7 +1294,7 @@ static void nativeFindMaxVisibleRect(JNIEnv *env, jobject obj, jint nativeView,
 static JNINativeMethod gJavaWebViewMethods[] = {
     { "nativeCreate", "(ILjava/lang/String;Z)V",
         (void*) nativeCreate },
-    { "nativeDestroy", "()V",
+    { "nativeDestroy", "(I)V",
         (void*) nativeDestroy },
     { "nativeDraw", "(Landroid/graphics/Canvas;Landroid/graphics/RectF;II)V",
         (void*) nativeDraw },
@@ -1335,7 +1336,7 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeTileProfilingGetInt },
     { "nativeTileProfilingGetFloat", "(IILjava/lang/String;)F",
         (void*) nativeTileProfilingGetFloat },
-    { "nativeStopGL", "()V",
+    { "nativeStopGL", "(I)V",
         (void*) nativeStopGL },
     { "nativeScrollableLayer", "(IIILandroid/graphics/Rect;Landroid/graphics/Rect;)I",
         (void*) nativeScrollableLayer },
