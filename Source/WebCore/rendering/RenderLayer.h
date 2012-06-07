@@ -80,9 +80,6 @@ public:
         : m_overflowClipRect(r)
         , m_fixedClipRect(r)
         , m_posClipRect(r)
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        , m_hitTestClip(r)
-#endif
         , m_refCnt(0)
         , m_fixed(false)
     {
@@ -92,9 +89,6 @@ public:
         : m_overflowClipRect(other.overflowClipRect())
         , m_fixedClipRect(other.fixedClipRect())
         , m_posClipRect(other.posClipRect())
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        , m_hitTestClip(other.hitTestClip())
-#endif
         , m_refCnt(0)
         , m_fixed(other.fixed())
     {
@@ -105,9 +99,6 @@ public:
         m_overflowClipRect = r;
         m_fixedClipRect = r;
         m_posClipRect = r;
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        m_hitTestClip = r;
-#endif
         m_fixed = false;
     }
     
@@ -119,10 +110,6 @@ public:
 
     const IntRect& posClipRect() const { return m_posClipRect; }
     void setPosClipRect(const IntRect& r) { m_posClipRect = r; }
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    const IntRect& hitTestClip() const { return m_hitTestClip; }
-    void setHitTestClip(const IntRect& r) { m_hitTestClip = r; }
-#endif
 
     bool fixed() const { return m_fixed; }
     void setFixed(bool fixed) { m_fixed = fixed; }
@@ -143,9 +130,6 @@ public:
         return m_overflowClipRect == other.overflowClipRect() &&
                m_fixedClipRect == other.fixedClipRect() &&
                m_posClipRect == other.posClipRect() &&
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-               m_hitTestClip == other.hitTestClip() &&
-#endif
                m_fixed == other.fixed();
     }
 
@@ -154,9 +138,6 @@ public:
         m_overflowClipRect = other.overflowClipRect();
         m_fixedClipRect = other.fixedClipRect();
         m_posClipRect = other.posClipRect();
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-        m_hitTestClip = other.hitTestClip();
-#endif
         m_fixed = other.fixed();
         return *this;
     }
@@ -169,9 +150,6 @@ private:
     IntRect m_overflowClipRect;
     IntRect m_fixedClipRect;
     IntRect m_posClipRect;
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    IntRect m_hitTestClip;
-#endif
     unsigned m_refCnt : 31;
     bool m_fixed : 1;
 };
