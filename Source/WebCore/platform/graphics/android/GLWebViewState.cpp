@@ -342,6 +342,10 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
 
     tilesManager->updateTilesIfContextVerified();
 
+    // gather the textures we can use, make sure this happens before any
+    // texture preparation work.
+    tilesManager->gatherTextures();
+
     // Upload any pending ImageTexture
     // Return true if we still have some images to upload.
     // TODO: upload as many textures as possible within a certain time limit
@@ -353,9 +357,6 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
         ALOGW("WARNING, scale seems corrupted after update: %e", scale);
         scale = 1.0f; // WORKAROUND for corrupted scale: use 1.0
     }
-
-    // gather the textures we can use
-    tilesManager->gatherTextures();
 
     double currentTime = setupDrawing(invScreenRect, visibleContentRect, screenRect,
                                       titleBarHeight, screenClip, scale);
