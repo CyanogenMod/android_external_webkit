@@ -3152,14 +3152,6 @@ RenderLayer* RenderLayer::hitTestLayer(RenderLayer* rootLayer, RenderLayer* cont
         candidateLayer = hitLayer;
     }
 
-#if ENABLE(ANDROID_OVERFLOW_SCROLL)
-    if (hasOverflowParent()) {
-        ClipRects clipRects;
-        calculateClipRects(rootLayer, clipRects, useTemporaryClipRects);
-        fgRect.intersect(clipRects.hitTestClip());
-        bgRect.intersect(clipRects.hitTestClip());
-    }
-#endif
     // Next we want to see if the mouse pos is inside the child RenderObjects of the layer.
     if (fgRect.intersects(hitTestArea) && isSelfPaintingLayer()) {
         // Hit test with a temporary HitTestResult, because we only want to commit to 'result' if we know we're frontmost.
@@ -3451,8 +3443,6 @@ void RenderLayer::calculateClipRects(const RenderLayer* rootLayer, ClipRects& cl
         if (renderer()->hasOverflowClip()) {
             IntRect newOverflowClip = toRenderBox(renderer())->overflowClipRect(x, y, relevancy);
 #if ENABLE(ANDROID_OVERFLOW_SCROLL)
-            clipRects.setHitTestClip(intersection(clipRects.fixed() ? clipRects.fixedClipRect()
-                    : newOverflowClip, clipRects.hitTestClip()));
             if (hasOverflowScroll()) {
                 RenderBox* box = toRenderBox(renderer());
                 newOverflowClip =
