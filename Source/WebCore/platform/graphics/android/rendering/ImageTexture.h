@@ -92,7 +92,7 @@ public:
     int nbTextures();
 
     virtual SurfaceType type() { return TilePainter::Image; }
-
+    unsigned int getImageTextureId();
 private:
     const TransformationMatrix* transform();
     void getImageToLayerScale(float* scaleW, float* scaleH) const;

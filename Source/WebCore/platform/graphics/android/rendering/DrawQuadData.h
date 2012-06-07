@@ -93,6 +93,8 @@ public:
     virtual GLint textureFilter() const { return 0; }
     virtual GLenum textureTarget() const { return 0; }
     virtual FloatRect fillPortion() const { return m_fillPortion; }
+    virtual bool hasRepeatScale() const { return false; }
+    virtual FloatSize repeatScale() const { return FloatSize(); }
 
 private:
     DrawQuadType m_type;
@@ -140,12 +142,15 @@ public:
                     const TransformationMatrix* drawMatrix = 0,
                     const SkRect* geometry = 0,
                     float opacity = 1.0f,
-                    bool forceBlending = true)
-        : DrawQuadData(type, drawMatrix, geometry, opacity, forceBlending)
+                    bool forceBlending = true,
+                    FloatRect fillPortion = FloatRect(0.0f, 0.0f, 1.0f, 1.0f),
+                    FloatSize repeatScale = FloatSize())
+        : DrawQuadData(type, drawMatrix, geometry, opacity, forceBlending, fillPortion)
     {
         m_textureId = textureId;
         m_textureTarget = textureTarget;
         m_textureFilter = textureFilter;
+        m_repeatScale = repeatScale;
     }
 
     TextureQuadData(const DrawQuadData& data,
@@ -167,11 +172,13 @@ public:
     virtual GLenum textureTarget() const { return m_textureTarget; }
 
     void updateTextureId(int newId) { m_textureId = newId; }
-
+    virtual bool hasRepeatScale() const { return !m_repeatScale.isEmpty(); }
+    virtual FloatSize repeatScale() const { return m_repeatScale; }
 private:
     int m_textureId;
     GLint m_textureFilter;
     GLenum m_textureTarget;
+    FloatSize m_repeatScale;
 };
 
 } // namespace WebCore
