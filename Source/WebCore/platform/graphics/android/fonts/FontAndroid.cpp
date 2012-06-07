@@ -45,7 +45,6 @@
 #include "SkTypeface.h"
 #include "SkUtils.h"
 #include "TextRun.h"
-#include "SkTypeface_android.h"
 
 #ifdef SUPPORT_COMPLEX_SCRIPTS
 #include "HarfbuzzSkia.h"
@@ -462,8 +461,25 @@ public:
     }
 
 private:
+    enum CustomScript {
+        Bengali,
+        Devanagari,
+        Hebrew,
+        HebrewBold,
+        Kannada,
+        Malayalam,
+        Naskh,
+        Tamil,
+        TamilBold,
+        Telugu,
+        Thai,
+        NUM_SCRIPTS
+    };
+
+    static const char* paths[NUM_SCRIPTS];
+
     void setupFontForScriptRun();
-    const FontPlatformData* setupComplexFont(FallbackScripts script,
+    const FontPlatformData* setupComplexFont(CustomScript script,
                 const FontPlatformData& platformData);
     HB_FontRec* allocHarfbuzzFont();
     void deleteGlyphArrays();
@@ -504,6 +520,22 @@ private:
                       // each word break we accumulate error. This is the
                       // number of pixels that we are behind so far.
     unsigned m_letterSpacing; // pixels to be added after each glyph.
+};
+
+
+// Indexed using enum CustomScript
+const char* TextRunWalker::paths[] = {
+    "/system/fonts/Lohit-Bengali.ttf",
+    "/system/fonts/DroidSansDevanagari-Regular.ttf",
+    "/system/fonts/DroidSansHebrew-Regular.ttf",
+    "/system/fonts/DroidSansHebrew-Bold.ttf",
+    "/system/fonts/Lohit-Kannada.ttf",
+    "/system/fonts/AnjaliNewLipi-light.ttf",
+    "/system/fonts/DroidNaskh-Regular.ttf",
+    "/system/fonts/DroidSansTamil-Regular.ttf",
+    "/system/fonts/DroidSansTamil-Bold.ttf",
+    "/system/fonts/Lohit-Telugu.ttf",
+    "/system/fonts/DroidSansThai.ttf"
 };
 
 TextRunWalker::TextRunWalker(const TextRun& run, int startingX, int startingY, const Font* font)
@@ -660,7 +692,7 @@ void TextRunWalker::setWordAndLetterSpacing(int wordSpacingAdjustment,
 }
 
 const FontPlatformData* TextRunWalker::setupComplexFont(
-        FallbackScripts script,
+        CustomScript script,
         const FontPlatformData& platformData)
 {
     static FallbackHash fallbackPlatformData;
@@ -679,7 +711,7 @@ const FontPlatformData* TextRunWalker::setupComplexFont(
     FontPlatformData* newPlatformData = 0;
 
     if (!fallbackPlatformData.contains(key)) {
-        SkTypeface* typeface = SkCreateTypefaceForScript(script);
+        SkTypeface* typeface = SkTypeface::CreateFromFile(paths[script]);
         newPlatformData = new FontPlatformData(platformData, typeface);
         SkSafeUnref(typeface);
         fallbackPlatformData.set(key, newPlatformData);
@@ -701,51 +733,51 @@ void TextRunWalker::setupFontForScriptRun()
 
     switch (m_item.item.script) {
       case HB_Script_Bengali:
-          complexPlatformData = setupComplexFont(kBengali_FallbackScript, platformData);
+          complexPlatformData = setupComplexFont(Bengali, platformData);
           break;
         case HB_Script_Devanagari:
-          complexPlatformData = setupComplexFont(kDevanagari_FallbackScript, platformData);
+          complexPlatformData = setupComplexFont(Devanagari, platformData);
             break;
         case HB_Script_Hebrew:
             switch (platformData.typeface()->style()) {
                 case SkTypeface::kBold:
                 case SkTypeface::kBoldItalic:
-                    complexPlatformData = setupComplexFont(kHebrewBold_FallbackScript, platformData);
+                    complexPlatformData = setupComplexFont(HebrewBold, platformData);
                     break;
                 case SkTypeface::kNormal:
                 case SkTypeface::kItalic:
                 default:
-                    complexPlatformData = setupComplexFont(kHebrewRegular_FallbackScript, platformData);
+                    complexPlatformData = setupComplexFont(Hebrew, platformData);
                     break;
             }
             break;
         case HB_Script_Kannada:
-            complexPlatformData = setupComplexFont(kKannada_FallbackScript, platformData);
+            complexPlatformData = setupComplexFont(Kannada, platformData);
             break;
         case HB_Script_Malayalam:
-            complexPlatformData = setupComplexFont(kMalayalam_FallbackScript, platformData);
+            complexPlatformData = setupComplexFont(Malayalam, platformData);
             break;
         case HB_Script_Arabic:
-            complexPlatformData = setupComplexFont(kArabic_FallbackScript, platformData);
+            complexPlatformData = setupComplexFont(Naskh, platformData);
             break;
         case HB_Script_Tamil:
             switch (platformData.typeface()->style()) {
                 case SkTypeface::kBold:
                 case SkTypeface::kBoldItalic:
-                    complexPlatformData = setupComplexFont(kTamilBold_FallbackScript, platformData);
+                    complexPlatformData = setupComplexFont(TamilBold, platformData);
                     break;
                 case SkTypeface::kNormal:
                 case SkTypeface::kItalic:
                 default:
-                    complexPlatformData = setupComplexFont(kTamilRegular_FallbackScript, platformData);
+                    complexPlatformData = setupComplexFont(Tamil, platformData);
                     break;
             }
             break;
         case HB_Script_Telugu:
-            complexPlatformData = setupComplexFont(kTelugu_FallbackScript, platformData);
+            complexPlatformData = setupComplexFont(Telugu, platformData);
             break;
         case HB_Script_Thai:
-            complexPlatformData = setupComplexFont(kThai_FallbackScript, platformData);
+            complexPlatformData = setupComplexFont(Thai, platformData);
             break;
         default:
             // HB_Script_Common; includes Ethiopic
