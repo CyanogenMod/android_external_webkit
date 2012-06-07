@@ -34,6 +34,7 @@ namespace WebCore {
 class Image;
 class RenderLayerCompositor;
 class RenderStyle;
+class BackgroundImagePositioning;
 
 class BaseLayerAndroid : public LayerAndroid {
 public:
@@ -74,6 +75,14 @@ public:
     static Image* GetCachedImage(PassRefPtr<RenderStyle> style);
 
 private:
+    bool drawSimpleQuad(ImageTexture* imageTexture,
+                        BackgroundImagePositioning* position,
+                        const IntPoint& repeatTimes, const FloatPoint& startPoint,
+                        const FloatPoint& origin, const Color& backgroundColor);
+    void drawRepeatedGrid(ImageTexture* imageTexture,
+                          BackgroundImagePositioning* position,
+                          const IntPoint& repeatTimes, const FloatPoint& startPoint,
+                          const FloatPoint& origin, const Color& backgroundColor);
     int m_width;
     int m_height;
 };

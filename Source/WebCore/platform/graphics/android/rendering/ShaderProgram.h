@@ -44,6 +44,8 @@ enum ShaderType {
     TexOES,
     TexOESInv,
     Video,
+    RepeatTex,
+    RepeatTexInv,
     // When growing this enum list, make sure to insert before the
     // MaxShaderNumber and init the m_handleArray accordingly.
     MaxShaderNumber
@@ -60,12 +62,13 @@ struct ShaderHandles {
         , texSamplerHandle(-1)
         , videoMtxHandle(-1)
         , fillPortionHandle(-1)
+        , scaleHandle(-1)
     {
     }
 
     void init(GLint alphaHdl, GLint contrastHdl, GLint posHdl, GLint pgmHdl,
               GLint projMtxHdl, GLint colorHdl, GLint texSamplerHdl,
-              GLint videoMtxHdl, GLint fillPortionHdl)
+              GLint videoMtxHdl, GLint fillPortionHdl, GLint scaleHdl)
     {
         alphaHandle = alphaHdl;
         contrastHandle = contrastHdl;
@@ -76,6 +79,7 @@ struct ShaderHandles {
         texSamplerHandle = texSamplerHdl;
         videoMtxHandle = videoMtxHdl;
         fillPortionHandle = fillPortionHdl;
+        scaleHandle = scaleHdl;
     }
 
     GLint alphaHandle;
@@ -87,6 +91,7 @@ struct ShaderHandles {
     GLint texSamplerHandle;
     GLint videoMtxHandle;
     GLint fillPortionHandle;
+    GLint scaleHandle;
 };
 
 struct ShaderResource {
@@ -167,9 +172,10 @@ private:
     void setBlendingState(bool enableBlending);
     void drawQuadInternal(ShaderType type, const GLfloat* matrix, int textureId,
                          float opacity, GLenum textureTarget, GLenum filter,
-                         const Color& pureColor,  const FloatRect& fillPortion);
+                         const Color& pureColor,  const FloatRect& fillPortion,
+                         const FloatSize& repeatScale);
     Color shaderColor(Color pureColor, float opacity);
-    ShaderType getTextureShaderType(GLenum textureTarget);
+    ShaderType getTextureShaderType(GLenum textureTarget, bool hasRepeatScale);
     void resetBlending();
     void setupSurfaceProjectionMatrix();
 #if DEBUG_MATRIX

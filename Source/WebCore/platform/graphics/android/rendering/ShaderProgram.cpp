@@ -56,6 +56,44 @@ static const char gVertexShader[] =
     "  v_texCoord = vPosition.xy * fillPortion.zw + fillPortion.xy;\n"
     "}\n";
 
+static const char gRepeatTexFragmentShader[] =
+    "precision mediump float;\n"
+    "varying vec2 v_texCoord; \n"
+    "uniform float alpha; \n"
+    "uniform sampler2D s_texture; \n"
+    "uniform vec2 repeatScale;\n"
+    "void main() {\n"
+    "  vec2 repeatedTexCoord; "
+    "  repeatedTexCoord.x = v_texCoord.x - floor(v_texCoord.x); "
+    "  repeatedTexCoord.y = v_texCoord.y - floor(v_texCoord.y); "
+    "  repeatedTexCoord.x = repeatedTexCoord.x * repeatScale.x; "
+    "  repeatedTexCoord.y = repeatedTexCoord.y * repeatScale.y; "
+    "  gl_FragColor = texture2D(s_texture, repeatedTexCoord); \n"
+    "  gl_FragColor *= alpha; "
+    "}\n";
+
+static const char gRepeatTexFragmentShaderInverted[] =
+    "precision mediump float;\n"
+    "varying vec2 v_texCoord; \n"
+    "uniform float alpha; \n"
+    "uniform float contrast; \n"
+    "uniform sampler2D s_texture; \n"
+    "uniform vec2 repeatScale;\n"
+    "void main() {\n"
+    "  vec2 repeatedTexCoord; "
+    "  repeatedTexCoord.x = v_texCoord.x - floor(v_texCoord.x); "
+    "  repeatedTexCoord.y = v_texCoord.y - floor(v_texCoord.y); "
+    "  repeatedTexCoord.x = repeatedTexCoord.x * repeatScale.x; "
+    "  repeatedTexCoord.y = repeatedTexCoord.y * repeatScale.y; "
+    "  vec4 pixel = texture2D(s_texture, repeatedTexCoord); \n"
+    "  float a = pixel.a; \n"
+    "  float color = a - (0.2989 * pixel.r + 0.5866 * pixel.g + 0.1145 * pixel.b);\n"
+    "  color = ((color - a/2.0) * contrast) + a/2.0; \n"
+    "  pixel.rgb = vec3(color, color, color); \n "
+    "  gl_FragColor = pixel; \n"
+    "  gl_FragColor *= alpha; "
+    "}\n";
+
 static const char gFragmentShader[] =
     "precision mediump float;\n"
     "varying vec2 v_texCoord; \n"
@@ -261,13 +299,19 @@ void ShaderProgram::initGLResources()
         createProgram(gVertexShader, gSurfaceTextureOESFragmentShader);
     GLint texOESInvProgram =
         createProgram(gVertexShader, gSurfaceTextureOESFragmentShaderInverted);
+    GLint repeatTexProgram =
+        createProgram(gVertexShader, gRepeatTexFragmentShader);
+    GLint repeatTexInvProgram =
+        createProgram(gVertexShader, gRepeatTexFragmentShaderInverted);
 
     if (tex2DProgram == -1
         || pureColorProgram == -1
         || tex2DInvProgram == -1
         || videoProgram == -1
         || texOESProgram == -1
-        || texOESInvProgram == -1) {
+        || texOESInvProgram == -1
+        || repeatTexProgram == -1
+        || repeatTexInvProgram == -1) {
         m_needsInit = true;
         return;
     }
@@ -276,7 +320,7 @@ void ShaderProgram::initGLResources()
     GLint pureColorProjMtx = glGetUniformLocation(pureColorProgram, "projectionMatrix");
     GLint pureColorValue = glGetUniformLocation(pureColorProgram, "inputColor");
     m_handleArray[PureColor].init(-1, -1, pureColorPosition, pureColorProgram,
-                                  pureColorProjMtx, pureColorValue, -1, -1, -1);
+                                  pureColorProjMtx, pureColorValue, -1, -1, -1, -1);
 
     GLint tex2DAlpha = glGetUniformLocation(tex2DProgram, "alpha");
     GLint tex2DPosition = glGetAttribLocation(tex2DProgram, "vPosition");
@@ -284,7 +328,7 @@ void ShaderProgram::initGLResources()
     GLint tex2DTexSampler = glGetUniformLocation(tex2DProgram, "s_texture");
     GLint tex2DFillPortion = glGetUniformLocation(tex2DProgram, "fillPortion");
     m_handleArray[Tex2D].init(tex2DAlpha, -1, tex2DPosition, tex2DProgram,
-                              tex2DProjMtx, -1, tex2DTexSampler, -1, tex2DFillPortion);
+                              tex2DProjMtx, -1, tex2DTexSampler, -1, tex2DFillPortion, -1);
 
     GLint tex2DInvAlpha = glGetUniformLocation(tex2DInvProgram, "alpha");
     GLint tex2DInvContrast = glGetUniformLocation(tex2DInvProgram, "contrast");
@@ -295,7 +339,31 @@ void ShaderProgram::initGLResources()
     m_handleArray[Tex2DInv].init(tex2DInvAlpha, tex2DInvContrast,
                                  tex2DInvPosition, tex2DInvProgram,
                                  tex2DInvProjMtx, -1,
-                                 tex2DInvTexSampler, -1, tex2DInvFillPortion);
+                                 tex2DInvTexSampler, -1, tex2DInvFillPortion, -1);
+
+    GLint repeatTexAlpha = glGetUniformLocation(repeatTexProgram, "alpha");
+    GLint repeatTexPosition = glGetAttribLocation(repeatTexProgram, "vPosition");
+    GLint repeatTexProjMtx = glGetUniformLocation(repeatTexProgram, "projectionMatrix");
+    GLint repeatTexTexSampler = glGetUniformLocation(repeatTexProgram, "s_texture");
+    GLint repeatTexFillPortion = glGetUniformLocation(repeatTexProgram, "fillPortion");
+    GLint repeatTexScale = glGetUniformLocation(repeatTexProgram, "repeatScale");
+    m_handleArray[RepeatTex].init(repeatTexAlpha, -1, repeatTexPosition,
+                                  repeatTexProgram,repeatTexProjMtx, -1,
+                                  repeatTexTexSampler, -1, repeatTexFillPortion,
+                                  repeatTexScale);
+
+    GLint repeatTexInvAlpha = glGetUniformLocation(repeatTexInvProgram, "alpha");
+    GLint repeatTexInvContrast = glGetUniformLocation(tex2DInvProgram, "contrast");
+    GLint repeatTexInvPosition = glGetAttribLocation(repeatTexInvProgram, "vPosition");
+    GLint repeatTexInvProjMtx = glGetUniformLocation(repeatTexInvProgram, "projectionMatrix");
+    GLint repeatTexInvTexSampler = glGetUniformLocation(repeatTexInvProgram, "s_texture");
+    GLint repeatTexInvFillPortion = glGetUniformLocation(repeatTexInvProgram, "fillPortion");
+    GLint repeatTexInvScale = glGetUniformLocation(repeatTexInvProgram, "repeatScale");
+    m_handleArray[RepeatTexInv].init(repeatTexInvAlpha, repeatTexInvContrast,
+                                     repeatTexInvPosition, repeatTexInvProgram,
+                                     repeatTexInvProjMtx, -1,
+                                     repeatTexInvTexSampler, -1,
+                                     repeatTexInvFillPortion, repeatTexInvScale);
 
     GLint texOESAlpha = glGetUniformLocation(texOESProgram, "alpha");
     GLint texOESPosition = glGetAttribLocation(texOESProgram, "vPosition");
@@ -303,7 +371,7 @@ void ShaderProgram::initGLResources()
     GLint texOESTexSampler = glGetUniformLocation(texOESProgram, "s_texture");
     GLint texOESFillPortion = glGetUniformLocation(texOESProgram, "fillPortion");
     m_handleArray[TexOES].init(texOESAlpha, -1, texOESPosition, texOESProgram,
-                               texOESProjMtx, -1, texOESTexSampler, -1, texOESFillPortion);
+                               texOESProjMtx, -1, texOESTexSampler, -1, texOESFillPortion, -1);
 
     GLint texOESInvAlpha = glGetUniformLocation(texOESInvProgram, "alpha");
     GLint texOESInvContrast = glGetUniformLocation(texOESInvProgram, "contrast");
@@ -314,7 +382,7 @@ void ShaderProgram::initGLResources()
     m_handleArray[TexOESInv].init(texOESInvAlpha, texOESInvContrast,
                                   texOESInvPosition, texOESInvProgram,
                                   texOESInvProjMtx, -1,
-                                  texOESInvTexSampler, -1, texOESInvFillPortion);
+                                  texOESInvTexSampler, -1, texOESInvFillPortion, -1);
 
     GLint videoPosition = glGetAttribLocation(videoProgram, "vPosition");
     GLint videoProjMtx = glGetUniformLocation(videoProgram, "projectionMatrix");
@@ -322,7 +390,7 @@ void ShaderProgram::initGLResources()
     GLint videoTexMtx = glGetUniformLocation(videoProgram, "textureMatrix");
     m_handleArray[Video].init(-1, -1, videoPosition, videoProgram,
                               videoProjMtx, -1, videoTexSampler,
-                              videoTexMtx, -1);
+                              videoTexMtx, -1, -1);
 
     const GLfloat coord[] = {
         0.0f, 0.0f, // C
@@ -492,18 +560,19 @@ Color ShaderProgram::shaderColor(Color pureColor, float opacity)
 }
 
 // For shaders using texture, it is easy to get the type from the textureTarget.
-ShaderType ShaderProgram::getTextureShaderType(GLenum textureTarget)
+ShaderType ShaderProgram::getTextureShaderType(GLenum textureTarget,
+                                               bool hasRepeatScale)
 {
     ShaderType type = UndefinedShader;
     if (textureTarget == GL_TEXTURE_2D) {
         if (!TilesManager::instance()->invertedScreen())
-            type = Tex2D;
+            type = hasRepeatScale ?  RepeatTex : Tex2D;
         else {
             // With the new GPU texture upload path, we do not use an FBO
             // to blit the texture we receive from the TexturesGenerator thread.
             // To implement inverted rendering, we thus have to do the rendering
             // live, by using a different shader.
-            type = Tex2DInv;
+            type = hasRepeatScale ?  RepeatTexInv : Tex2DInv;
         }
     } else if (textureTarget == GL_TEXTURE_EXTERNAL_OES) {
         if (!TilesManager::instance()->invertedScreen())
@@ -621,9 +690,10 @@ float ShaderProgram::zValue(const TransformationMatrix& drawMatrix, float w, flo
 }
 
 void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
-                                    int textureId, float opacity,
-                                    GLenum textureTarget, GLenum filter,
-                                    const Color& pureColor, const FloatRect& fillPortion)
+                                     int textureId, float opacity,
+                                     GLenum textureTarget, GLenum filter,
+                                     const Color& pureColor, const FloatRect& fillPortion,
+                                     const FloatSize& repeatScale)
 {
     glUseProgram(m_handleArray[type].programHandle);
     glUniformMatrix4fv(m_handleArray[type].projMtxHandle, 1, GL_FALSE, matrix);
@@ -642,6 +712,12 @@ void ShaderProgram::drawQuadInternal(ShaderType type, const GLfloat* matrix,
 
         glUniform4f(m_handleArray[type].fillPortionHandle, fillPortion.x(), fillPortion.y(),
                     fillPortion.width(), fillPortion.height());
+
+        // Only when we have repeat scale, this handle can be >= 0;
+        if (m_handleArray[type].scaleHandle != -1) {
+            glUniform2f(m_handleArray[type].scaleHandle,
+                        repeatScale.width(), repeatScale.height());
+        }
     } else {
         glUniform4f(m_handleArray[type].pureColorHandle,
                     pureColor.red() / 255.0, pureColor.green() / 255.0,
@@ -674,6 +750,8 @@ GLfloat* ShaderProgram::getTileProjectionMatrix(const DrawQuadData* data)
     const TransformationMatrix* matrix = data->drawMatrix();
     const SkRect* geometry = data->geometry();
     FloatRect fillPortion = data->fillPortion();
+    ALOGV("fillPortion " FLOAT_RECT_FORMAT, FLOAT_RECT_ARGS(fillPortion));
+
     // This modifiedDrawMatrix tranform (0,0)(1x1) to the final rect in screen
     // coordinates, before applying the m_webViewMatrix.
     // It first scale and translate the vertex array from (0,0)(1x1) to real
@@ -728,11 +806,12 @@ void ShaderProgram::drawQuad(const DrawQuadData* data)
         textureId = data->textureId();
         textureFilter = data->textureFilter();
         textureTarget = data->textureTarget();
-        shaderType = getTextureShaderType(textureTarget);
+        shaderType = getTextureShaderType(textureTarget, data->hasRepeatScale());
     }
     setBlendingState(enableBlending);
     drawQuadInternal(shaderType, matrix, textureId, opacity,
-                     textureTarget, textureFilter, quadColor, data->fillPortion());
+                     textureTarget, textureFilter, quadColor, data->fillPortion(),
+                     data->repeatScale());
 }
 
 void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
