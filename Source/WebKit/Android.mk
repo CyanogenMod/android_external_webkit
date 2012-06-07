@@ -67,7 +67,7 @@ LOCAL_SRC_FILES += \
 	android/jni/GeolocationServiceBridge.cpp \
 	android/jni/JavaBridge.cpp \
 	android/jni/JavaSharedClient.cpp \
-	android/jni/MIMETypeRegistry.cpp \
+	android/jni/MIMETypeRegistryAndroid.cpp \
 	android/jni/MockGeolocation.cpp \
 	android/jni/PicturePile.cpp \
 	android/jni/WebCoreFrameBridge.cpp \
@@ -105,7 +105,7 @@ LOCAL_SRC_FILES += \
 	android/plugins/SkANP.cpp \
 	\
 	android/wds/Command.cpp \
-	android/wds/Connection.cpp \
+	android/wds/ConnectionAndroid.cpp \
 	android/wds/DebugServer.cpp
 
 LOCAL_C_INCLUDES += \
