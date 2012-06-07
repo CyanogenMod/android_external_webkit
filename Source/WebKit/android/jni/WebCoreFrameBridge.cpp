@@ -1822,7 +1822,7 @@ static void SslCertErrorCancel(JNIEnv *env, jobject obj, int handle, int cert_er
     client->cancelSslCertError(cert_error);
 }
 
-static net::X509Certificate* getX509Cert(JNIEnv *env, jobjectArray chain)
+static scoped_refptr<net::X509Certificate> getX509Cert(JNIEnv *env, jobjectArray chain)
 {
     // Based on Android's NativeCrypto_SSL_use_certificate
     int length = env->GetArrayLength(chain);
@@ -1860,8 +1860,8 @@ static net::X509Certificate* getX509Cert(JNIEnv *env, jobjectArray chain)
         certChain[i] = rest[i]->get();
     }
     return net::X509Certificate::CreateFromHandle(first.get(),
-                                                     net::X509Certificate::SOURCE_FROM_NETWORK,
-                                                     certChain);
+                                                  net::X509Certificate::SOURCE_FROM_NETWORK,
+                                                  certChain);
 }
 
 static void SslClientCertPKCS8(JNIEnv *env, jobject obj, int handle, jbyteArray pkey, jobjectArray chain)
@@ -1891,7 +1891,7 @@ static void SslClientCertPKCS8(JNIEnv *env, jobject obj, int handle, jbyteArray 
         client->sslClientCert(NULL, NULL);
         return;
     }
-    net::X509Certificate* certificate = getX509Cert(env, chain);
+    scoped_refptr<net::X509Certificate> certificate = getX509Cert(env, chain);
     if (certificate == NULL) {
         client->sslClientCert(NULL, NULL);
         return;
@@ -1907,7 +1907,7 @@ static void SslClientCertCtx(JNIEnv *env, jobject obj, int handle, jint ctx, job
         client->sslClientCert(NULL, NULL);
         return;
     }
-    net::X509Certificate* certificate = getX509Cert(env, chain);
+    scoped_refptr<net::X509Certificate> certificate = getX509Cert(env, chain);
     if (certificate == NULL) {
         client->sslClientCert(NULL, NULL);
         return;
