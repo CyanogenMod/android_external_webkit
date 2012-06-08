@@ -275,6 +275,15 @@ Tile* TileGrid::getTile(int x, int y)
     return 0;
 }
 
+unsigned int TileGrid::getImageTextureId()
+{
+    if (m_tiles.size() == 1) {
+        if (m_tiles[0]->frontTexture())
+            return m_tiles[0]->frontTexture()->m_ownTextureId;
+    }
+    return 0;
+}
+
 int TileGrid::nbTextures(const IntRect& area, float scale)
 {
     IntRect tileBounds = computeTilesArea(area, scale);

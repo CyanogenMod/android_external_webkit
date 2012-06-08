@@ -68,6 +68,7 @@ public:
     bool isDirty() { return !m_dirtyRegion.isEmpty(); }
 
     int nbTextures(const IntRect& area, float scale);
+    unsigned int getImageTextureId();
 
 private:
     void prepareTile(int x, int y, TilePainter* painter,
