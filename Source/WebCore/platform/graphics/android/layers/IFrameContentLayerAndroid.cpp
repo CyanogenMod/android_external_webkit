@@ -33,8 +33,8 @@ void IFrameContentLayerAndroid::getScrollRect(SkIRect* out) const
     out->fLeft = m_scrollLimits.fLeft - pos.fX + m_iframeScrollOffset.x();
     out->fTop = m_scrollLimits.fTop - pos.fY + m_iframeScrollOffset.y();
 
-    out->fRight = getSize().width() - m_scrollLimits.width();
-    out->fBottom = getSize().height() - m_scrollLimits.height();
+    out->fRight = m_scrollLimits.width();
+    out->fBottom = m_scrollLimits.height();
 }
 
 } // namespace WebCore
