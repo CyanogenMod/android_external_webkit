@@ -4923,10 +4923,8 @@ static void CloseIdleConnections(JNIEnv* env, jobject obj, jint nativeClass)
 
 static void nativeCertTrustChanged(JNIEnv *env, jobject obj)
 {
-#if USE(CHROME_NETWORK_STACK)
     WebCache::get(true)->certTrustChanged();
     WebCache::get(false)->certTrustChanged();
-#endif
 }
 
 static void ScrollRenderLayer(JNIEnv* env, jobject obj, jint nativeClass,
