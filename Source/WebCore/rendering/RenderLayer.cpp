@@ -1429,10 +1429,12 @@ void RenderLayer::scrollTo(int x, int y)
         // The caret rect needs to be invalidated after scrolling
         frame->selection()->setCaretRectNeedsUpdate();
 
+#if !ENABLE(ANDROID_OVERFLOW_SCROLL)
         FloatQuad quadForFakeMouseMoveEvent = FloatQuad(rectForRepaint);
         if (repaintContainer)
             quadForFakeMouseMoveEvent = repaintContainer->localToAbsoluteQuad(quadForFakeMouseMoveEvent);
         frame->eventHandler()->dispatchFakeMouseMoveEventSoonInQuad(quadForFakeMouseMoveEvent);
+#endif
     }
 
     // Just schedule a full repaint of our object.
