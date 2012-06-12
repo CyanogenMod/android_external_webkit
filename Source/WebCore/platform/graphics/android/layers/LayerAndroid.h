@@ -199,13 +199,6 @@ public:
     void dumpLayers(FILE*, int indentLevel) const;
     void dumpToLog() const;
 
-    /** Call this with the current viewport (scrolling, zoom) to update
-        the position of the fixed layers.
-
-        This call is recursive, so it should be called on the root of the
-        hierarchy.
-    */
-    void updateLayerPositions(SkRect viewPort, IFrameLayerAndroid* parentIframeLayer = 0);
     virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
                                                IFrameLayerAndroid* parentIframeLayer);
 
@@ -297,6 +290,13 @@ public:
     }
 
 protected:
+    /** Call this with the current viewport (scrolling, zoom) to update
+        the position of the fixed layers.
+
+        This call is recursive, so it should be called on the root of the
+        hierarchy.
+    */
+    void updateLayerPositions(SkRect viewPort, IFrameLayerAndroid* parentIframeLayer = 0);
     virtual void onDraw(SkCanvas*, SkScalar opacity, android::DrawExtra* extra, PaintStyle style);
     virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated) { return InvalidateNone; }
     TransformationMatrix m_drawTransform;
