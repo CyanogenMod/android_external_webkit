@@ -127,6 +127,7 @@ public:
     int y() const { return m_y; }
     TileTexture* frontTexture() { return m_frontTexture; }
     TileTexture* backTexture() { return m_backTexture; }
+    TileTexture* lastDrawnTexture() { return m_lastDrawnTexture; }
 
     // only used for prioritization - the higher, the more relevant the tile is
     unsigned long long drawCount() { return m_drawCount; }
@@ -151,6 +152,7 @@ private:
 
     TileTexture* m_frontTexture;
     TileTexture* m_backTexture;
+    TileTexture* m_lastDrawnTexture;
     float m_scale;
 
     // used to signal that the that the tile is out-of-date and needs to be
