@@ -316,7 +316,7 @@ void draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras)
 
     // call this to be sure we've adjusted for any scrolling or animations
     // before we actually draw
-    m_baseLayer->updateLayerPositions(m_visibleContentRect);
+    m_baseLayer->updatePositionsRecursive(m_visibleContentRect);
     m_baseLayer->updatePositions();
 
     // We have to set the canvas' matrix on the base layer
