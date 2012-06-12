@@ -740,20 +740,6 @@ bool isHandleLeft(SelectText::HandleId handleId)
     return (selectText->getHandleType(handleId) == SelectText::LeftHandle);
 }
 
-bool isPointVisible(int layerId, int contentX, int contentY)
-{
-    bool isVisible = true;
-    const TransformationMatrix* transform = getLayerTransform(layerId);
-    if (transform) {
-        // layer is guaranteed to be non-NULL because of getLayerTransform
-        LayerAndroid* layer = m_baseLayer->findById(layerId);
-        IntRect rect = layer->visibleContentArea();
-        rect = transform->mapRect(rect);
-        isVisible = rect.contains(contentX, contentY);
-    }
-    return isVisible;
-}
-
 private: // local state for WebView
     bool m_isDrawingPaused;
     // private to getFrameCache(); other functions operate in a different thread
@@ -1317,13 +1303,6 @@ static bool nativeIsHandleLeft(JNIEnv *env, jobject obj, jint nativeView,
     return webview->isHandleLeft(static_cast<SelectText::HandleId>(handleId));
 }
 
-static bool nativeIsPointVisible(JNIEnv *env, jobject obj, jint nativeView,
-        jint layerId, jint contentX, jint contentY)
-{
-    WebView* webview = reinterpret_cast<WebView*>(nativeView);
-    return webview->isPointVisible(layerId, contentX, contentY);
-}
-
 /*
  * JNI registration
  */
@@ -1404,8 +1383,6 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeFindMaxVisibleRect },
     { "nativeIsHandleLeft", "(II)Z",
         (void*) nativeIsHandleLeft },
-    { "nativeIsPointVisible", "(IIII)Z",
-        (void*) nativeIsPointVisible },
 };
 
 int registerWebView(JNIEnv* env)
