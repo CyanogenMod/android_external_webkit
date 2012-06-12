@@ -144,7 +144,7 @@ bool ImageTexture::equalsCRC(unsigned crc)
 // Return 0 if the image does not meet the repeatable criteria.
 unsigned int ImageTexture::getImageTextureId()
 {
-    return m_tileGrid->getImageTextureId();
+    return m_tileGrid ? m_tileGrid->getImageTextureId() : 0;
 }
 
 int ImageTexture::nbTextures()
