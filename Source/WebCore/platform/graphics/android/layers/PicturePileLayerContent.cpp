@@ -1,6 +1,10 @@
+#define LOG_TAG "PicturePileLayerContent"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "PicturePileLayerContent.h"
 
+#include "AndroidLog.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
 
@@ -13,6 +17,7 @@ PicturePileLayerContent::PicturePileLayerContent(const PicturePile& picturePile)
 
 void PicturePileLayerContent::draw(SkCanvas* canvas)
 {
+    TRACE_METHOD();
     android::Mutex::Autolock lock(m_drawLock);
     m_picturePile.draw(canvas);
 }

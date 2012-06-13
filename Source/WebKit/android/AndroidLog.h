@@ -30,6 +30,8 @@
 #define LOG_TAG __FILE__
 #endif
 
+#define ATRACE_TAG ATRACE_TAG_WEBVIEW
+
 #include <cutils/log.h>
 #include <utils/Trace.h>
 #include <wtf/CurrentTime.h>
@@ -58,7 +60,7 @@ extern FILE* gRenderTreeFile;
 #define INT_RECT_FORMAT "[x=%d,y=%d,w=%d,h=%d]"
 #define INT_RECT_ARGS(ir) ir.x(), ir.y(), ir.width(), ir.height()
 
-#define TRACE_METHOD() android::ScopedTrace __st(ATRACE_TAG_WEBVIEW, __func__);
+#define TRACE_METHOD() android::ScopedTrace __st(ATRACE_TAG, __func__);
 
 #define TIME_METHOD() MethodTimer __method_timer(__func__)
 class MethodTimer {

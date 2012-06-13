@@ -853,6 +853,7 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
     if (!layer)
         return false;
 
+    TRACE_METHOD();
     SkPicture* picture = paintPicture(rect);
     if (!picture)
         return false;

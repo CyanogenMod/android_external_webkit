@@ -1,6 +1,10 @@
+#define LOG_TAG "PictureLayerContent"
+#define LOG_NDEBUG 1
+
 #include "config.h"
 #include "PictureLayerContent.h"
 
+#include "AndroidLog.h"
 #include "InspectorCanvas.h"
 #include "SkPicture.h"
 
@@ -90,6 +94,7 @@ void PictureLayerContent::draw(SkCanvas* canvas)
     if (!m_picture)
         return;
 
+    TRACE_METHOD();
     android::Mutex::Autolock lock(m_drawLock);
     SkRect r = SkRect::MakeWH(width(), height());
     canvas->clipRect(r);

@@ -38,6 +38,10 @@ namespace WebCore {
 
 using namespace android::uirenderer;
 
+// Tag used to display current number of SurfaceCollections.
+// Note: this will only work if one webview is actively drawing at a time.
+static const char* COLLECTION_COUNT_TAG = "CollectionCount";
+
 SurfaceCollectionManager::SurfaceCollectionManager()
     : m_drawingCollection(0)
     , m_paintingCollection(0)
@@ -87,6 +91,12 @@ void SurfaceCollectionManager::swap()
     m_paintingCollection = m_queuedCollection;
     m_queuedCollection = 0;
 
+    if (ATRACE_ENABLED()) {
+        ATRACE_INT(COLLECTION_COUNT_TAG,
+                   (m_drawingCollection ? 1 : 0)
+                   + (m_paintingCollection ? 1 : 0));
+    }
+
     ALOGV("SWAPPING COMPLETE, D %p, P %p, Q %p",
          m_drawingCollection, m_paintingCollection, m_queuedCollection);
 }
@@ -106,6 +116,8 @@ void SurfaceCollectionManager::clearCollections()
     m_paintingCollection = 0;
     SkSafeUnref(m_queuedCollection);
     m_queuedCollection = 0;
+
+    ATRACE_INT(COLLECTION_COUNT_TAG, 0);
 }
 
 void SurfaceCollectionManager::updatePaintingCollection(SurfaceCollection* newCollection)
@@ -126,8 +138,10 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
 
     if (!newCollection || brandNew) {
         clearCollections();
-        if (brandNew)
+        if (brandNew) {
             updatePaintingCollection(newCollection);
+            ATRACE_INT(COLLECTION_COUNT_TAG, 1);
+        }
         return false;
     }
 
@@ -156,6 +170,13 @@ bool SurfaceCollectionManager::updateWithSurfaceCollection(SurfaceCollection* ne
     } else {
         // don't have painting collection, paint this one!
         updatePaintingCollection(newCollection);
+    }
+
+    if (ATRACE_ENABLED()) {
+        ATRACE_INT(COLLECTION_COUNT_TAG,
+                   (m_drawingCollection ? 1 : 0)
+                   + (m_paintingCollection ? 1 : 0)
+                   + (m_queuedCollection ? 1 : 0));
     }
     return m_drawingCollection && TilesManager::instance()->useDoubleBuffering();
 }

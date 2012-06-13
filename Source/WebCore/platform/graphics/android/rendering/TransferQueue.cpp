@@ -391,6 +391,7 @@ void TransferQueue::updateDirtyTiles()
 void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
                                           const SkBitmap& bitmap)
 {
+    TRACE_METHOD();
     if (!tryUpdateQueueWithBitmap(renderInfo, bitmap)) {
         // failed placing bitmap in queue, discard tile's texture so it will be
         // re-enqueued (and repainted)

@@ -67,6 +67,7 @@ RasterRenderer::~RasterRenderer()
 
 void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
+    TRACE_METHOD();
     if (renderInfo.baseTile->isLayerTile()) {
         g_bitmap->setIsOpaque(false);
         g_bitmap->eraseARGB(0, 0, 0, 0);

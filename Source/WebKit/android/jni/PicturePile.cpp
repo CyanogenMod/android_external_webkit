@@ -81,7 +81,6 @@ void PicturePile::draw(SkCanvas* canvas)
      * the rect bounds of the SkRegion for the clip, so this still can't be
      * used for translucent surfaces
      */
-    TRACE_METHOD();
     IntRect clipBounds = extractClipBounds(canvas, m_size);
     SkRegion clipRegion(toSkIRect(clipBounds));
     drawWithClipRecursive(canvas, clipRegion, m_pile.size() - 1);
