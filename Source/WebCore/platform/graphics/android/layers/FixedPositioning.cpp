@@ -86,25 +86,17 @@ void FixedPositioning::contentDraw(SkCanvas* canvas, Layer::PaintStyle style)
     }
 }
 
-void writeLength(FILE* file, int indentLevel, const char* str, SkLength length)
+void FixedPositioning::dumpLayer(LayerDumper* dumper) const
 {
-    if (!length.defined())
-        return;
-    writeIndent(file, indentLevel);
-    fprintf(file, "%s = { type = %d; value = %.2f; };\n", str, length.type, length.value);
-}
-
-void FixedPositioning::dumpLayer(FILE* file, int indentLevel) const
-{
-    writeLength(file, indentLevel + 1, "fixedLeft", m_fixedLeft);
-    writeLength(file, indentLevel + 1, "fixedTop", m_fixedTop);
-    writeLength(file, indentLevel + 1, "fixedRight", m_fixedRight);
-    writeLength(file, indentLevel + 1, "fixedBottom", m_fixedBottom);
-    writeLength(file, indentLevel + 1, "fixedMarginLeft", m_fixedMarginLeft);
-    writeLength(file, indentLevel + 1, "fixedMarginTop", m_fixedMarginTop);
-    writeLength(file, indentLevel + 1, "fixedMarginRight", m_fixedMarginRight);
-    writeLength(file, indentLevel + 1, "fixedMarginBottom", m_fixedMarginBottom);
-    writeRect(file, indentLevel + 1, "fixedRect", m_fixedRect);
+    dumper->writeLength("fixedLeft", m_fixedLeft);
+    dumper->writeLength("fixedTop", m_fixedTop);
+    dumper->writeLength("fixedRight", m_fixedRight);
+    dumper->writeLength("fixedBottom", m_fixedBottom);
+    dumper->writeLength("fixedMarginLeft", m_fixedMarginLeft);
+    dumper->writeLength("fixedMarginTop", m_fixedMarginTop);
+    dumper->writeLength("fixedMarginRight", m_fixedMarginRight);
+    dumper->writeLength("fixedMarginBottom", m_fixedMarginBottom);
+    dumper->writeRect("fixedRect", m_fixedRect);
 }
 
 BackgroundImagePositioning::BackgroundImagePositioning(LayerAndroid* layer, const BackgroundImagePositioning& position)

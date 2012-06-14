@@ -218,7 +218,7 @@ void Surface::prepareGL(bool layerTilesDisabled, bool updateWithBlit)
         ALOGV("prepareGL on Surf %p with SurfBack %p, %d layers, first layer %s (%d) "
               "prepareArea(%d, %d - %d x %d) fullArea(%d, %d - %d x %d)",
               this, m_surfaceBacking, m_layers.size(),
-              getFirstLayer()->subclassName().ascii().data(),
+              getFirstLayer()->subclassName(),
               getFirstLayer()->uniqueId(),
               prepareArea.x(), prepareArea.y(), prepareArea.width(), prepareArea.height(),
               fullArea.x(), fullArea.y(), fullArea.width(), fullArea.height());
@@ -253,7 +253,7 @@ bool Surface::drawGL(bool layerTilesDisabled)
     bool askRedraw = false;
     if (m_surfaceBacking && !tilesDisabled) {
         ALOGV("drawGL on Surf %p with SurfBack %p, first layer %s (%d)", this, m_surfaceBacking,
-              getFirstLayer()->subclassName().ascii().data(), getFirstLayer()->uniqueId());
+              getFirstLayer()->subclassName(), getFirstLayer()->uniqueId());
 
         bool force3dContentVisible = true;
         IntRect drawArea = visibleContentArea(force3dContentVisible);

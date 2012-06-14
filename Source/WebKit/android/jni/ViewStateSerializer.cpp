@@ -30,6 +30,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "CreateJavaOutputStreamAdaptor.h"
+#include "DumpLayer.h"
 #include "FixedPositioning.h"
 #include "ImagesManager.h"
 #include "IFrameContentLayerAndroid.h"
@@ -55,6 +56,68 @@ enum LayerTypes {
     LTScrollableLayerAndroid = 2,
     LTFixedLayerAndroid = 3
 };
+
+#define ID "mID"
+#define LEFT "layout:mLeft"
+#define TOP "layout:mTop"
+#define WIDTH "layout:getWidth()"
+#define HEIGHT "layout:getHeight()"
+
+class HierarchyLayerDumper : public LayerDumper {
+public:
+    HierarchyLayerDumper(SkWStream* stream, int level)
+        : LayerDumper(level)
+        , m_stream(stream)
+    {}
+
+    virtual void beginLayer(const char* className, const LayerAndroid* layerPtr) {
+        LayerDumper::beginLayer(className, layerPtr);
+        for (int i = 0; i < m_indentLevel; i++) {
+            m_stream->writeText(" ");
+        }
+        m_stream->writeText(className);
+        m_stream->writeText("@");
+        m_stream->writeHexAsText(layerPtr->uniqueId());
+        m_stream->writeText(" ");
+
+        writeHexVal(ID, (int) layerPtr);
+        writeIntVal(LEFT, layerPtr->getPosition().fX);
+        writeIntVal(TOP, layerPtr->getPosition().fY);
+        writeIntVal(WIDTH, layerPtr->getWidth());
+        writeIntVal(HEIGHT, layerPtr->getHeight());
+    }
+
+    virtual void beginChildren(int childCount) {
+        m_stream->writeText("\n");
+        LayerDumper::beginChildren(childCount);
+    }
+
+protected:
+    virtual void writeEntry(const char* label, const char* value) {
+        m_stream->writeText(label);
+        m_stream->writeText("=");
+        int len = strlen(value);
+        m_stream->writeDecAsText(len);
+        m_stream->writeText(",");
+        m_stream->writeText(value);
+        m_stream->writeText(" ");
+    }
+
+private:
+    SkWStream* m_stream;
+};
+
+static void nativeDumpLayerHierarchy(JNIEnv* env, jobject, jint jbaseLayer, jint level,
+                                     jobject jstream, jbyteArray jstorage)
+{
+    SkWStream *stream = CreateJavaOutputStreamAdaptor(env, jstream, jstorage);
+    BaseLayerAndroid* baseLayer = reinterpret_cast<BaseLayerAndroid*>(jbaseLayer);
+    SkSafeRef(baseLayer);
+    HierarchyLayerDumper dumper(stream, level);
+    baseLayer->dumpLayers(&dumper);
+    SkSafeUnref(baseLayer);
+    delete stream;
+}
 
 static bool nativeSerializeViewState(JNIEnv* env, jobject, jint jbaseLayer,
                                      jobject jstream, jbyteArray jstorage)
@@ -478,6 +541,8 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
  * JNI registration
  */
 static JNINativeMethod gSerializerMethods[] = {
+    { "nativeDumpLayerHierarchy", "(IILjava/io/OutputStream;[B)V",
+        (void*) nativeDumpLayerHierarchy },
     { "nativeSerializeViewState", "(ILjava/io/OutputStream;[B)Z",
         (void*) nativeSerializeViewState },
     { "nativeDeserializeViewState", "(ILjava/io/InputStream;[B)I",

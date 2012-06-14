@@ -53,7 +53,7 @@ public:
     virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
                                                IFrameLayerAndroid* parentIframeLayer);
 
-    virtual void dumpLayer(FILE*, int indentLevel) const;
+    virtual void dumpLayer(LayerDumper*) const;
 
     const IntPoint& iframeOffset() const { return m_iframeOffset; }
 
