@@ -73,6 +73,7 @@ class IFrameLayerAndroid;
 class LayerMergeState;
 class RenderLayer;
 class PaintedSurface;
+class LayerDumper;
 
 class TexturesResult {
 public:
@@ -100,7 +101,7 @@ public:
                    CanvasLayer, BaseLayer } SubclassType;
     typedef enum { InvalidateNone = 0, InvalidateLayers } InvalidateFlags;
 
-    String subclassName()
+    const char* subclassName() const
     {
         switch (subclassType()) {
             case LayerAndroid::StandardLayer:
@@ -195,9 +196,7 @@ public:
     bool hasAnimations() const;
     void addDirtyArea();
 
-    virtual void dumpLayer(FILE*, int indentLevel) const;
-    void dumpLayers(FILE*, int indentLevel) const;
-    void dumpToLog() const;
+    void dumpLayers(LayerDumper*) const;
 
     virtual IFrameLayerAndroid* updatePosition(SkRect viewport,
                                                IFrameLayerAndroid* parentIframeLayer);
@@ -290,6 +289,7 @@ public:
     }
 
 protected:
+    virtual void dumpLayer(LayerDumper*) const;
     /** Call this with the current viewport (scrolling, zoom) to update
         the position of the fixed layers.
 

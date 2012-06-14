@@ -29,10 +29,10 @@ IFrameLayerAndroid* IFrameLayerAndroid::updatePosition(SkRect viewport,
     return this;
 }
 
-void IFrameLayerAndroid::dumpLayer(FILE* file, int indentLevel) const
+void IFrameLayerAndroid::dumpLayer(LayerDumper* dumper) const
 {
-    writeIntVal(file, indentLevel + 1, "m_isIframe", true);
-    writeIntPoint(file, indentLevel + 1, "m_iframeOffset", m_iframeOffset);
+    LayerAndroid::dumpLayer(dumper);
+    dumper->writeIntPoint("m_iframeOffset", m_iframeOffset);
 }
 
 } // namespace WebCore

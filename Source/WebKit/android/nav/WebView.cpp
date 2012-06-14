@@ -32,6 +32,7 @@
 #include "BaseLayerAndroid.h"
 #include "BaseRenderer.h"
 #include "DrawExtra.h"
+#include "DumpLayer.h"
 #include "Frame.h"
 #include "GLWebViewState.h"
 #include "GraphicsJNI.h"
@@ -995,6 +996,28 @@ static void nativeCopyBaseContentToPicture(JNIEnv *env, jobject obj, jobject pic
     GET_NATIVE_VIEW(env, obj)->copyBaseContentToPicture(picture);
 }
 
+static jboolean nativeDumpLayerContentToPicture(JNIEnv *env, jobject obj, jint instance,
+                                                jstring jclassName, jint layerId, jobject pict)
+{
+    bool success = false;
+    SkPicture* picture = GraphicsJNI::getNativePicture(env, pict);
+    std::string classname = jstringToStdString(env, jclassName);
+    BaseLayerAndroid* baseLayer = reinterpret_cast<WebView*>(instance)->getBaseLayer();
+    LayerAndroid* layer = baseLayer->findById(layerId);
+    SkSafeRef(layer);
+    if (layer && layer->subclassName() == classname) {
+        LayerContent* content = layer->content();
+        if (content) {
+            SkCanvas* canvas = picture->beginRecording(content->width(), content->height());
+            content->draw(canvas);
+            picture->endRecording();
+            success = true;
+        }
+    }
+    SkSafeUnref(layer);
+    return success;
+}
+
 static bool nativeHasContent(JNIEnv *env, jobject obj)
 {
     return GET_NATIVE_VIEW(env, obj)->hasContent();
@@ -1187,7 +1210,8 @@ static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
         if (baseLayer) {
           FILE* file = fopen(LAYERS_TREE_LOG_FILE,"w");
           if (file) {
-              baseLayer->dumpLayers(file, 0);
+              WebCore::FileLayerDumper dumper(file);
+              baseLayer->dumpLayers(&dumper);
               fclose(file);
           }
         }
@@ -1355,6 +1379,8 @@ static JNINativeMethod gJavaWebViewMethods[] = {
         (void*) nativeGetBaseLayer },
     { "nativeCopyBaseContentToPicture", "(Landroid/graphics/Picture;)V",
         (void*) nativeCopyBaseContentToPicture },
+    { "nativeDumpLayerContentToPicture", "(ILjava/lang/String;ILandroid/graphics/Picture;)Z",
+        (void*) nativeDumpLayerContentToPicture },
     { "nativeHasContent", "()Z",
         (void*) nativeHasContent },
     { "nativeDiscardAllTextures", "()V",

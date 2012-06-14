@@ -598,7 +598,7 @@ void LayerAndroid::showLayer(int indent)
                  m_clippingRect.width(), m_clippingRect.height());
     ALOGD("%s s:%x %s %s (%d) [%d:%x - 0x%x] - %s %s - area (%d, %d, %d, %d) - visible (%d, %d, %d, %d) "
           "clip (%d, %d, %d, %d) %s %s m_content(%x), pic w: %d h: %d originalLayer: %x %d",
-          spaces, m_surface, m_haveClip ? "CLIP LAYER" : "", subclassName().ascii().data(),
+          spaces, m_surface, m_haveClip ? "CLIP LAYER" : "", subclassName(),
           subclassType(), uniqueId(), this, m_owningLayer,
           needsTexture() ? "needsTexture" : "",
           m_imageCRC ? "hasImage" : "",
@@ -951,60 +951,42 @@ void LayerAndroid::setFixedPosition(FixedPositioning* position) {
     m_fixedPosition = position;
 }
 
-void LayerAndroid::dumpLayer(FILE* file, int indentLevel) const
+void LayerAndroid::dumpLayer(LayerDumper* dumper) const
 {
-    writeHexVal(file, indentLevel + 1, "layer", (int)this);
-    writeIntVal(file, indentLevel + 1, "layerId", m_uniqueId);
-    writeIntVal(file, indentLevel + 1, "haveClip", m_haveClip);
-    writeIntVal(file, indentLevel + 1, "isFixed", isPositionFixed());
+    dumper->writeIntVal("layerId", m_uniqueId);
+    dumper->writeIntVal("haveClip", m_haveClip);
+    dumper->writeIntVal("isFixed", isPositionFixed());
 
-    writeFloatVal(file, indentLevel + 1, "opacity", getOpacity());
-    writeSize(file, indentLevel + 1, "size", getSize());
-    writePoint(file, indentLevel + 1, "position", getPosition());
-    writePoint(file, indentLevel + 1, "anchor", getAnchorPoint());
+    dumper->writeFloatVal("opacity", getOpacity());
+    dumper->writeSize("size", getSize());
+    dumper->writePoint("position", getPosition());
+    dumper->writePoint("anchor", getAnchorPoint());
 
-    writeMatrix(file, indentLevel + 1, "drawMatrix", m_drawTransform);
-    writeMatrix(file, indentLevel + 1, "transformMatrix", m_transform);
-    writeRect(file, indentLevel + 1, "clippingRect", SkRect(m_clippingRect));
+    dumper->writeMatrix("drawMatrix", m_drawTransform);
+    dumper->writeMatrix("transformMatrix", m_transform);
+    dumper->writeRect("clippingRect", SkRect(m_clippingRect));
 
     if (m_content) {
-        writeIntVal(file, indentLevel + 1, "m_content.width", m_content->width());
-        writeIntVal(file, indentLevel + 1, "m_content.height", m_content->height());
+        dumper->writeIntVal("m_content.width", m_content->width());
+        dumper->writeIntVal("m_content.height", m_content->height());
     }
 
     if (m_fixedPosition)
-        return m_fixedPosition->dumpLayer(file, indentLevel);
+        m_fixedPosition->dumpLayer(dumper);
 }
 
-void LayerAndroid::dumpLayers(FILE* file, int indentLevel) const
+void LayerAndroid::dumpLayers(LayerDumper* dumper) const
 {
-    writeln(file, indentLevel, "{");
+    dumper->beginLayer(subclassName(), this);
+    dumpLayer(dumper);
 
-    dumpLayer(file, indentLevel);
-
+    dumper->beginChildren(countChildren());
     if (countChildren()) {
-        writeln(file, indentLevel + 1, "children = [");
-        for (int i = 0; i < countChildren(); i++) {
-            if (i > 0)
-                writeln(file, indentLevel + 1, ", ");
-            getChild(i)->dumpLayers(file, indentLevel + 1);
-        }
-        writeln(file, indentLevel + 1, "];");
+        for (int i = 0; i < countChildren(); i++)
+            getChild(i)->dumpLayers(dumper);
     }
-    writeln(file, indentLevel, "}");
-}
-
-void LayerAndroid::dumpToLog() const
-{
-    FILE* file = fopen("/data/data/com.android.browser/layertmp", "w");
-    dumpLayers(file, 0);
-    fclose(file);
-    file = fopen("/data/data/com.android.browser/layertmp", "r");
-    char buffer[512];
-    bzero(buffer, sizeof(buffer));
-    while (fgets(buffer, sizeof(buffer), file))
-        SkDebugf("%s", buffer);
-    fclose(file);
+    dumper->endChildren();
+    dumper->endLayer();
 }
 
 LayerAndroid* LayerAndroid::findById(int match)

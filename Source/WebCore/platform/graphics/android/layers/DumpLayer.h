@@ -17,7 +17,9 @@
 #ifndef DumpLayer_h
 #define DumpLayer_h
 
+#include "FixedPositioning.h"
 #include "IntPoint.h"
+#include "LayerAndroid.h"
 #include "SkPoint.h"
 #include "SkRect.h"
 #include "SkSize.h"
@@ -50,17 +52,59 @@
 
 namespace WebCore {
 
-void lwrite(FILE* file, const char* str);
-void writeIndent(FILE* file, int indentLevel);
-void writeln(FILE* file, int indentLevel, const char* str);
-void writeIntVal(FILE* file, int indentLevel, const char* str, int value);
-void writeHexVal(FILE* file, int indentLevel, const char* str, int value);
-void writeFloatVal(FILE* file, int indentLevel, const char* str, float value);
-void writePoint(FILE* file, int indentLevel, const char* str, SkPoint point);
-void writeIntPoint(FILE* file, int indentLevel, const char* str, IntPoint point);
-void writeSize(FILE* file, int indentLevel, const char* str, SkSize size);
-void writeRect(FILE* file, int indentLevel, const char* str, SkRect rect);
-void writeMatrix(FILE* file, int indentLevel, const char* str, const TransformationMatrix& matrix);
+class LayerDumper {
+public:
+    LayerDumper(int initialIndentLevel = 0)
+        : m_indentLevel(initialIndentLevel)
+    {}
+    virtual ~LayerDumper() {}
+
+    virtual void beginLayer(const char* className, const LayerAndroid* layerPtr) {}
+
+    virtual void endLayer() {}
+
+    virtual void beginChildren(int childCount) {
+        m_indentLevel++;
+    }
+    virtual void endChildren() {
+        m_indentLevel--;
+    }
+
+    void writeIntVal(const char* label, int value);
+    void writeHexVal(const char* label, int value);
+    void writeFloatVal(const char* label, float value);
+    void writePoint(const char* label, SkPoint value);
+    void writeIntPoint(const char* label, IntPoint value);
+    void writeSize(const char* label, SkSize value);
+    void writeRect(const char* label, SkRect value);
+    void writeMatrix(const char* label, const TransformationMatrix& value);
+    void writeLength(const char* label, SkLength value);
+
+protected:
+    virtual void writeEntry(const char* label, const char* value) = 0;
+
+    int m_indentLevel;
+
+private:
+    static const int BUF_SIZE = 4096;
+    char m_valueBuffer[BUF_SIZE];
+};
+
+class FileLayerDumper : public LayerDumper {
+public:
+    FileLayerDumper(FILE* file)
+        : m_file(file)
+    {}
+
+    virtual void beginLayer(const char* className, const LayerAndroid* layerPtr);
+    virtual void endLayer();
+protected:
+    virtual void writeEntry(const char* label, const char* value);
+
+private:
+    void writeLine(const char* str);
+    FILE* m_file;
+};
 
 }
 

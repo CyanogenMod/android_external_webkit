@@ -130,7 +130,7 @@ public:
 
     void contentDraw(SkCanvas* canvas, Layer::PaintStyle style);
 
-    void dumpLayer(FILE*, int indentLevel) const;
+    void dumpLayer(LayerDumper*) const;
 
     // ViewStateSerializer friends
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
