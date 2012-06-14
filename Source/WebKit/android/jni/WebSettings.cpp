@@ -150,6 +150,7 @@ struct FieldIds {
         env->DeleteLocalRef(autoFillProfileClass);
 #endif
         mOverrideCacheMode = env->GetFieldID(clazz, "mOverrideCacheMode", "I");
+        mPasswordEchoEnabled = env->GetFieldID(clazz, "mPasswordEchoEnabled", "Z");
 
         ALOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
         ALOG_ASSERT(mTextSize, "Could not find field mTextSize");
@@ -193,6 +194,7 @@ struct FieldIds {
         ALOG_ASSERT(mMaximumDecodedImageSize, "Could not find field mMaximumDecodedImageSize");
         ALOG_ASSERT(mUseDoubleTree, "Could not find field mUseDoubleTree");
         ALOG_ASSERT(mPageCacheCapacity, "Could not find field mPageCacheCapacity");
+        ALOG_ASSERT(mPasswordEchoEnabled, "Could not find field mPasswordEchoEnabled");
 
         jclass enumClass = env->FindClass("java/lang/Enum");
         ALOG_ASSERT(enumClass, "Could not find Enum class!");
@@ -278,6 +280,7 @@ struct FieldIds {
     jfieldID mAutoFillProfilePhoneNumber;
 #endif
     jfieldID mOverrideCacheMode;
+    jfieldID mPasswordEchoEnabled;
 };
 
 static struct FieldIds* gFieldIds;
@@ -610,8 +613,9 @@ public:
         // has no style attached to it. http://trac.webkit.org/changeset/79799
         s->setDeveloperExtrasEnabled(true);
         s->setSpatialNavigationEnabled(true);
-
-        s->setPasswordEchoEnabled(true);
+        bool echoPassword = env->GetBooleanField(obj,
+                gFieldIds->mPasswordEchoEnabled);
+        s->setPasswordEchoEnabled(echoPassword);
     }
 };
 
