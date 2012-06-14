@@ -52,7 +52,8 @@ SkRegion* RegionLayerDrawExtra::getHighlightRegionsForLayer(const LayerAndroid* 
 }
 
 void RegionLayerDrawExtra::addHighlightRegion(const LayerAndroid* layer, const Vector<IntRect>& rects,
-                                              const IntPoint& additionalOffset)
+                                              const IntPoint& additionalOffset,
+                                              const IntRect& clipRect)
 {
     if (rects.isEmpty())
         return;
@@ -66,6 +67,11 @@ void RegionLayerDrawExtra::addHighlightRegion(const LayerAndroid* layer, const V
     WebViewCore::layerToAbsoluteOffset(layer, offset);
     for (size_t i = 0; i < rects.size(); i++) {
         IntRect r = rects.at(i);
+        if (!clipRect.isEmpty()) {
+            r.intersect(clipRect);
+            if (r.isEmpty())
+                continue; // don't add it to the region
+        }
         r.move(-offset.x(), -offset.y());
         region->op(r.x(), r.y(), r.maxX(), r.maxY(), SkRegion::kUnion_Op);
     }

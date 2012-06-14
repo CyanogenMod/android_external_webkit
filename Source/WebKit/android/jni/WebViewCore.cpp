@@ -1596,6 +1596,20 @@ bool WebViewCore::isLtr(const Position& position)
     return isLtr;
 }
 
+static Node* findInputParent(Node* node)
+{
+    Node* testNode = node;
+    while (testNode) {
+        RenderObject* renderer = testNode->renderer();
+        if (renderer
+                && (renderer->isTextArea() || renderer->isTextControl())) {
+            return testNode;
+        }
+        testNode = testNode->parentOrHostNode();
+    }
+    return node;
+}
+
 SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 {
     bool isCaret = selection.isCaret();
@@ -1640,6 +1654,18 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
                 ? SelectText::RightHandle : SelectText::LeftHandle;
         setSelectionCaretInfo(selectTextContainer, extent, frameOffset,
                 SelectText::ExtentHandle, extentHandleType, extentOffset, affinity);
+        IntRect clipRect;
+        if (selection.isContentEditable()) {
+            Node* editable = findInputParent(base.anchorNode());
+            RenderObject* render = editable->renderer();
+            if (render && render->isBox() && !render->isBody()) {
+                RenderBox* renderBox = toRenderBox(render);
+                clipRect = renderBox->clientBoxRect();
+                FloatPoint pos = renderBox->localToAbsolute(clipRect.location());
+                clipRect.setX(pos.x());
+                clipRect.setY(pos.y());
+            }
+        }
 
         Node* stopNode = range->pastLastNode();
         for (Node* node = range->firstNode(); node != stopNode; node = node->traverseNextNode()) {
@@ -1653,7 +1679,8 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
             int layerId = platformLayerIdFromNode(node, &layer);
             Vector<IntRect> rects;
             renderText->absoluteRectsForRange(rects, startOffset, endOffset, true);
-            selectTextContainer->addHighlightRegion(layer, rects, frameOffset);
+            selectTextContainer->addHighlightRegion(layer, rects, frameOffset,
+                    clipRect);
         }
     }
     selectTextContainer->setText(range->text());
