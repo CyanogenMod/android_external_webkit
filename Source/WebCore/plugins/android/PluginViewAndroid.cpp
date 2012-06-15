@@ -405,7 +405,7 @@ bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPErr
     // our interface query is valid with no NPP instance
     *result = NPERR_GENERIC_ERROR;
 
-    switch (variable) {
+    switch ((int)variable) {
         case NPNVisOfflineBool: {
             if (value != NULL) {
                 bool* retValue = static_cast<bool*>(value);
@@ -422,7 +422,7 @@ bool PluginView::platformGetValueStatic(NPNVariable variable, void* value, NPErr
             return true;
         }
         default:
-            ; // do nothing
+            break; // do nothing
     }
 
     (void)anp_getInterface(variable, value, result);
@@ -490,7 +490,7 @@ void PluginView::setNPWindowIfNeeded()
 
 bool PluginView::platformGetValue(NPNVariable variable, void* value, NPError* result)
 {
-    switch (variable) {
+    switch ((int)variable) {
         case NPNVWindowNPObject: {
             NPObject* windowScriptObject =
                     m_parentFrame->script()->windowScriptNPObject();
@@ -581,7 +581,7 @@ NPError PluginView::platformSetValue(NPPVariable variable, void* value)
 {
     NPError error = NPERR_GENERIC_ERROR;
 
-    switch (variable) {
+    switch ((int)variable) {
         case kRequestDrawingModel_ANPSetValue: {
             ANPDrawingModel model = reinterpret_cast<ANPDrawingModel>(value);
             if (m_window->setDrawingModel(model))
