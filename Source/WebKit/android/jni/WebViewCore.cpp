@@ -423,7 +423,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_mainFrame(mainframe)
     , m_popupReply(0)
     , m_blockTextfieldUpdates(false)
-    , m_focusBoundsChanged(false)
     , m_skipContentDraw(false)
     , m_textGeneration(0)
     , m_maxXScroll(320/4)
@@ -726,13 +725,6 @@ void WebViewCore::clearContent()
 {
     m_content.reset();
     updateLocale();
-}
-
-bool WebViewCore::focusBoundsChanged()
-{
-    bool result = m_focusBoundsChanged;
-    m_focusBoundsChanged = false;
-    return result;
 }
 
 void WebViewCore::paintContents(WebCore::GraphicsContext* gc, WebCore::IntRect& dirty)
@@ -4799,11 +4791,6 @@ static void RegisterURLSchemeAsLocal(JNIEnv* env, jobject obj, jint nativeClass,
     WebCore::SchemeRegistry::registerURLSchemeAsLocal(jstringToWtfString(env, scheme));
 }
 
-static bool FocusBoundsChanged(JNIEnv* env, jobject obj, jint nativeClass)
-{
-    return reinterpret_cast<WebViewCore*>(nativeClass)->focusBoundsChanged();
-}
-
 static void Pause(JNIEnv* env, jobject obj, jint nativeClass)
 {
     // This is called for the foreground tab when the browser is put to the
@@ -5005,8 +4992,6 @@ static int FindNext(JNIEnv* env, jobject obj, jint nativeClass,
 static JNINativeMethod gJavaWebViewCoreMethods[] = {
     { "nativeClearContent", "(I)V",
             (void*) ClearContent },
-    { "nativeFocusBoundsChanged", "(I)Z",
-        (void*) FocusBoundsChanged } ,
     { "nativeKey", "(IIIIZZZZ)Z",
         (void*) Key },
     { "nativeContentInvalidateAll", "(I)V",
