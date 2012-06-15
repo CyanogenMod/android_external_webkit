@@ -246,12 +246,12 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     int returnFlags = 0;
 
     bool didCollectionSwap = false;
+    bool tryFastBlit = !m_fastSwapMode;
     if (m_paintingCollection) {
         ALOGV("preparing painting collection %p", m_paintingCollection);
 
         m_paintingCollection->evaluateAnimations(currentTime);
 
-        bool tryFastBlit = !m_fastSwapMode;
         m_paintingCollection->prepareGL(visibleContentRect, tryFastBlit);
         m_paintingCollection->computeTexturesAmount(texturesResultPtr);
 
@@ -282,6 +282,9 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
                 && m_drawingCollection->isReady())) {
             // either a swap just occurred, or there is no more work to be done: do a full draw
             m_drawingCollection->swapTiles();
+
+            if (didCollectionSwap && m_paintingCollection)
+                m_paintingCollection->prepareGL(visibleContentRect, tryFastBlit);
             returnFlags |= DrawGlInfo::kStatusDraw;
         } else {
             // current collection not ready - invoke functor in process mode
@@ -306,6 +309,9 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
 
         if (didCollectionSwap || m_fastSwapMode || (drawingReady && !m_paintingCollection))
             m_drawingCollection->swapTiles();
+
+        if (didCollectionSwap && m_paintingCollection)
+            m_paintingCollection->prepareGL(visibleContentRect, tryFastBlit);
 
         if (drawingReady) {
             // exit fast swap mode, as content is up to date
