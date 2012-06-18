@@ -30,6 +30,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "GraphicsContext.h"
+#include "HTMLMediaElement.h"
 #include "SkiaUtils.h"
 #include "TilesManager.h"
 #include "VideoLayerAndroid.h"
@@ -55,6 +56,7 @@ static const char* g_ProxyJavaClassAudio = "android/webkit/HTML5Audio";
 struct MediaPlayerPrivate::JavaGlue {
     jobject   m_javaProxy;
     jmethodID m_play;
+    jmethodID m_enterFullscreenForVideoLayer;
     jmethodID m_teardown;
     jmethodID m_seek;
     jmethodID m_pause;
@@ -191,11 +193,19 @@ void MediaPlayerPrivate::onTimeupdate(int position)
     m_player->timeChanged();
 }
 
-void MediaPlayerPrivate::onStopFullscreen()
+void MediaPlayerPrivate::onStopFullscreen(bool stillPlaying)
 {
-    if (m_player && m_player->mediaPlayerClient()
-        && m_player->mediaPlayerClient()->mediaPlayerOwningDocument()) {
-        m_player->mediaPlayerClient()->mediaPlayerOwningDocument()->webkitCancelFullScreen();
+    if (m_player && m_player->mediaPlayerClient()) {
+        Document* doc = m_player->mediaPlayerClient()->mediaPlayerOwningDocument();
+        if (doc) {
+            HTMLMediaElement* element =
+                static_cast<HTMLMediaElement*>(doc->webkitCurrentFullScreenElement());
+            element->exitFullscreen();
+            doc->webkitDidExitFullScreenForElement(element);
+
+            if (stillPlaying)
+                element->play(true);
+        }
     }
 }
 
@@ -234,6 +244,22 @@ public:
 
         checkException(env);
     }
+
+    void enterFullscreenMode()
+    {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env || !m_url.length() || !m_glue->m_javaProxy)
+            return;
+
+        jstring jUrl = wtfStringToJstring(env, m_url);
+        env->CallVoidMethod(m_glue->m_javaProxy,
+                            m_glue->m_enterFullscreenForVideoLayer, jUrl,
+                            m_videoLayer->uniqueId());
+        env->DeleteLocalRef(jUrl);
+
+        checkException(env);
+    }
+
     bool canLoadPoster() const { return true; }
     void setPoster(const String& url)
     {
@@ -319,9 +345,13 @@ public:
             return;
 
         m_glue = new JavaGlue;
-        m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
+        m_glue->m_getInstance =
+            env->GetStaticMethodID(clazz, "getInstance",
+                                   "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
         m_glue->m_loadPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
         m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;II)V");
+        m_glue->m_enterFullscreenForVideoLayer =
+            env->GetMethodID(clazz, "enterFullscreenForVideoLayer", "(Ljava/lang/String;I)V");
 
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
@@ -628,12 +658,12 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
     return true;
 }
 
-static void OnStopFullscreen(JNIEnv* env, jobject obj, int pointer)
+static void OnStopFullscreen(JNIEnv* env, jobject obj, int stillPlaying, int pointer)
 {
     if (pointer) {
         WebCore::MediaPlayerPrivate* player =
             reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
-        player->onStopFullscreen();
+        player->onStopFullscreen(stillPlaying);
     }
 }
 
@@ -645,7 +675,7 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnPrepared },
     { "nativeOnEnded", "(I)V",
         (void*) OnEnded },
-    { "nativeOnStopFullscreen", "(I)V",
+    { "nativeOnStopFullscreen", "(II)V",
         (void*) OnStopFullscreen },
     { "nativeOnPaused", "(I)V",
         (void*) OnPaused },

@@ -104,8 +104,8 @@ public:
     {
         return m_videoLayer;
     }
-    void onStopFullscreen();
-
+    void onStopFullscreen(bool stillPlaying);
+    virtual void enterFullscreenMode() { }
 protected:
     // Android-specific methods and fields.
     static MediaPlayerPrivateInterface* create(MediaPlayer* player);

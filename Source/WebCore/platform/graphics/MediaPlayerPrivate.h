@@ -113,7 +113,9 @@ public:
     virtual void enterFullscreen() { }
     virtual void exitFullscreen() { }
 #endif
-
+#if PLATFORM(ANDROID)
+    virtual void enterFullscreenMode() { }
+#endif
 #if USE(ACCELERATED_COMPOSITING)
     // whether accelerated rendering is supported by the media engine for the current media.
     virtual bool supportsAcceleratedRendering() const { return false; }

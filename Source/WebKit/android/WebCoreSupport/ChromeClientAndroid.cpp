@@ -584,16 +584,23 @@ void ChromeClientAndroid::enterFullscreenForNode(Node* node)
           return;
 
       HTMLMediaElement* videoElement = static_cast<HTMLMediaElement*>(node);
-      String url = videoElement->currentSrc();
-      LayerAndroid* layer = videoElement->platformLayer();
-      if (!layer)
-          return;
 
       FrameView* frameView = m_webFrame->page()->mainFrame()->view();
       android::WebViewCore* core = android::WebViewCore::getWebViewCore(frameView);
-      m_webFrame->page()->mainFrame()->document()->webkitWillEnterFullScreenForElement(videoElement);
       if (core)
-          core->enterFullscreenForVideoLayer(layer->uniqueId(), url);
+          core->enterFullscreenForVideoLayer();
+
+      MediaPlayer* player = videoElement->player();
+      if (player) {
+          // We need to use the same document object as the
+          // MediaPlayerPrivateAndroid::onStopFullscreen().
+          Document* doc = player->mediaPlayerClient()->mediaPlayerOwningDocument();
+          if (doc)
+              doc->webkitWillEnterFullScreenForElement(videoElement);
+          // Now the player is responsible to trigger to the java side for
+          // entering full screen mode.
+          player->enterFullscreenMode();
+      }
 }
 
 void ChromeClientAndroid::exitFullscreenForNode(Node* node)

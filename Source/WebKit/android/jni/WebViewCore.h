@@ -532,7 +532,7 @@ namespace android {
         void updateMatchCount() const;
 
 #if ENABLE(VIDEO)
-        void enterFullscreenForVideoLayer(int layerId, const WTF::String& url);
+        void enterFullscreenForVideoLayer();
         void exitFullscreenVideo();
 #endif
 

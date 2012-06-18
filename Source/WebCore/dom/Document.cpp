@@ -4877,11 +4877,6 @@ void Document::webkitCancelFullScreen()
         return;
     
     page()->chrome()->client()->exitFullScreenForElement(m_fullScreenElement.get());
-#if PLATFORM(ANDROID)
-    // The next time we try to enter full screen, we need this change to know
-    // we are not in full screen any more.
-    m_fullScreenElement = 0;
-#endif
 }
     
 void Document::webkitWillEnterFullScreenForElement(Element* element)

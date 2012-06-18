@@ -190,6 +190,7 @@ public:
     enum MediaElementType { Video, Audio };
     void setMediaElementType(MediaElementType type) { m_mediaElementType = type; }
     MediaElementType mediaElementType() { return m_mediaElementType; }
+    void enterFullscreenMode();
 #endif
 
     void setFrameView(FrameView* frameView) { m_frameView = frameView; }

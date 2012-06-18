@@ -689,6 +689,14 @@ void MediaPlayer::exitFullscreen()
 }    
 #endif
 
+#if PLATFORM(ANDROID)
+void MediaPlayer::enterFullscreenMode()
+{
+    // Tell the player to enter full screen mode.
+    m_private->enterFullscreenMode();
+}
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
 void MediaPlayer::acceleratedRenderingStateChanged()
 {

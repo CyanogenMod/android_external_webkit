@@ -367,7 +367,6 @@ struct WebViewCore::JavaGlue {
     jmethodID   m_showRect;
     jmethodID   m_centerFitRect;
     jmethodID   m_setScrollbarModes;
-    jmethodID   m_enterFullscreenForVideoLayer;
     jmethodID   m_exitFullscreenVideo;
     jmethodID   m_setWebTextViewAutoFillable;
     jmethodID   m_selectAt;
@@ -498,7 +497,6 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_centerFitRect = GetJMethod(env, clazz, "centerFitRect", "(IIII)V");
     m_javaGlue->m_setScrollbarModes = GetJMethod(env, clazz, "setScrollbarModes", "(II)V");
 #if ENABLE(VIDEO)
-    m_javaGlue->m_enterFullscreenForVideoLayer = GetJMethod(env, clazz, "enterFullscreenForVideoLayer", "(ILjava/lang/String;)V");
     m_javaGlue->m_exitFullscreenVideo = GetJMethod(env, clazz, "exitFullscreenVideo", "()V");
 #endif
     m_javaGlue->m_setWebTextViewAutoFillable = GetJMethod(env, clazz, "setWebTextViewAutoFillable", "(ILjava/lang/String;)V");
@@ -4097,16 +4095,10 @@ void WebViewCore::setScrollbarModes(ScrollbarMode horizontalMode, ScrollbarMode 
 }
 
 #if ENABLE(VIDEO)
-void WebViewCore::enterFullscreenForVideoLayer(int layerId, const WTF::String& url)
+void WebViewCore::enterFullscreenForVideoLayer()
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    AutoJObject javaObject = m_javaGlue->object(env);
-    if (!javaObject.get())
-        return;
-    jstring jUrlStr = wtfStringToJstring(env, url);
-    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_enterFullscreenForVideoLayer, layerId, jUrlStr);
+    // Just need to update the video mode, to avoid multiple exit full screen.
     m_fullscreenVideoMode = true;
-    checkException(env);
 }
 
 void WebViewCore::exitFullscreenVideo()
