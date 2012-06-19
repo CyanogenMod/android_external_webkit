@@ -29,7 +29,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "QueuedOperation.h"
-#include "TilePainter.h"
+#include "TransferQueue.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 
@@ -43,10 +43,9 @@ class TilesManager;
 
 class TexturesGenerator : public Thread {
 public:
-    TexturesGenerator(TilesManager* instance) : Thread(false)
-        , m_tilesManager(instance)
-        , m_deferredMode(false) { }
-    virtual ~TexturesGenerator() { }
+    TexturesGenerator(TilesManager* instance);
+    virtual ~TexturesGenerator() {}
+
     virtual status_t readyToRun();
 
     bool tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter);
@@ -59,6 +58,7 @@ public:
     // signifying that they should be deferred
     static const int gDeferPriorityCutoff = 500000000;
 
+    SkBitmap* bitmap() { return &m_bitmap; }
 private:
     QueuedOperation* popNext();
     virtual bool threadLoop();
@@ -68,6 +68,7 @@ private:
     android::Condition mRequestedOperationsCond;
     TilesManager* m_tilesManager;
 
+    SkBitmap m_bitmap;
     bool m_deferredMode;
 
     // defer painting for one second if best in queue has priority

@@ -39,6 +39,13 @@
 
 namespace WebCore {
 
+TexturesGenerator::TexturesGenerator(TilesManager* instance)
+  : Thread(false)
+  , m_tilesManager(instance)
+  , m_deferredMode(false)
+{
+}
+
 bool TexturesGenerator::tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter)
 {
     android::Mutex::Autolock lock(mRequestedOperationsLock);
@@ -83,12 +90,14 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
             i++;
         }
     }
-    delete filter;
 }
 
 status_t TexturesGenerator::readyToRun()
 {
-    ALOGV("Thread ready to run");
+    m_bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+                       TilesManager::instance()->tileWidth(),
+                       TilesManager::instance()->tileHeight());
+    m_bitmap.allocPixels();
     return NO_ERROR;
 }
 

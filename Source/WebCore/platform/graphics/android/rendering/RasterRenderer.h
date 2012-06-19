@@ -29,7 +29,6 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "BaseRenderer.h"
-#include "SkBitmap.h"
 #include "SkRect.h"
 
 class SkCanvas;
@@ -50,10 +49,6 @@ protected:
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas);
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas);
     virtual void checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas);
-
-private:
-    static SkBitmap* g_bitmap;
-
 };
 
 } // namespace WebCore

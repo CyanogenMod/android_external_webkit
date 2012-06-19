@@ -53,23 +53,9 @@ public:
         return gInstance != 0;
     }
 
-    void removeOperationsForFilter(OperationFilter* filter)
-    {
-        m_pixmapsGenerationThread->removeOperationsForFilter(filter);
-    }
-
-    bool tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter)
-    {
-        return m_pixmapsGenerationThread->tryUpdateOperationWithPainter(tile, painter);
-    }
-
-    void scheduleOperation(QueuedOperation* operation)
-    {
-        m_pixmapsGenerationThread->scheduleOperation(operation);
-    }
-
     ShaderProgram* shader() { return &m_shader; }
     TransferQueue* transferQueue();
+
     VideoLayerManager* videoLayerManager() { return &m_videoLayerManager; }
 
     void updateTilesIfContextVerified();
@@ -165,8 +151,16 @@ public:
         return m_drawGLCount;
     }
 
+    // operations on/for texture generator threads
+    void removeOperationsForFilter(OperationFilter* filter);
+    bool tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter);
+    void scheduleOperation(QueuedOperation* operation);
+    SkBitmap* threadLocalBitmap();
+
 private:
     TilesManager();
+    ~TilesManager();
+    int m_scheduleThread;
 
     void discardTexturesVector(unsigned long long sparedDrawCount,
                                WTF::Vector<TileTexture*>& textures,
@@ -198,7 +192,7 @@ private:
     unsigned int m_contentUpdates; // nr of successful tiled paints
     unsigned int m_webkitContentUpdates; // nr of paints from webkit
 
-    sp<TexturesGenerator> m_pixmapsGenerationThread;
+    sp<TexturesGenerator>* m_textureGenerators;
 
     android::Mutex m_texturesLock;
 
