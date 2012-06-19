@@ -65,6 +65,10 @@
 
 #define LAYER_TEXTURES_DESTROY_TIMEOUT 60 // If we do not need layers for 60 seconds, free the textures
 
+// Eventually this should be dynamically be determined, and smart scheduling
+// between the generators should be implemented
+#define NUM_TEXTURES_GENERATORS 1
+
 namespace WebCore {
 
 int TilesManager::getMaxTextureAllocation()
@@ -105,9 +109,20 @@ TilesManager::TilesManager()
     m_availableTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_tilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
     m_availableTilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
-    m_pixmapsGenerationThread = new TexturesGenerator(this);
-    m_pixmapsGenerationThread->run("TexturesGenerator");
+
+    m_textureGenerators = new sp<TexturesGenerator>[NUM_TEXTURES_GENERATORS];
+    for (int i = 0; i < NUM_TEXTURES_GENERATORS; i++) {
+        m_textureGenerators[i] = new TexturesGenerator(this);
+        ALOGD("Starting TG #%d, %p", i, m_textureGenerators[i].get());
+        m_textureGenerators[i]->run("TexturesGenerator");
+    }
 }
+
+TilesManager::~TilesManager()
+{
+    delete[] m_textureGenerators;
+}
+
 
 void TilesManager::allocateTextures()
 {
@@ -487,6 +502,40 @@ void TilesManager::updateTilesIfContextVerified()
     m_eglContext = ctx;
     return;
 }
+
+void TilesManager::removeOperationsForFilter(OperationFilter* filter)
+{
+    for (int i = 0; i < NUM_TEXTURES_GENERATORS; i++)
+        m_textureGenerators[i]->removeOperationsForFilter(filter);
+    delete filter;
+}
+
+bool TilesManager::tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter)
+{
+    for (int i = 0; i < NUM_TEXTURES_GENERATORS; i++) {
+        if (m_textureGenerators[i]->tryUpdateOperationWithPainter(tile, painter))
+            return true;
+    }
+    return false;
+}
+
+void TilesManager::scheduleOperation(QueuedOperation* operation)
+{
+    // TODO: painter awareness, store prefer awareness, store preferred thread into painter
+    m_scheduleThread = (m_scheduleThread + 1) % NUM_TEXTURES_GENERATORS;
+    m_textureGenerators[m_scheduleThread]->scheduleOperation(operation);
+}
+
+SkBitmap* TilesManager::threadLocalBitmap()
+{
+    pid_t localTid = androidGetTid();
+    for (int i = 0; i < NUM_TEXTURES_GENERATORS; i++) {
+        if (localTid == m_textureGenerators[i]->getTid())
+            return m_textureGenerators[i]->bitmap();
+    }
+    return 0;
+}
+
 
 int TilesManager::tileWidth()
 {
