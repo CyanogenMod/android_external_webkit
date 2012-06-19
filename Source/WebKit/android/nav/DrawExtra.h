@@ -65,7 +65,8 @@ public:
     virtual ~RegionLayerDrawExtra();
 
     void addHighlightRegion(const LayerAndroid* layer, const Vector<IntRect>& rects,
-                            const IntPoint& additionalOffset = IntPoint());
+                            const IntPoint& additionalOffset = IntPoint(),
+                            const IntRect& clipRect = IntRect());
     virtual void draw(SkCanvas*, LayerAndroid*);
     virtual void drawGL(GLExtras*, const LayerAndroid*);
 
