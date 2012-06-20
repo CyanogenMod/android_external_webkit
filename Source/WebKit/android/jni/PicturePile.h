@@ -38,7 +38,17 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
+#define USE_RECORDING_CONTEXT false
+#if USE_RECORDING_CONTEXT
+namespace WebCore {
+class GraphicsOperationCollection;
+}
+typedef WebCore::GraphicsOperationCollection Picture;
+#else
 class SkPicture;
+typedef SkPicture Picture;
+#endif
+
 class SkCanvas;
 
 namespace WebCore {
@@ -57,7 +67,7 @@ public:
 
 class PictureContainer {
 public:
-    SkPicture* picture;
+    Picture* picture;
     IntRect area;
     bool dirty;
     RefPtr<PrerenderedInval> prerendered;
@@ -68,26 +78,14 @@ public:
         , dirty(true)
     {}
 
-    PictureContainer(const PictureContainer& other)
-        : picture(other.picture)
-        , area(other.area)
-        , dirty(other.dirty)
-        , prerendered(other.prerendered)
-    {
-        SkSafeRef(picture);
-    }
-
-    ~PictureContainer()
-    {
-        SkSafeUnref(picture);
-    }
+    PictureContainer(const PictureContainer& other);
+    ~PictureContainer();
 };
 
 class PicturePile {
 public:
     PicturePile() {}
     PicturePile(const PicturePile& other);
-    PicturePile(SkPicture* picture);
 
     const IntSize& size() { return m_size; }
 
@@ -107,8 +105,10 @@ public:
 private:
     void applyWebkitInvals();
     void updatePicture(PicturePainter* painter, PictureContainer& container);
+    Picture* recordPicture(PicturePainter* painter, PictureContainer& container);
     void appendToPile(const IntRect& inval, const IntRect& originalInval = IntRect());
     void drawWithClipRecursive(SkCanvas* canvas, SkRegion& clipRegion, int index);
+    void drawPicture(SkCanvas* canvas, PictureContainer& pc);
 
     IntSize m_size;
     Vector<PictureContainer> m_pile;

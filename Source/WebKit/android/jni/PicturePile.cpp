@@ -35,10 +35,16 @@
 #include "PlatformGraphicsContextSkia.h"
 #include "SkCanvas.h"
 #include "SkNWayCanvas.h"
-#include "SkPicture.h"
 #include "SkPixelRef.h"
 #include "SkRect.h"
 #include "SkRegion.h"
+
+#if USE_RECORDING_CONTEXT
+#include "GraphicsOperationCollection.h"
+#include "PlatformGraphicsContextRecording.h"
+#else
+#include "SkPicture.h"
+#endif
 
 #define ENABLE_PRERENDERED_INVALS true
 #define MAX_OVERLAP_COUNT 2
@@ -57,20 +63,25 @@ static IntRect extractClipBounds(SkCanvas* canvas, const IntSize& size) {
     return enclosingIntRect(clip);
 }
 
+PictureContainer::PictureContainer(const PictureContainer& other)
+    : picture(other.picture)
+    , area(other.area)
+    , dirty(other.dirty)
+    , prerendered(other.prerendered)
+{
+    SkSafeRef(picture);
+}
+
+PictureContainer::~PictureContainer()
+{
+    SkSafeUnref(picture);
+}
+
 PicturePile::PicturePile(const PicturePile& other)
     : m_size(other.m_size)
     , m_pile(other.m_pile)
     , m_webkitInvals(other.m_webkitInvals)
 {
-}
-
-PicturePile::PicturePile(SkPicture* picture)
-{
-    m_size = IntSize(picture->width(), picture->height());
-    PictureContainer pc(IntRect(0, 0, m_size.width(), m_size.height()));
-    pc.picture = picture;
-    pc.dirty = false;
-    m_pile.append(pc);
 }
 
 void PicturePile::draw(SkCanvas* canvas)
@@ -106,8 +117,7 @@ void PicturePile::drawWithClipRecursive(SkCanvas* canvas, SkRegion& clipRegion,
         drawWithClipRecursive(canvas, clipRegion, index - 1);
         int saved = canvas->save();
         canvas->clipRect(intersection);
-        canvas->translate(pc.area.x(), pc.area.y());
-        canvas->drawPicture(*pc.picture);
+        drawPicture(canvas, pc);
         canvas->restoreToCount(saved);
     } else
         drawWithClipRecursive(canvas, clipRegion, index - 1);
@@ -162,43 +172,8 @@ void PicturePile::updatePicturesIfNeeded(PicturePainter* painter)
 
 void PicturePile::updatePicture(PicturePainter* painter, PictureContainer& pc)
 {
-    /* The ref counting here is a bit unusual. What happens is begin/end recording
-     * will ref/unref the recording canvas. However, 'canvas' might be pointing
-     * at an SkNWayCanvas instead of the recording canvas, which needs to be
-     * unref'd. Thus what we do is ref the recording canvas so that we can
-     * always unref whatever canvas we have at the end.
-     */
     TRACE_METHOD();
-    SkPicture* picture = new SkPicture();
-    SkCanvas* canvas = picture->beginRecording(pc.area.width(), pc.area.height(),
-            SkPicture::kUsePathBoundsForClip_RecordingFlag);
-    SkSafeRef(canvas);
-    canvas->translate(-pc.area.x(), -pc.area.y());
-    IntRect drawArea = pc.area;
-    if (pc.prerendered.get()) {
-        SkCanvas* prerender = painter->createPrerenderCanvas(pc.prerendered.get());
-        if (!prerender) {
-            ALOGV("Failed to create prerendered for " INT_RECT_FORMAT,
-                    INT_RECT_ARGS(pc.prerendered->area));
-            pc.prerendered.clear();
-        } else {
-            drawArea.unite(pc.prerendered->area);
-            SkNWayCanvas* nwayCanvas = new SkNWayCanvas(drawArea.width(), drawArea.height());
-            nwayCanvas->translate(-drawArea.x(), -drawArea.y());
-            nwayCanvas->addCanvas(canvas);
-            nwayCanvas->addCanvas(prerender);
-            SkSafeUnref(canvas);
-            SkSafeUnref(prerender);
-            canvas = nwayCanvas;
-        }
-    }
-    WebCore::PlatformGraphicsContextSkia pgc(canvas);
-    WebCore::GraphicsContext gc(&pgc);
-    ALOGV("painting picture: " INT_RECT_FORMAT, INT_RECT_ARGS(drawArea));
-    painter->paintContents(&gc, drawArea);
-    SkSafeUnref(canvas);
-    picture->endRecording();
-
+    Picture* picture = recordPicture(painter, pc);
     SkSafeUnref(pc.picture);
     pc.picture = picture;
     pc.dirty = false;
@@ -296,5 +271,70 @@ PrerenderedInval* PicturePile::prerenderedInvalForArea(const IntRect& area)
     }
     return 0;
 }
+
+#if USE_RECORDING_CONTEXT
+void PicturePile::drawPicture(SkCanvas* canvas, PictureContainer& pc)
+{
+    PlatformGraphicsContextSkia pgc(canvas);
+    pc.picture->apply(&pgc);
+}
+
+Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& pc)
+{
+    // TODO: Support? Not needed?
+    pc.prerendered.clear();
+    GraphicsOperationCollection* picture = new GraphicsOperationCollection();
+    WebCore::PlatformGraphicsContextRecording pgc(picture);
+    WebCore::GraphicsContext gc(&pgc);
+    painter->paintContents(&gc, pc.area);
+    return picture;
+}
+#else
+void PicturePile::drawPicture(SkCanvas* canvas, PictureContainer& pc)
+{
+    canvas->translate(pc.area.x(), pc.area.y());
+    pc.picture->draw(canvas);
+}
+
+Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& pc)
+{
+    /* The ref counting here is a bit unusual. What happens is begin/end recording
+     * will ref/unref the recording canvas. However, 'canvas' might be pointing
+     * at an SkNWayCanvas instead of the recording canvas, which needs to be
+     * unref'd. Thus what we do is ref the recording canvas so that we can
+     * always unref whatever canvas we have at the end.
+     */
+    SkPicture* picture = new SkPicture();
+    SkCanvas* canvas = picture->beginRecording(pc.area.width(), pc.area.height(),
+            SkPicture::kUsePathBoundsForClip_RecordingFlag);
+    SkSafeRef(canvas);
+    canvas->translate(-pc.area.x(), -pc.area.y());
+    IntRect drawArea = pc.area;
+    if (pc.prerendered.get()) {
+        SkCanvas* prerender = painter->createPrerenderCanvas(pc.prerendered.get());
+        if (!prerender) {
+            ALOGV("Failed to create prerendered for " INT_RECT_FORMAT,
+                    INT_RECT_ARGS(pc.prerendered->area));
+            pc.prerendered.clear();
+        } else {
+            drawArea.unite(pc.prerendered->area);
+            SkNWayCanvas* nwayCanvas = new SkNWayCanvas(drawArea.width(), drawArea.height());
+            nwayCanvas->translate(-drawArea.x(), -drawArea.y());
+            nwayCanvas->addCanvas(canvas);
+            nwayCanvas->addCanvas(prerender);
+            SkSafeUnref(canvas);
+            SkSafeUnref(prerender);
+            canvas = nwayCanvas;
+        }
+    }
+    WebCore::PlatformGraphicsContextSkia pgc(canvas);
+    WebCore::GraphicsContext gc(&pgc);
+    ALOGV("painting picture: " INT_RECT_FORMAT, INT_RECT_ARGS(drawArea));
+    painter->paintContents(&gc, drawArea);
+    SkSafeUnref(canvas);
+    picture->endRecording();
+    return picture;
+}
+#endif
 
 } // namespace WebCore

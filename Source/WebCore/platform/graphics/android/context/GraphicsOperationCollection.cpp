@@ -13,8 +13,7 @@
 
 namespace WebCore {
 
-GraphicsOperationCollection::GraphicsOperationCollection(const IntRect& drawArea)
-    : m_drawArea(drawArea)
+GraphicsOperationCollection::GraphicsOperationCollection()
 {
 }
 
@@ -44,9 +43,9 @@ bool GraphicsOperationCollection::isEmpty()
     return !m_operations.size();
 }
 
-AutoGraphicsOperationCollection::AutoGraphicsOperationCollection(const IntRect& area)
+AutoGraphicsOperationCollection::AutoGraphicsOperationCollection()
 {
-    m_graphicsOperationCollection = new GraphicsOperationCollection(area);
+    m_graphicsOperationCollection = new GraphicsOperationCollection();
     m_platformGraphicsContext = new PlatformGraphicsContextRecording(m_graphicsOperationCollection);
     m_graphicsContext = new GraphicsContext(m_platformGraphicsContext);
 }

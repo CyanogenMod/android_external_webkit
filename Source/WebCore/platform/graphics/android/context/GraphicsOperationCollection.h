@@ -39,7 +39,7 @@ class PlatformGraphicsContext;
 
 class GraphicsOperationCollection : public SkRefCnt {
 public:
-    GraphicsOperationCollection(const IntRect& drawArea);
+    GraphicsOperationCollection();
     ~GraphicsOperationCollection();
 
     void apply(PlatformGraphicsContext* context);
@@ -48,13 +48,12 @@ public:
     bool isEmpty();
 
 private:
-    IntRect m_drawArea;
     Vector<GraphicsOperation::Operation*> m_operations;
 };
 
 class AutoGraphicsOperationCollection {
 public:
-   AutoGraphicsOperationCollection(const IntRect& area);
+   AutoGraphicsOperationCollection();
    ~AutoGraphicsOperationCollection();
    GraphicsContext* context() { return m_graphicsContext; }
    GraphicsOperationCollection* picture() { return m_graphicsOperationCollection; }
