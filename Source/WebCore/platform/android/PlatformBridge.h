@@ -132,7 +132,7 @@ public:
     // Update the viewport meta data.
     static void updateViewport(FrameView*);
 
-    static void updateTextfield(FrameView*, Node*, bool changeToPassword, const WTF::String& text);
+    static void updateTextfield(FrameView*, Node*, const WTF::String& text);
 
     static void setScrollPosition(ScrollView*, int x, int y);
 

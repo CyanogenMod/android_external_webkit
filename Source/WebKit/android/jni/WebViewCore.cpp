@@ -470,7 +470,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_updateViewport = GetJMethod(env, clazz, "updateViewport", "()V");
     m_javaGlue->m_sendNotifyProgressFinished = GetJMethod(env, clazz, "sendNotifyProgressFinished", "()V");
     m_javaGlue->m_sendViewInvalidate = GetJMethod(env, clazz, "sendViewInvalidate", "(IIII)V");
-    m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(IZLjava/lang/String;I)V");
+    m_javaGlue->m_updateTextfield = GetJMethod(env, clazz, "updateTextfield", "(ILjava/lang/String;I)V");
     m_javaGlue->m_updateTextSelection = GetJMethod(env, clazz, "updateTextSelection", "(IIIII)V");
     m_javaGlue->m_updateTextSizeAndScroll = GetJMethod(env, clazz, "updateTextSizeAndScroll", "(IIIII)V");
     m_javaGlue->m_clearTextEntry = GetJMethod(env, clazz, "clearTextEntry", "()V");
@@ -2991,7 +2991,7 @@ void WebViewCore::passToJs(int generation, const WTF::String& current,
     WTF::String test = getInputText(focus);
     if (test != current) {
         // If the text changed during the key event, update the UI text field.
-        updateTextfield(focus, false, test);
+        updateTextfield(focus, test);
     }
     // Now that the selection has settled down, send it.
     updateTextSelection();
@@ -3894,8 +3894,7 @@ void WebViewCore::updateTextSizeAndScroll(WebCore::Node* node)
     checkException(env);
 }
 
-void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
-        const WTF::String& text)
+void WebViewCore::updateTextfield(WebCore::Node* ptr, const WTF::String& text)
 {
     JNIEnv* env = JSC::Bindings::getJNIEnv();
     AutoJObject javaObject = m_javaGlue->object(env);
@@ -3903,15 +3902,9 @@ void WebViewCore::updateTextfield(WebCore::Node* ptr, bool changeToPassword,
         return;
     if (m_blockTextfieldUpdates)
         return;
-    if (changeToPassword) {
-        env->CallVoidMethod(javaObject.get(), m_javaGlue->m_updateTextfield,
-                (int) ptr, true, 0, m_textGeneration);
-        checkException(env);
-        return;
-    }
     jstring string = wtfStringToJstring(env, text);
     env->CallVoidMethod(javaObject.get(), m_javaGlue->m_updateTextfield,
-            (int) ptr, false, string, m_textGeneration);
+            (int) ptr, string, m_textGeneration);
     env->DeleteLocalRef(string);
     checkException(env);
 }

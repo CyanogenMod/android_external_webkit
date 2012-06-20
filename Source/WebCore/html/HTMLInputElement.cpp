@@ -444,10 +444,6 @@ void HTMLInputElement::setType(const String& type)
 void HTMLInputElement::updateType()
 {
     OwnPtr<InputType> newType = InputType::create(this, fastGetAttribute(typeAttr));
-#ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
-    if (newType->isPasswordField() && document()->focusedNode() == this)
-        PlatformBridge::updateTextfield(document()->view(), this, true, String());
-#endif
     bool hadType = m_hasType;
     m_hasType = true;
     if (m_inputType->formControlType() == newType->formControlType())
@@ -912,7 +908,7 @@ void HTMLInputElement::setValue(const String& value, bool sendChangeEvent)
         unsigned max = m_data.value().length();
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
         // Make sure our UI side textfield changes to match the RenderTextControl
-        PlatformBridge::updateTextfield(document()->view(), this, false, value);
+        PlatformBridge::updateTextfield(document()->view(), this, value);
 #endif
         if (document()->focusedNode() == this)
             InputElement::updateSelectionRange(this, this, max, max);

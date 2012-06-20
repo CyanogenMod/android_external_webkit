@@ -164,10 +164,10 @@ void PlatformBridge::updateViewport(FrameView* frameView)
     webViewCore->updateViewport();
 }
 
-void PlatformBridge::updateTextfield(FrameView* frameView, Node* nodePtr, bool changeToPassword, const WTF::String& text)
+void PlatformBridge::updateTextfield(FrameView* frameView, Node* nodePtr, const WTF::String& text)
 {
     android::WebViewCore* webViewCore = android::WebViewCore::getWebViewCore(frameView);
-    webViewCore->updateTextfield(nodePtr, changeToPassword, text);
+    webViewCore->updateTextfield(nodePtr, text);
 }
 
 void PlatformBridge::setScrollPosition(ScrollView* scrollView, int x, int y) {
