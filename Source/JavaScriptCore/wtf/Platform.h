@@ -780,8 +780,6 @@
 #define ANDROID_ANIMATED_GIF
 // apple-touch-icon support in <link> tags
 #define ANDROID_APPLE_TOUCH_ICON
-// track changes to the style that may change what is drawn
-#define ANDROID_STYLE_VERSION
 
 // This is present in JavaScriptCore/config.h, which Android does not use.
 #define WTF_CHANGES 1
