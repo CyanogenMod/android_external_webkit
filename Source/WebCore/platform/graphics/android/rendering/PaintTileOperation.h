@@ -42,7 +42,7 @@ public:
                        GLWebViewState* state, bool isLowResPrefetch);
     virtual ~PaintTileOperation();
     virtual bool operator==(const QueuedOperation* operation);
-    virtual void run();
+    virtual void run(BaseRenderer* renderer);
     virtual void* uniquePtr() { return m_tile; }
     // returns a rendering priority for m_tile, lower values are processed faster
     virtual int priority();

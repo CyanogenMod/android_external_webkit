@@ -32,6 +32,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
+#include "BaseRenderer.h"
 #include "DrawQuadData.h"
 #include "GLUtils.h"
 #include "Tile.h"

@@ -32,6 +32,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
+#include "BaseRenderer.h"
 #include "GLUtils.h"
 #include "PaintTileOperation.h"
 #include "TilesManager.h"
@@ -43,7 +44,13 @@ TexturesGenerator::TexturesGenerator(TilesManager* instance)
   : Thread(false)
   , m_tilesManager(instance)
   , m_deferredMode(false)
+  , m_renderer(0)
 {
+}
+
+TexturesGenerator::~TexturesGenerator()
+{
+    delete m_renderer;
 }
 
 bool TexturesGenerator::tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter)
@@ -94,11 +101,7 @@ void TexturesGenerator::removeOperationsForFilter(OperationFilter* filter)
 
 status_t TexturesGenerator::readyToRun()
 {
-    m_bitmap.setConfig(SkBitmap::kARGB_8888_Config,
-                       TilesManager::instance()->tileWidth(),
-                       TilesManager::instance()->tileHeight());
-    m_bitmap.allocPixels();
-    m_localTid = androidGetTid();
+    m_renderer = BaseRenderer::createRenderer();
     return NO_ERROR;
 }
 
@@ -175,7 +178,9 @@ bool TexturesGenerator::threadLoop()
         if (currentOperation) {
             ALOGV("threadLoop, painting the request with priority %d",
                   currentOperation->priority());
-            currentOperation->run();
+            // swap out the renderer if necessary
+            BaseRenderer::swapRendererIfNeeded(m_renderer);
+            currentOperation->run(m_renderer);
         }
 
         mRequestedOperationsLock.lock();
