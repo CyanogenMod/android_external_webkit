@@ -39,6 +39,7 @@ public:
     virtual bool drawGL(bool layerTilesDisabled);
     virtual void paintBitmapGL() const { };
     virtual bool needsTexture() { return false; }
+    virtual bool needsIsolatedSurface() { return true; }
 
     virtual bool isMedia() const { return true; }
     virtual LayerAndroid* copy() const { return new MediaLayer(*this); }
