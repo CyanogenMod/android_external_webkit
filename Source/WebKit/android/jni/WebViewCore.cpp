@@ -1359,7 +1359,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 m_mainFrame->view()->forceLayout();
 
             // scroll to restore current screen center
-            if (node) {
+            if (node && node->inDocument()) {
                 const WebCore::IntRect& newBounds = node->getRect();
                 DBG_NAV_LOGD("nb:(x=%d,y=%d,w=%d,"
                     "h=%d)", newBounds.x(), newBounds.y(),
