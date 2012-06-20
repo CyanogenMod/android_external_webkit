@@ -526,17 +526,6 @@ void TilesManager::scheduleOperation(QueuedOperation* operation)
     m_textureGenerators[m_scheduleThread]->scheduleOperation(operation);
 }
 
-SkBitmap* TilesManager::threadLocalBitmap()
-{
-    pid_t localTid = androidGetTid();
-    for (int i = 0; i < NUM_TEXTURES_GENERATORS; i++) {
-        if (localTid == m_textureGenerators[i]->getLocalTid())
-            return m_textureGenerators[i]->bitmap();
-    }
-    return 0;
-}
-
-
 int TilesManager::tileWidth()
 {
     return TILE_WIDTH;

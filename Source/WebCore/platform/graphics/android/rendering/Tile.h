@@ -28,7 +28,6 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "BaseRenderer.h"
 #include "FloatPoint.h"
 #include "SkRect.h"
 #include "SkRegion.h"
@@ -39,9 +38,10 @@
 
 namespace WebCore {
 
+class BaseRenderer;
+class GLWebViewState;
 class TextureInfo;
 class TileTexture;
-class GLWebViewState;
 
 /**
  * An individual tile that is used to construct part of a webpage's BaseLayer of
@@ -107,7 +107,7 @@ public:
                 const FloatRect& fillPortion);
 
     // the only thread-safe function called by the background thread
-    void paintBitmap(TilePainter* painter);
+    void paintBitmap(TilePainter* painter, BaseRenderer* renderer);
 
     bool intersectWithRect(int x, int y, int tileWidth, int tileHeight,
                            float scale, const SkRect& dirtyRect,
@@ -170,8 +170,6 @@ private:
     // happen atomically and (2) it makes sure those operations are synchronized
     // across all threads and cores.
     android::Mutex m_atomicSync;
-
-    BaseRenderer* m_renderer;
 
     bool m_isLayerTile;
 

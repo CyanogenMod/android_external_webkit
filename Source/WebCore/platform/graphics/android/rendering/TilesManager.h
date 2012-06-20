@@ -155,7 +155,6 @@ public:
     void removeOperationsForFilter(OperationFilter* filter);
     bool tryUpdateOperationWithPainter(Tile* tile, TilePainter* painter);
     void scheduleOperation(QueuedOperation* operation);
-    SkBitmap* threadLocalBitmap();
 
 private:
     TilesManager();

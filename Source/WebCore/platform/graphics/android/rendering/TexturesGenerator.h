@@ -44,7 +44,7 @@ class TilesManager;
 class TexturesGenerator : public Thread {
 public:
     TexturesGenerator(TilesManager* instance);
-    virtual ~TexturesGenerator() {}
+    virtual ~TexturesGenerator();
 
     virtual status_t readyToRun();
 
@@ -58,8 +58,6 @@ public:
     // signifying that they should be deferred
     static const int gDeferPriorityCutoff = 500000000;
 
-    SkBitmap* bitmap() { return &m_bitmap; }
-    int getLocalTid() { return m_localTid; }
 private:
     QueuedOperation* popNext();
     virtual bool threadLoop();
@@ -69,9 +67,8 @@ private:
     android::Condition mRequestedOperationsCond;
     TilesManager* m_tilesManager;
 
-    SkBitmap m_bitmap;
+    BaseRenderer* m_renderer;
     bool m_deferredMode;
-    int m_localTid;
 
     // defer painting for one second if best in queue has priority
     // QueuedOperation::gDeferPriorityCutoff or higher

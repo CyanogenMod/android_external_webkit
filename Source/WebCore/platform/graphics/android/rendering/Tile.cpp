@@ -33,7 +33,7 @@
 
 #include "AndroidLog.h"
 #include "GLUtils.h"
-#include "RasterRenderer.h"
+#include "BaseRenderer.h"
 #include "TextureInfo.h"
 #include "TileTexture.h"
 #include "TilesManager.h"
@@ -64,7 +64,6 @@ Tile::Tile(bool isLayerTile)
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("Tile");
 #endif
-    m_renderer = BaseRenderer::createRenderer();
 }
 
 Tile::~Tile()
@@ -73,8 +72,6 @@ Tile::~Tile()
         m_backTexture->release(this);
     if (m_frontTexture)
         m_frontTexture->release(this);
-
-    delete m_renderer;
 
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->decrement("Tile");
@@ -297,7 +294,7 @@ bool Tile::isTileVisible(const IntRect& viewTileBounds)
 }
 
 // This is called from the texture generation thread
-void Tile::paintBitmap(TilePainter* painter)
+void Tile::paintBitmap(TilePainter* painter, BaseRenderer* renderer)
 {
     // We acquire the values below atomically. This ensures that we are reading
     // values correctly across cores. Further, once we have these values they
@@ -328,8 +325,6 @@ void Tile::paintBitmap(TilePainter* painter)
         return;
     }
 
-    // swap out the renderer if necessary
-    BaseRenderer::swapRendererIfNeeded(m_renderer);
     // setup the common renderInfo fields;
     TileRenderInfo renderInfo;
     renderInfo.x = x;
@@ -343,7 +338,7 @@ void Tile::paintBitmap(TilePainter* painter)
     const float tileWidth = renderInfo.tileSize.width();
     const float tileHeight = renderInfo.tileSize.height();
 
-    m_renderer->renderTiledContent(renderInfo);
+    renderer->renderTiledContent(renderInfo);
 
     m_atomicSync.lock();
 

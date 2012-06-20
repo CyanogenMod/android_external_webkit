@@ -42,8 +42,14 @@
 
 namespace WebCore {
 
-RasterRenderer::RasterRenderer() : BaseRenderer(BaseRenderer::Raster)
+RasterRenderer::RasterRenderer()
+  : BaseRenderer(BaseRenderer::Raster)
+  , m_bitmapIsPureColor(false)
 {
+    m_bitmap.setConfig(SkBitmap::kARGB_8888_Config,
+                       TilesManager::instance()->tileWidth(),
+                       TilesManager::instance()->tileHeight());
+    m_bitmap.allocPixels();
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("RasterRenderer");
 #endif
@@ -60,10 +66,12 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 {
     TRACE_METHOD();
 
-    SkBitmap* bitmap = TilesManager::instance()->threadLocalBitmap();
     if (renderInfo.baseTile->isLayerTile()) {
-        bitmap->setIsOpaque(false);
-        bitmap->eraseARGB(0, 0, 0, 0);
+        m_bitmap.setIsOpaque(false);
+
+        // clear bitmap if necessary
+        if (!m_bitmapIsPureColor || m_bitmapPureColor != Color::transparent)
+            m_bitmap.eraseARGB(0, 0, 0, 0);
     } else {
         Color defaultBackground = Color::white;
         Color* background = renderInfo.tilePainter->background();
@@ -72,12 +80,15 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
             background = &defaultBackground;
         }
         ALOGV("setupCanvas use background on Base Layer %x", background->rgb());
-        bitmap->setIsOpaque(!background->hasAlpha());
-        bitmap->eraseARGB(background->alpha(), background->red(),
-                          background->green(), background->blue());
+        m_bitmap.setIsOpaque(!background->hasAlpha());
+
+        // fill background color if necessary
+        if (!m_bitmapIsPureColor || m_bitmapPureColor != *background)
+            m_bitmap.eraseARGB(background->alpha(), background->red(),
+                               background->green(), background->blue());
     }
 
-    SkDevice* device = new SkDevice(*bitmap);
+    SkDevice* device = new SkDevice(m_bitmap);
 
     canvas->setDevice(device);
 
@@ -86,14 +97,15 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
 void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
-    GLUtils::paintTextureWithBitmap(&renderInfo, bitmap);
+    GLUtils::paintTextureWithBitmap(&renderInfo, m_bitmap);
 }
 
 void RasterRenderer::checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
-    renderInfo.isPureColor = GLUtils::isPureColorBitmap(bitmap, renderInfo.pureColor);
+    m_bitmapIsPureColor = GLUtils::isPureColorBitmap(m_bitmap, m_bitmapPureColor);
+
+    renderInfo.isPureColor = m_bitmapIsPureColor;
+    renderInfo.pureColor = m_bitmapPureColor;
 }
 
 } // namespace WebCore
