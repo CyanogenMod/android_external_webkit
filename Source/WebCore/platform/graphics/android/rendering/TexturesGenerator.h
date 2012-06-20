@@ -59,6 +59,7 @@ public:
     static const int gDeferPriorityCutoff = 500000000;
 
     SkBitmap* bitmap() { return &m_bitmap; }
+    int getLocalTid() { return m_localTid; }
 private:
     QueuedOperation* popNext();
     virtual bool threadLoop();
@@ -70,6 +71,7 @@ private:
 
     SkBitmap m_bitmap;
     bool m_deferredMode;
+    int m_localTid;
 
     // defer painting for one second if best in queue has priority
     // QueuedOperation::gDeferPriorityCutoff or higher
