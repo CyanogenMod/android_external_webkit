@@ -1216,7 +1216,7 @@ void WebViewCore::setSizeScreenWidthAndScale(int width, int height,
                 m_mainFrame->view()->forceLayout();
 
             // scroll to restore current screen center
-            if (node) {
+            if (node && node->inDocument()) {
                 const WebCore::IntRect& newBounds = node->getRect();
                 if ((osw && osh && bounds.width() && bounds.height())
                     && (bounds != newBounds)) {
