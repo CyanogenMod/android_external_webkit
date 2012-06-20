@@ -98,6 +98,7 @@ status_t TexturesGenerator::readyToRun()
                        TilesManager::instance()->tileWidth(),
                        TilesManager::instance()->tileHeight());
     m_bitmap.allocPixels();
+    m_localTid = androidGetTid();
     return NO_ERROR;
 }
 
