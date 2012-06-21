@@ -32,10 +32,6 @@
 #include "Settings.h"
 #endif
 
-#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
-#include "ChromeClient.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -86,16 +82,6 @@ void HTMLMetaElement::process()
         && document()->settings()->viewportWidth() == -1) {
         // fit mobile sites directly in the screen
         document()->processViewport("width=device-width");
-    }
-#endif
-
-#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
-    // If this web site is informing us it is possible for it to be installed, inform the chrome
-    // client so it can offer this to the user.
-    if (equalIgnoringCase(name(), "fullscreen-web-app-capable")
-        && equalIgnoringCase(m_content, "yes")) {
-        if (Page* page = document()->page())
-            page->chrome()->client()->webAppCanBeInstalled();
     }
 #endif
 

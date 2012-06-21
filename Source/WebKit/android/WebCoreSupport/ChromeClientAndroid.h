@@ -180,10 +180,6 @@ namespace android {
         virtual void showContextMenu();
 #endif
 
-#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
-        virtual void webAppCanBeInstalled();
-#endif
-
 #if ENABLE(FULLSCREEN_API)
         virtual void exitFullScreenForElement(Element*);
 #endif

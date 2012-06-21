@@ -525,8 +525,6 @@ namespace android {
         WebCore::Frame* mainFrame() const { return m_mainFrame; }
         WebCore::Frame* focusedFrame() const;
 
-        void notifyWebAppCanBeInstalled();
-
         void deleteText(int startX, int startY, int endX, int endY);
         WTF::String getText(int startX, int startY, int endX, int endY);
         void insertText(const WTF::String &text);
