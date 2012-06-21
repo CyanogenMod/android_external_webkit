@@ -55,9 +55,10 @@ public:
     virtual bool isVideo() const { return true; }
     virtual LayerAndroid* copy() const { return new VideoLayerAndroid(*this); }
 
-    // The following 3 functions are called in UI thread only.
+    // The following functions are called in UI thread only.
     virtual bool drawGL(bool layerTilesDisabled);
     void setSurfaceTexture(sp<SurfaceTexture> texture, int textureName, PlayerState playerState);
+    virtual bool needsIsolatedSurface() { return true; }
 
 private:
     void init();
