@@ -273,7 +273,9 @@ public:
 
     void setIntrinsicallyComposited(bool intCom) { m_intrinsicallyComposited = intCom; }
     virtual bool needsIsolatedSurface() {
-        return (needsTexture() && m_intrinsicallyComposited) || m_animations.size();
+        return (needsTexture() && m_intrinsicallyComposited)
+            || m_animations.size()
+            || m_imageCRC;
     }
 
     int setHwAccelerated(bool hwAccelerated);
