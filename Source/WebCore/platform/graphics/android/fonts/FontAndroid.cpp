@@ -463,8 +463,7 @@ public:
 
 private:
     void setupFontForScriptRun();
-    const FontPlatformData* setupComplexFont(FallbackScripts script,
-                const FontPlatformData& platformData);
+    const FontPlatformData* setupComplexFont(HB_Script script, const FontPlatformData& platformData);
     HB_FontRec* allocHarfbuzzFont();
     void deleteGlyphArrays();
     void createGlyphArrays(int);
@@ -660,8 +659,7 @@ void TextRunWalker::setWordAndLetterSpacing(int wordSpacingAdjustment,
 }
 
 const FontPlatformData* TextRunWalker::setupComplexFont(
-        FallbackScripts script,
-        const FontPlatformData& platformData)
+    HB_Script script, const FontPlatformData& platformData)
 {
     static FallbackHash fallbackPlatformData;
 
@@ -671,15 +669,19 @@ const FontPlatformData* TextRunWalker::setupComplexFont(
     // italic, then bold italic. additional fake style bits can be added.
     int scriptStyleIndex = script;
     if (platformData.isFakeBold())
-        scriptStyleIndex += kFallbackScriptNumber;
+        scriptStyleIndex += HB_ScriptCount;
     if (platformData.isFakeItalic())
-        scriptStyleIndex += kFallbackScriptNumber << 1;
+        scriptStyleIndex += HB_ScriptCount << 1;
 
     FallbackFontKey key(scriptStyleIndex, platformData.size());
     FontPlatformData* newPlatformData = 0;
 
     if (!fallbackPlatformData.contains(key)) {
-        SkTypeface* typeface = SkCreateTypefaceForScript(script);
+        SkTypeface::Style currentStyle = SkTypeface::kNormal;
+        if (platformData.typeface())
+            currentStyle = platformData.typeface()->style();
+        SkTypeface* typeface = SkCreateTypefaceForScript(script, currentStyle,
+            SkPaint::kElegant_Variant);
         newPlatformData = new FontPlatformData(platformData, typeface);
         SkSafeUnref(typeface);
         fallbackPlatformData.set(key, newPlatformData);
@@ -697,61 +699,8 @@ void TextRunWalker::setupFontForScriptRun()
     const FontData* fontData = m_font->glyphDataForCharacter(m_run[0], false).fontData;
     const FontPlatformData& platformData =
         fontData->fontDataForCharacter(' ')->platformData();
-    const FontPlatformData* complexPlatformData = &platformData;
+    const FontPlatformData* complexPlatformData = setupComplexFont(m_item.item.script, platformData);
 
-    switch (m_item.item.script) {
-      case HB_Script_Bengali:
-          complexPlatformData = setupComplexFont(kBengali_FallbackScript, platformData);
-          break;
-        case HB_Script_Devanagari:
-          complexPlatformData = setupComplexFont(kDevanagari_FallbackScript, platformData);
-            break;
-        case HB_Script_Hebrew:
-            switch (platformData.typeface()->style()) {
-                case SkTypeface::kBold:
-                case SkTypeface::kBoldItalic:
-                    complexPlatformData = setupComplexFont(kHebrewBold_FallbackScript, platformData);
-                    break;
-                case SkTypeface::kNormal:
-                case SkTypeface::kItalic:
-                default:
-                    complexPlatformData = setupComplexFont(kHebrewRegular_FallbackScript, platformData);
-                    break;
-            }
-            break;
-        case HB_Script_Kannada:
-            complexPlatformData = setupComplexFont(kKannada_FallbackScript, platformData);
-            break;
-        case HB_Script_Malayalam:
-            complexPlatformData = setupComplexFont(kMalayalam_FallbackScript, platformData);
-            break;
-        case HB_Script_Arabic:
-            complexPlatformData = setupComplexFont(kArabic_FallbackScript, platformData);
-            break;
-        case HB_Script_Tamil:
-            switch (platformData.typeface()->style()) {
-                case SkTypeface::kBold:
-                case SkTypeface::kBoldItalic:
-                    complexPlatformData = setupComplexFont(kTamilBold_FallbackScript, platformData);
-                    break;
-                case SkTypeface::kNormal:
-                case SkTypeface::kItalic:
-                default:
-                    complexPlatformData = setupComplexFont(kTamilRegular_FallbackScript, platformData);
-                    break;
-            }
-            break;
-        case HB_Script_Telugu:
-            complexPlatformData = setupComplexFont(kTelugu_FallbackScript, platformData);
-            break;
-        case HB_Script_Thai:
-            complexPlatformData = setupComplexFont(kThai_FallbackScript, platformData);
-            break;
-        default:
-            // HB_Script_Common; includes Ethiopic
-            complexPlatformData = &platformData;
-            break;
-    }
     m_item.face = complexPlatformData->harfbuzzFace();
     m_item.font->userData = const_cast<FontPlatformData*>(complexPlatformData);
 
