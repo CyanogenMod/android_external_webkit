@@ -905,11 +905,6 @@ public:
     void incDOMTreeVersion() { m_domTreeVersion = ++s_globalTreeVersion; }
     uint64_t domTreeVersion() const { return m_domTreeVersion; }
 
-#ifdef ANDROID_STYLE_VERSION
-    void incStyleVersion() { ++m_styleVersion; }
-    unsigned styleVersion() const { return m_styleVersion; }
-#endif
-
     void setDocType(PassRefPtr<DocumentType>);
 
 #if ENABLE(XPATH)
@@ -1223,9 +1218,6 @@ private:
 
     uint64_t m_domTreeVersion;
     static uint64_t s_globalTreeVersion;
-#ifdef ANDROID_STYLE_VERSION
-    unsigned m_styleVersion;
-#endif
     
     HashSet<NodeIterator*> m_nodeIterators;
     HashSet<Range*> m_ranges;

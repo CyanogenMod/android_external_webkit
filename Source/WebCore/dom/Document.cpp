@@ -387,9 +387,6 @@ Document::Document(Frame* frame, const KURL& url, bool isXHTML, bool isHTML)
     , m_compatibilityMode(NoQuirksMode)
     , m_compatibilityModeLocked(false)
     , m_domTreeVersion(++s_globalTreeVersion)
-#ifdef ANDROID_STYLE_VERSION
-    , m_styleVersion(0)
-#endif
     , m_styleSheets(StyleSheetList::create(this))
     , m_readyState(Complete)
     , m_styleRecalcTimer(this, &Document::styleRecalcTimerFired)
