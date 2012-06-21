@@ -289,6 +289,9 @@ void LayerAndroid::addDirtyArea()
     IntRect dirtyArea(area.x(), area.y(), area.width(), area.height());
 
     state()->addDirtyArea(dirtyArea);
+
+    for (int i = 0; i < countChildren(); i++)
+        getChild(i)->addDirtyArea();
 }
 
 void LayerAndroid::addAnimation(PassRefPtr<AndroidAnimation> prpAnim)
