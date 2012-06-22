@@ -25,12 +25,8 @@ GraphicsOperationCollection::~GraphicsOperationCollection()
 
 void GraphicsOperationCollection::apply(PlatformGraphicsContext* context)
 {
-    ALOGD("\nApply GraphicsOperationCollection %x, %d operations", this, m_operations.size());
-    for (unsigned int i = 0; i < m_operations.size(); i++) {
-        ALOGD("[%d] (%x) %s %s", i, this, m_operations[i]->name().ascii().data(),
-              m_operations[i]->parameters().ascii().data());
+    for (unsigned int i = 0; i < m_operations.size(); i++)
         m_operations[i]->apply(context);
-    }
 }
 
 void GraphicsOperationCollection::append(GraphicsOperation::Operation* operation)
@@ -41,20 +37,6 @@ void GraphicsOperationCollection::append(GraphicsOperation::Operation* operation
 bool GraphicsOperationCollection::isEmpty()
 {
     return !m_operations.size();
-}
-
-AutoGraphicsOperationCollection::AutoGraphicsOperationCollection()
-{
-    m_graphicsOperationCollection = new GraphicsOperationCollection();
-    m_platformGraphicsContext = new PlatformGraphicsContextRecording(m_graphicsOperationCollection);
-    m_graphicsContext = new GraphicsContext(m_platformGraphicsContext);
-}
-
-AutoGraphicsOperationCollection::~AutoGraphicsOperationCollection()
-{
-    SkSafeUnref(m_graphicsOperationCollection);
-    delete m_graphicsContext;
-    delete m_platformGraphicsContext;
 }
 
 } // namespace WebCore

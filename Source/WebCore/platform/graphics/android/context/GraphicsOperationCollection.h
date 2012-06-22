@@ -51,19 +51,6 @@ private:
     Vector<GraphicsOperation::Operation*> m_operations;
 };
 
-class AutoGraphicsOperationCollection {
-public:
-   AutoGraphicsOperationCollection();
-   ~AutoGraphicsOperationCollection();
-   GraphicsContext* context() { return m_graphicsContext; }
-   GraphicsOperationCollection* picture() { return m_graphicsOperationCollection; }
-
-private:
-   GraphicsOperationCollection* m_graphicsOperationCollection;
-   PlatformGraphicsContext* m_platformGraphicsContext;
-   GraphicsContext* m_graphicsContext;
-};
-
 }
 
 #endif // USE(ACCELERATED_COMPOSITING)

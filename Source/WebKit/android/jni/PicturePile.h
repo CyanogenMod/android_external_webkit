@@ -38,7 +38,7 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
-#define USE_RECORDING_CONTEXT false
+#define USE_RECORDING_CONTEXT true
 #if USE_RECORDING_CONTEXT
 namespace WebCore {
 class GraphicsOperationCollection;
