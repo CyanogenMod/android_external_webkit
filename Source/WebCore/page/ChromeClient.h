@@ -319,10 +319,6 @@ namespace WebCore {
         };
         virtual void willRunModalDialogDuringPageDismissal(const DialogType&) const { }
 
-#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
-        virtual void webAppCanBeInstalled() = 0;
-#endif
-
     protected:
         virtual ~ChromeClient() { }
     };

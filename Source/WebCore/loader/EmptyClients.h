@@ -97,10 +97,6 @@ public:
 
     virtual float scaleFactor() { return 1.f; }
 
-#if ENABLE(ANDROID_INSTALLABLE_WEB_APPS)
-    virtual void webAppCanBeInstalled() { }
-#endif
-
     virtual void focus() { }
     virtual void unfocus() { }
 
