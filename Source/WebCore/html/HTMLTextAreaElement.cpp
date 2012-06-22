@@ -329,7 +329,7 @@ void HTMLTextAreaElement::setValueCommon(const String& value)
     if (document()->focusedNode() == this) {
 #ifdef ANDROID_ACCEPT_CHANGES_TO_FOCUSED_TEXTFIELDS
         // Make sure our UI side textfield changes to match the RenderTextControl
-        PlatformBridge::updateTextfield(document()->view(), this, false, value);
+        PlatformBridge::updateTextfield(document()->view(), this, value);
 #endif
         unsigned endOfString = m_value.length();
         setSelectionRange(endOfString, endOfString);

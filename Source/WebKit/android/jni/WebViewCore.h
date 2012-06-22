@@ -202,13 +202,9 @@ namespace android {
         /**
          * Tell the java side to update the focused textfield
          * @param pointer   Pointer to the node for the input field.
-         * @param   changeToPassword  If true, we are changing the textfield to
-         *          a password field, and ignore the WTF::String
-         * @param text  If changeToPassword is false, this is the new text that
-         *              should go into the textfield.
+         * @param text  This is the new text that should go into the textfield.
          */
-        void updateTextfield(WebCore::Node* pointer,
-                bool changeToPassword, const WTF::String& text);
+        void updateTextfield(WebCore::Node* pointer, const WTF::String& text);
 
         /**
          * Tell the java side to update the current selection in the focused
