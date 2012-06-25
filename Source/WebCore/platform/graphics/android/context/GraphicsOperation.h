@@ -71,10 +71,6 @@ public:
                   , SetStrokeShaderOperation
                   , SetStrokeStyleOperation
                   , SetStrokeThicknessOperation
-                  // Paint setup
-                  , SetupPaintFillOperation
-                  , SetupPaintShadowOperation
-                  , SetupPaintStrokeOperation
                   // Matrix operations
                   , ConcatCTMOperation
                   , ScaleOperation
@@ -133,10 +129,6 @@ public:
             TYPE_CASE(SetStrokeShaderOperation)
             TYPE_CASE(SetStrokeStyleOperation)
             TYPE_CASE(SetStrokeThicknessOperation)
-            // Paint setup
-            TYPE_CASE(SetupPaintFillOperation)
-            TYPE_CASE(SetupPaintShadowOperation)
-            TYPE_CASE(SetupPaintStrokeOperation)
             // Matrix operations
             TYPE_CASE(ConcatCTMOperation)
             TYPE_CASE(ScaleOperation)
@@ -372,48 +364,6 @@ public:
     virtual OperationType type() { return SetStrokeThicknessOperation; }
 private:
     float m_thickness;
-};
-
-//**************************************
-// Paint setup
-//**************************************
-
-class SetupPaintFill : public Operation {
-public:
-    SetupPaintFill(SkPaint* paint) : m_paint(*paint) {}
-    virtual void apply(PlatformGraphicsContext* context) {
-        context->setupPaintFill(&m_paint);
-    }
-    virtual OperationType type() { return SetupPaintFillOperation; }
-private:
-    SkPaint m_paint;
-};
-
-class SetupPaintShadow : public Operation {
-public:
-    SetupPaintShadow(SkPaint* paint, SkPoint* offset)
-        : m_paint(*paint), m_offset(*offset) {}
-    virtual void apply(PlatformGraphicsContext* context) {
-        context->setupPaintShadow(&m_paint, &m_offset);
-    }
-    virtual OperationType type() { return SetupPaintShadowOperation; }
-private:
-    SkPaint m_paint;
-    SkPoint m_offset;
-};
-
-class SetupPaintStroke : public Operation {
-public:
-    SetupPaintStroke(SkPaint* paint, SkRect* rect, bool isHLine)
-        : m_paint(*paint), m_rect(*rect), m_isHLine(isHLine) {}
-    virtual void apply(PlatformGraphicsContext* context) {
-        context->setupPaintStroke(&m_paint, &m_rect, m_isHLine);
-    }
-    virtual OperationType type() { return SetupPaintStrokeOperation; }
-private:
-    SkPaint m_paint;
-    SkRect m_rect;
-    bool m_isHLine;
 };
 
 //**************************************
@@ -773,7 +723,6 @@ public:
         : m_font(font), m_simpleFont(simpleFont)
         , m_glyphBuffer(glyphBuffer), m_from(from)
         , m_numGlyphs(numGlyphs), m_point(point) {
-
         SkPicture* picture = new SkPicture();
         SkCanvas* canvas = picture->beginRecording(0, 0, 0);
         PlatformGraphicsContextSkia platformContext(canvas);
