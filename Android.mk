@@ -24,10 +24,9 @@
 ##
 
 # Control WebGL compiling in webkit.
-# Default is true unless explictly disabled.
-ifneq ($(ENABLE_WEBGL),false)
-    ENABLE_WEBGL = true
-endif
+#ifneq ($(ENABLE_WEBGL),false)
+#    ENABLE_WEBGL = true
+#endif
 
 # Control SVG compiling in webkit.
 # Default is true unless explictly disabled.
