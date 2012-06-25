@@ -80,9 +80,9 @@ struct FieldIds {
                 "Ljava/lang/String;");
         mDefaultTextEncoding = env->GetFieldID(clazz, "mDefaultTextEncoding",
                 "Ljava/lang/String;");
-        mUserAgent = env->GetFieldID(clazz, "mUserAgent",
-                "Ljava/lang/String;");
-        mAcceptLanguage = env->GetFieldID(clazz, "mAcceptLanguage", "Ljava/lang/String;");
+        mGetUserAgentString = env->GetMethodID(clazz, "getUserAgentString",
+                "()Ljava/lang/String;");
+        mGetAcceptLanguage = env->GetMethodID(clazz, "getAcceptLanguage", "()Ljava/lang/String;");
         mMinimumFontSize = env->GetFieldID(clazz, "mMinimumFontSize", "I");
         mMinimumLogicalFontSize = env->GetFieldID(clazz, "mMinimumLogicalFontSize", "I");
         mDefaultFontSize = env->GetFieldID(clazz, "mDefaultFontSize", "I");
@@ -161,8 +161,8 @@ struct FieldIds {
         ALOG_ASSERT(mCursiveFontFamily, "Could not find field mCursiveFontFamily");
         ALOG_ASSERT(mFantasyFontFamily, "Could not find field mFantasyFontFamily");
         ALOG_ASSERT(mDefaultTextEncoding, "Could not find field mDefaultTextEncoding");
-        ALOG_ASSERT(mUserAgent, "Could not find field mUserAgent");
-        ALOG_ASSERT(mAcceptLanguage, "Could not find field mAcceptLanguage");
+        ALOG_ASSERT(mGetUserAgentString, "Could not find method getUserAgentString");
+        ALOG_ASSERT(mGetAcceptLanguage, "Could not find method getAcceptLanguage");
         ALOG_ASSERT(mMinimumFontSize, "Could not find field mMinimumFontSize");
         ALOG_ASSERT(mMinimumLogicalFontSize, "Could not find field mMinimumLogicalFontSize");
         ALOG_ASSERT(mDefaultFontSize, "Could not find field mDefaultFontSize");
@@ -213,8 +213,8 @@ struct FieldIds {
     jfieldID mCursiveFontFamily;
     jfieldID mFantasyFontFamily;
     jfieldID mDefaultTextEncoding;
-    jfieldID mUserAgent;
-    jfieldID mAcceptLanguage;
+    jmethodID mGetUserAgentString;
+    jmethodID mGetAcceptLanguage;
     jfieldID mMinimumFontSize;
     jfieldID mMinimumLogicalFontSize;
     jfieldID mDefaultFontSize;
@@ -378,14 +378,14 @@ public:
         str = (jstring)env->GetObjectField(obj, gFieldIds->mDefaultTextEncoding);
         s->setDefaultTextEncodingName(jstringToWtfString(env, str));
 
-        str = (jstring)env->GetObjectField(obj, gFieldIds->mUserAgent);
+        str = (jstring)env->CallObjectMethod(obj, gFieldIds->mGetUserAgentString);
         WebFrame::getWebFrame(pFrame)->setUserAgent(jstringToWtfString(env, str));
         WebViewCore::getWebViewCore(pFrame->view())->setWebRequestContextUserAgent();
 
         jint cacheMode = env->GetIntField(obj, gFieldIds->mOverrideCacheMode);
         WebViewCore::getWebViewCore(pFrame->view())->setWebRequestContextCacheMode(cacheMode);
 
-        str = (jstring)env->GetObjectField(obj, gFieldIds->mAcceptLanguage);
+        str = (jstring)env->CallObjectMethod(obj, gFieldIds->mGetAcceptLanguage);
         WebRequestContext::setAcceptLanguage(jstringToWtfString(env, str));
 
         jint size = env->GetIntField(obj, gFieldIds->mMinimumFontSize);
