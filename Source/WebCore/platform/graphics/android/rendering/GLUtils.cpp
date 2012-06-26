@@ -446,7 +446,7 @@ bool GLUtils::skipTransferForPureColor(const TileRenderInfo* renderInfo,
 }
 
 void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
-                                     const SkBitmap& bitmap)
+                                     SkBitmap& bitmap)
 {
     if (!renderInfo)
         return;
@@ -472,7 +472,7 @@ void GLUtils::paintTextureWithBitmap(const TileRenderInfo* renderInfo,
     }
 }
 
-void GLUtils::updateQueueWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap)
+void GLUtils::updateQueueWithBitmap(const TileRenderInfo* renderInfo, SkBitmap& bitmap)
 {
     if (!renderInfo
         || !renderInfo->textureInfo

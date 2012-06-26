@@ -80,8 +80,8 @@ public:
     static void createEGLImageFromTexture(GLuint texture, EGLImageKHR* image);
     static void createTextureFromEGLImage(GLuint texture, EGLImageKHR image, GLint filter = GL_LINEAR);
 
-    static void paintTextureWithBitmap(const TileRenderInfo* renderInfo, const SkBitmap& bitmap);
-    static void updateQueueWithBitmap(const TileRenderInfo* , const SkBitmap& bitmap);
+    static void paintTextureWithBitmap(const TileRenderInfo* renderInfo, SkBitmap& bitmap);
+    static void updateQueueWithBitmap(const TileRenderInfo* , SkBitmap& bitmap);
     static bool updateSharedSurfaceTextureWithBitmap(ANativeWindow* anw, const SkBitmap& bitmap);
     static void convertToTransformationMatrix(const float* matrix, TransformationMatrix& transformMatrix);
 
