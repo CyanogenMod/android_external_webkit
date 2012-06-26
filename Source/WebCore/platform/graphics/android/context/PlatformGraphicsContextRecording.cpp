@@ -88,16 +88,22 @@ void PlatformGraphicsContextRecording::setCompositeOperation(CompositeOperator o
     mGraphicsOperationCollection->append(new GraphicsOperation::SetCompositeOperation(op));
 }
 
-void PlatformGraphicsContextRecording::setFillColor(const Color& c)
+bool PlatformGraphicsContextRecording::setFillColor(const Color& c)
 {
-    PlatformGraphicsContext::setFillColor(c);
-    mGraphicsOperationCollection->append(new GraphicsOperation::SetFillColor(c));
+    if (PlatformGraphicsContext::setFillColor(c)) {
+        mGraphicsOperationCollection->append(new GraphicsOperation::SetFillColor(c));
+        return true;
+    }
+    return false;
 }
 
-void PlatformGraphicsContextRecording::setFillShader(SkShader* fillShader)
+bool PlatformGraphicsContextRecording::setFillShader(SkShader* fillShader)
 {
-    PlatformGraphicsContext::setFillShader(fillShader);
-    mGraphicsOperationCollection->append(new GraphicsOperation::SetFillShader(fillShader));
+    if (PlatformGraphicsContext::setFillShader(fillShader)) {
+        mGraphicsOperationCollection->append(new GraphicsOperation::SetFillShader(fillShader));
+        return true;
+    }
+    return false;
 }
 
 void PlatformGraphicsContextRecording::setLineCap(LineCap cap)
@@ -137,16 +143,22 @@ void PlatformGraphicsContextRecording::setShouldAntialias(bool useAA)
     mGraphicsOperationCollection->append(new GraphicsOperation::SetShouldAntialias(useAA));
 }
 
-void PlatformGraphicsContextRecording::setStrokeColor(const Color& c)
+bool PlatformGraphicsContextRecording::setStrokeColor(const Color& c)
 {
-    PlatformGraphicsContext::setStrokeColor(c);
-    mGraphicsOperationCollection->append(new GraphicsOperation::SetStrokeColor(c));
+    if (PlatformGraphicsContext::setStrokeColor(c)) {
+        mGraphicsOperationCollection->append(new GraphicsOperation::SetStrokeColor(c));
+        return true;
+    }
+    return false;
 }
 
-void PlatformGraphicsContextRecording::setStrokeShader(SkShader* strokeShader)
+bool PlatformGraphicsContextRecording::setStrokeShader(SkShader* strokeShader)
 {
-    PlatformGraphicsContext::setStrokeShader(strokeShader);
-    mGraphicsOperationCollection->append(new GraphicsOperation::SetStrokeShader(strokeShader));
+    if (PlatformGraphicsContext::setStrokeShader(strokeShader)) {
+        mGraphicsOperationCollection->append(new GraphicsOperation::SetStrokeShader(strokeShader));
+        return true;
+    }
+    return false;
 }
 
 void PlatformGraphicsContextRecording::setStrokeStyle(StrokeStyle style)

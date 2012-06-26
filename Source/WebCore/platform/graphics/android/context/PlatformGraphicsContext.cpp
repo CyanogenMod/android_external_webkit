@@ -246,22 +246,31 @@ void PlatformGraphicsContext::setCompositeOperation(CompositeOperator op)
     m_state->mode = WebCoreCompositeToSkiaComposite(op);
 }
 
-void PlatformGraphicsContext::setFillColor(const Color& c)
+bool PlatformGraphicsContext::setFillColor(const Color& c)
 {
-    m_state->fillColor = c.rgb();
-    setFillShader(0);
+    bool dirty = false;
+    if (m_state->fillColor != c.rgb()) {
+        m_state->fillColor = c.rgb();
+        dirty = true;
+    }
+    return setFillShader(0) || dirty;
 }
 
-void PlatformGraphicsContext::setFillShader(SkShader* fillShader)
+bool PlatformGraphicsContext::setFillShader(SkShader* fillShader)
 {
-    if (fillShader)
+    bool dirty = false;
+    if (fillShader && m_state->fillColor != Color::black) {
         m_state->fillColor = Color::black;
+        dirty = true;
+    }
 
     if (fillShader != m_state->fillShader) {
         SkSafeUnref(m_state->fillShader);
         m_state->fillShader = fillShader;
         SkSafeRef(m_state->fillShader);
+        dirty = true;
     }
+    return dirty;
 }
 
 void PlatformGraphicsContext::setLineCap(LineCap cap)
@@ -333,22 +342,31 @@ void PlatformGraphicsContext::setShouldAntialias(bool useAA)
     m_state->useAA = useAA;
 }
 
-void PlatformGraphicsContext::setStrokeColor(const Color& c)
+bool PlatformGraphicsContext::setStrokeColor(const Color& c)
 {
-    m_state->strokeColor = c.rgb();
-    setStrokeShader(0);
+    bool dirty = false;
+    if (m_state->strokeColor != c.rgb()) {
+        m_state->strokeColor = c.rgb();
+        dirty = true;
+    }
+    return setStrokeShader(0) || dirty;
 }
 
-void PlatformGraphicsContext::setStrokeShader(SkShader* strokeShader)
+bool PlatformGraphicsContext::setStrokeShader(SkShader* strokeShader)
 {
-    if (strokeShader)
+    bool dirty = false;
+    if (strokeShader && m_state->strokeColor != Color::black) {
         m_state->strokeColor = Color::black;
+        dirty = true;
+    }
 
     if (strokeShader != m_state->strokeShader) {
         SkSafeUnref(m_state->strokeShader);
         m_state->strokeShader = strokeShader;
         SkSafeRef(m_state->strokeShader);
+        dirty = true;
     }
+    return dirty;
 }
 
 void PlatformGraphicsContext::setStrokeStyle(StrokeStyle style)

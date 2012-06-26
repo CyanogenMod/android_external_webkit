@@ -105,7 +105,7 @@ public:
     virtual ~Operation() {}
     virtual OperationType type() { return UndefinedOperation; }
     virtual String parameters() { return ""; }
-    String name()
+    const char* name()
     {
         switch (type()) {
             TYPE_CASE(UndefinedOperation)

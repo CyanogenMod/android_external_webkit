@@ -55,16 +55,16 @@ public:
     // State values
     virtual void setAlpha(float alpha);
     virtual void setCompositeOperation(CompositeOperator op);
-    virtual void setFillColor(const Color& c);
-    virtual void setFillShader(SkShader* fillShader);
+    virtual bool setFillColor(const Color& c);
+    virtual bool setFillShader(SkShader* fillShader);
     virtual void setLineCap(LineCap cap);
     virtual void setLineDash(const DashArray& dashes, float dashOffset);
     virtual void setLineJoin(LineJoin join);
     virtual void setMiterLimit(float limit);
     virtual void setShadow(int radius, int dx, int dy, SkColor c);
     virtual void setShouldAntialias(bool useAA);
-    virtual void setStrokeColor(const Color& c);
-    virtual void setStrokeShader(SkShader* strokeShader);
+    virtual bool setStrokeColor(const Color& c);
+    virtual bool setStrokeShader(SkShader* strokeShader);
     virtual void setStrokeStyle(StrokeStyle style);
     virtual void setStrokeThickness(float f);
 
