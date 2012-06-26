@@ -24,9 +24,9 @@
 ##
 
 # Control WebGL compiling in webkit.
-#ifneq ($(ENABLE_WEBGL),false)
-#    ENABLE_WEBGL = true
-#endif
+ifeq ($(ENABLE_WEBGL),true)
+LOCAL_CFLAGS += -DENABLE_WEBGL=1
+endif
 
 # Control SVG compiling in webkit.
 # Default is true unless explictly disabled.
@@ -361,6 +361,10 @@ endif
 
 ifeq ($(ENABLE_SVG),true)
 LOCAL_CFLAGS += -DENABLE_SVG=1 -DENABLE_SVG_ANIMATION=1
+endif
+
+ifeq ($(ENABLE_WEBGL),true)
+LOCAL_CFLAGS += -DENABLE_WEBGL=1
 endif
 
 ifeq ($(ENABLE_WTF_USE_ACCELERATED_COMPOSITING),false)
