@@ -707,7 +707,9 @@
 #define ENABLE_SVG 0
 #endif
 #define ENABLE_VIDEO 1
+#ifdef ENABLE_WEBGL
 #define ENABLE_WEBGL 1
+#endif
 #if ENABLE_SVG
 #if !defined(ENABLE_SVG_ANIMATION)
 #define ENABLE_SVG_ANIMATION 0
