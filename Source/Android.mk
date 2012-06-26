@@ -219,6 +219,10 @@ ifeq ($(ENABLE_SVG),true)
 LOCAL_CFLAGS += -DENABLE_SVG=1
 endif
 
+ifeq ($(ENABLE_WEBGL),true)
+LOCAL_CFLAGS += -DENABLE_WEBGL=1
+endif
+
 # Temporary disable SVG_ANIMATION.
 ifeq ($(ENABLE_SVG_ANIMATION),true)
 LOCAL_CFLAGS += -DENABLE_SVG_ANIMATION=1
