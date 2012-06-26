@@ -48,6 +48,9 @@ public:
     bool isEmpty();
 
 private:
+    void flush();
+
+    Vector< RefPtr<GraphicsOperation::Operation> > m_pendingOperations;
     Vector< RefPtr<GraphicsOperation::Operation> > m_operations;
 };
 
