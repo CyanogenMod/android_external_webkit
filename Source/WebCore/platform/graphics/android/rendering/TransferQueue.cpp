@@ -390,7 +390,7 @@ void TransferQueue::updateDirtyTiles()
 }
 
 void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
-                                          const SkBitmap& bitmap)
+                                          SkBitmap& bitmap)
 {
     TRACE_METHOD();
     if (!tryUpdateQueueWithBitmap(renderInfo, bitmap)) {
@@ -403,7 +403,7 @@ void TransferQueue::updateQueueWithBitmap(const TileRenderInfo* renderInfo,
 }
 
 bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
-                                             const SkBitmap& bitmap)
+                                             SkBitmap& bitmap)
 {
     // This lock need to cover the full update since it is possible that queue
     // will be cleaned up in the middle of this update without the lock.
@@ -429,7 +429,7 @@ bool TransferQueue::tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
     }
 
     // b) After update the Surface Texture, now udpate the transfer queue info.
-    addItemInTransferQueue(renderInfo, currentUploadType, &bitmap);
+    addItemInTransferQueue(renderInfo, currentUploadType, bitmap);
 
     ALOGV("Bitmap updated x, y %d %d, baseTile %p",
           renderInfo->x, renderInfo->y, renderInfo->baseTile);
@@ -475,7 +475,7 @@ void TransferQueue::addItemCommon(const TileRenderInfo* renderInfo,
 // Currently only called by GLUtils::updateSharedSurfaceTextureWithBitmap.
 void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
                                            TextureUploadType type,
-                                           const SkBitmap* bitmap)
+                                           SkBitmap& bitmap)
 {
     m_transferQueueIndex = (m_transferQueueIndex + 1) % m_transferQueueSize;
 
@@ -487,15 +487,18 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
 
     TileTransferData* data = &m_transferQueue[index];
     addItemCommon(renderInfo, type, data);
-    if (type == CpuUpload && bitmap) {
+    if (type == CpuUpload) {
         // Lazily create the bitmap
         if (!m_transferQueue[index].bitmap) {
             m_transferQueue[index].bitmap = new SkBitmap();
-            int w = bitmap->width();
-            int h = bitmap->height();
-            m_transferQueue[index].bitmap->setConfig(bitmap->config(), w, h);
+            int w = bitmap.width();
+            int h = bitmap.height();
+            m_transferQueue[index].bitmap->setConfig(bitmap.config(), w, h);
+            m_transferQueue[index].bitmap->allocPixels();
         }
-        bitmap->copyTo(m_transferQueue[index].bitmap, bitmap->config());
+        SkBitmap temp = (*m_transferQueue[index].bitmap);
+        (*m_transferQueue[index].bitmap) = bitmap;
+        bitmap = temp;
     }
 
     m_emptyItemCount--;

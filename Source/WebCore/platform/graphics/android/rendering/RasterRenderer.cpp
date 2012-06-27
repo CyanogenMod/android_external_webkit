@@ -97,6 +97,7 @@ void RasterRenderer::setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* can
 
 void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
+    // We may swap the content of m_bitmap with the bitmap in the transfer queue.
     GLUtils::paintTextureWithBitmap(&renderInfo, m_bitmap);
 }
 

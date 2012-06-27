@@ -94,7 +94,8 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
     // tile's ANativeWindow (i.e. SurfaceTexture) buffer
     TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
     eglSwapBuffers(eglGetCurrentDisplay(), tileQueue->m_eglSurface);
-    tileQueue->addItemInTransferQueue(&renderInfo, GpuUpload, 0);
+    SkBitmap dummyBitmap;
+    tileQueue->addItemInTransferQueue(&renderInfo, GpuUpload, dummyBitmap);
     tileQueue->unlockQueue();
 }
 

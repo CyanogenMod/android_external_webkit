@@ -115,11 +115,11 @@ public:
 
     // insert the bitmap into the queue, mark the tile dirty if failing
     void updateQueueWithBitmap(const TileRenderInfo* renderInfo,
-                               const SkBitmap& bitmap);
+                               SkBitmap& bitmap);
 
     void addItemInTransferQueue(const TileRenderInfo* info,
                                 TextureUploadType type,
-                                const SkBitmap* bitmap);
+                                SkBitmap& bitmap);
     // Check if the item @ index is ready for update.
     // The lock will be done when returning true.
     bool readyForUpdate();
@@ -145,7 +145,7 @@ public:
 private:
     // return true if successfully inserted into queue
     bool tryUpdateQueueWithBitmap(const TileRenderInfo* renderInfo,
-                                  const SkBitmap& bitmap);
+                                  SkBitmap& bitmap);
     bool getHasGLContext();
     void setHasGLContext(bool hasContext);
     void emptyAndAbandonQueue();
