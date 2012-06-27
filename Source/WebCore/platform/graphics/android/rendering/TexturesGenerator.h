@@ -67,8 +67,8 @@ private:
     android::Condition mRequestedOperationsCond;
     TilesManager* m_tilesManager;
 
-    BaseRenderer* m_renderer;
     bool m_deferredMode;
+    BaseRenderer* m_renderer;
 
     // defer painting for one second if best in queue has priority
     // QueuedOperation::gDeferPriorityCutoff or higher
