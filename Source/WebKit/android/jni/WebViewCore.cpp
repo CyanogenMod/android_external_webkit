@@ -30,6 +30,7 @@
 
 #include "AccessibilityObject.h"
 #include "AndroidHitTestResult.h"
+#include "ApplicationCacheStorage.h"
 #include "Attribute.h"
 #include "content/address_detector.h"
 #include "Chrome.h"
@@ -479,7 +480,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     m_javaGlue->m_needTouchEvents = GetJMethod(env, clazz, "needTouchEvents", "(Z)V");
     m_javaGlue->m_requestKeyboard = GetJMethod(env, clazz, "requestKeyboard", "(Z)V");
     m_javaGlue->m_exceededDatabaseQuota = GetJMethod(env, clazz, "exceededDatabaseQuota", "(Ljava/lang/String;Ljava/lang/String;JJ)V");
-    m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(J)V");
+    m_javaGlue->m_reachedMaxAppCacheSize = GetJMethod(env, clazz, "reachedMaxAppCacheSize", "(JJ)V");
     m_javaGlue->m_populateVisitedLinks = GetJMethod(env, clazz, "populateVisitedLinks", "()V");
     m_javaGlue->m_geolocationPermissionsShowPrompt = GetJMethod(env, clazz, "geolocationPermissionsShowPrompt", "(Ljava/lang/String;)V");
     m_javaGlue->m_geolocationPermissionsHidePrompt = GetJMethod(env, clazz, "geolocationPermissionsHidePrompt", "()V");
@@ -3638,6 +3639,19 @@ bool WebViewCore::exceededDatabaseQuota(const WTF::String& url, const WTF::Strin
 #endif
 }
 
+/*
+ * TODO Note that this logic still needs to be cleaned up. Normally the
+ * information provided in this callback is used to resize the appcache.
+ * so we need to provide the current database size. However, webkit provides no
+ * way to reach this information. It can be calculated by fetching all the
+ * origins and their usage, however this is too expensize (requires one inner
+ * join operation for each origin). Rather, we simply return the maximum cache size,
+ * which should be equivalent to the current cache size. This is generally safe.
+ * However, setting the maximum database size to less than the current database size
+ * may cause a problem. In this case, ApplicationCacheStorage ("the owner of database")
+ * uses the updated value, while database internally ignores it and uses the current size
+ * as quota. This means the value we returned here won't reflect the actual database size.
+ */
 bool WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
 {
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
@@ -3645,7 +3659,7 @@ bool WebViewCore::reachedMaxAppCacheSize(const unsigned long long spaceNeeded)
     AutoJObject javaObject = m_javaGlue->object(env);
     if (!javaObject.get())
         return false;
-    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_reachedMaxAppCacheSize, spaceNeeded);
+    env->CallVoidMethod(javaObject.get(), m_javaGlue->m_reachedMaxAppCacheSize, spaceNeeded, WebCore::cacheStorage().maximumSize());
     checkException(env);
     return true;
 #endif
