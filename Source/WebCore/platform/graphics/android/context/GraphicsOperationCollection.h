@@ -43,12 +43,12 @@ public:
     ~GraphicsOperationCollection();
 
     void apply(PlatformGraphicsContext* context);
-    void append(GraphicsOperation::Operation* operation);
+    void adoptAndAppend(GraphicsOperation::Operation* operation);
 
     bool isEmpty();
 
 private:
-    Vector<GraphicsOperation::Operation*> m_operations;
+    Vector< RefPtr<GraphicsOperation::Operation> > m_operations;
 };
 
 }

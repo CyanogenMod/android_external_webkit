@@ -19,8 +19,6 @@ GraphicsOperationCollection::GraphicsOperationCollection()
 
 GraphicsOperationCollection::~GraphicsOperationCollection()
 {
-    for (unsigned int i = 0; i < m_operations.size(); i++)
-        SkSafeUnref(m_operations[i]);
 }
 
 void GraphicsOperationCollection::apply(PlatformGraphicsContext* context)
@@ -29,9 +27,9 @@ void GraphicsOperationCollection::apply(PlatformGraphicsContext* context)
         m_operations[i]->apply(context);
 }
 
-void GraphicsOperationCollection::append(GraphicsOperation::Operation* operation)
+void GraphicsOperationCollection::adoptAndAppend(GraphicsOperation::Operation* operation)
 {
-    m_operations.append(operation);
+    m_operations.append(adoptRef(operation));
 }
 
 bool GraphicsOperationCollection::isEmpty()
