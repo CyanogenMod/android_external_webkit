@@ -48,7 +48,7 @@ namespace WebCore {
 
 namespace GraphicsOperation {
 
-class Operation : public ThreadSafeRefCounted<Operation> {
+class Operation {
 public:
     typedef enum { UndefinedOperation
                   // State management

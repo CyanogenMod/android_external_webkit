@@ -28,9 +28,7 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "Color.h"
 #include "GraphicsOperation.h"
-#include "IntRect.h"
 #include "SkRefCnt.h"
 
 namespace WebCore {
@@ -42,16 +40,18 @@ public:
     GraphicsOperationCollection();
     ~GraphicsOperationCollection();
 
-    void apply(PlatformGraphicsContext* context);
+    void apply(PlatformGraphicsContext* context) const;
     void adoptAndAppend(GraphicsOperation::Operation* operation);
 
+    // Moves all the operations from moveFrom into this collection
+    // moveFrom will be empty after this call
+    void transferFrom(GraphicsOperationCollection& moveFrom);
+
     bool isEmpty();
+    void clear();
 
 private:
-    void flush();
-
-    Vector< RefPtr<GraphicsOperation::Operation> > m_pendingOperations;
-    Vector< RefPtr<GraphicsOperation::Operation> > m_operations;
+    Vector<GraphicsOperation::Operation*> m_operations;
 };
 
 }

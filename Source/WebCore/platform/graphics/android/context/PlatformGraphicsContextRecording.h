@@ -28,8 +28,12 @@
 
 #include "PlatformGraphicsContext.h"
 
+#include "GraphicsOperationCollection.h"
+
 namespace WebCore {
-class GraphicsOperationCollection;
+namespace GraphicsOperation {
+class Operation;
+}
 
 class PlatformGraphicsContextRecording : public PlatformGraphicsContext {
 public:
@@ -37,9 +41,6 @@ public:
     virtual ~PlatformGraphicsContextRecording() {}
     virtual bool isPaintingDisabled();
     virtual SkCanvas* getCanvas() { return 0; }
-
-    GraphicsOperationCollection* mGraphicsOperationCollection;
-    SkMatrix mCurrentMatrix;
 
     virtual SkCanvas* recordingCanvas();
     virtual void endRecording(int type = 0);
@@ -121,7 +122,15 @@ private:
         return false;
     }
 
+    void appendDrawingOperation(GraphicsOperation::Operation* operation);
+    void appendStateOperation(GraphicsOperation::Operation* operation);
+    void flushPendingOperations();
+
     SkPicture* mPicture;
+    SkMatrix mCurrentMatrix;
+
+    GraphicsOperationCollection* mGraphicsOperationCollection;
+    GraphicsOperationCollection mPendingOperations;
 };
 
 }

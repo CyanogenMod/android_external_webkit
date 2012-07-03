@@ -18,8 +18,8 @@ namespace WebCore {
 
 PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(GraphicsOperationCollection* picture)
     : PlatformGraphicsContext()
-    , mGraphicsOperationCollection(picture)
     , mPicture(0)
+    , mGraphicsOperationCollection(picture)
 {
 }
 
@@ -41,7 +41,7 @@ void PlatformGraphicsContextRecording::endRecording(int type)
         return;
     mPicture->endRecording();
     GraphicsOperation::DrawComplexText* text = new GraphicsOperation::DrawComplexText(mPicture);
-    mGraphicsOperationCollection->adoptAndAppend(text);
+    appendDrawingOperation(text);
     mPicture = 0;
 }
 
@@ -52,24 +52,29 @@ void PlatformGraphicsContextRecording::endRecording(int type)
 
 void PlatformGraphicsContextRecording::beginTransparencyLayer(float opacity)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::BeginTransparencyLayer(opacity));
+    appendStateOperation(new GraphicsOperation::BeginTransparencyLayer(opacity));
 }
 
 void PlatformGraphicsContextRecording::endTransparencyLayer()
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::EndTransparencyLayer());
+    appendStateOperation(new GraphicsOperation::EndTransparencyLayer());
 }
 
 void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Save());
+    flushPendingOperations();
+    mPendingOperations.adoptAndAppend(new GraphicsOperation::Save());
 }
 
 void PlatformGraphicsContextRecording::restore()
 {
     PlatformGraphicsContext::restore();
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Restore());
+    // If we have pending operations then the save/restore pair is empty and a no-op, discard it
+    if (mPendingOperations.isEmpty())
+        mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Restore());
+    else
+        mPendingOperations.clear();
 }
 
 //**************************************
@@ -79,19 +84,19 @@ void PlatformGraphicsContextRecording::restore()
 void PlatformGraphicsContextRecording::setAlpha(float alpha)
 {
     PlatformGraphicsContext::setAlpha(alpha);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetAlpha(alpha));
+    appendStateOperation(new GraphicsOperation::SetAlpha(alpha));
 }
 
 void PlatformGraphicsContextRecording::setCompositeOperation(CompositeOperator op)
 {
     PlatformGraphicsContext::setCompositeOperation(op);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetCompositeOperation(op));
+    appendStateOperation(new GraphicsOperation::SetCompositeOperation(op));
 }
 
 bool PlatformGraphicsContextRecording::setFillColor(const Color& c)
 {
     if (PlatformGraphicsContext::setFillColor(c)) {
-        mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetFillColor(c));
+        appendStateOperation(new GraphicsOperation::SetFillColor(c));
         return true;
     }
     return false;
@@ -100,7 +105,7 @@ bool PlatformGraphicsContextRecording::setFillColor(const Color& c)
 bool PlatformGraphicsContextRecording::setFillShader(SkShader* fillShader)
 {
     if (PlatformGraphicsContext::setFillShader(fillShader)) {
-        mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetFillShader(fillShader));
+        appendStateOperation(new GraphicsOperation::SetFillShader(fillShader));
         return true;
     }
     return false;
@@ -109,44 +114,44 @@ bool PlatformGraphicsContextRecording::setFillShader(SkShader* fillShader)
 void PlatformGraphicsContextRecording::setLineCap(LineCap cap)
 {
     PlatformGraphicsContext::setLineCap(cap);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetLineCap(cap));
+    appendStateOperation(new GraphicsOperation::SetLineCap(cap));
 }
 
 void PlatformGraphicsContextRecording::setLineDash(const DashArray& dashes, float dashOffset)
 {
     PlatformGraphicsContext::setLineDash(dashes, dashOffset);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetLineDash(dashes, dashOffset));
+    appendStateOperation(new GraphicsOperation::SetLineDash(dashes, dashOffset));
 }
 
 void PlatformGraphicsContextRecording::setLineJoin(LineJoin join)
 {
     PlatformGraphicsContext::setLineJoin(join);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetLineJoin(join));
+    appendStateOperation(new GraphicsOperation::SetLineJoin(join));
 }
 
 void PlatformGraphicsContextRecording::setMiterLimit(float limit)
 {
     PlatformGraphicsContext::setMiterLimit(limit);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetMiterLimit(limit));
+    appendStateOperation(new GraphicsOperation::SetMiterLimit(limit));
 }
 
 void PlatformGraphicsContextRecording::setShadow(int radius, int dx, int dy, SkColor c)
 {
     PlatformGraphicsContext::setShadow(radius, dx, dy, c);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetShadow(radius, dx, dy, c));
+    appendStateOperation(new GraphicsOperation::SetShadow(radius, dx, dy, c));
 }
 
 void PlatformGraphicsContextRecording::setShouldAntialias(bool useAA)
 {
     m_state->useAA = useAA;
     PlatformGraphicsContext::setShouldAntialias(useAA);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetShouldAntialias(useAA));
+    appendStateOperation(new GraphicsOperation::SetShouldAntialias(useAA));
 }
 
 bool PlatformGraphicsContextRecording::setStrokeColor(const Color& c)
 {
     if (PlatformGraphicsContext::setStrokeColor(c)) {
-        mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetStrokeColor(c));
+        appendStateOperation(new GraphicsOperation::SetStrokeColor(c));
         return true;
     }
     return false;
@@ -155,7 +160,7 @@ bool PlatformGraphicsContextRecording::setStrokeColor(const Color& c)
 bool PlatformGraphicsContextRecording::setStrokeShader(SkShader* strokeShader)
 {
     if (PlatformGraphicsContext::setStrokeShader(strokeShader)) {
-        mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetStrokeShader(strokeShader));
+        appendStateOperation(new GraphicsOperation::SetStrokeShader(strokeShader));
         return true;
     }
     return false;
@@ -164,13 +169,13 @@ bool PlatformGraphicsContextRecording::setStrokeShader(SkShader* strokeShader)
 void PlatformGraphicsContextRecording::setStrokeStyle(StrokeStyle style)
 {
     PlatformGraphicsContext::setStrokeStyle(style);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetStrokeStyle(style));
+    appendStateOperation(new GraphicsOperation::SetStrokeStyle(style));
 }
 
 void PlatformGraphicsContextRecording::setStrokeThickness(float f)
 {
     PlatformGraphicsContext::setStrokeThickness(f);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::SetStrokeThickness(f));
+    appendStateOperation(new GraphicsOperation::SetStrokeThickness(f));
 }
 
 //**************************************
@@ -180,26 +185,26 @@ void PlatformGraphicsContextRecording::setStrokeThickness(float f)
 void PlatformGraphicsContextRecording::concatCTM(const AffineTransform& affine)
 {
     mCurrentMatrix.preConcat(affine);
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::ConcatCTM(affine));
+    appendStateOperation(new GraphicsOperation::ConcatCTM(affine));
 }
 
 void PlatformGraphicsContextRecording::rotate(float angleInRadians)
 {
     float value = angleInRadians * (180.0f / 3.14159265f);
     mCurrentMatrix.preRotate(SkFloatToScalar(value));
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Rotate(angleInRadians));
+    appendStateOperation(new GraphicsOperation::Rotate(angleInRadians));
 }
 
 void PlatformGraphicsContextRecording::scale(const FloatSize& size)
 {
     mCurrentMatrix.preScale(SkFloatToScalar(size.width()), SkFloatToScalar(size.height()));
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Scale(size));
+    appendStateOperation(new GraphicsOperation::Scale(size));
 }
 
 void PlatformGraphicsContextRecording::translate(float x, float y)
 {
     mCurrentMatrix.preTranslate(SkFloatToScalar(x), SkFloatToScalar(y));
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Translate(x, y));
+    appendStateOperation(new GraphicsOperation::Translate(x, y));
 }
 
 const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
@@ -214,7 +219,7 @@ const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 void PlatformGraphicsContextRecording::addInnerRoundedRectClip(const IntRect& rect,
                                                       int thickness)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::InnerRoundedRectClip(rect, thickness));
+    appendStateOperation(new GraphicsOperation::InnerRoundedRectClip(rect, thickness));
 }
 
 void PlatformGraphicsContextRecording::canvasClip(const Path& path)
@@ -224,12 +229,12 @@ void PlatformGraphicsContextRecording::canvasClip(const Path& path)
 
 void PlatformGraphicsContextRecording::clip(const FloatRect& rect)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Clip(rect));
+    appendStateOperation(new GraphicsOperation::Clip(rect));
 }
 
 void PlatformGraphicsContextRecording::clip(const Path& path)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::ClipPath(path));
+    appendStateOperation(new GraphicsOperation::ClipPath(path));
 }
 
 void PlatformGraphicsContextRecording::clipConvexPolygon(size_t numPoints,
@@ -240,24 +245,24 @@ void PlatformGraphicsContextRecording::clipConvexPolygon(size_t numPoints,
 
 void PlatformGraphicsContextRecording::clipOut(const IntRect& r)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::ClipOut(r));
+    appendStateOperation(new GraphicsOperation::ClipOut(r));
 }
 
 void PlatformGraphicsContextRecording::clipOut(const Path& path)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::ClipPath(path, true));
+    appendStateOperation(new GraphicsOperation::ClipPath(path, true));
 }
 
 void PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
 {
     GraphicsOperation::ClipPath* operation = new GraphicsOperation::ClipPath(pathToClip);
     operation->setWindRule(clipRule);
-    mGraphicsOperationCollection->adoptAndAppend(operation);
+    appendStateOperation(operation);
 }
 
 void PlatformGraphicsContextRecording::clearRect(const FloatRect& rect)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::ClearRect(rect));
+    appendDrawingOperation(new GraphicsOperation::ClearRect(rect));
 }
 
 //**************************************
@@ -268,14 +273,14 @@ void PlatformGraphicsContextRecording::drawBitmapPattern(
         const SkBitmap& bitmap, const SkMatrix& matrix,
         CompositeOperator compositeOp, const FloatRect& destRect)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::DrawBitmapPattern(bitmap, matrix, compositeOp, destRect));
+    appendDrawingOperation(new GraphicsOperation::DrawBitmapPattern(bitmap, matrix, compositeOp, destRect));
 }
 
 void PlatformGraphicsContextRecording::drawBitmapRect(const SkBitmap& bitmap,
                                    const SkIRect* src, const SkRect& dst,
                                    CompositeOperator op)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::DrawBitmapRect(bitmap, *src, dst, op));
+    appendDrawingOperation(new GraphicsOperation::DrawBitmapRect(bitmap, *src, dst, op));
 }
 
 void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,
@@ -287,7 +292,7 @@ void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,
 
 void PlatformGraphicsContextRecording::drawEllipse(const IntRect& rect)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::DrawEllipse(rect));
+    appendDrawingOperation(new GraphicsOperation::DrawEllipse(rect));
 }
 
 void PlatformGraphicsContextRecording::drawFocusRing(const Vector<IntRect>& rects,
@@ -319,33 +324,33 @@ void PlatformGraphicsContextRecording::drawHighlightForText(
 void PlatformGraphicsContextRecording::drawLine(const IntPoint& point1,
                              const IntPoint& point2)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::DrawLine(point1, point2));
+    appendDrawingOperation(new GraphicsOperation::DrawLine(point1, point2));
 }
 
 void PlatformGraphicsContextRecording::drawLineForText(const FloatPoint& pt, float width)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::DrawLineForText(pt, width));
+    appendDrawingOperation(new GraphicsOperation::DrawLineForText(pt, width));
 }
 
 void PlatformGraphicsContextRecording::drawLineForTextChecking(const FloatPoint& pt,
         float width, GraphicsContext::TextCheckingLineStyle lineStyle)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::DrawLineForTextChecking(pt, width, lineStyle));
+    appendDrawingOperation(new GraphicsOperation::DrawLineForTextChecking(pt, width, lineStyle));
 }
 
 void PlatformGraphicsContextRecording::drawRect(const IntRect& rect)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::DrawRect(rect));
+    appendDrawingOperation(new GraphicsOperation::DrawRect(rect));
 }
 
 void PlatformGraphicsContextRecording::fillPath(const Path& pathToFill, WindRule fillRule)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::FillPath(pathToFill, fillRule));
+    appendDrawingOperation(new GraphicsOperation::FillPath(pathToFill, fillRule));
 }
 
 void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::FillRect(rect));
+    appendDrawingOperation(new GraphicsOperation::FillRect(rect));
 }
 
 void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect,
@@ -353,7 +358,7 @@ void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect,
 {
     GraphicsOperation::FillRect* operation = new GraphicsOperation::FillRect(rect);
     operation->setColor(color);
-    mGraphicsOperationCollection->adoptAndAppend(operation);
+    appendDrawingOperation(operation);
 }
 
 void PlatformGraphicsContextRecording::fillRoundedRect(
@@ -361,25 +366,47 @@ void PlatformGraphicsContextRecording::fillRoundedRect(
         const IntSize& bottomLeft, const IntSize& bottomRight,
         const Color& color)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::FillRoundedRect(rect, topLeft,
+    appendDrawingOperation(new GraphicsOperation::FillRoundedRect(rect, topLeft,
                  topRight, bottomLeft, bottomRight, color));
 }
 
 void PlatformGraphicsContextRecording::strokeArc(const IntRect& r, int startAngle,
                               int angleSpan)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::StrokeArc(r, startAngle, angleSpan));
+    appendDrawingOperation(new GraphicsOperation::StrokeArc(r, startAngle, angleSpan));
 }
 
 void PlatformGraphicsContextRecording::strokePath(const Path& pathToStroke)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::StrokePath(pathToStroke));
+    appendDrawingOperation(new GraphicsOperation::StrokePath(pathToStroke));
 }
 
 void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float lineWidth)
 {
-    mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::StrokeRect(rect, lineWidth));
+    appendDrawingOperation(new GraphicsOperation::StrokeRect(rect, lineWidth));
 }
 
+void PlatformGraphicsContextRecording::appendDrawingOperation(GraphicsOperation::Operation* operation)
+{
+    flushPendingOperations();
+    mGraphicsOperationCollection->adoptAndAppend(operation);
+}
+
+void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::Operation* operation)
+{
+    // If we have pending operations, we are in a save/restore pair that we are not
+    // sure whether or not it does any drawing in which case we add this operation to
+    // the pending operations
+    if (mPendingOperations.isEmpty())
+        mGraphicsOperationCollection->adoptAndAppend(operation);
+    else
+        mPendingOperations.adoptAndAppend(operation);
+}
+
+void PlatformGraphicsContextRecording::flushPendingOperations()
+{
+    if (!mPendingOperations.isEmpty())
+        mGraphicsOperationCollection->transferFrom(mPendingOperations);
+}
 
 }   // WebCore

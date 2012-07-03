@@ -13,84 +13,47 @@
 
 namespace WebCore {
 
-using namespace GraphicsOperation;
-
-static bool isDrawingOperation(GraphicsOperation::Operation* operation) {
-    switch (operation->type()) {
-    case Operation::DrawBitmapPatternOperation:
-    case Operation::DrawBitmapRectOperation:
-    case Operation::DrawEllipseOperation:
-    case Operation::DrawLineOperation:
-    case Operation::DrawLineForTextOperation:
-    case Operation::DrawLineForTextCheckingOperation:
-    case Operation::DrawRectOperation:
-    case Operation::FillPathOperation:
-    case Operation::FillRectOperation:
-    case Operation::FillRoundedRectOperation:
-    case Operation::StrokeArcOperation:
-    case Operation::StrokePathOperation:
-    case Operation::StrokeRectOperation:
-    case Operation::DrawComplexTextOperation:
-    case Operation::DrawTextOperation:
-        return true;
-    default:
-        return false;
-    }
-}
-
 GraphicsOperationCollection::GraphicsOperationCollection()
 {
 }
 
 GraphicsOperationCollection::~GraphicsOperationCollection()
 {
+    clear();
 }
 
-void GraphicsOperationCollection::apply(PlatformGraphicsContext* context)
+void GraphicsOperationCollection::apply(PlatformGraphicsContext* context) const
 {
-    flush();
-    for (unsigned int i = 0; i < m_operations.size(); i++)
+    size_t size = m_operations.size();
+    for (size_t i = 0; i < size; i++)
         m_operations[i]->apply(context);
 }
 
-void GraphicsOperationCollection::adoptAndAppend(GraphicsOperation::Operation* rawOp)
+void GraphicsOperationCollection::adoptAndAppend(GraphicsOperation::Operation* operation)
 {
-    PassRefPtr<GraphicsOperation::Operation> operation = adoptRef(rawOp);
-    if (operation->type() == Operation::SaveOperation) {
-        // TODO: Support nested Save/Restore checking?
-        flush();
-        m_pendingOperations.append(operation);
-        return;
-    }
-    if (m_pendingOperations.size()) {
-        if (operation->type() == Operation::RestoreOperation) {
-            // We hit a Save/Restore pair without any drawing, discard
-            m_pendingOperations.clear();
-            return;
-        }
-        if (!isDrawingOperation(operation.get())) {
-            // Isn't a drawing operation, so append to pending and return
-            m_pendingOperations.append(operation);
-            return;
-        }
-        // Hit a drawing operation, so flush the pending and append to m_operations
-        flush();
-    }
     m_operations.append(operation);
+}
+
+void GraphicsOperationCollection::transferFrom(GraphicsOperationCollection& moveFrom)
+{
+    size_t size = moveFrom.m_operations.size();
+    m_operations.reserveCapacity(m_operations.size() + size);
+    for (size_t i = 0; i < size; i++)
+        m_operations.append(moveFrom.m_operations[i]);
+    moveFrom.m_operations.clear();
 }
 
 bool GraphicsOperationCollection::isEmpty()
 {
-    flush();
     return !m_operations.size();
 }
 
-void GraphicsOperationCollection::flush()
+void GraphicsOperationCollection::clear()
 {
-    if (m_pendingOperations.size()) {
-        m_operations.append(m_pendingOperations);
-        m_pendingOperations.clear();
-    }
+    size_t size = m_operations.size();
+    for (size_t i = 0; i < size; i++)
+        delete m_operations[i];
+    m_operations.clear();
 }
 
 } // namespace WebCore
