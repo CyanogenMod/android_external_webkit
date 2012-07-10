@@ -174,43 +174,45 @@ void PlatformGraphicsContextSkia::canvasClip(const Path& path)
     clip(path);
 }
 
-void PlatformGraphicsContextSkia::clip(const FloatRect& rect)
+bool PlatformGraphicsContextSkia::clip(const FloatRect& rect)
 {
-    mCanvas->clipRect(rect);
+    return mCanvas->clipRect(rect);
 }
 
-void PlatformGraphicsContextSkia::clip(const Path& path)
+bool PlatformGraphicsContextSkia::clip(const Path& path)
 {
-    mCanvas->clipPath(*path.platformPath(), SkRegion::kIntersect_Op, true);
+    return mCanvas->clipPath(*path.platformPath(), SkRegion::kIntersect_Op, true);
 }
 
-void PlatformGraphicsContextSkia::clipConvexPolygon(size_t numPoints,
+bool PlatformGraphicsContextSkia::clipConvexPolygon(size_t numPoints,
                                                 const FloatPoint*, bool antialias)
 {
     if (numPoints <= 1)
-        return;
+        return true;
 
     // This is only used if HAVE_PATH_BASED_BORDER_RADIUS_DRAWING is defined
     // in RenderObject.h which it isn't for us. TODO: Support that :)
+    return true;
 }
 
-void PlatformGraphicsContextSkia::clipOut(const IntRect& r)
+bool PlatformGraphicsContextSkia::clipOut(const IntRect& r)
 {
-    mCanvas->clipRect(r, SkRegion::kDifference_Op);
+    return mCanvas->clipRect(r, SkRegion::kDifference_Op);
 }
 
-void PlatformGraphicsContextSkia::clipOut(const Path& path)
+bool PlatformGraphicsContextSkia::clipOut(const Path& path)
 {
-    mCanvas->clipPath(*path.platformPath(), SkRegion::kDifference_Op);
+    return mCanvas->clipPath(*path.platformPath(), SkRegion::kDifference_Op);
 }
 
-void PlatformGraphicsContextSkia::clipPath(const Path& pathToClip, WindRule clipRule)
+bool PlatformGraphicsContextSkia::clipPath(const Path& pathToClip, WindRule clipRule)
 {
     SkPath path = *pathToClip.platformPath();
     path.setFillType(clipRule == RULE_EVENODD
             ? SkPath::kEvenOdd_FillType : SkPath::kWinding_FillType);
-    mCanvas->clipPath(path);
+    return mCanvas->clipPath(path);
 }
+
 void PlatformGraphicsContextSkia::clearRect(const FloatRect& rect)
 {
     SkPaint paint;

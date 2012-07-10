@@ -92,12 +92,12 @@ public:
     // Clipping
     virtual void addInnerRoundedRectClip(const IntRect& rect, int thickness) = 0;
     virtual void canvasClip(const Path& path) = 0;
-    virtual void clip(const FloatRect& rect) = 0;
-    virtual void clip(const Path& path) = 0;
-    virtual void clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias) = 0;
-    virtual void clipOut(const IntRect& r) = 0;
-    virtual void clipOut(const Path& p) = 0;
-    virtual void clipPath(const Path& pathToClip, WindRule clipRule) = 0;
+    virtual bool clip(const FloatRect& rect) = 0;
+    virtual bool clip(const Path& path) = 0;
+    virtual bool clipConvexPolygon(size_t numPoints, const FloatPoint*, bool antialias) = 0;
+    virtual bool clipOut(const IntRect& r) = 0;
+    virtual bool clipOut(const Path& p) = 0;
+    virtual bool clipPath(const Path& pathToClip, WindRule clipRule) = 0;
 
     // Drawing
     virtual void clearRect(const FloatRect& rect) = 0;

@@ -19,13 +19,15 @@ namespace WebCore {
 PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(GraphicsOperationCollection* picture)
     : PlatformGraphicsContext()
     , mPicture(0)
-    , mGraphicsOperationCollection(picture)
+    , mPendingOperation(0)
 {
+    if (picture)
+        mGraphicsOperationStack.append(picture);
 }
 
 bool PlatformGraphicsContextRecording::isPaintingDisabled()
 {
-    return !mGraphicsOperationCollection;
+    return !mGraphicsOperationStack.size();
 }
 
 SkCanvas* PlatformGraphicsContextRecording::recordingCanvas()
@@ -64,17 +66,17 @@ void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
     flushPendingOperations();
-    mPendingOperations.adoptAndAppend(new GraphicsOperation::Save());
+    mPendingOperation = new GraphicsOperation::Save();
 }
 
 void PlatformGraphicsContextRecording::restore()
 {
     PlatformGraphicsContext::restore();
-    // If we have pending operations then the save/restore pair is empty and a no-op, discard it
-    if (mPendingOperations.isEmpty())
-        mGraphicsOperationCollection->adoptAndAppend(new GraphicsOperation::Restore());
-    else
-        mPendingOperations.clear();
+    if (mPendingOperation) {
+        delete mPendingOperation;
+        mPendingOperation = 0;
+    } else
+        mGraphicsOperationStack.removeLast();
 }
 
 //**************************************
@@ -227,37 +229,43 @@ void PlatformGraphicsContextRecording::canvasClip(const Path& path)
     clip(path);
 }
 
-void PlatformGraphicsContextRecording::clip(const FloatRect& rect)
+bool PlatformGraphicsContextRecording::clip(const FloatRect& rect)
 {
     appendStateOperation(new GraphicsOperation::Clip(rect));
+    return true;
 }
 
-void PlatformGraphicsContextRecording::clip(const Path& path)
+bool PlatformGraphicsContextRecording::clip(const Path& path)
 {
     appendStateOperation(new GraphicsOperation::ClipPath(path));
+    return true;
 }
 
-void PlatformGraphicsContextRecording::clipConvexPolygon(size_t numPoints,
+bool PlatformGraphicsContextRecording::clipConvexPolygon(size_t numPoints,
                                                 const FloatPoint*, bool antialias)
 {
     // TODO
+    return true;
 }
 
-void PlatformGraphicsContextRecording::clipOut(const IntRect& r)
+bool PlatformGraphicsContextRecording::clipOut(const IntRect& r)
 {
     appendStateOperation(new GraphicsOperation::ClipOut(r));
+    return true;
 }
 
-void PlatformGraphicsContextRecording::clipOut(const Path& path)
+bool PlatformGraphicsContextRecording::clipOut(const Path& path)
 {
     appendStateOperation(new GraphicsOperation::ClipPath(path, true));
+    return true;
 }
 
-void PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
+bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
 {
     GraphicsOperation::ClipPath* operation = new GraphicsOperation::ClipPath(pathToClip);
     operation->setWindRule(clipRule);
     appendStateOperation(operation);
+    return true;
 }
 
 void PlatformGraphicsContextRecording::clearRect(const FloatRect& rect)
@@ -389,24 +397,24 @@ void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float l
 void PlatformGraphicsContextRecording::appendDrawingOperation(GraphicsOperation::Operation* operation)
 {
     flushPendingOperations();
-    mGraphicsOperationCollection->adoptAndAppend(operation);
+    mGraphicsOperationStack.last()->adoptAndAppend(operation);
 }
 
 void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::Operation* operation)
 {
-    // If we have pending operations, we are in a save/restore pair that we are not
-    // sure whether or not it does any drawing in which case we add this operation to
-    // the pending operations
-    if (mPendingOperations.isEmpty())
-        mGraphicsOperationCollection->adoptAndAppend(operation);
+    if (mPendingOperation)
+        mPendingOperation->operations()->adoptAndAppend(operation);
     else
-        mPendingOperations.adoptAndAppend(operation);
+        mGraphicsOperationStack.last()->adoptAndAppend(operation);
 }
 
 void PlatformGraphicsContextRecording::flushPendingOperations()
 {
-    if (!mPendingOperations.isEmpty())
-        mGraphicsOperationCollection->transferFrom(mPendingOperations);
+    if (mPendingOperation) {
+        mGraphicsOperationStack.last()->adoptAndAppend(mPendingOperation);
+        mGraphicsOperationStack.append(mPendingOperation->operations());
+        mPendingOperation = 0;
+    }
 }
 
 }   // WebCore
