@@ -130,14 +130,10 @@ static void DeleteOrigin(JNIEnv* env, jobject obj, jstring origin)
 
 static void DeleteAllData(JNIEnv* env, jobject obj)
 {
+    // delete WebSQL database
     WebCore::DatabaseTracker::tracker().deleteAllDatabases();
-
-    Vector<WebCore::KURL> manifestUrls;
-    if (!WebCore::cacheStorage().manifestURLs(&manifestUrls))
-        return;
-    int size = manifestUrls.size();
-    for (int i = 0; i < size; ++i)
-        WebCore::cacheStorage().deleteCacheGroup(manifestUrls[i]);
+    // delete AppCache
+    WebCore::cacheStorage().deleteAllEntries();
 
     // FIXME: this is a workaround for eliminating any DOM Storage data (both
     // session and local storage) as there is no functionality inside WebKit at the
