@@ -26,12 +26,14 @@
 #ifndef GraphicsOperationCollection_h
 #define GraphicsOperationCollection_h
 
-#if USE(ACCELERATED_COMPOSITING)
-
-#include "GraphicsOperation.h"
 #include "SkRefCnt.h"
+#include "wtf/Vector.h"
 
 namespace WebCore {
+
+namespace GraphicsOperation {
+class Operation;
+}
 
 class PlatformGraphicsContext;
 
@@ -55,7 +57,5 @@ private:
 };
 
 }
-
-#endif // USE(ACCELERATED_COMPOSITING)
 
 #endif // GraphicsOperationCollection_h
