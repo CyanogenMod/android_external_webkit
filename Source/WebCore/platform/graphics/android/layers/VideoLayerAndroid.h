@@ -44,7 +44,7 @@ namespace WebCore {
 // Otherwise will draw a static image.
 // NOTE: These values are matching the ones in HTML5VideoView.java
 // Please keep them in sync when changed here.
-typedef enum {INITIALIZED, PREPARING, PREPARED, PLAYING, RELEASED} PlayerState;
+typedef enum {INITIALIZED, PREPARING, PREPARED, PLAYING, RESETTED, RELEASED} PlayerState;
 
 class VideoLayerAndroid : public LayerAndroid {
 
