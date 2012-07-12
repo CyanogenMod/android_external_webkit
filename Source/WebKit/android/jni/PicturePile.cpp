@@ -58,7 +58,10 @@ static SkIRect toSkIRect(const IntRect& rect) {
 
 static IntRect extractClipBounds(SkCanvas* canvas, const IntSize& size) {
     SkRect clip;
-    canvas->getClipBounds(&clip);
+    if (!canvas->getClipBounds(&clip)) {
+        ALOGW("Empty clip!");
+        return IntRect();
+    }
     clip.intersect(0, 0, size.width(), size.height());
     return enclosingIntRect(clip);
 }
@@ -93,6 +96,8 @@ void PicturePile::draw(SkCanvas* canvas)
      * used for translucent surfaces
      */
     IntRect clipBounds = extractClipBounds(canvas, m_size);
+    if (clipBounds.isEmpty())
+        return;
     SkRegion clipRegion(toSkIRect(clipBounds));
     drawWithClipRecursive(canvas, clipRegion, m_pile.size() - 1);
 }
@@ -116,8 +121,8 @@ void PicturePile::drawWithClipRecursive(SkCanvas* canvas, SkRegion& clipRegion,
         clipRegion.op(intersection, SkRegion::kDifference_Op);
         drawWithClipRecursive(canvas, clipRegion, index - 1);
         int saved = canvas->save();
-        canvas->clipRect(intersection);
-        drawPicture(canvas, pc);
+        if (canvas->clipRect(intersection))
+            drawPicture(canvas, pc);
         canvas->restoreToCount(saved);
     } else
         drawWithClipRecursive(canvas, clipRegion, index - 1);
