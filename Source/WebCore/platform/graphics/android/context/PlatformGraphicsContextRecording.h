@@ -29,6 +29,9 @@
 #include "PlatformGraphicsContext.h"
 
 #include "GraphicsOperationCollection.h"
+#include "SkRefCnt.h"
+
+class SkCanvas;
 
 namespace WebCore {
 namespace GraphicsOperation {
@@ -36,15 +39,31 @@ class Operation;
 class Save;
 }
 
+class RecordingImpl;
+class Recording : public SkRefCnt {
+public:
+    Recording()
+        : m_recording(0)
+    {}
+    ~Recording();
+
+    void draw(SkCanvas* canvas);
+    void setRecording(RecordingImpl* impl);
+    RecordingImpl* recording() { return m_recording; }
+
+private:
+    RecordingImpl* m_recording;
+};
+
 class PlatformGraphicsContextRecording : public PlatformGraphicsContext {
 public:
-    PlatformGraphicsContextRecording(GraphicsOperationCollection* picture);
+    PlatformGraphicsContextRecording(Recording* picture);
     virtual ~PlatformGraphicsContextRecording() {}
     virtual bool isPaintingDisabled();
     virtual SkCanvas* getCanvas() { return 0; }
 
     virtual SkCanvas* recordingCanvas();
-    virtual void endRecording(int type = 0);
+    virtual void endRecording(const SkRect& bounds);
 
     virtual ContextType type() { return RecordingContext; }
 
@@ -105,7 +124,7 @@ public:
     virtual void drawLine(const IntPoint& point1, const IntPoint& point2);
     virtual void drawLineForText(const FloatPoint& pt, float width);
     virtual void drawLineForTextChecking(const FloatPoint& pt, float width,
-                                 GraphicsContext::TextCheckingLineStyle);
+                                         GraphicsContext::TextCheckingLineStyle);
     virtual void drawRect(const IntRect& rect);
     virtual void fillPath(const Path& pathToFill, WindRule fillRule);
     virtual void fillRect(const FloatRect& rect);
@@ -123,15 +142,48 @@ private:
         return false;
     }
 
-    void appendDrawingOperation(GraphicsOperation::Operation* operation);
+    void appendDrawingOperation(GraphicsOperation::Operation* operation, const FloatRect& bounds);
     void appendStateOperation(GraphicsOperation::Operation* operation);
-    void flushPendingOperations();
 
     SkPicture* mPicture;
     SkMatrix mCurrentMatrix;
 
-    Vector<GraphicsOperationCollection*> mGraphicsOperationStack;
-    GraphicsOperation::Save* mPendingOperation;
+    Recording* mRecording;
+    class RecordingState {
+    public:
+        RecordingState(GraphicsOperation::Save* saveOp)
+            : mSaveOperation(saveOp)
+            , mHasDrawing(false)
+            , mHasClip(false)
+        {}
+
+        RecordingState(const RecordingState& other)
+            : mSaveOperation(other.mSaveOperation)
+            , mHasDrawing(other.mHasDrawing)
+            , mHasClip(other.mHasClip)
+            , mBounds(other.mBounds)
+        {}
+
+        void addBounds(const FloatRect& bounds)
+        {
+            if (mHasClip)
+                return;
+            mBounds.unite(bounds);
+        }
+
+        void clip(const FloatRect& rect)
+        {
+            addBounds(rect);
+            mHasClip = true;
+        }
+
+        GraphicsOperation::Save* mSaveOperation;
+        bool mHasDrawing;
+        bool mHasClip;
+        FloatRect mBounds;
+    };
+    Vector<RecordingState> mRecordingStateStack;
+    State* mOperationState;
 };
 
 }

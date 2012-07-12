@@ -100,7 +100,17 @@ public:
                   , DrawTextOperation
     } OperationType;
 
-    virtual bool apply(PlatformGraphicsContext* context) = 0;
+    Operation()
+        : m_state(0)
+    {}
+
+    PlatformGraphicsContext::State* m_state;
+    bool apply(PlatformGraphicsContext* context) {
+        if (m_state)
+            context->setRawState(m_state);
+        return applyImpl(context);
+    }
+    virtual bool applyImpl(PlatformGraphicsContext* context) = 0;
     virtual ~Operation() {}
     virtual OperationType type() { return UndefinedOperation; }
     virtual String parameters() { return ""; }
@@ -168,7 +178,7 @@ public:
 class BeginTransparencyLayer : public Operation {
 public:
     BeginTransparencyLayer(const float opacity) : m_opacity(opacity) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->beginTransparencyLayer(m_opacity);
         return true;
     }
@@ -179,7 +189,7 @@ private:
 class EndTransparencyLayer : public Operation {
 public:
     EndTransparencyLayer() {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->endTransparencyLayer();
         return true;
     }
@@ -187,7 +197,7 @@ public:
 };
 class Save : public Operation {
 public:
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->save();
         m_operations.apply(context);
         context->restore();
@@ -195,6 +205,7 @@ public:
     }
     virtual OperationType type() { return SaveOperation; }
     GraphicsOperationCollection* operations() { return &m_operations; }
+    FloatRect bounds;
 private:
     GraphicsOperationCollection m_operations;
 };
@@ -206,7 +217,7 @@ private:
 class SetAlpha : public Operation {
 public:
     SetAlpha(const float alpha) : m_alpha(alpha) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setAlpha(m_alpha);
         return true;
     }
@@ -218,7 +229,7 @@ private:
 class SetCompositeOperation : public Operation {
 public:
     SetCompositeOperation(CompositeOperator op) : m_operator(op) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setCompositeOperation(m_operator);
         return true;
     }
@@ -230,7 +241,7 @@ private:
 class SetFillColor : public Operation {
 public:
     SetFillColor(Color color) : m_color(color) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setFillColor(m_color);
         return true;
     }
@@ -252,7 +263,7 @@ public:
         SkSafeRef(m_shader);
     }
     ~SetFillShader() { SkSafeUnref(m_shader); }
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setFillShader(m_shader);
         return true;
     }
@@ -264,7 +275,7 @@ private:
 class SetLineCap : public Operation {
 public:
     SetLineCap(LineCap cap) : m_cap(cap) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setLineCap(m_cap);
         return true;
     }
@@ -277,7 +288,7 @@ class SetLineDash : public Operation {
 public:
     SetLineDash(const DashArray& dashes, float dashOffset)
         : m_dashes(dashes), m_dashOffset(dashOffset) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setLineDash(m_dashes, m_dashOffset);
         return true;
     }
@@ -290,7 +301,7 @@ private:
 class SetLineJoin : public Operation {
 public:
     SetLineJoin(LineJoin join) : m_join(join) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setLineJoin(m_join);
         return true;
     }
@@ -302,7 +313,7 @@ private:
 class SetMiterLimit : public Operation {
 public:
     SetMiterLimit(float limit) : m_limit(limit) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setMiterLimit(m_limit);
         return true;
     }
@@ -315,7 +326,7 @@ class SetShadow : public Operation {
 public:
     SetShadow(int radius, int dx, int dy, SkColor c)
         : m_radius(radius), m_dx(dx), m_dy(dy), m_color(c) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setShadow(m_radius, m_dx, m_dy, m_color);
         return true;
     }
@@ -330,7 +341,7 @@ private:
 class SetShouldAntialias : public Operation {
 public:
     SetShouldAntialias(bool useAA) : m_useAA(useAA) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setShouldAntialias(m_useAA);
         return true;
     }
@@ -342,7 +353,7 @@ private:
 class SetStrokeColor : public Operation {
 public:
     SetStrokeColor(const Color& c) : m_color(c) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setStrokeColor(m_color);
         return true;
     }
@@ -357,7 +368,7 @@ public:
         SkSafeRef(m_shader);
     }
     ~SetStrokeShader() { SkSafeUnref(m_shader); }
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setStrokeShader(m_shader);
         return true;
     }
@@ -369,7 +380,7 @@ private:
 class SetStrokeStyle : public Operation {
 public:
     SetStrokeStyle(StrokeStyle style) : m_style(style) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setStrokeStyle(m_style);
         return true;
     }
@@ -381,7 +392,7 @@ private:
 class SetStrokeThickness : public Operation {
 public:
     SetStrokeThickness(float thickness) : m_thickness(thickness) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->setStrokeThickness(m_thickness);
         return true;
     }
@@ -397,7 +408,7 @@ private:
 class ConcatCTM : public Operation {
 public:
     ConcatCTM(const AffineTransform& affine) : m_matrix(affine) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->concatCTM(m_matrix);
         return true;
     }
@@ -409,7 +420,7 @@ private:
 class Rotate : public Operation {
 public:
     Rotate(float angleInRadians) : m_angle(angleInRadians) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->rotate(m_angle);
         return true;
     }
@@ -421,7 +432,7 @@ private:
 class Scale : public Operation {
 public:
     Scale(const FloatSize& size) : m_scale(size) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->scale(m_scale);
         return true;
     }
@@ -433,7 +444,7 @@ private:
 class Translate : public Operation {
 public:
     Translate(float x, float y) : m_x(x), m_y(y) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->translate(m_x, m_y);
         return true;
     }
@@ -451,7 +462,7 @@ class InnerRoundedRectClip : public Operation {
 public:
     InnerRoundedRectClip(const IntRect& rect, int thickness)
         : m_rect(rect), m_thickness(thickness) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->addInnerRoundedRectClip(m_rect, m_thickness);
         return true;
     }
@@ -464,10 +475,15 @@ private:
 class Clip : public Operation {
 public:
     Clip(const FloatRect& rect) : m_rect(rect) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         return context->clip(m_rect);
     }
     virtual OperationType type() { return ClipOperation; }
+    virtual String parameters() {
+        return String::format("[x=%.2f,y=%.2f,w=%.2f,h=%.2f]",
+                         m_rect.x(), m_rect.y(),
+                         m_rect.width(), m_rect.height());
+    }
 private:
     const FloatRect m_rect;
 };
@@ -477,7 +493,7 @@ public:
     ClipPath(const Path& path, bool clipout = false)
         : m_path(path), m_clipOut(clipout), m_hasWindRule(false) {}
     void setWindRule(WindRule rule) { m_windRule = rule; m_hasWindRule = true; }
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         if (m_hasWindRule) {
             return context->clipPath(m_path, m_windRule);
         }
@@ -497,7 +513,7 @@ private:
 class ClipOut : public Operation {
 public:
     ClipOut(const IntRect& rect) : m_rect(rect) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         return context->clipOut(m_rect);
     }
     virtual OperationType type() { return ClipOutOperation; }
@@ -508,7 +524,7 @@ private:
 class ClearRect : public Operation {
 public:
     ClearRect(const FloatRect& rect) : m_rect(rect) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->clearRect(m_rect);
         return true;
     }
@@ -526,7 +542,7 @@ public:
     DrawBitmapPattern(const SkBitmap& bitmap, const SkMatrix& matrix,
                       CompositeOperator op, const FloatRect& destRect)
         : m_bitmap(bitmap), m_matrix(matrix), m_operator(op), m_destRect(destRect) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->drawBitmapPattern(m_bitmap, m_matrix, m_operator, m_destRect);
         return true;
     }
@@ -544,7 +560,7 @@ public:
     DrawBitmapRect(const SkBitmap& bitmap, const SkIRect& srcR,
                    const SkRect& dstR, CompositeOperator op)
         : m_bitmap(bitmap), m_srcR(srcR), m_dstR(dstR), m_operator(op) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->drawBitmapRect(m_bitmap, &m_srcR, m_dstR, m_operator);
         return true;
     }
@@ -564,7 +580,7 @@ private:
 class DrawEllipse : public Operation {
 public:
     DrawEllipse(const IntRect& rect) : m_rect(rect) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->drawEllipse(m_rect);
         return true;
     }
@@ -577,7 +593,7 @@ class DrawLine : public Operation {
 public:
     DrawLine(const IntPoint& point1, const IntPoint& point2)
         : m_point1(point1), m_point2(point2) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->drawLine(m_point1, m_point2);
         return true;
     }
@@ -591,7 +607,7 @@ class DrawLineForText : public Operation {
 public:
     DrawLineForText(const FloatPoint& pt, float width)
         : m_point(pt), m_width(width) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->drawLineForText(m_point, m_width);
         return true;
     }
@@ -606,7 +622,7 @@ public:
     DrawLineForTextChecking(const FloatPoint& pt, float width,
                             GraphicsContext::TextCheckingLineStyle lineStyle)
         : m_point(pt), m_width(width), m_lineStyle(lineStyle) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->drawLineForTextChecking(m_point, m_width, m_lineStyle);
         return true;
     }
@@ -620,7 +636,7 @@ private:
 class DrawRect : public Operation {
 public:
     DrawRect(const IntRect& rect) : m_rect(rect) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->drawRect(m_rect);
         return true;
     }
@@ -633,7 +649,7 @@ class FillPath : public Operation {
 public:
     FillPath(const Path& pathToFill, WindRule fillRule)
         : m_path(pathToFill), m_fillRule(fillRule) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->fillPath(m_path, m_fillRule);
         return true;
     }
@@ -647,7 +663,7 @@ class FillRect : public Operation {
 public:
     FillRect(const FloatRect& rect) : m_rect(rect), m_hasColor(false) {}
     void setColor(Color c) { m_color = c; m_hasColor = true; }
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         if (m_hasColor)
              context->fillRect(m_rect, m_color);
         else
@@ -676,7 +692,7 @@ public:
         , m_bottomRight(bottomRight)
         , m_color(color)
     {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->fillRoundedRect(m_rect, m_topLeft, m_topRight,
                                  m_bottomLeft, m_bottomRight,
                                  m_color);
@@ -699,7 +715,7 @@ public:
         , m_startAngle(startAngle)
         , m_angleSpan(angleSpan)
     {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->strokeArc(m_rect, m_startAngle, m_angleSpan);
         return true;
     }
@@ -713,7 +729,7 @@ private:
 class StrokePath : public Operation {
 public:
     StrokePath(const Path& path) : m_path(path) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->strokePath(m_path);
         return true;
     }
@@ -727,7 +743,7 @@ class StrokeRect : public Operation {
 public:
     StrokeRect(const FloatRect& rect, float lineWidth)
         : m_rect(rect), m_lineWidth(lineWidth) {}
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->strokeRect(m_rect, m_lineWidth);
         return true;
     }
@@ -747,7 +763,7 @@ public:
         SkSafeRef(m_picture);
     }
     ~DrawComplexText() { SkSafeUnref(m_picture); }
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         if (!context->getCanvas())
             return true;
         context->getCanvas()->drawPicture(*m_picture);
@@ -776,7 +792,7 @@ public:
         m_picture = picture;
     }
     ~DrawText() { SkSafeUnref(m_picture); }
-    virtual bool apply(PlatformGraphicsContext* context) {
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
         if (!context->getCanvas())
             return true;
         context->getCanvas()->drawPicture(*m_picture);

@@ -5,29 +5,130 @@
 #include "PlatformGraphicsContextRecording.h"
 
 #include "AndroidLog.h"
+#include "FloatRect.h"
+#include "FloatQuad.h"
 #include "Font.h"
 #include "GraphicsContext.h"
 #include "GraphicsOperationCollection.h"
 #include "GraphicsOperation.h"
+#include "PlatformGraphicsContextSkia.h"
+#include "RTree.h"
+
+#include "wtf/NonCopyingSort.h"
 
 namespace WebCore {
+
+class RecordingData {
+public:
+    RecordingData(GraphicsOperation::Operation* ops, int orderBy)
+        : m_orderBy(orderBy)
+        , m_operation(ops)
+    {}
+    ~RecordingData() {
+        delete m_operation;
+    }
+
+    unsigned int m_orderBy;
+    GraphicsOperation::Operation* m_operation;
+};
+
+typedef RTree<RecordingData*, float, 2> RecordingTree;
+
+class RecordingImpl {
+public:
+    RecordingImpl()
+        : m_nodeCount(0)
+    {
+        m_states.reserveCapacity(50000);
+    }
+
+    ~RecordingImpl() {
+        clear();
+    }
+
+    void clear() {
+        RecordingTree::Iterator it;
+        for (m_tree.GetFirst(it); !m_tree.IsNull(it); m_tree.GetNext(it)) {
+            RecordingData* removeElem = m_tree.GetAt(it);
+            if (removeElem)
+                delete removeElem;
+        }
+        m_tree.RemoveAll();
+    }
+
+    RecordingTree m_tree;
+    Vector<PlatformGraphicsContext::State> m_states;
+    int m_nodeCount;
+};
+
+Recording::~Recording()
+{
+    delete m_recording;
+}
+
+static bool GatherSearchResults(RecordingData* data, void* context)
+{
+    ((Vector<RecordingData*>*)context)->append(data);
+    return true;
+}
+
+static bool CompareRecordingDataOrder(const RecordingData* a, const RecordingData* b)
+{
+    return a->m_orderBy < b->m_orderBy;
+}
+
+void Recording::draw(SkCanvas* canvas)
+{
+    if (!m_recording) {
+        ALOGW("No recording!");
+        return;
+    }
+    SkRect clip;
+    if (!canvas->getClipBounds(&clip)) {
+        ALOGW("Empty clip!");
+        return;
+    }
+    Vector<RecordingData*> nodes;
+    float searchMin[] = {clip.fLeft, clip.fTop};
+    float searchMax[] = {clip.fRight, clip.fBottom};
+    m_recording->m_tree.Search(searchMin, searchMax, GatherSearchResults, &nodes);
+    size_t count = nodes.size();
+    ALOGV("Drawing %d nodes out of %d", count, m_recording->m_nodeCount);
+    if (count) {
+        nonCopyingSort(nodes.begin(), nodes.end(), CompareRecordingDataOrder);
+        PlatformGraphicsContextSkia context(canvas);
+        for (size_t i = 0; i < count; i++)
+            nodes[i]->m_operation->apply(&context);
+    }
+    ALOGV("Using %dkb for state storage", (sizeof(PlatformGraphicsContext::State) * m_recording->m_states.size()) / 1024);
+}
+
+void Recording::setRecording(RecordingImpl* impl)
+{
+    if (m_recording == impl)
+        return;
+    if (m_recording)
+        delete m_recording;
+    m_recording = impl;
+}
 
 //**************************************
 // PlatformGraphicsContextRecording
 //**************************************
 
-PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(GraphicsOperationCollection* picture)
+PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* recording)
     : PlatformGraphicsContext()
     , mPicture(0)
-    , mPendingOperation(0)
+    , mRecording(recording)
+    , mOperationState(0)
 {
-    if (picture)
-        mGraphicsOperationStack.append(picture);
+    if (mRecording)
+        mRecording->setRecording(new RecordingImpl());
 }
 
 bool PlatformGraphicsContextRecording::isPaintingDisabled()
 {
-    return !mGraphicsOperationStack.size();
+    return !mRecording;
 }
 
 SkCanvas* PlatformGraphicsContextRecording::recordingCanvas()
@@ -37,13 +138,13 @@ SkCanvas* PlatformGraphicsContextRecording::recordingCanvas()
     return mPicture->beginRecording(0, 0, 0);
 }
 
-void PlatformGraphicsContextRecording::endRecording(int type)
+void PlatformGraphicsContextRecording::endRecording(const SkRect& bounds)
 {
     if (!mPicture)
         return;
     mPicture->endRecording();
     GraphicsOperation::DrawComplexText* text = new GraphicsOperation::DrawComplexText(mPicture);
-    appendDrawingOperation(text);
+    appendDrawingOperation(text, bounds);
     mPicture = 0;
 }
 
@@ -65,18 +166,18 @@ void PlatformGraphicsContextRecording::endTransparencyLayer()
 void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
-    flushPendingOperations();
-    mPendingOperation = new GraphicsOperation::Save();
+    mRecordingStateStack.append(new GraphicsOperation::Save());
 }
 
 void PlatformGraphicsContextRecording::restore()
 {
     PlatformGraphicsContext::restore();
-    if (mPendingOperation) {
-        delete mPendingOperation;
-        mPendingOperation = 0;
-    } else
-        mGraphicsOperationStack.removeLast();
+    RecordingState state = mRecordingStateStack.last();
+    mRecordingStateStack.removeLast();
+    if (state.mHasDrawing)
+        appendDrawingOperation(state.mSaveOperation, state.mBounds);
+    else
+        delete state.mSaveOperation;
 }
 
 //**************************************
@@ -231,12 +332,16 @@ void PlatformGraphicsContextRecording::canvasClip(const Path& path)
 
 bool PlatformGraphicsContextRecording::clip(const FloatRect& rect)
 {
+    if (mRecordingStateStack.size())
+        mRecordingStateStack.last().clip(rect);
     appendStateOperation(new GraphicsOperation::Clip(rect));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clip(const Path& path)
 {
+    if (mRecordingStateStack.size())
+        mRecordingStateStack.last().clip(path.boundingRect());
     appendStateOperation(new GraphicsOperation::ClipPath(path));
     return true;
 }
@@ -262,6 +367,8 @@ bool PlatformGraphicsContextRecording::clipOut(const Path& path)
 
 bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
 {
+    if (mRecordingStateStack.size())
+        mRecordingStateStack.last().clip(pathToClip.boundingRect());
     GraphicsOperation::ClipPath* operation = new GraphicsOperation::ClipPath(pathToClip);
     operation->setWindRule(clipRule);
     appendStateOperation(operation);
@@ -270,7 +377,7 @@ bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule
 
 void PlatformGraphicsContextRecording::clearRect(const FloatRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::ClearRect(rect));
+    appendDrawingOperation(new GraphicsOperation::ClearRect(rect), rect);
 }
 
 //**************************************
@@ -281,14 +388,16 @@ void PlatformGraphicsContextRecording::drawBitmapPattern(
         const SkBitmap& bitmap, const SkMatrix& matrix,
         CompositeOperator compositeOp, const FloatRect& destRect)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawBitmapPattern(bitmap, matrix, compositeOp, destRect));
+    appendDrawingOperation(
+            new GraphicsOperation::DrawBitmapPattern(bitmap, matrix, compositeOp, destRect),
+            destRect);
 }
 
 void PlatformGraphicsContextRecording::drawBitmapRect(const SkBitmap& bitmap,
                                    const SkIRect* src, const SkRect& dst,
                                    CompositeOperator op)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawBitmapRect(bitmap, *src, dst, op));
+    appendDrawingOperation(new GraphicsOperation::DrawBitmapRect(bitmap, *src, dst, op), dst);
 }
 
 void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,
@@ -300,7 +409,7 @@ void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,
 
 void PlatformGraphicsContextRecording::drawEllipse(const IntRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawEllipse(rect));
+    appendDrawingOperation(new GraphicsOperation::DrawEllipse(rect), rect);
 }
 
 void PlatformGraphicsContextRecording::drawFocusRing(const Vector<IntRect>& rects,
@@ -332,33 +441,39 @@ void PlatformGraphicsContextRecording::drawHighlightForText(
 void PlatformGraphicsContextRecording::drawLine(const IntPoint& point1,
                              const IntPoint& point2)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawLine(point1, point2));
+    FloatRect bounds = FloatQuad(point1, point1, point2, point2).boundingBox();
+    float width = m_state->strokeThickness;
+    if (!width) width = 1;
+    bounds.inflate(width);
+    appendDrawingOperation(new GraphicsOperation::DrawLine(point1, point2), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawLineForText(const FloatPoint& pt, float width)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawLineForText(pt, width));
+    FloatRect bounds(pt.x(), pt.y(), width, m_state->strokeThickness);
+    appendDrawingOperation(new GraphicsOperation::DrawLineForText(pt, width), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawLineForTextChecking(const FloatPoint& pt,
         float width, GraphicsContext::TextCheckingLineStyle lineStyle)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawLineForTextChecking(pt, width, lineStyle));
+    FloatRect bounds(pt.x(), pt.y(), width, m_state->strokeThickness);
+    appendDrawingOperation(new GraphicsOperation::DrawLineForTextChecking(pt, width, lineStyle), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawRect(const IntRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawRect(rect));
+    appendDrawingOperation(new GraphicsOperation::DrawRect(rect), rect);
 }
 
 void PlatformGraphicsContextRecording::fillPath(const Path& pathToFill, WindRule fillRule)
 {
-    appendDrawingOperation(new GraphicsOperation::FillPath(pathToFill, fillRule));
+    appendDrawingOperation(new GraphicsOperation::FillPath(pathToFill, fillRule), pathToFill.boundingRect());
 }
 
 void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::FillRect(rect));
+    appendDrawingOperation(new GraphicsOperation::FillRect(rect), rect);
 }
 
 void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect,
@@ -366,7 +481,7 @@ void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect,
 {
     GraphicsOperation::FillRect* operation = new GraphicsOperation::FillRect(rect);
     operation->setColor(color);
-    appendDrawingOperation(operation);
+    appendDrawingOperation(operation, rect);
 }
 
 void PlatformGraphicsContextRecording::fillRoundedRect(
@@ -375,45 +490,59 @@ void PlatformGraphicsContextRecording::fillRoundedRect(
         const Color& color)
 {
     appendDrawingOperation(new GraphicsOperation::FillRoundedRect(rect, topLeft,
-                 topRight, bottomLeft, bottomRight, color));
+                 topRight, bottomLeft, bottomRight, color), rect);
 }
 
 void PlatformGraphicsContextRecording::strokeArc(const IntRect& r, int startAngle,
                               int angleSpan)
 {
-    appendDrawingOperation(new GraphicsOperation::StrokeArc(r, startAngle, angleSpan));
+    appendDrawingOperation(new GraphicsOperation::StrokeArc(r, startAngle, angleSpan), r);
 }
 
 void PlatformGraphicsContextRecording::strokePath(const Path& pathToStroke)
 {
-    appendDrawingOperation(new GraphicsOperation::StrokePath(pathToStroke));
+    appendDrawingOperation(new GraphicsOperation::StrokePath(pathToStroke), pathToStroke.boundingRect());
 }
 
 void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float lineWidth)
 {
-    appendDrawingOperation(new GraphicsOperation::StrokeRect(rect, lineWidth));
+    FloatRect bounds = rect;
+    bounds.inflate(lineWidth);
+    appendDrawingOperation(new GraphicsOperation::StrokeRect(rect, lineWidth), bounds);
 }
 
-void PlatformGraphicsContextRecording::appendDrawingOperation(GraphicsOperation::Operation* operation)
+void PlatformGraphicsContextRecording::appendDrawingOperation(
+        GraphicsOperation::Operation* operation, const FloatRect& bounds)
 {
-    flushPendingOperations();
-    mGraphicsOperationStack.last()->adoptAndAppend(operation);
+    if (bounds.isEmpty()) {
+        ALOGW("Empty bounds for %s(%s)!", operation->name(), operation->parameters().ascii().data());
+        return;
+    }
+    if (mRecordingStateStack.size()) {
+        RecordingState& state = mRecordingStateStack.last();
+        state.mHasDrawing = true;
+        state.addBounds(bounds);
+        state.mSaveOperation->operations()->adoptAndAppend(operation);
+        return;
+    }
+    if (!mOperationState) {
+        mRecording->recording()->m_states.append(m_state->cloneInheritedProperties());
+        mOperationState = &mRecording->recording()->m_states.last();
+    }
+    operation->m_state = mOperationState;
+    RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
+    float min[] = {bounds.x(), bounds.y()};
+    float max[] = {bounds.maxX(), bounds.maxY()};
+    mRecording->recording()->m_tree.Insert(min, max, data);
 }
 
 void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::Operation* operation)
 {
-    if (mPendingOperation)
-        mPendingOperation->operations()->adoptAndAppend(operation);
-    else
-        mGraphicsOperationStack.last()->adoptAndAppend(operation);
-}
-
-void PlatformGraphicsContextRecording::flushPendingOperations()
-{
-    if (mPendingOperation) {
-        mGraphicsOperationStack.last()->adoptAndAppend(mPendingOperation);
-        mGraphicsOperationStack.append(mPendingOperation->operations());
-        mPendingOperation = 0;
+    if (mRecordingStateStack.size())
+        mRecordingStateStack.last().mSaveOperation->operations()->adoptAndAppend(operation);
+    else {
+        delete operation;
+        mOperationState = 0;
     }
 }
 

@@ -40,6 +40,8 @@ namespace WebCore {
 
 class PlatformGraphicsContext {
 public:
+    class State;
+
     PlatformGraphicsContext();
     virtual ~PlatformGraphicsContext();
     virtual bool isPaintingDisabled() = 0;
@@ -117,7 +119,7 @@ public:
     virtual void drawLine(const IntPoint& point1, const IntPoint& point2) = 0;
     virtual void drawLineForText(const FloatPoint& pt, float width) = 0;
     virtual void drawLineForTextChecking(const FloatPoint& pt, float width,
-                                 GraphicsContext::TextCheckingLineStyle) = 0;
+                                         GraphicsContext::TextCheckingLineStyle) = 0;
     virtual void drawRect(const IntRect& rect) = 0;
     virtual void fillPath(const Path& pathToFill, WindRule fillRule) = 0;
     virtual void fillRect(const FloatRect& rect) = 0;
@@ -139,9 +141,9 @@ public:
     virtual void strokeRect(const FloatRect& rect, float lineWidth) = 0;
 
     virtual SkCanvas* recordingCanvas() = 0;
-    virtual void endRecording(int type = 0) = 0;
+    virtual void endRecording(const SkRect& bounds) = 0;
 
-protected:
+    void setRawState(State* state) { m_state = state; }
 
     struct ShadowRec {
         SkScalar blur;
@@ -192,11 +194,11 @@ protected:
         friend class PlatformGraphicsContextSkia;
     };
 
+protected:
     virtual bool shadowsIgnoreTransforms() const = 0;
     void setupPaintCommon(SkPaint* paint) const;
     GraphicsContext* m_gc; // Back-ptr to our parent
 
-    struct State;
     WTF::Vector<State> m_stateStack;
     State* m_state;
 };

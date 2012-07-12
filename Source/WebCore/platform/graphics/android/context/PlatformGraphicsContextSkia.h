@@ -39,7 +39,7 @@ public:
 
     virtual ContextType type() { return PaintingContext; }
     virtual SkCanvas* recordingCanvas() { return mCanvas; }
-    virtual void endRecording(int type = 0) {}
+    virtual void endRecording(const SkRect& bounds) {}
 
     // FIXME: This is used by ImageBufferAndroid, which should really be
     //        managing the canvas lifecycle itself
@@ -87,7 +87,7 @@ public:
     virtual void drawLine(const IntPoint& point1, const IntPoint& point2);
     virtual void drawLineForText(const FloatPoint& pt, float width);
     virtual void drawLineForTextChecking(const FloatPoint& pt, float width,
-                                 GraphicsContext::TextCheckingLineStyle);
+                                         GraphicsContext::TextCheckingLineStyle);
     virtual void drawRect(const IntRect& rect);
     virtual void fillPath(const Path& pathToFill, WindRule fillRule);
     virtual void fillRect(const FloatRect& rect);

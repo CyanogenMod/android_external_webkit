@@ -505,6 +505,8 @@ void GraphicsContext::translate(float x, float y)
 {
     if (paintingDisabled())
         return;
+    if (!x && !y)
+        return;
     platformContext()->translate(x, y);
 }
 

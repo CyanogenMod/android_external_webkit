@@ -275,15 +275,15 @@ PrerenderedInval* PicturePile::prerenderedInvalForArea(const IntRect& area)
 #if USE_RECORDING_CONTEXT
 void PicturePile::drawPicture(SkCanvas* canvas, PictureContainer& pc)
 {
-    PlatformGraphicsContextSkia pgc(canvas);
-    pc.picture->apply(&pgc);
+    TRACE_METHOD();
+    pc.picture->draw(canvas);
 }
 
 Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& pc)
 {
     // TODO: Support? Not needed?
     pc.prerendered.clear();
-    GraphicsOperationCollection* picture = new GraphicsOperationCollection();
+    Recording* picture = new Recording();
     WebCore::PlatformGraphicsContextRecording pgc(picture);
     WebCore::GraphicsContext gc(&pgc);
     painter->paintContents(&gc, pc.area);

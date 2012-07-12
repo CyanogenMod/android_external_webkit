@@ -38,12 +38,12 @@
 #include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Vector.h>
 
-#define USE_RECORDING_CONTEXT true
+#define USE_RECORDING_CONTEXT false
 #if USE_RECORDING_CONTEXT
 namespace WebCore {
-class GraphicsOperationCollection;
+class Recording;
 }
-typedef WebCore::GraphicsOperationCollection Picture;
+typedef WebCore::Recording Picture;
 #else
 class SkPicture;
 typedef SkPicture Picture;
