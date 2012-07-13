@@ -2272,8 +2272,11 @@ void HTMLMediaElement::stopPeriodicTimers()
 void HTMLMediaElement::userCancelledLoad()
 {
     LOG(Media, "HTMLMediaElement::userCancelledLoad");
-
+#if PLATFORM(ANDROID)
+    if (m_networkState == NETWORK_EMPTY)
+#else
     if (m_networkState == NETWORK_EMPTY || m_completelyLoaded)
+#endif
         return;
 
     // If the media data fetching process is aborted by the user:
