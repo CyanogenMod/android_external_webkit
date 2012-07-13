@@ -36,21 +36,6 @@ public:
     static const bool safeToCompareToEmptyOrDeleted = false;
 };
 
-class RecordingData {
-public:
-    RecordingData(GraphicsOperation::Operation* ops, int orderBy)
-        : m_orderBy(orderBy)
-        , m_operation(ops)
-    {}
-    ~RecordingData() {
-        delete m_operation;
-    }
-
-    unsigned int m_orderBy;
-    GraphicsOperation::Operation* m_operation;
-};
-
-typedef RTree<RecordingData*, float, 2> RecordingTree;
 typedef HashSet<PlatformGraphicsContext::State*, StateHash> StateHashSet;
 
 class RecordingImpl {
@@ -61,7 +46,6 @@ public:
     }
 
     ~RecordingImpl() {
-        clearTree();
         clearStates();
         clearMatrixes();
     }
@@ -81,19 +65,10 @@ public:
         return m_matrixes.last();
     }
 
-    RecordingTree m_tree;
+    RTree::RTree m_tree;
     int m_nodeCount;
 
 private:
-    void clearTree() {
-        RecordingTree::Iterator it;
-        for (m_tree.GetFirst(it); !m_tree.IsNull(it); m_tree.GetNext(it)) {
-            RecordingData* removeElem = m_tree.GetAt(it);
-            if (removeElem)
-                delete removeElem;
-        }
-        m_tree.RemoveAll();
-    }
 
     void clearStates() {
         StateHashSet::iterator end = m_states.end();
@@ -118,12 +93,6 @@ Recording::~Recording()
     delete m_recording;
 }
 
-static bool GatherSearchResults(RecordingData* data, void* context)
-{
-    ((Vector<RecordingData*>*)context)->append(data);
-    return true;
-}
-
 static bool CompareRecordingDataOrder(const RecordingData* a, const RecordingData* b)
 {
     return a->m_orderBy < b->m_orderBy;
@@ -141,9 +110,10 @@ void Recording::draw(SkCanvas* canvas)
         return;
     }
     Vector<RecordingData*> nodes;
-    float searchMin[] = {clip.fLeft, clip.fTop};
-    float searchMax[] = {clip.fRight, clip.fBottom};
-    m_recording->m_tree.Search(searchMin, searchMax, GatherSearchResults, &nodes);
+
+    WebCore::IntRect iclip = enclosingIntRect(clip);
+    m_recording->m_tree.search(iclip, nodes);
+
     size_t count = nodes.size();
     ALOGV("Drawing %d nodes out of %d (state storage=%d)", count,
           m_recording->m_nodeCount, sizeof(PlatformGraphicsContext::State) * m_recording->m_states.size());
@@ -624,9 +594,9 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
     operation->m_state = mOperationState;
     operation->m_matrix = mOperationMatrix;
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
-    float min[] = {bounds.fLeft, bounds.fTop};
-    float max[] = {bounds.fRight, bounds.fBottom};
-    mRecording->recording()->m_tree.Insert(min, max, data);
+
+    WebCore::IntRect ibounds = enclosingIntRect(bounds);
+    mRecording->recording()->m_tree.insert(ibounds, data);
 }
 
 void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::Operation* operation)

@@ -646,6 +646,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/context/PlatformGraphicsContext.cpp \
 	platform/graphics/android/context/PlatformGraphicsContextRecording.cpp \
 	platform/graphics/android/context/PlatformGraphicsContextSkia.cpp \
+	platform/graphics/android/context/RTree.cpp \
 	\
 	platform/graphics/android/fonts/FontAndroid.cpp \
 	platform/graphics/android/fonts/FontCacheAndroid.cpp \
