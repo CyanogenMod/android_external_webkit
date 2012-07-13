@@ -153,7 +153,11 @@ static const char gVideoVertexShader[] =
 static const char gVideoFragmentShader[] =
     "#extension GL_OES_EGL_image_external : require\n"
     "precision mediump float;\n"
+#ifdef MISSING_EGL_EXTERNAL_IMAGE
+    "uniform sampler2D s_yuvTexture;\n"
+#else
     "uniform samplerExternalOES s_yuvTexture;\n"
+#endif
     "varying vec2 v_texCoord;\n"
     "void main() {\n"
     "  gl_FragColor = texture2D(s_yuvTexture, v_texCoord);\n"
@@ -164,7 +168,11 @@ static const char gSurfaceTextureOESFragmentShader[] =
     "precision mediump float;\n"
     "varying vec2 v_texCoord; \n"
     "uniform float alpha; \n"
+#ifdef MISSING_EGL_EXTERNAL_IMAGE
+    "uniform sampler2D s_texture;\n"
+#else
     "uniform samplerExternalOES s_texture; \n"
+#endif
     "void main() {\n"
     "  gl_FragColor = texture2D(s_texture, v_texCoord); \n"
     "  gl_FragColor *= alpha; "
@@ -176,7 +184,11 @@ static const char gSurfaceTextureOESFragmentShaderInverted[] =
     "varying vec2 v_texCoord; \n"
     "uniform float alpha; \n"
     "uniform float contrast; \n"
+#ifdef MISSING_EGL_EXTERNAL_IMAGE
+    "uniform sampler2D s_texture;\n"
+#else
     "uniform samplerExternalOES s_texture; \n"
+#endif
     "void main() {\n"
     "  vec4 pixel = texture2D(s_texture, v_texCoord); \n"
     "  float a = pixel.a; \n"
