@@ -63,6 +63,7 @@ public:
     ~RecordingImpl() {
         clearTree();
         clearStates();
+        clearMatrixes();
     }
 
     PlatformGraphicsContext::State* getState(PlatformGraphicsContext::State* inState) {
@@ -73,6 +74,11 @@ public:
         PlatformGraphicsContext::State* state = new PlatformGraphicsContext::State(*inState);
         m_states.add(state);
         return state;
+    }
+
+    SkMatrix* cloneMatrix(const SkMatrix& matrix) {
+        m_matrixes.append(new SkMatrix(matrix));
+        return m_matrixes.last();
     }
 
     RecordingTree m_tree;
@@ -96,8 +102,15 @@ private:
         m_states.clear();
     }
 
+    void clearMatrixes() {
+        for (size_t i = 0; i < m_matrixes.size(); i++)
+            delete m_matrixes[i];
+        m_matrixes.clear();
+    }
+
     // TODO: Use a global pool?
     StateHashSet m_states;
+    Vector<SkMatrix*> m_matrixes;
 };
 
 Recording::~Recording()
@@ -132,14 +145,32 @@ void Recording::draw(SkCanvas* canvas)
     float searchMax[] = {clip.fRight, clip.fBottom};
     m_recording->m_tree.Search(searchMin, searchMax, GatherSearchResults, &nodes);
     size_t count = nodes.size();
-    ALOGV("Drawing %d nodes out of %d", count, m_recording->m_nodeCount);
+    ALOGV("Drawing %d nodes out of %d (state storage=%d)", count,
+          m_recording->m_nodeCount, sizeof(PlatformGraphicsContext::State) * m_recording->m_states.size());
     if (count) {
         nonCopyingSort(nodes.begin(), nodes.end(), CompareRecordingDataOrder);
         PlatformGraphicsContextSkia context(canvas);
-        for (size_t i = 0; i < count; i++)
-            nodes[i]->m_operation->apply(&context);
+        SkMatrix* matrix = 0;
+        int saveCount = 0;
+        for (size_t i = 0; i < count; i++) {
+            GraphicsOperation::Operation* op = nodes[i]->m_operation;
+            SkMatrix* opMatrix = op->m_matrix;
+            if (opMatrix != matrix) {
+                matrix = opMatrix;
+                if (saveCount) {
+                    canvas->restoreToCount(saveCount);
+                    saveCount = 0;
+                }
+                if (!matrix->isIdentity()) {
+                    saveCount = canvas->save(SkCanvas::kMatrix_SaveFlag);
+                    canvas->concat(*matrix);
+                }
+            }
+            op->apply(&context);
+        }
+        if (saveCount)
+            canvas->restoreToCount(saveCount);
     }
-    ALOGV("Using %dkb for state storage", (sizeof(PlatformGraphicsContext::State) * m_recording->m_states.size()) / 1024);
 }
 
 void Recording::setRecording(RecordingImpl* impl)
@@ -158,9 +189,12 @@ void Recording::setRecording(RecordingImpl* impl)
 PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* recording)
     : PlatformGraphicsContext()
     , mPicture(0)
+    , mCurrentMatrix(&mRootMatrix)
     , mRecording(recording)
     , mOperationState(0)
+    , mOperationMatrix(0)
 {
+    mRootMatrix.setIdentity();
     if (mRecording)
         mRecording->setRecording(new RecordingImpl());
 }
@@ -206,6 +240,8 @@ void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
     mRecordingStateStack.append(new GraphicsOperation::Save());
+    mCurrentMatrix = &(mRecordingStateStack.last().mMatrix);
+    mCurrentMatrix->setIdentity();
 }
 
 void PlatformGraphicsContextRecording::restore()
@@ -217,6 +253,10 @@ void PlatformGraphicsContextRecording::restore()
         appendDrawingOperation(state.mSaveOperation, state.mBounds);
     else
         delete state.mSaveOperation;
+    if (mRecordingStateStack.size())
+        mCurrentMatrix = &(mRecordingStateStack.last().mMatrix);
+    else
+        mCurrentMatrix = &mRootMatrix;
 }
 
 //**************************************
@@ -326,32 +366,43 @@ void PlatformGraphicsContextRecording::setStrokeThickness(float f)
 
 void PlatformGraphicsContextRecording::concatCTM(const AffineTransform& affine)
 {
-    mCurrentMatrix.preConcat(affine);
+    mCurrentMatrix->preConcat(affine);
+    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::ConcatCTM(affine));
 }
 
 void PlatformGraphicsContextRecording::rotate(float angleInRadians)
 {
     float value = angleInRadians * (180.0f / 3.14159265f);
-    mCurrentMatrix.preRotate(SkFloatToScalar(value));
+    mCurrentMatrix->preRotate(SkFloatToScalar(value));
+    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::Rotate(angleInRadians));
 }
 
 void PlatformGraphicsContextRecording::scale(const FloatSize& size)
 {
-    mCurrentMatrix.preScale(SkFloatToScalar(size.width()), SkFloatToScalar(size.height()));
+    mCurrentMatrix->preScale(SkFloatToScalar(size.width()), SkFloatToScalar(size.height()));
+    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::Scale(size));
 }
 
 void PlatformGraphicsContextRecording::translate(float x, float y)
 {
-    mCurrentMatrix.preTranslate(SkFloatToScalar(x), SkFloatToScalar(y));
+    mCurrentMatrix->preTranslate(SkFloatToScalar(x), SkFloatToScalar(y));
+    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::Translate(x, y));
 }
 
 const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 {
-    return mCurrentMatrix;
+    // Each RecordingState tracks the delta from its "parent" SkMatrix
+    if (mRecordingStateStack.size()) {
+        SkMatrix total = mRootMatrix;
+        for (int i = 0; i < mRecordingStateStack.size(); i++)
+            total.preConcat(mRecordingStateStack[i].mMatrix);
+        return total;
+    }
+    return mRootMatrix;
 }
 
 //**************************************
@@ -551,12 +602,14 @@ void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float l
 }
 
 void PlatformGraphicsContextRecording::appendDrawingOperation(
-        GraphicsOperation::Operation* operation, const FloatRect& bounds)
+        GraphicsOperation::Operation* operation, const FloatRect& untranslatedBounds)
 {
-    if (bounds.isEmpty()) {
+    if (untranslatedBounds.isEmpty()) {
         ALOGW("Empty bounds for %s(%s)!", operation->name(), operation->parameters().ascii().data());
         return;
     }
+    SkRect bounds;
+    mCurrentMatrix->mapRect(&bounds, untranslatedBounds);
     if (mRecordingStateStack.size()) {
         RecordingState& state = mRecordingStateStack.last();
         state.mHasDrawing = true;
@@ -566,10 +619,13 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
     }
     if (!mOperationState)
         mOperationState = mRecording->recording()->getState(m_state);
+    if (!mOperationMatrix)
+        mOperationMatrix = mRecording->recording()->cloneMatrix(mRootMatrix);
     operation->m_state = mOperationState;
+    operation->m_matrix = mOperationMatrix;
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
-    float min[] = {bounds.x(), bounds.y()};
-    float max[] = {bounds.maxX(), bounds.maxY()};
+    float min[] = {bounds.fLeft, bounds.fTop};
+    float max[] = {bounds.fRight, bounds.fBottom};
     mRecording->recording()->m_tree.Insert(min, max, data);
 }
 
@@ -581,6 +637,12 @@ void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::O
         delete operation;
         mOperationState = 0;
     }
+}
+
+void PlatformGraphicsContextRecording::onCurrentMatrixChanged()
+{
+    if (mCurrentMatrix == &mRootMatrix)
+        mOperationMatrix = 0;
 }
 
 }   // WebCore

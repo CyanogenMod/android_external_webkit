@@ -102,9 +102,14 @@ public:
 
     Operation()
         : m_state(0)
+        , m_matrix(0)
     {}
 
+    // This m_state is applied by ourselves
     PlatformGraphicsContext::State* m_state;
+    // This m_matrix is applied by Recording::draw
+    SkMatrix* m_matrix;
+
     bool apply(PlatformGraphicsContext* context) {
         if (m_state)
             context->setRawState(m_state);

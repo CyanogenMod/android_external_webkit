@@ -144,9 +144,11 @@ private:
 
     void appendDrawingOperation(GraphicsOperation::Operation* operation, const FloatRect& bounds);
     void appendStateOperation(GraphicsOperation::Operation* operation);
+    void onCurrentMatrixChanged();
 
     SkPicture* mPicture;
-    SkMatrix mCurrentMatrix;
+    SkMatrix mRootMatrix;
+    SkMatrix* mCurrentMatrix;
 
     Recording* mRecording;
     class RecordingState {
@@ -162,6 +164,7 @@ private:
             , mHasDrawing(other.mHasDrawing)
             , mHasClip(other.mHasClip)
             , mBounds(other.mBounds)
+            , mMatrix(other.mMatrix)
         {}
 
         void addBounds(const FloatRect& bounds)
@@ -181,9 +184,11 @@ private:
         bool mHasDrawing;
         bool mHasClip;
         FloatRect mBounds;
+        SkMatrix mMatrix;
     };
     Vector<RecordingState> mRecordingStateStack;
     State* mOperationState;
+    SkMatrix* mOperationMatrix;
 };
 
 }
