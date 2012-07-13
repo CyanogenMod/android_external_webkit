@@ -15,8 +15,26 @@
 #include "RTree.h"
 
 #include "wtf/NonCopyingSort.h"
+#include "wtf/HashSet.h"
+#include "wtf/StringHasher.h"
 
 namespace WebCore {
+
+class StateHash {
+public:
+    static unsigned hash(PlatformGraphicsContext::State* const& state)
+    {
+        return StringHasher::hashMemory(state, sizeof(PlatformGraphicsContext::State));
+    }
+
+    static bool equal(PlatformGraphicsContext::State* const& a,
+                      PlatformGraphicsContext::State* const& b)
+    {
+        return a && b && !memcmp(a, b, sizeof(PlatformGraphicsContext::State));
+    }
+
+    static const bool safeToCompareToEmptyOrDeleted = false;
+};
 
 class RecordingData {
 public:
@@ -33,20 +51,35 @@ public:
 };
 
 typedef RTree<RecordingData*, float, 2> RecordingTree;
+typedef HashSet<PlatformGraphicsContext::State*, StateHash> StateHashSet;
 
 class RecordingImpl {
 public:
     RecordingImpl()
         : m_nodeCount(0)
     {
-        m_states.reserveCapacity(50000);
     }
 
     ~RecordingImpl() {
-        clear();
+        clearTree();
+        clearStates();
     }
 
-    void clear() {
+    PlatformGraphicsContext::State* getState(PlatformGraphicsContext::State* inState) {
+        StateHashSet::iterator it = m_states.find(inState);
+        if (it != m_states.end())
+            return (*it);
+        // TODO: Use a custom allocator
+        PlatformGraphicsContext::State* state = new PlatformGraphicsContext::State(*inState);
+        m_states.add(state);
+        return state;
+    }
+
+    RecordingTree m_tree;
+    int m_nodeCount;
+
+private:
+    void clearTree() {
         RecordingTree::Iterator it;
         for (m_tree.GetFirst(it); !m_tree.IsNull(it); m_tree.GetNext(it)) {
             RecordingData* removeElem = m_tree.GetAt(it);
@@ -56,9 +89,15 @@ public:
         m_tree.RemoveAll();
     }
 
-    RecordingTree m_tree;
-    Vector<PlatformGraphicsContext::State> m_states;
-    int m_nodeCount;
+    void clearStates() {
+        StateHashSet::iterator end = m_states.end();
+        for (StateHashSet::iterator it = m_states.begin(); it != end; ++it)
+            delete (*it);
+        m_states.clear();
+    }
+
+    // TODO: Use a global pool?
+    StateHashSet m_states;
 };
 
 Recording::~Recording()
@@ -525,10 +564,8 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         state.mSaveOperation->operations()->adoptAndAppend(operation);
         return;
     }
-    if (!mOperationState) {
-        mRecording->recording()->m_states.append(m_state->cloneInheritedProperties());
-        mOperationState = &mRecording->recording()->m_states.last();
-    }
+    if (!mOperationState)
+        mOperationState = mRecording->recording()->getState(m_state);
     operation->m_state = mOperationState;
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
     float min[] = {bounds.x(), bounds.y()};
