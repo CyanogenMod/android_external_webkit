@@ -26,50 +26,22 @@
 #include "config.h"
 #include "MemoryUsage.h"
 
-#include <malloc.h>
-#include <wtf/CurrentTime.h>
-
 #include <v8.h>
+
+// Workaround an issue where malloc_footprint is in malloc.h
+// but is not actually implemented.
+// See: http://code.google.com/p/android/issues/detail?id=34897
+extern "C" size_t dlmalloc_footprint(void);
 
 using namespace WTF;
 
-class MemoryUsageCache {
-public:
-    MemoryUsageCache()
-        : m_cachedMemoryUsage(0)
-        , m_cacheTime(0)
-    {
-    }
-
-    int getCachedMemoryUsage(bool forceFresh);
-
-private:
-    unsigned m_cachedMemoryUsage;
-    double m_cacheTime;
-    static const int CACHE_VALIDITY_MS = 2000;
-};
-
-int MemoryUsageCache::getCachedMemoryUsage(bool forceFresh)
+int MemoryUsage::memoryUsageMb(bool /* forceFresh */)
 {
-    if (!forceFresh && currentTimeMS() <= m_cacheTime + CACHE_VALIDITY_MS)
-        return m_cachedMemoryUsage;
-
-    struct mallinfo minfo = mallinfo();
-    m_cachedMemoryUsage = (minfo.hblkhd + minfo.arena) >> 20;
-
+    size_t footprint = dlmalloc_footprint() >> 20;
     v8::HeapStatistics stat;
     v8::V8::GetHeapStatistics(&stat);
     unsigned v8Usage = stat.total_heap_size() >> 20;
-    m_cachedMemoryUsage += v8Usage;
-
-    m_cacheTime = currentTimeMS();
-    return m_cachedMemoryUsage;
-}
-
-int MemoryUsage::memoryUsageMb(bool forceFresh)
-{
-    static MemoryUsageCache cache;
-    return cache.getCachedMemoryUsage(forceFresh);
+    return footprint + v8Usage;
 }
 
 int MemoryUsage::m_lowMemoryUsageMb = 0;
