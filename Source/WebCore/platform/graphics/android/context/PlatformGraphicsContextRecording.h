@@ -149,6 +149,8 @@ private:
     SkPicture* mPicture;
     SkMatrix mRootMatrix;
     SkMatrix* mCurrentMatrix;
+    // Used for getTotalMatrix, is not valid elsewhere
+    SkMatrix mTotalMatrix;
 
     Recording* mRecording;
     class RecordingState {

@@ -397,10 +397,10 @@ const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 {
     // Each RecordingState tracks the delta from its "parent" SkMatrix
     if (mRecordingStateStack.size()) {
-        SkMatrix total = mRootMatrix;
-        for (int i = 0; i < mRecordingStateStack.size(); i++)
-            total.preConcat(mRecordingStateStack[i].mMatrix);
-        return total;
+        mTotalMatrix = mRootMatrix;
+        for (size_t i = 0; i < mRecordingStateStack.size(); i++)
+            mTotalMatrix.preConcat(mRecordingStateStack[i].mMatrix);
+        return mTotalMatrix;
     }
     return mRootMatrix;
 }
