@@ -717,8 +717,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/GraphicsContext3DAndroid.cpp \
 	platform/graphics/android/GraphicsContext3DInternal.cpp \
 	platform/graphics/android/GraphicsContext3DProxy.cpp \
-	platform/graphics/android/WebGLLayer.cpp \
-	platform/image-decoders/png/PNGImageDecoder.cpp
+	platform/graphics/android/WebGLLayer.cpp
 endif
 
 ifeq ($(ENABLE_SVG), true)
@@ -768,6 +767,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/image-decoders/skia/ImageDecoderSkia.cpp \
 	platform/image-decoders/gif/GIFImageDecoder.cpp \
 	platform/image-decoders/gif/GIFImageReader.cpp \
+	platform/image-decoders/png/PNGImageDecoder.cpp \
 	\
 	platform/image-encoders/skia/JPEGImageEncoder.cpp \
 	\
