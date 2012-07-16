@@ -146,6 +146,11 @@ void RTree::search(WebCore::IntRect& clip, Vector<WebCore::RecordingData*>&list)
     m_root->search(clip.x(), clip.y(), clip.maxX(), clip.maxY(), list);
 }
 
+void RTree::remove(WebCore::IntRect& clip)
+{
+    m_root->remove(clip.x(), clip.y(), clip.maxX(), clip.maxY());
+}
+
 void RTree::display()
 {
     m_root->drawTree();
@@ -300,6 +305,15 @@ void Node::remove(Node* node)
 
     // compact
     for (unsigned int i = nodeIndex; i < m_nbChildren - 1; i++)
+        m_children[i] = m_children[i + 1];
+    m_nbChildren--;
+}
+
+void Node::destroy(int index)
+{
+    delete m_children[index];
+    // compact
+    for (unsigned int i = index; i < m_nbChildren - 1; i++)
         m_children[i] = m_children[i + 1];
     m_nbChildren--;
 }
@@ -465,12 +479,12 @@ void Node::display(int level)
       2*level, "", m_tid, m_minX, m_minY, m_maxX, m_maxY, m_maxX - m_minX, m_maxY - m_minY);
 }
 
-bool Node::overlap(int pminx, int pminy, int pmaxx, int pmaxy)
+bool Node::overlap(int minx, int miny, int maxx, int maxy)
 {
-    return ! (pminx > m_maxX
-           || pmaxx < m_minX
-           || pmaxy < m_minY
-           || pminy > m_maxY);
+    return ! (minx > m_maxX
+           || maxx < m_minX
+           || maxy < m_minY
+           || miny > m_maxY);
 }
 
 void Node::search(int minx, int miny, int maxx, int maxy, Vector<WebCore::RecordingData*>& list)
@@ -481,6 +495,24 @@ void Node::search(int minx, int miny, int maxx, int maxy, Vector<WebCore::Record
     for (unsigned int i = 0; i < m_nbChildren; i++) {
         if (m_children[i]->overlap(minx, miny, maxx, maxy))
             m_children[i]->search(minx, miny, maxx, maxy, list);
+    }
+}
+
+bool Node::inside(int minx, int miny, int maxx, int maxy)
+{
+    return (minx <= m_minX
+         && maxx >= m_maxX
+         && miny <= m_minY
+         && maxy >= m_maxY);
+}
+
+void Node::remove(int minx, int miny, int maxx, int maxy)
+{
+    for (unsigned int i = 0; i < m_nbChildren; i++) {
+        if (m_children[i]->inside(minx, miny, maxx, maxy))
+            destroy(i);
+        else if (m_children[i]->overlap(minx, miny, maxx, maxy))
+            m_children[i]->remove(minx, miny, maxx, maxy);
     }
 }
 

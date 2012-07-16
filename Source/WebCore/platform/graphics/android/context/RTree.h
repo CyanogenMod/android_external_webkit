@@ -62,6 +62,9 @@ public:
     void insert(WebCore::IntRect& bounds, WebCore::RecordingData* payload);
     // Does an overlap search
     void search(WebCore::IntRect& clip, Vector<WebCore::RecordingData*>& list);
+    // Does an inclusive remove -- all elements fully inside the clip will
+    // be removed from the tree
+    void remove(WebCore::IntRect& clip);
     void display();
 
 private:
@@ -106,6 +109,7 @@ public:
 
     void insert(Node* n);
     void search(int minx, int miny, int maxx, int maxy, Vector<WebCore::RecordingData*>& list);
+    void remove(int minx, int miny, int maxx, int maxy);
     void drawTree(int level = 0);
     virtual void display(int level = 0);
 
@@ -115,6 +119,7 @@ private:
     Node* findNode(Node* n);
     void add(Node* n);
     void remove(Node* n);
+    void destroy(int index);
     void removeAll();
     Node* split();
     void adjustTree(Node* N, Node* NN);
@@ -122,6 +127,7 @@ private:
     int delta(Node* n);
 
     bool overlap(int minx, int miny, int maxx, int maxy);
+    bool inside(int minx, int miny, int maxx, int maxy);
 
     virtual bool isElement() { return false; }
     bool isRoot();
