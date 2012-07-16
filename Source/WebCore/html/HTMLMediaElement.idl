@@ -75,6 +75,7 @@ interface [Conditional=VIDEO] HTMLMediaElement : HTMLElement {
     attribute float volume 
         setter raises (DOMException);
     attribute boolean muted;
+    attribute [Reflect=muted] boolean defaultMuted;
     
     // WebKit extensions
     attribute boolean webkitPreservesPitch;

@@ -1,5 +1,6 @@
 /*
  * Copyright 2011 The Android Open Source Project
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,11 +47,19 @@ namespace WebCore {
 // Please keep them in sync when changed here.
 typedef enum {INITIALIZED, PREPARING, PREPARED, PLAYING, RELEASED} PlayerState;
 
+class VideoLayerObserverInterface : public SkRefCnt {
+public:
+    virtual ~VideoLayerObserverInterface() { }
+    virtual void notifyRectChange(const FloatRect&) = 0;
+};
+
 class VideoLayerAndroid : public LayerAndroid {
 
 public:
     VideoLayerAndroid();
     explicit VideoLayerAndroid(const VideoLayerAndroid& layer);
+
+    virtual ~VideoLayerAndroid();
 
     virtual bool isVideo() const { return true; }
     virtual LayerAndroid* copy() const { return new VideoLayerAndroid(*this); }
@@ -59,6 +68,7 @@ public:
     virtual bool drawGL(bool layerTilesDisabled);
     void setSurfaceTexture(sp<SurfaceTexture> texture, int textureName, PlayerState playerState);
     virtual bool needsIsolatedSurface() { return true; }
+    void registerVideoLayerObserver(VideoLayerObserverInterface* observer);
 
 private:
     void init();
@@ -74,6 +84,8 @@ private:
     static double m_rotateDegree;
 
     static const int ROTATESTEP = 12;
+
+    VideoLayerObserverInterface* m_observer;
 };
 
 } // namespace WebCore

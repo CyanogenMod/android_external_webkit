@@ -1,5 +1,6 @@
 /*
  * Copyright 2009, The Android Open Source Project
+ * Copyright (c) 2011, 2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +31,7 @@
 
 #include "BaseLayerAndroid.h"
 #include "GraphicsContext.h"
+#include "Settings.h"
 #include "SkiaUtils.h"
 #include "TilesManager.h"
 #include "VideoLayerAndroid.h"
@@ -52,12 +54,26 @@ namespace WebCore {
 static const char* g_ProxyJavaClass = "android/webkit/HTML5VideoViewProxy";
 static const char* g_ProxyJavaClassAudio = "android/webkit/HTML5Audio";
 
+extern android::Mutex videoLayerObserverLock;
+
+VideoLayerObserver::VideoLayerObserver()
+    : m_screenRect(0.0f, 0.0f, -1.0f, -1.0f) // FloatRect(x, y, width, height)
+                                             // (0, 0, -1, -1) represents screen rect unknown
+{
+}
+
+void VideoLayerObserver::notifyRectChange(const FloatRect& screenRect)
+{
+    m_screenRect = screenRect;
+}
+
 struct MediaPlayerPrivate::JavaGlue {
     jobject   m_javaProxy;
     jmethodID m_play;
     jmethodID m_teardown;
     jmethodID m_seek;
     jmethodID m_pause;
+    jmethodID m_setVolume;
     // Audio
     jmethodID m_newInstance;
     jmethodID m_setDataSource;
@@ -65,6 +81,10 @@ struct MediaPlayerPrivate::JavaGlue {
     // Video
     jmethodID m_getInstance;
     jmethodID m_loadPoster;
+    jmethodID m_loadVideo;
+    jmethodID m_loadMetadata;
+    jmethodID m_enterFullscreen;
+    jmethodID m_exitFullscreen;
 };
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
@@ -72,6 +92,11 @@ MediaPlayerPrivate::~MediaPlayerPrivate()
     TilesManager::instance()->videoLayerManager()->removeLayer(m_videoLayer->uniqueId());
     // m_videoLayer is reference counted, unref is enough here.
     m_videoLayer->unref();
+
+    videoLayerObserverLock.lock();
+    m_videoLayerObserver->unref();
+    videoLayerObserverLock.unlock();
+
     if (m_glue->m_javaProxy) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (env) {
@@ -90,7 +115,7 @@ void MediaPlayerPrivate::registerMediaEngine(MediaEngineRegistrar registrar)
 MediaPlayer::SupportsType MediaPlayerPrivate::supportsType(const String& type, const String& codecs)
 {
     if (WebViewCore::isSupportedMediaMimeType(type))
-        return MediaPlayer::MayBeSupported;
+        return codecs.isEmpty() ? MediaPlayer::MayBeSupported : MediaPlayer::IsSupported;
     return MediaPlayer::IsNotSupported;
 }
 
@@ -105,6 +130,29 @@ void MediaPlayerPrivate::pause()
     env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_pause);
     checkException(env);
 }
+
+void MediaPlayerPrivate::setVolume(float volume)
+{
+    float newVolume = volume;
+
+    if (volume < 0.0f)
+        newVolume = 0.0f;
+
+    if (volume > 1.0f)
+        newVolume = 1.0f;
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    if (!env || !m_glue->m_javaProxy)
+        return;
+
+    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_setVolume, newVolume);
+
+    if (!m_player->muted() && (newVolume != m_player->volume()))
+        m_player->volumeChanged(newVolume);
+
+    checkException(env);
+}
+
 
 void MediaPlayerPrivate::setVisible(bool visible)
 {
@@ -133,10 +181,12 @@ void MediaPlayerPrivate::prepareToPlay()
     // state in here. This will allow the MediaPlayer to transition to
     // the "play" state, at which point our VideoView will start downloading
     // the content and start the playback.
-    m_networkState = MediaPlayer::Loaded;
-    m_player->networkStateChanged();
-    m_readyState = MediaPlayer::HaveEnoughData;
-    m_player->readyStateChanged();
+    if (!mediaPreloadEnabled() || m_player->preload() != MediaPlayer::Auto) {
+        m_networkState = MediaPlayer::Loaded;
+        m_player->networkStateChanged();
+        m_readyState = MediaPlayer::HaveEnoughData;
+        m_player->readyStateChanged();
+    }
 }
 
 MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
@@ -148,10 +198,13 @@ MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
     m_readyState(MediaPlayer::HaveNothing),
     m_networkState(MediaPlayer::Empty),
     m_poster(0),
+    m_isMediaLoaded(false),
     m_naturalSize(100, 100),
     m_naturalSizeUnknown(true),
+    m_durationUnknown(true),
     m_isVisible(false),
-    m_videoLayer(new VideoLayerAndroid())
+    m_videoLayer(new VideoLayerAndroid()),
+    m_videoLayerObserver(new VideoLayerObserver())
 {
 }
 
@@ -159,8 +212,16 @@ void MediaPlayerPrivate::onEnded()
 {
     m_currentTime = duration();
     m_player->timeChanged();
-    m_paused = true;
-    m_player->playbackStateChanged();
+    // If the loop attribute is set, the current timestamp
+    // is reset to 0 at the end of the playback.
+    // m_currentTime may be modified in timeChanged() and set to 0.
+    if (m_currentTime == 0) {
+        // play() is called in looping case.
+        m_player->play();
+    } else {
+       m_paused = true;
+       m_player->playbackStateChanged();
+    }
     m_networkState = MediaPlayer::Idle;
 }
 
@@ -181,7 +242,11 @@ void MediaPlayerPrivate::onPaused()
 {
     m_paused = true;
     m_player->playbackStateChanged();
-    m_networkState = MediaPlayer::Idle;
+}
+
+void MediaPlayerPrivate::onPlaying()
+{
+    m_paused = false;
     m_player->playbackStateChanged();
 }
 
@@ -234,6 +299,52 @@ public:
 
         checkException(env);
     }
+
+    void onPrepared(int duration, int width, int height)
+    {
+        m_networkState = MediaPlayer::Loaded;
+        m_player->networkStateChanged();
+        m_readyState = MediaPlayer::HaveEnoughData;
+        m_player->readyStateChanged();
+
+        // Don't update width and height here. For HLS video, width and
+        // height are both 0 when onPrepared() is called. User would have
+        // no way to access the video control to start the video if width
+        // and height are updated to 0 x 0. Only update width and height
+        // when updateSizeAndDuration() is called.
+        updateDuration(duration);
+    }
+
+    void updateSizeAndDuration(int duration, int width, int height)
+    {
+        updateDuration(duration);
+
+        m_naturalSize = IntSize(width, height);
+        m_naturalSizeUnknown = false;
+        m_player->sizeChanged();
+        TilesManager::instance()->videoLayerManager()->updateVideoLayerSize(
+            m_player->platformLayer()->uniqueId(), width * height,
+            width / (float)height);
+
+        // This is needed to update the ready and network states in the case
+        // where video goes to fullscreen before it starts playing
+        m_player->prepareToPlay();
+    }
+
+    void updateDuration(int duration)
+    {
+        if (duration > 0 && m_durationUnknown) {
+            m_duration = duration / 1000.0f;
+            m_durationUnknown = false;
+        } else if (m_durationUnknown) {
+            // If the duration is unknown, Android Media Player returns 0,
+            // The duration should be set to positive infinity
+            // according to the HTML5 video spec in this case
+            m_duration = std::numeric_limits<float>::infinity();
+        }
+        m_player->durationChanged();
+    }
+
     bool canLoadPoster() const { return true; }
     void setPoster(const String& url)
     {
@@ -291,16 +402,13 @@ public:
         }
     }
 
-    void onPrepared(int duration, int width, int height)
+    bool mediaPreloadEnabled()
     {
-        m_duration = duration / 1000.0f;
-        m_naturalSize = IntSize(width, height);
-        m_naturalSizeUnknown = false;
-        m_player->durationChanged();
-        m_player->sizeChanged();
-        TilesManager::instance()->videoLayerManager()->updateVideoLayerSize(
-            m_player->platformLayer()->uniqueId(), width * height,
-            width / (float)height);
+        if (m_player && m_player->mediaPlayerClient()
+            && m_player->mediaPlayerClient()->mediaPlayerOwningDocument()
+            && m_player->mediaPlayerClient()->mediaPlayerOwningDocument()->settings())
+            return m_player->mediaPlayerClient()->mediaPlayerOwningDocument()->settings()->mediaPreloadEnabled();
+        return false;
     }
 
     virtual bool hasAudio() const { return false; } // do not display the audio UI
@@ -326,7 +434,12 @@ public:
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
         m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
+        m_glue->m_setVolume = env->GetMethodID(clazz, "setVolume", "(F)V");
         m_glue->m_javaProxy = 0;
+        m_glue->m_loadVideo = env->GetMethodID(clazz, "loadVideo", "(Ljava/lang/String;I)V");
+        m_glue->m_loadMetadata = env->GetMethodID(clazz, "loadMetadata", "(Ljava/lang/String;I)V");
+        m_glue->m_enterFullscreen = env->GetMethodID(clazz, "enterFullscreen", "(Ljava/lang/String;IFFFF)V");
+        m_glue->m_exitFullscreen = env->GetMethodID(clazz, "exitFullscreen", "(FFFF)V");
         env->DeleteLocalRef(clazz);
         // An exception is raised if any of the above fails.
         checkException(env);
@@ -335,8 +448,10 @@ public:
     void createJavaPlayerIfNeeded()
     {
         // Check if we have been already created.
-        if (m_glue->m_javaProxy)
+        if (m_glue->m_javaProxy) {
+            loadVideoIfNeeded();
             return;
+        }
 
         JNIEnv* env = JSC::Bindings::getJNIEnv();
         if (!env)
@@ -368,15 +483,74 @@ public:
         if (jUrl)
             env->DeleteLocalRef(jUrl);
 
+        loadVideoIfNeeded();
+
         // Clean up.
         env->DeleteLocalRef(obj);
         env->DeleteLocalRef(clazz);
         checkException(env);
     }
 
+    void loadVideoIfNeeded()
+    {
+        if (m_player->preload() == MediaPlayer::None
+            || !mediaPreloadEnabled()
+            || m_isMediaLoaded)
+            return;
+
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env)
+            return;
+
+        if (m_url.length()) {
+            jstring jUrl = wtfStringToJstring(env, m_url);
+            if (m_player->preload() == MediaPlayer::MetaData)
+                env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadMetadata, jUrl,
+                        m_videoLayer->uniqueId());
+            else
+                env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadVideo, jUrl,
+                        m_videoLayer->uniqueId());
+            m_isMediaLoaded = true;
+            env->DeleteLocalRef(jUrl);
+            checkException(env);
+        }
+    }
+
     float maxTimeSeekable() const
     {
         return m_duration;
+    }
+
+    void prepareEnterFullscreen()
+    {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env || !m_url.length() || !m_glue->m_javaProxy)
+            return;
+
+        FloatRect screenRect = m_videoLayerObserver->getScreenRect();
+
+        jstring jUrl = wtfStringToJstring(env, m_url);
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_enterFullscreen, jUrl,
+                            m_videoLayer->uniqueId(), screenRect.x(), screenRect.y(),
+                            screenRect.width(), screenRect.height());
+        env->DeleteLocalRef(jUrl);
+
+        checkException(env);
+    }
+
+    void prepareExitFullscreen()
+    {
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
+        if (!env || !m_glue->m_javaProxy)
+            return;
+
+        FloatRect screenRect = m_videoLayerObserver->getScreenRect();
+
+        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_exitFullscreen,
+                            screenRect.x(), screenRect.y(),
+                            screenRect.width(), screenRect.height());
+
+        checkException(env);
     }
 };
 
@@ -455,6 +629,7 @@ public:
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
         m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
+        m_glue->m_setVolume = env->GetMethodID(clazz, "setVolume", "(F)V");
         m_glue->m_javaProxy = 0;
         env->DeleteLocalRef(clazz);
         // An exception is raised if any of the above fails.
@@ -533,6 +708,14 @@ static void OnPrepared(JNIEnv* env, jobject obj, int duration, int width, int he
     }
 }
 
+static void OnSizeChanged(JNIEnv* env, jobject obj, int duration, int width, int height, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->updateSizeAndDuration(duration, width, height);
+    }
+}
+
 static void OnEnded(JNIEnv* env, jobject obj, int pointer)
 {
     if (pointer) {
@@ -554,6 +737,14 @@ static void OnPaused(JNIEnv* env, jobject obj, int pointer)
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
         player->onPaused();
+    }
+}
+
+static void OnPlaying(JNIEnv* env, jobject obj, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onPlaying();
     }
 }
 
@@ -606,7 +797,7 @@ static void OnRestoreState(JNIEnv* env, jobject obj, int pointer)
 // Return value: true when the video layer is found.
 static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
                                int baseLayer, int videoLayerId,
-                               int textureName, int playerState) {
+                               int textureName, int playerState, int pointer) {
     if (!surfTex)
         return false;
 
@@ -625,6 +816,13 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
 
     // Set the SurfaceTexture to the layer we found
     videoLayer->setSurfaceTexture(texture, textureName, static_cast<PlayerState>(playerState));
+
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player =
+            reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        videoLayer->registerVideoLayerObserver(player->getVideoLayerObserver());
+    }
+
     return true;
 }
 
@@ -637,26 +835,52 @@ static void OnStopFullscreen(JNIEnv* env, jobject obj, int pointer)
     }
 }
 
+static void PrepareEnterFullscreen(JNIEnv* env, jobject obj, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player =
+            reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->prepareEnterFullscreen();
+    }
+}
+
+static void PrepareExitFullscreen(JNIEnv* env, jobject obj, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player =
+            reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->prepareExitFullscreen();
+    }
+}
+
 /*
  * JNI registration
  */
 static JNINativeMethod g_MediaPlayerMethods[] = {
     { "nativeOnPrepared", "(IIII)V",
         (void*) OnPrepared },
+    { "nativeOnSizeChanged", "(IIII)V",
+        (void*) OnSizeChanged },
     { "nativeOnEnded", "(I)V",
         (void*) OnEnded },
     { "nativeOnStopFullscreen", "(I)V",
         (void*) OnStopFullscreen },
     { "nativeOnPaused", "(I)V",
         (void*) OnPaused },
+    { "nativeOnPlaying", "(I)V",
+        (void*) OnPlaying },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",
         (void*) OnPosterFetched },
     { "nativeOnRestoreState", "(I)V",
         (void*) OnRestoreState },
-    { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIII)Z",
+    { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIIII)Z",
         (void*) SendSurfaceTexture },
     { "nativeOnTimeupdate", "(II)V",
         (void*) OnTimeupdate },
+    { "nativePrepareEnterFullscreen", "(I)V",
+        (void*) PrepareEnterFullscreen },
+    { "nativePrepareExitFullscreen", "(I)V",
+        (void*) PrepareExitFullscreen }
 };
 
 static JNINativeMethod g_MediaAudioPlayerMethods[] = {
@@ -670,6 +894,8 @@ static JNINativeMethod g_MediaAudioPlayerMethods[] = {
         (void*) OnRequestPlay },
     { "nativeOnTimeupdate", "(II)V",
         (void*) OnTimeupdate },
+    { "nativeOnPaused", "(I)V",
+        (void*) OnPaused },
 };
 
 int registerMediaPlayerVideo(JNIEnv* env)

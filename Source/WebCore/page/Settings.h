@@ -109,6 +109,9 @@ namespace WebCore {
         void setLoadsImagesAutomatically(bool);
         bool loadsImagesAutomatically() const { return m_loadsImagesAutomatically; }
 
+        void setMediaPreloadEnabled(bool);
+        bool mediaPreloadEnabled() const { return m_mediaPreloadEnabled; }
+
         // This setting only affects site icon image loading if loadsImagesAutomatically setting is false and this setting is true.
         // All other permutations still heed loadsImagesAutomatically setting.
         void setLoadsSiteIconsIgnoringImageLoadingSetting(bool);
@@ -542,6 +545,7 @@ namespace WebCore {
         bool m_javaScriptCanAccessClipboard : 1;
         bool m_shouldPrintBackgrounds : 1;
         bool m_textAreasAreResizable : 1;
+        bool m_mediaPreloadEnabled : 1;
 #if ENABLE(DASHBOARD_SUPPORT)
         bool m_usesDashboardBackwardCompatibilityMode : 1;
 #endif

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,6 +56,10 @@ public:
     void webkitEnterFullScreen(bool isUserGesture, ExceptionCode& ec) { webkitEnterFullscreen(isUserGesture, ec); }
     void webkitExitFullScreen() { webkitExitFullscreen(); }
 
+#if PLATFORM(ANDROID)
+    int snapdragonPlatformId() const;
+#endif
+
 #if ENABLE(MEDIA_STATISTICS)
     // Statistics
     unsigned webkitDecodedFrameCount() const;
@@ -92,6 +97,16 @@ private:
     OwnPtr<HTMLImageLoader> m_imageLoader;
 
 };
+
+#if PLATFORM(ANDROID)
+inline int HTMLVideoElement::snapdragonPlatformId() const {
+#ifdef VIDEO_PLATFORM_ID
+    return VIDEO_PLATFORM_ID;
+#else
+    return 0;
+#endif
+}
+#endif
 
 } //namespace
 

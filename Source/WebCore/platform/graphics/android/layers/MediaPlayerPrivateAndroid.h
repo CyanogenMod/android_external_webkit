@@ -1,5 +1,6 @@
 /*
  * Copyright 2009,2010 The Android Open Source Project
+ * Copyright (c) 2011, 2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,6 +37,18 @@ class SkBitmap;
 
 namespace WebCore {
 
+class VideoLayerObserver : public VideoLayerObserverInterface {
+public:
+    VideoLayerObserver();
+
+    void notifyRectChange(const FloatRect&);
+    ~VideoLayerObserver() { }
+
+    const FloatRect& getScreenRect() const { return m_screenRect; }
+private:
+    FloatRect m_screenRect;
+};
+
 class MediaPlayerPrivate : public MediaPlayerPrivateInterface {
 public:
     virtual ~MediaPlayerPrivate();
@@ -67,7 +80,7 @@ public:
     virtual void setRate(float) { }
     virtual bool paused() const { return m_paused; }
 
-    virtual void setVolume(float) { }
+    virtual void setVolume(float);
 
     virtual MediaPlayer::NetworkState networkState() const { return m_networkState; }
     virtual MediaPlayer::ReadyState readyState() const { return m_readyState; }
@@ -89,14 +102,17 @@ public:
 
     virtual void paint(GraphicsContext*, const IntRect&) { }
 
+    virtual void updateSizeAndDuration(int duration, int width, int height) { }
     virtual void onPrepared(int duration, int width, int height) { }
     void onEnded();
     void onRequestPlay();
     void onPaused();
+    void onPlaying();
     virtual void onPosterFetched(SkBitmap*) { }
     void onBuffering(int percent);
     void onTimeupdate(int position);
     void onRestoreState();
+    virtual bool mediaPreloadEnabled() { return false; }
 
     // These following two functions are used to turn on inline video support
     bool supportsAcceleratedRendering() const { return true; }
@@ -105,6 +121,10 @@ public:
         return m_videoLayer;
     }
     void onStopFullscreen();
+
+    virtual void prepareEnterFullscreen() { }
+    virtual void prepareExitFullscreen() { }
+    VideoLayerObserver* getVideoLayerObserver() { return m_videoLayerObserver; }
 
 protected:
     // Android-specific methods and fields.
@@ -130,11 +150,17 @@ protected:
     SkBitmap* m_poster; // not owned
     String m_posterUrl;
 
+    bool m_isMediaLoaded;
+
     IntSize m_naturalSize;
     bool m_naturalSizeUnknown;
 
+    bool m_durationUnknown;
+
     bool m_isVisible;
     VideoLayerAndroid* m_videoLayer;
+
+    VideoLayerObserver* m_videoLayerObserver;
 };
 
 } // namespace WebCore

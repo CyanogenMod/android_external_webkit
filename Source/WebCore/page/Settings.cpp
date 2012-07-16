@@ -117,6 +117,7 @@ Settings::Settings(Page* page)
     , m_javaScriptCanAccessClipboard(false)
     , m_shouldPrintBackgrounds(false)
     , m_textAreasAreResizable(false)
+    , m_mediaPreloadEnabled(true)
 #if ENABLE(DASHBOARD_SUPPORT)
     , m_usesDashboardBackwardCompatibilityMode(false)
 #endif
@@ -367,6 +368,11 @@ void Settings::setPluginsEnabled(bool arePluginsEnabled)
 void Settings::setLocalStorageEnabled(bool localStorageEnabled)
 {
     m_localStorageEnabled = localStorageEnabled;
+}
+
+void Settings::setMediaPreloadEnabled(bool mediaPreloadEnabled)
+{
+    m_mediaPreloadEnabled = mediaPreloadEnabled;
 }
 
 #if ENABLE(DOM_STORAGE)

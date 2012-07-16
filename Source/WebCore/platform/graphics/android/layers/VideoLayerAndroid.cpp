@@ -1,5 +1,6 @@
 /*
  * Copyright 2011 The Android Open Source Project
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +43,8 @@ namespace WebCore {
 
 double VideoLayerAndroid::m_rotateDegree = 0;
 
+android::Mutex videoLayerObserverLock;
+
 VideoLayerAndroid::VideoLayerAndroid()
     : LayerAndroid((RenderLayer*)0)
 {
@@ -59,6 +62,13 @@ void VideoLayerAndroid::init()
     // m_surfaceTexture is only useful on UI thread, no need to copy.
     // And it will be set at setBaseLayer timeframe
     m_playerState = INITIALIZED;
+    m_observer = NULL;
+}
+
+VideoLayerAndroid::~VideoLayerAndroid()
+{
+    android::Mutex::Autolock lock(videoLayerObserverLock);
+    SkSafeUnref(m_observer);
 }
 
 // We can use this function to set the Layer to point to surface texture.
@@ -68,6 +78,13 @@ void VideoLayerAndroid::setSurfaceTexture(sp<SurfaceTexture> texture,
     m_surfaceTexture = texture;
     m_playerState = playerState;
     TilesManager::instance()->videoLayerManager()->registerTexture(uniqueId(), textureName);
+}
+
+void VideoLayerAndroid::registerVideoLayerObserver(VideoLayerObserverInterface* observer)
+{
+    android::Mutex::Autolock lock(videoLayerObserverLock);
+    if (m_observer != observer)
+        SkRefCnt_SafeAssign(m_observer, observer);
 }
 
 void VideoLayerAndroid::showPreparingAnimation(const SkRect& rect,
@@ -213,6 +230,12 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
         }
 
     }
+
+    if (m_observer) {
+        IntSize size(rect.width(), rect.height());
+        m_observer->notifyRectChange(TilesManager::instance()->shader()->rectInViewCoord(m_drawTransform, size));
+    }
+
     return needRedraw;
 }
 
