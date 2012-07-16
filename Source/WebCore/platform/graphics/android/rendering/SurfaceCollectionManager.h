@@ -26,10 +26,10 @@
 #ifndef SurfaceCollectionManager_h
 #define SurfaceCollectionManager_h
 
+#include "SkRect.h"
 #include "TestExport.h"
 #include <utils/threads.h>
 
-class SkRect;
 class SkCanvas;
 
 namespace WebCore {
@@ -60,6 +60,9 @@ private:
     void clearCollections();
     void updatePaintingCollection(SurfaceCollection* newCollection);
     int singleSurfaceModeInvalidation(bool hasRunningAnimation, bool scrolling, bool shouldDraw);
+    void prepareGL(SurfaceCollection* collection, SkRect& visibleContentRect, float scale,
+                   TexturesResult* texturesResultPtr, bool shouldDraw, bool tryFastBlit);
+
     SurfaceCollection* m_drawingCollection;
     SurfaceCollection* m_paintingCollection;
     SurfaceCollection* m_queuedCollection;
@@ -70,6 +73,10 @@ private:
     // Used in single surface mode only. True if there is a new painting tree
     // added for the current frame.
     bool m_newPaintingCollection;
+
+    SurfaceCollection* m_lastPreparedCollection;
+    SkRect m_lastPreparedRect;
+    float m_lastPreparedScale;
 };
 
 } // namespace WebCore
