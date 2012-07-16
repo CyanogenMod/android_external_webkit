@@ -178,49 +178,45 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     return true;
 }
 
-static void approximateTextBounds(FloatRect& rect, size_t numGlyphs,
-    const SkPoint pos[], float lineSpacing, bool isVertical)
+static void approximateTextBounds(SkRect& rect, size_t numGlyphs,
+    const SkPoint pos[], const SkPaint& paint)
 {
     if (!numGlyphs || !pos) {
         return;
     }
 
     // get glyph position bounds
-    float minX = SkScalarToFloat(pos[0].x());
-    float maxX = minX;
-    float minY = SkScalarToFloat(pos[0].y());
-    float maxY = minY;
+    SkScalar minX = pos[0].x();
+    SkScalar maxX = minX;
+    SkScalar minY = pos[0].y();
+    SkScalar maxY = minY;
     for (size_t i = 1; i < numGlyphs; ++i) {
-        float x = SkScalarToFloat(pos[i].x());
-        float y = SkScalarToFloat(pos[i].y());
+        SkScalar x = pos[i].x();
+        SkScalar y = pos[i].y();
         minX = std::min(minX, x);
         maxX = std::max(maxX, x);
         minY = std::min(minY, y);
         maxY = std::max(maxY, y);
     }
 
-    // set final rect
-    rect.setX(minX);
-    rect.setY(minY);
-    rect.setWidth(maxX - minX);
-    rect.setHeight(maxY - minY);
-    if (!isVertical) {
-        rect.inflateX(rect.width() * 2);
-        rect.inflateY(2 * lineSpacing);
-    } else {
-        rect.inflateX(2 * lineSpacing);
-        rect.inflateY(rect.height() * 2);
-    }
+    // build final rect
+    SkPaint::FontMetrics metrics;
+    SkScalar bufY = paint.getFontMetrics(&metrics);
+    SkScalar bufX = bufY * 2;
+    SkScalar adjY = metrics.fAscent / 2;
+    minY += adjY;
+    maxY += adjY;
+    rect.set(minX - bufX, minY - bufY, maxX + bufX, maxY + bufY);
 }
 
-static FloatRect drawPosText(SkCanvas* canvas, const void* text,
-    size_t byteLength, const SkPoint pos[], const SkPaint& paint,
-    float lineSpacing)
+static SkRect drawPosText(SkCanvas* canvas, const void* text,
+    size_t byteLength, const SkPoint pos[], const SkPaint& paint)
 {
     canvas->drawPosText(text, byteLength, pos, paint);
-    FloatRect textBounds;
+    SkRect textBounds;
     approximateTextBounds(textBounds, byteLength / sizeof(uint16_t), pos,
-        lineSpacing, paint.isVerticalText());
+        paint);
+    canvas->getTotalMatrix().mapRect(&textBounds);
     return textBounds;
 }
 
@@ -268,7 +264,6 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     if (font->platformData().orientation() == Vertical)
         y += SkFloatToScalar(font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
 
-    float lineSpacing = font->fontMetrics().lineSpacing();
     FloatRect textBounds;
     if (EmojiFont::IsAvailable()) {
         // set filtering, to make scaled images look nice(r)
@@ -281,7 +276,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
                 if (localCount) {
                     textBounds.unite(drawPosText(canvas, &glyphs[localIndex],
                                      localCount * sizeof(uint16_t),
-                                     &pos[localIndex], paint, lineSpacing));
+                                     &pos[localIndex], paint));
                 }
                 EmojiFont::Draw(canvas, glyphs[i], x, y, paint);
                 float size = paint.getTextSize();
@@ -301,7 +296,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         if (localCount) {
             textBounds.unite(drawPosText(canvas, &glyphs[localIndex],
                              localCount * sizeof(uint16_t),
-                             &pos[localIndex], paint, lineSpacing));
+                             &pos[localIndex], paint));
         }
     } else {
         for (int i = 0; i < numGlyphs; i++) {
@@ -319,7 +314,7 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
             rotator.mapPoints(pos, numGlyphs);
         }
         textBounds.unite(drawPosText(canvas, glyphs,
-            numGlyphs * sizeof(uint16_t), pos, paint, lineSpacing));
+            numGlyphs * sizeof(uint16_t), pos, paint));
 
         if (font->platformData().orientation() == Vertical)
             canvas->restore();
@@ -1089,21 +1084,18 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
     walker.setPadding(run.expansion());
 
     FloatRect textBounds;
-    SkScalar lineSpacing = fontMetrics().lineSpacing();
     while (walker.nextScriptRun()) {
         if (fill) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&fillPaint);
             adjustTextRenderMode(&fillPaint, haveMultipleLayers);
             textBounds.unite(drawPosText(canvas, walker.glyphs(),
-                walker.length() << 1, walker.positions(), fillPaint,
-                lineSpacing));
+                walker.length() << 1, walker.positions(), fillPaint));
         }
         if (stroke) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&strokePaint);
             adjustTextRenderMode(&strokePaint, haveMultipleLayers);
             textBounds.unite(drawPosText(canvas, walker.glyphs(),
-                walker.length() << 1, walker.positions(), strokePaint,
-                lineSpacing));
+                walker.length() << 1, walker.positions(), strokePaint));
         }
     }
 
