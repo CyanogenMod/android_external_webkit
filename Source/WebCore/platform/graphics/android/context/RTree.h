@@ -66,10 +66,10 @@ public:
 
 private:
 
-    Node* root;
-    unsigned maxChildren;
-    ElementList* listA;
-    ElementList* listB;
+    Node* m_root;
+    unsigned m_maxChildren;
+    ElementList* m_listA;
+    ElementList* m_listB;
 
     friend class Node;
 };
@@ -85,16 +85,16 @@ public:
     void removeAll();
     void display();
 
-    Node** children;
-    unsigned nbChildren;
+    Node** m_children;
+    unsigned m_nbChildren;
 
 private:
 
-    int minx;
-    int maxx;
-    int miny;
-    int maxy;
-    int area;
+    int m_minX;
+    int m_maxX;
+    int m_minY;
+    int m_maxY;
+    int m_area;
 };
 
 class Node {
@@ -128,21 +128,21 @@ private:
 
 private:
 
-    RTree* tree;
-    Node* parent;
+    RTree* m_tree;
+    Node* m_parent;
 
-    Node** children;
-    unsigned nbChildren;
+    Node** m_children;
+    unsigned m_nbChildren;
 
 public:
 
-    int minx;
-    int miny;
-    int maxx;
-    int maxy;
+    int m_minX;
+    int m_minY;
+    int m_maxX;
+    int m_maxY;
 
 #ifdef DEBUG
-    unsigned tid;
+    unsigned m_tid;
 #endif
 };
 
@@ -155,7 +155,7 @@ public:
 
     virtual void display(int level = 0);
 
-    WebCore::RecordingData* payload;
+    WebCore::RecordingData* m_payload;
 };
 
 }
