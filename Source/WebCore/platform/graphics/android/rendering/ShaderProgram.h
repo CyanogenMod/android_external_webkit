@@ -168,6 +168,7 @@ public:
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
     GLint createProgram(const char* vertexSource, const char* fragmentSource);
+    void initProgram(ShaderType type);
     GLfloat* getTileProjectionMatrix(const DrawQuadData* data);
     void setBlendingState(bool enableBlending);
     void drawQuadInternal(ShaderType type, const GLfloat* matrix, int textureId,
@@ -231,6 +232,11 @@ private:
     GLfloat m_tileProjMatrix[16];
 
     Vector<ShaderResource> m_resources;
+
+    ShaderType m_cachedProgramType;
+    GLfloat m_cachedOpacity;
+    FloatRect m_cachedFillPortion;
+    Color m_cachedPureColor;
 };
 
 } // namespace WebCore
