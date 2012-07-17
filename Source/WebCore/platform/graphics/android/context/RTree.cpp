@@ -29,11 +29,15 @@
 #include "config.h"
 
 #include "RTree.h"
+
 #include "AndroidLog.h"
+#include "LinearAllocator.h"
 
 namespace RTree {
 
+#ifdef DEBUG
 static unsigned gID = 0;
+#endif
 
 class Element;
 
@@ -124,20 +128,22 @@ RTree::RTree(int M)
     m_maxChildren = M;
     m_listA = new ElementList(M);
     m_listB = new ElementList(M);
-    m_root = new Node(this);
+    m_allocator = new WebCore::LinearAllocator(sizeof(Node));
+    m_root = Node::create(this);
 }
 
 RTree::~RTree()
 {
     delete m_listA;
     delete m_listB;
-    delete m_root;
+    deleteNode(m_root);
+    delete m_allocator;
 }
 
 void RTree::insert(WebCore::IntRect& bounds, WebCore::RecordingData* payload)
 {
-    Element* e = new Element(this, bounds.x(), bounds.y(),
-                             bounds.maxX(), bounds.maxY(), payload);
+    Node* e = Node::create(this, bounds.x(), bounds.y(),
+                           bounds.maxX(), bounds.maxY(), payload);
     m_root->insert(e);
 }
 
@@ -153,7 +159,22 @@ void RTree::remove(WebCore::IntRect& clip)
 
 void RTree::display()
 {
+#ifdef DEBUG
     m_root->drawTree();
+#endif
+}
+
+void* RTree::allocateNode()
+{
+    return m_allocator->alloc();
+}
+
+void RTree::deleteNode(Node* n)
+{
+    if (n) {
+        n->~Node();
+        m_allocator->dealloc(n);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////
@@ -205,32 +226,40 @@ void ElementList::removeAll()
 }
 
 void ElementList::display() {
+#ifdef DEBUG
     for (unsigned int i = 0; i < m_nbChildren; i++)
         m_children[i]->display(0);
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////
 // Node
 
-Node::Node(RTree* t)
+Node::Node(RTree* t, int minx, int miny, int maxx, int maxy, WebCore::RecordingData* payload)
     : m_tree(t)
     , m_parent(0)
     , m_children(0)
     , m_nbChildren(0)
-    , m_minX(0)
-    , m_minY(0)
-    , m_maxX(0)
-    , m_maxY(0)
+    , m_payload(payload)
+    , m_minX(minx)
+    , m_minY(miny)
+    , m_maxX(maxx)
+    , m_maxY(maxy)
 #ifdef DEBUG
     , m_tid(gID++)
 #endif
 {
+#ifdef DEBUG
     ALOGV("-> New Node %d", m_tid);
+#endif
 }
 
 Node::~Node()
 {
+    for (unsigned i = 0; i < m_nbChildren; i++)
+        m_tree->deleteNode(m_children[i]);
     delete[] m_children;
+    delete m_payload;
 }
 
 void Node::setParent(Node* node)
@@ -241,8 +270,10 @@ void Node::setParent(Node* node)
 void Node::insert(Node* node)
 {
     Node* N = findNode(node);
+#ifdef DEBUG
     ALOGV("-> Insert Node %d (%d, %d) in node %d",
           node->m_tid, node->m_minX, node->m_minY, N->m_tid);
+#endif
     N->add(node);
 }
 
@@ -363,8 +394,10 @@ Node* Node::split()
         elementB = m_children[m_nbChildren - 1];
     }
 
+#ifdef DEBUG
     ALOGV("split Node %d, dx: %d dy: %d elem A is %d, elem B is %d",
         m_tid, dx, dy, elementA->m_tid, elementB->m_tid);
+#endif
 
     // Let's use some temporary lists to do the split
     ElementList* listA = m_tree->m_listA;
@@ -401,7 +434,7 @@ Node* Node::split()
     for (unsigned int i = 0; i < listA->m_nbChildren; i++)
         add(listA->m_children[i]);
 
-    Node* NN = new Node(m_tree);
+    Node* NN = Node::create(m_tree);
     for (unsigned int i = 0; i < listB->m_nbChildren; i++)
         NN->add(listB->m_children[i]);
 
@@ -417,8 +450,10 @@ void Node::adjustTree(Node* N, Node* NN)
 {
     if (N->isRoot() && NN) {
         // build new root
-        Node* root = new Node(m_tree);
+        Node* root = Node::create(m_tree);
+#ifdef DEBUG
         ALOGV("-> node %d created as new root", root->m_tid);
+#endif
         root->add(N);
         root->add(NN);
         m_tree->m_root = root;
@@ -437,15 +472,14 @@ static int gNbNodes = 0;
 static int gNbElements = 0;
 #endif
 
+#ifdef DEBUG
 void Node::drawTree(int level)
 {
     if (level == 0) {
         ALOGV("\n*** show tree ***\n");
-#ifdef DEBUG
         gMaxLevel = 0;
         gNbNodes = 0;
         gNbElements = 0;
-#endif
     }
 
     display(level);
@@ -454,7 +488,6 @@ void Node::drawTree(int level)
         m_children[i]->drawTree(level + 1);
     }
 
-#ifdef DEBUG
     if (gMaxLevel < level)
         gMaxLevel = level;
 
@@ -470,14 +503,16 @@ void Node::drawTree(int level)
                gNbNodes, gNbNodes * sizeof(Node), sizeof(Node),
                gNbElements, gNbElements * sizeof(Element), sizeof(Element));
     }
-#endif
 }
+#endif
 
+#ifdef DEBUG
 void Node::display(int level)
 {
     ALOGV("%*sNode %d - %d, %d, %d, %d (%d x %d)",
       2*level, "", m_tid, m_minX, m_minY, m_maxX, m_maxY, m_maxX - m_minX, m_maxY - m_minY);
 }
+#endif
 
 bool Node::overlap(int minx, int miny, int maxx, int maxy)
 {
@@ -490,7 +525,7 @@ bool Node::overlap(int minx, int miny, int maxx, int maxy)
 void Node::search(int minx, int miny, int maxx, int maxy, Vector<WebCore::RecordingData*>& list)
 {
     if (isElement() && overlap(minx, miny, maxx, maxy))
-        list.append(((Element*)this)->m_payload);
+        list.append(this->m_payload);
 
     for (unsigned int i = 0; i < m_nbChildren; i++) {
         if (m_children[i]->overlap(minx, miny, maxx, maxy))
@@ -516,30 +551,4 @@ void Node::remove(int minx, int miny, int maxx, int maxy)
     }
 }
 
-//////////////////////////////////////////////////////////////////////
-// Element
-
-Element::Element(RTree* tree, int pminx, int pminy, int pmaxx, int pmaxy, WebCore::RecordingData* p)
-    : Node(tree)
-    , m_payload(p)
-{
-    m_minX = pminx;
-    m_minY = pminy;
-    m_maxX = pmaxx;
-    m_maxY = pmaxy;
-    ALOGV("-> New element %d (%d, %d) - (%d x %d)",
-          m_tid, m_minX, m_minY, m_maxX - m_minX, m_maxY - m_minY);
-}
-
-Element::~Element()
-{
-    delete m_payload;
-}
-
-void Element::display(int level)
-{
-    ALOGV("%*selement %d (%d, %d, %d, %d) - (%d x %d)", 2*level, "",
-          m_tid, m_minX, m_minY, m_maxX, m_maxY, m_maxX - m_minX, m_maxY - m_minY);
-}
-
-}
+} // Namespace RTree
