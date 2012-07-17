@@ -24,6 +24,7 @@
 #include "GraphicsLayer.h"
 #include "GraphicsLayerClient.h"
 #include "LayerContent.h"
+#include "PicturePile.h"
 #include "RefPtr.h"
 #include "ScrollableLayerAndroid.h"
 #include "SkBitmapRef.h"
@@ -40,11 +41,17 @@ class LayerAndroid;
 class FixedBackgroundImageLayerAndroid;
 class ScrollableLayerAndroid;
 
-class GraphicsLayerAndroid : public GraphicsLayer {
+class GraphicsLayerAndroid : public GraphicsLayer, PicturePainter {
 public:
 
     GraphicsLayerAndroid(GraphicsLayerClient*);
     virtual ~GraphicsLayerAndroid();
+
+    // PicturePainter
+
+    virtual void paintContents(GraphicsContext* gc, IntRect& dirty);
+
+    /////
 
     virtual void setName(const String&);
 
@@ -147,7 +154,6 @@ private:
     bool repaint();
     void needsNotifyClient();
 
-    SkPicture* paintPicture(const IntRect& rect);
     bool paintContext(LayerAndroid* layer,
                       const IntRect& rect,
                       bool checkOptimisations = true);

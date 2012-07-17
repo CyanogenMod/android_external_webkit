@@ -44,6 +44,7 @@ public:
     virtual void serialize(SkWStream* stream);
     virtual PrerenderedInval* prerenderForRect(const IntRect& dirty);
     virtual void clearPrerenders();
+    PicturePile* picturePile() { return &m_picturePile; }
 
 private:
     PicturePile m_picturePile;

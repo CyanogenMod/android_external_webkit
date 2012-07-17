@@ -41,6 +41,7 @@
 #include "Length.h"
 #include "MediaLayer.h"
 #include "PictureLayerContent.h"
+#include "PicturePileLayerContent.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContextSkia.h"
 #include "RenderLayerBacking.h"
@@ -351,6 +352,7 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
     }
 
     m_contentLayer->setSize(size.width(), size.height());
+    m_contentLayer->setContent(0);
     setNeedsDisplay();
     askForSync();
 }
@@ -828,22 +830,9 @@ bool GraphicsLayerAndroid::repaint()
     return false;
 }
 
-SkPicture* GraphicsLayerAndroid::paintPicture(const IntRect& rect)
+void GraphicsLayerAndroid::paintContents(GraphicsContext* gc, IntRect& dirty)
 {
-    SkPicture* picture = new SkPicture();
-    SkCanvas* canvas = picture->beginRecording(rect.width(), rect.height(), 0);
-    if (!canvas) {
-        picture->endRecording();
-        SkSafeUnref(picture);
-        return 0;
-    }
-
-    PlatformGraphicsContextSkia platformContext(canvas);
-    GraphicsContext graphicsContext(&platformContext);
-
-    paintGraphicsLayerContents(graphicsContext, rect);
-
-    return picture;
+    paintGraphicsLayerContents(*gc, dirty);
 }
 
 bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
@@ -854,19 +843,26 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
         return false;
 
     TRACE_METHOD();
-    SkPicture* picture = paintPicture(rect);
-    if (!picture)
-        return false;
-    picture->endRecording();
 
-    PictureLayerContent* layerContent = new PictureLayerContent(picture);
-    if (checkOptimisations)
-        layerContent->checkForOptimisations();
-    else
-        layerContent->setCheckForOptimisations(false);
-    layer->setContent(layerContent);
-    SkSafeUnref(layerContent);
-    SkSafeUnref(picture);
+    if (!layer->content()) {
+        WebCore::PicturePile picture;
+        picture.setSize(IntSize(m_size.width(), m_size.height()));
+        PicturePileLayerContent* content = new PicturePileLayerContent(picture);
+        layer->setContent(content);
+        SkSafeUnref(content);
+    }
+
+    PicturePileLayerContent* pcontent = static_cast<PicturePileLayerContent*>(layer->content());
+    WebCore::PicturePile* layerContent = pcontent->picturePile();
+
+    // TODO: we might be able to reuse an existing picture instead of resetting it.
+    //       we can't do that because of transparency -- for now, we just invalidate everything.
+    layerContent->reset();
+    layerContent->setSize(IntSize(m_size.width(), m_size.height()));
+
+    // TODO: add content checks (text, opacity, etc.)
+    layerContent->updatePicturesIfNeeded(this);
+
     return true;
 }
 
