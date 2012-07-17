@@ -100,7 +100,7 @@ static ANPAudioTrack* ANPCreateTrack(uint32_t sampleRate,
     track->mTrack = new android::AudioTrack(AUDIO_STREAM_MUSIC,
                                             sampleRate,
                                             fromANPFormat(format),
-                                            (channelCount > 1) ? AUDIO_CHANNEL_OUT_STEREO : AUDIO_CHANNEL_OUT_MONO,
+                                            audio_channel_out_mask_from_count(channelCount),
                                             0,  // frameCount
                                             (audio_output_flags_t) 0, // AUDIO_OUTPUT_FLAG_NONE,
                                             callbackProc,
