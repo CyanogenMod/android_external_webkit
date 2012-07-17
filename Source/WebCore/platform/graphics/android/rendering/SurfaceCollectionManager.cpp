@@ -49,7 +49,6 @@ SurfaceCollectionManager::SurfaceCollectionManager()
     , m_fastSwapMode(false)
     , m_previouslyScrolling(false)
     , m_newPaintingCollection(false)
-    , m_lastPreparedCollection(0)
 {
 }
 
@@ -230,26 +229,6 @@ int SurfaceCollectionManager::singleSurfaceModeInvalidation(bool hasRunningAnima
     return returnFlags;
 }
 
-void SurfaceCollectionManager::prepareGL(SurfaceCollection* collection, SkRect& visibleContentRect,
-                                         float scale, TexturesResult* texturesResultPtr,
-                                         bool shouldDraw, bool tryFastBlit)
-{
-
-    // don't prepare if not drawing, and nothing changed
-    if (!shouldDraw
-        && collection == m_lastPreparedCollection
-        && visibleContentRect == m_lastPreparedRect
-        && std::abs(scale - m_lastPreparedScale) < 0.01)
-        return;
-
-    collection->prepareGL(visibleContentRect, tryFastBlit);
-    collection->computeTexturesAmount(texturesResultPtr);
-
-    m_lastPreparedCollection = collection;
-    m_lastPreparedRect = visibleContentRect;
-    m_lastPreparedScale = scale;
-}
-
 int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
                             SkRect& visibleContentRect, float scale,
                             bool scrolling, bool singleSurfaceMode,
@@ -273,8 +252,9 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
 
         m_paintingCollection->evaluateAnimations(currentTime);
 
-        prepareGL(m_paintingCollection, visibleContentRect, scale,
-                  texturesResultPtr, shouldDraw, tryFastBlit);
+        m_paintingCollection->prepareGL(visibleContentRect, tryFastBlit);
+        m_paintingCollection->computeTexturesAmount(texturesResultPtr);
+
         if (!TilesManager::instance()->useDoubleBuffering() || m_paintingCollection->isReady()) {
             ALOGV("have painting collection %p ready, swapping!", m_paintingCollection);
             didCollectionSwap = true;
@@ -288,8 +268,8 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         }
     } else if (m_drawingCollection) {
         ALOGV("preparing drawing collection %p", m_drawingCollection);
-        prepareGL(m_drawingCollection, visibleContentRect, scale,
-                  texturesResultPtr, shouldDraw, tryFastBlit);
+        m_drawingCollection->prepareGL(visibleContentRect);
+        m_drawingCollection->computeTexturesAmount(texturesResultPtr);
     }
 
     if (m_paintingCollection)
