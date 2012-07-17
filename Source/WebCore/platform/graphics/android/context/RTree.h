@@ -32,6 +32,8 @@
 
 namespace WebCore {
 
+class LinearAllocator;
+
 class RecordingData {
 public:
     RecordingData(GraphicsOperation::Operation* ops, int orderBy)
@@ -46,7 +48,7 @@ public:
     GraphicsOperation::Operation* m_operation;
 };
 
-}
+} // namespace WebCore
 
 namespace RTree {
 
@@ -67,12 +69,16 @@ public:
     void remove(WebCore::IntRect& clip);
     void display();
 
+    void* allocateNode();
+    void deleteNode(Node* n);
+
 private:
 
     Node* m_root;
     unsigned m_maxChildren;
     ElementList* m_listA;
     ElementList* m_listB;
+    WebCore::LinearAllocator* m_allocator;
 
     friend class Node;
 };
@@ -104,16 +110,26 @@ class Node {
 public:
     static Node* gRoot;
 
-    Node(RTree* t);
-    virtual ~Node();
+    static Node* create(RTree* tree) {
+        return create(tree, 0, 0, 0, 0, 0);
+    }
+
+    static Node* create(RTree* tree, int minx, int miny, int maxx, int maxy,
+                        WebCore::RecordingData* payload) {
+        return new (tree->allocateNode()) Node(tree, minx, miny, maxx, maxy, payload);
+    }
+
+    ~Node();
 
     void insert(Node* n);
     void search(int minx, int miny, int maxx, int maxy, Vector<WebCore::RecordingData*>& list);
     void remove(int minx, int miny, int maxx, int maxy);
-    void drawTree(int level = 0);
-    virtual void display(int level = 0);
+
+    // Intentionally not implemented as Node* is custom allocated, we don't want to use this
+    void operator delete(void*);
 
 private:
+    Node(RTree* tree, int minx, int miny, int maxx, int maxy, WebCore::RecordingData* payload);
 
     void setParent(Node* n);
     Node* findNode(Node* n);
@@ -129,7 +145,7 @@ private:
     bool overlap(int minx, int miny, int maxx, int maxy);
     bool inside(int minx, int miny, int maxx, int maxy);
 
-    virtual bool isElement() { return false; }
+    bool isElement() { return m_payload; }
     bool isRoot();
 
 private:
@@ -140,6 +156,8 @@ private:
     Node** m_children;
     unsigned m_nbChildren;
 
+    WebCore::RecordingData* m_payload;
+
 public:
 
     int m_minX;
@@ -148,22 +166,12 @@ public:
     int m_maxY;
 
 #ifdef DEBUG
+    void drawTree(int level = 0);
+    void display(int level = 0);
     unsigned m_tid;
 #endif
 };
 
-class Element : public Node {
-public:
-
-    Element(RTree* tree, int minx, int miny, int maxx, int maxy, WebCore::RecordingData* payload);
-    virtual ~Element();
-    virtual bool isElement() { return true; }
-
-    virtual void display(int level = 0);
-
-    WebCore::RecordingData* m_payload;
-};
-
-}
+} // namespace RTree
 
 #endif // RTree_h

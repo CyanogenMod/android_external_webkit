@@ -698,7 +698,8 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/rendering/TilesProfiler.cpp \
 	platform/graphics/android/rendering/TransferQueue.cpp \
 	\
-	platform/graphics/android/utils/ClassTracker.cpp
+	platform/graphics/android/utils/ClassTracker.cpp \
+	platform/graphics/android/utils/LinearAllocator.cpp
 
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
