@@ -219,14 +219,14 @@ void PlatformGraphicsContextRecording::restore()
     PlatformGraphicsContext::restore();
     RecordingState state = mRecordingStateStack.last();
     mRecordingStateStack.removeLast();
-    if (state.mHasDrawing)
-        appendDrawingOperation(state.mSaveOperation, state.mBounds);
-    else
-        delete state.mSaveOperation;
     if (mRecordingStateStack.size())
         mCurrentMatrix = &(mRecordingStateStack.last().mMatrix);
     else
         mCurrentMatrix = &mRootMatrix;
+    if (state.mHasDrawing)
+        appendDrawingOperation(state.mSaveOperation, state.mBounds);
+    else
+        delete state.mSaveOperation;
 }
 
 //**************************************
@@ -392,16 +392,14 @@ void PlatformGraphicsContextRecording::canvasClip(const Path& path)
 
 bool PlatformGraphicsContextRecording::clip(const FloatRect& rect)
 {
-    if (mRecordingStateStack.size())
-        mRecordingStateStack.last().clip(rect);
+    clipState(rect);
     appendStateOperation(new GraphicsOperation::Clip(rect));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clip(const Path& path)
 {
-    if (mRecordingStateStack.size())
-        mRecordingStateStack.last().clip(path.boundingRect());
+    clipState(path.boundingRect());
     appendStateOperation(new GraphicsOperation::ClipPath(path));
     return true;
 }
@@ -427,8 +425,7 @@ bool PlatformGraphicsContextRecording::clipOut(const Path& path)
 
 bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
 {
-    if (mRecordingStateStack.size())
-        mRecordingStateStack.last().clip(pathToClip.boundingRect());
+    clipState(pathToClip.boundingRect());
     GraphicsOperation::ClipPath* operation = new GraphicsOperation::ClipPath(pathToClip);
     operation->setWindRule(clipRule);
     appendStateOperation(operation);
@@ -569,6 +566,15 @@ void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float l
     FloatRect bounds = rect;
     bounds.inflate(lineWidth);
     appendDrawingOperation(new GraphicsOperation::StrokeRect(rect, lineWidth), bounds);
+}
+
+void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
+{
+    if (mRecordingStateStack.size()) {
+        SkRect mapBounds;
+        mCurrentMatrix->mapRect(&mapBounds, clip);
+        mRecordingStateStack.last().clip(mapBounds);
+    }
 }
 
 void PlatformGraphicsContextRecording::appendDrawingOperation(

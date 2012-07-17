@@ -142,6 +142,7 @@ private:
         return false;
     }
 
+    void clipState(const FloatRect& clip);
     void appendDrawingOperation(GraphicsOperation::Operation* operation, const FloatRect& bounds);
     void appendStateOperation(GraphicsOperation::Operation* operation);
     void onCurrentMatrixChanged();
