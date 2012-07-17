@@ -249,6 +249,7 @@ public:
     bool isPositionAbsolute() { return m_isPositionAbsolute; }
     void setFixedPosition(FixedPositioning* position);
     FixedPositioning* fixedPosition() { return m_fixedPosition; }
+    virtual bool isCanvas() const { return false; }
 
     RenderLayer* owningLayer() const { return m_owningLayer; }
 

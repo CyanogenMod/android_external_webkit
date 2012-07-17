@@ -45,6 +45,7 @@
 #include "SurfaceCollection.h"
 #include "SurfaceCollectionManager.h"
 #include <pthread.h>
+#include "CanvasLayerAndroid.h"
 #include <wtf/CurrentTime.h>
 
 // log warnings if scale goes outside this range
@@ -72,6 +73,12 @@ GLWebViewState::GLWebViewState()
     , m_scale(1)
     , m_layersRenderingMode(kAllTextures)
     , m_surfaceCollectionManager()
+    , m_current_time(0.0f)
+    , m_start_time(0.0f)
+    , m_total_time(0.0f)
+    , m_iterations(0)
+    , m_avg_fps(0.0f)
+    , m_start(true)
 {
     m_visibleContentRect.setEmpty();
 
@@ -421,6 +428,7 @@ int GLWebViewState::drawGL(IntRect& invScreenRect, SkRect& visibleContentRect,
     if (shouldDraw)
         showFrameInfo(invScreenRect, *collectionsSwappedPtr);
 
+    CanvasLayerAndroid::cleanupAssets();
     return returnFlags;
 }
 
@@ -478,6 +486,7 @@ void GLWebViewState::clearRectWithColor(const IntRect& rect, float r, float g,
     glScissor(rect.x(), rect.y(), rect.width(), rect.height());
     glClearColor(r, g, b, a);
     glClear(GL_COLOR_BUFFER_BIT);
+
 }
 
 } // namespace WebCore

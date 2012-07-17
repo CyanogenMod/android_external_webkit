@@ -116,6 +116,7 @@ public:
 
     virtual void setContentsToImage(Image*);
     virtual void setContentsToMedia(PlatformLayer*);
+    virtual void setContentsToCanvas(PlatformLayer*);
     virtual PlatformLayer* platformLayer() const;
 
     void pauseDisplay(bool state);

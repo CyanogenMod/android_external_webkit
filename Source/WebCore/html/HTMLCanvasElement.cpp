@@ -22,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -47,14 +47,22 @@
 #include "RenderHTMLCanvas.h"
 #include "RenderLayer.h"
 #include "Settings.h"
+#include "CanvasLayerAndroid.h"
+#include "PlatformGraphicsContext.h"
+#include "RenderLayer.h"
 #include <math.h>
 #include <stdio.h>
+
+#if PLATFORM(ANDROID)
+#include <cutils/log.h>
+#include <cutils/properties.h>
+#endif
 
 #if USE(JSC)
 #include <runtime/JSLock.h>
 #endif
 
-#if ENABLE(WEBGL)    
+#if ENABLE(WEBGL)
 #include "WebGLContextAttributes.h"
 #include "WebGLRenderingContext.h"
 #endif
@@ -66,6 +74,12 @@ using namespace HTMLNames;
 // These values come from the WhatWG spec.
 static const int DefaultWidth = 300;
 static const int DefaultHeight = 150;
+
+#if PLATFORM(ANDROID)
+//TODO::VA::Make this robust later (prototyping)... needs to be protected by ifdefs for android
+int HTMLCanvasElement::s_canvas_id = 0;
+bool HTMLCanvasElement::s_glEnabled = true;
+#endif
 
 // Firefox limits width/height to 32767 pixels, but slows down dramatically before it
 // reaches that limit. We limit by area instead, giving us larger maximum dimensions,
@@ -95,8 +109,34 @@ HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc
 #endif
     , m_originClean(true)
     , m_hasCreatedImageBuffer(false)
+#if PLATFORM(ANDROID)
+    , m_recordingCanvasEnabled(true)
+    , m_gpuCanvasEnabled(true)
+    , m_canvasLayer(new CanvasLayerAndroid())
+    , m_gpuRendering(false)
+    , m_supportedCompositing(true)
+    , m_canUseGpuRendering(false)
+    , m_gpuAccelerationStatus(false)
+#endif
 {
     ASSERT(hasTagName(canvasTag));
+
+# if PLATFORM(ANDROID)
+    char pval[PROPERTY_VALUE_MAX];
+    property_get("debug.recordingcanvas", pval, "0");
+
+    m_recordingCanvasEnabled = atoi(pval) ? true : false;
+
+    char pval2[PROPERTY_VALUE_MAX];
+    property_get("debug.gpucanvas", pval2, "0");
+
+    m_gpuCanvasEnabled = atoi(pval2) ? true : false;
+
+    //Set the canvas ID
+    SLOGD("++++++++++++++++++++++Setting up the canvas ID to be %d", s_canvas_id);
+    m_canvasLayer->setCanvasID(s_canvas_id);
+    ++s_canvas_id;
+#endif
 }
 
 PassRefPtr<HTMLCanvasElement> HTMLCanvasElement::create(Document* document)
@@ -114,6 +154,13 @@ HTMLCanvasElement::~HTMLCanvasElement()
     HashSet<CanvasObserver*>::iterator end = m_observers.end();
     for (HashSet<CanvasObserver*>::iterator it = m_observers.begin(); it != end; ++it)
         (*it)->canvasDestroyed(this);
+
+#if PLATFORM(ANDROID)
+    int id = m_canvasLayer->getCanvasID();
+    CanvasLayerAndroid::markGLAssetsForRemoval(id);
+    delete m_canvasLayer;
+    SLOGD("++++++++++++++++ Deleting the canvas with id %d", id);
+#endif
 }
 
 void HTMLCanvasElement::parseMappedAttribute(Attribute* attr)
@@ -162,7 +209,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
     // context is already 2D, just return that. If the existing context is WebGL, then destroy it
     // before creating a new 2D context. Vice versa when requesting a WebGL canvas. Requesting a
     // context with any other type string will destroy any existing context.
-    
+
     // FIXME - The code depends on the context not going away once created, to prevent JS from
     // seeing a dangling pointer. So for now we will disallow the context from being changed
     // once it is created.
@@ -185,7 +232,7 @@ CanvasRenderingContext* HTMLCanvasElement::getContext(const String& type, Canvas
         }
         return m_context.get();
     }
-#if ENABLE(WEBGL)    
+#if ENABLE(WEBGL)
     Settings* settings = document()->settings();
     if (settings && settings->webGLEnabled()
 #if !PLATFORM(CHROMIUM) && !PLATFORM(GTK)
@@ -285,7 +332,7 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
 
     if (context->paintingDisabled())
         return;
-    
+
     if (m_context) {
         if (!m_context->paintsIntoCanvasBuffer())
             return;
@@ -295,20 +342,85 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
     if (hasCreatedImageBuffer()) {
         ImageBuffer* imageBuffer = buffer();
         if (imageBuffer) {
+#if PLATFORM(ANDROID)
+    if (imageBuffer->drawsUsingRecording()) {
+        // The canvas will draw onto a recording canvas. We want to pass the
+        // recorded canvas content onto the GraphicsLayerAndroid recording
+        // canvas.
+
+        m_canUseGpuRendering = imageBuffer->canUseGpuRendering();
+        int id = m_canvasLayer->getCanvasID();
+        bool oom_status = CanvasLayerAndroid::isCanvasOOM(id);
+
+        if(m_canUseGpuRendering && m_gpuRendering && m_gpuCanvasEnabled && !oom_status && s_glEnabled)
+        {
+            imageBuffer->copyRecordingToLayer(context, r, m_canvasLayer);
+            m_gpuAccelerationStatus = true;
+        }
+        else
+        {
+            if(s_glEnabled && m_gpuAccelerationStatus)
+            {
+                imageBuffer->resetRecordingToLayer(context, r, m_canvasLayer);
+                m_gpuAccelerationStatus = false;
+            }
+            imageBuffer->copyRecordingToCanvas(context, r);
+        }
+
+        return;
+    }
+    else
+    {
+        if(m_gpuAccelerationStatus)
+        {
+            imageBuffer->resetRecordingToLayer(context, r, m_canvasLayer);
+            m_gpuAccelerationStatus = false;
+        }
+        m_canUseGpuRendering = false;
+    }
+#endif
+
             if (m_presentedImage)
                 context->drawImage(m_presentedImage.get(), ColorSpaceDeviceRGB, r);
             else if (imageBuffer->drawsUsingCopy())
                 context->drawImage(copiedImage(), ColorSpaceDeviceRGB, r);
             else
                 context->drawImageBuffer(imageBuffer, ColorSpaceDeviceRGB, r);
+
+#if PLATFORM(ANDROID)
+    // Allow one frame to be painted, then switch to a recording canvas.
+            if (imageBuffer->isAnimating() && m_recordingCanvasEnabled) {
+                SLOGD("[%s] Animation detected. Converting the HTML5 canvas buffer to a SkPicture.", __FUNCTION__);
+                imageBuffer->convertToRecording();
+            }
+#endif
         }
     }
 
-#if ENABLE(WEBGL)    
+#if ENABLE(WEBGL)
     if (is3D())
         static_cast<WebGLRenderingContext*>(m_context.get())->markLayerComposited();
 #endif
 }
+
+#if PLATFORM(ANDROID)
+LayerAndroid* HTMLCanvasElement::platformLayer()
+{
+    if(m_canvasLayer)
+        return m_canvasLayer;
+
+    return NULL;
+}
+
+bool HTMLCanvasElement::canUseGpuRendering()
+{
+    ImageBuffer* imageBuffer = buffer();
+    if(imageBuffer)
+        return (imageBuffer->drawsUsingRecording() && m_canUseGpuRendering && m_supportedCompositing && m_gpuCanvasEnabled);
+
+    return false;
+}
+#endif
 
 #if ENABLE(WEBGL)
 bool HTMLCanvasElement::is3D() const
@@ -370,7 +482,7 @@ String HTMLCanvasElement::toDataURL(const String& mimeType, const double* qualit
 #endif
 
     makeRenderingResultsAvailable();
-      
+
     return buffer()->toDataURL(lowercaseMimeType, quality);
 }
 
@@ -379,7 +491,7 @@ PassRefPtr<ImageData> HTMLCanvasElement::getImageData()
     if (!m_context || !m_context->is3d())
        return 0;
 
-#if ENABLE(WEBGL)    
+#if ENABLE(WEBGL)
     WebGLRenderingContext* ctx = static_cast<WebGLRenderingContext*>(m_context.get());
 
     return ctx->paintRenderingResultsToImageData();
@@ -411,7 +523,7 @@ IntSize HTMLCanvasElement::convertToValidDeviceSize(float width, float height) c
 {
     width = ceilf(width);
     height = ceilf(height);
-    
+
     if (width < 1 || height < 1 || width * height > MaxCanvasArea)
         return IntSize();
 
@@ -465,6 +577,15 @@ void HTMLCanvasElement::createImageBuffer() const
     scriptExecutionContext()->globalData()->heap.reportExtraMemoryCost(m_imageBuffer->dataSize());
 #endif
 }
+
+#if PLATFORM(ANDROID)
+void HTMLCanvasElement::clearRecording(const FloatRect& rect)
+{
+    FloatRect recordingRect(0, 0, width(), height());
+    if(m_imageBuffer && (rect == recordingRect))
+        m_imageBuffer->clearRecording();
+}
+#endif
 
 GraphicsContext* HTMLCanvasElement::drawingContext() const
 {

@@ -1,3 +1,32 @@
+/*
+ * Modified by Code Aurora Forum
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are
+ * met:
+    * Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+    * Redistributions in binary form must reproduce the above
+      copyright notice, this list of conditions and the following
+      disclaimer in the documentation and/or other materials provided
+      with the distribution.
+    * Neither the name of Code Aurora Forum, Inc. nor the names of its
+      contributors may be used to endorse or promote products derived
+      from this software without specific prior written permission.
+
+ * THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+ * ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+ * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+ * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
 #define LOG_TAG "PlatformGraphicsContextSkia"
 #define LOG_NDEBUG 1
 
@@ -72,14 +101,35 @@ PlatformGraphicsContextSkia::PlatformGraphicsContextSkia(SkCanvas* canvas,
     : PlatformGraphicsContext()
     , mCanvas(canvas)
     , m_deleteCanvas(takeCanvasOwnership)
+    , m_canvasState(DEFAULT)
+    , m_picture(0)
 {
     m_gc = 0;
 }
 
+PlatformGraphicsContextSkia::PlatformGraphicsContextSkia(int width, int height)
+    : PlatformGraphicsContext()
+    , m_deleteCanvas(false)
+    , m_canvasState(RECORDING)
+    , m_picture(new SkPicture)
+{
+    mCanvas = m_picture->beginRecording(width, height, 0);
+}
+
 PlatformGraphicsContextSkia::~PlatformGraphicsContextSkia()
 {
-    if (m_deleteCanvas)
+    if (m_picture) {
+        delete m_picture; // The SkPicture will free mCanvas in its destructor.
+        m_picture = 0;
+        //TODO::this should be safer
+        //m_deleteCanvas = false;
+        return;
+    }
+
+    if (m_deleteCanvas) {
         delete mCanvas;
+        mCanvas = 0;
+    }
 }
 
 bool PlatformGraphicsContextSkia::isPaintingDisabled()
@@ -618,6 +668,57 @@ void PlatformGraphicsContextSkia::drawMediaButton(const IntRect& rect, RenderSki
                                                   const IntRect& thumb)
 {
     RenderSkinMediaButton::Draw(mCanvas, rect, buttonType, translucent, drawBackground, thumb);
+}
+
+//**************************************
+// Recording Canvas
+//**************************************
+void PlatformGraphicsContextSkia::clearRecording()
+{
+    if (!isRecording() || !m_picture)
+        return;
+
+    int width = m_picture->width();
+    int height = m_picture->height();
+
+    delete m_picture;
+    m_picture = new SkPicture;
+
+    mCanvas = m_picture->beginRecording(width, height, 0);
+}
+
+void PlatformGraphicsContextSkia::convertToNonRecording()
+{
+    if (!isRecording() || !m_picture)
+        return;
+
+    SkBitmap bitmap;
+
+    bitmap.setConfig(SkBitmap::kARGB_8888_Config, m_picture->width(), m_picture->height());
+    bitmap.allocPixels();
+    bitmap.eraseColor(0);
+
+    SkCanvas* canvas = new SkCanvas;
+    canvas->setBitmapDevice(bitmap);
+
+    m_picture->draw(canvas);
+
+    mCanvas = canvas;
+    m_deleteCanvas = true;
+
+    delete m_picture;
+    m_picture = 0;
+
+    SLOGD("[%s] The HTML5 recording canvas has been tainted. Converting to bitmap buffer.", __FUNCTION__);
+    m_canvasState = DIRTY;
+}
+
+void PlatformGraphicsContextSkia::setIsAnimating()
+{
+    if (!m_canvasState == DEFAULT)
+        return;
+
+    m_canvasState = ANIMATION_DETECTED;
 }
 
 }   // WebCore

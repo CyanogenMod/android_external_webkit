@@ -1561,8 +1561,14 @@ bool RenderLayerCompositor::requiresCompositingForVideo(RenderObject* renderer) 
 
 bool RenderLayerCompositor::requiresCompositingForCanvas(RenderObject* renderer) const
 {
+
     if (!(m_compositingTriggers & ChromeClient::CanvasTrigger))
         return false;
+
+    if (renderer->isCanvas()) {
+        HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer->node());
+        return canvas->isUsingGpuRendering();
+    }
 
     if (renderer->isCanvas()) {
         HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer->node());

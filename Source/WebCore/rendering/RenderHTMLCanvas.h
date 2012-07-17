@@ -45,6 +45,9 @@ private:
     virtual const char* renderName() const { return "RenderHTMLCanvas"; }
     virtual void paintReplaced(PaintInfo&, int tx, int ty);
     virtual void intrinsicSizeChanged() { canvasSizeChanged(); }
+
+    bool m_acceleratedCanvas;
+    bool m_requiresLayer;
 };
 
 inline RenderHTMLCanvas* toRenderHTMLCanvas(RenderObject* object)

@@ -22,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef ImageBuffer_h
@@ -48,6 +48,7 @@ namespace WebCore {
     class ImageData;
     class IntPoint;
     class IntRect;
+    class CanvasLayerAndroid;
 
     enum Multiply {
         Premultiplied,
@@ -82,6 +83,17 @@ namespace WebCore {
         
         GraphicsContext* context() const;
 
+#if PLATFORM(ANDROID)
+        void convertToRecording();
+        bool drawsUsingRecording() const;
+        bool isAnimating() const;
+        void setIsAnimating() const;
+        void clearRecording() const;
+        void copyRecordingToCanvas(GraphicsContext*, const IntRect&) const; // Playback our recording into the layer recording canvas.
+        void copyRecordingToLayer(GraphicsContext*, const IntRect&, CanvasLayerAndroid* canvasLayer) const;
+        void resetRecordingToLayer(GraphicsContext*, const IntRect&, CanvasLayerAndroid* canvasLayer) const;
+        bool canUseGpuRendering();
+#endif
         bool isAccelerated() const { return m_accelerateRendering; }
         bool drawsUsingCopy() const; // If the image buffer has to render using a copied image, it will return true.
         PassRefPtr<Image> copyImage() const; // Return a new image that is a copy of the buffer.

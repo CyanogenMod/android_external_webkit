@@ -1139,6 +1139,14 @@ void RenderLayer::insertOnlyThisLayer()
         RenderLayer* parentLayer = renderer()->parent()->enclosingLayer();
         ASSERT(parentLayer);
         RenderLayer* beforeChild = parentLayer->reflectionLayer() != this ? renderer()->parent()->findNextLayer(parentLayer, renderer()) : 0;
+        if(!beforeChild && renderer()->previousSibling())
+        {
+            RenderLayer* layer = renderer()->previousSibling()->enclosingLayer();
+
+            if(layer != NULL  && layer->parent() == parentLayer)
+                beforeChild = layer;
+        }
+
         parentLayer->addChild(this, beforeChild);
     }
 

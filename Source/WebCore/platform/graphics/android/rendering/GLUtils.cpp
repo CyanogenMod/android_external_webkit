@@ -170,7 +170,7 @@ void GLUtils::checkEglError(const char* op, EGLBoolean returnVal)
     }
 }
 
-bool GLUtils::checkGlError(const char* op)
+bool GLUtils::checkGlError(const char* op, bool crash /*= true*/)
 {
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
@@ -178,13 +178,14 @@ bool GLUtils::checkGlError(const char* op)
         if (allowGLLog())
 #endif
         ALOGE("GL ERROR - after %s() glError (0x%x)\n", op, error);
-        crashIfOOM(error);
+        if(crash)
+            crashIfOOM(error);
         ret = true;
     }
     return ret;
 }
 
-bool GLUtils::checkGlErrorOn(void* p, const char* op)
+bool GLUtils::checkGlErrorOn(void* p, const char* op, bool crash /*= true*/)
 {
     bool ret = false;
     for (GLint error = glGetError(); error; error = glGetError()) {
@@ -192,7 +193,8 @@ bool GLUtils::checkGlErrorOn(void* p, const char* op)
         if (allowGLLog())
 #endif
         ALOGE("GL ERROR on %x - after %s() glError (0x%x)\n", p, op, error);
-        crashIfOOM(error);
+        if(crash)
+            crashIfOOM(error);
         ret = true;
     }
     return ret;
@@ -516,6 +518,43 @@ bool GLUtils::updateSharedSurfaceTextureWithBitmap(ANativeWindow* anw, const SkB
 
     bitmap.unlockPixels();
     ANativeWindow_unlockAndPost(anw);
+    return true;
+}
+
+bool GLUtils::createTextureWithBitmapFailSafe(GLuint texture, const SkBitmap& bitmap, GLint filter)
+{
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glBindTexture(GL_TEXTURE_2D, texture);
+
+    bool val = GLUtils::checkGlError("glBindTexture", false);
+    if(val)
+        return false;
+
+    SkBitmap::Config config = bitmap.getConfig();
+    int internalformat = getInternalFormat(config);
+    int type = getType(config);
+
+    bitmap.lockPixels();
+    glTexImage2D(GL_TEXTURE_2D, 0, internalformat, bitmap.width(), bitmap.height(),
+                 0, internalformat, type, bitmap.getPixels());
+    bitmap.unlockPixels();
+
+    if (GLUtils::checkGlError("glTexImage2D", false)) {
+        return false;
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, filter);
+
+    // The following is a workaround -- remove when EGLImage texture upload is fixed.
+    GLuint fboID;
+    glGenFramebuffers(1, &fboID);
+    glBindFramebuffer(GL_FRAMEBUFFER, fboID);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+    glCheckFramebufferStatus(GL_FRAMEBUFFER); // should return GL_FRAMEBUFFER_COMPLETE
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // rebind the standard FBO
+    glDeleteFramebuffers(1, &fboID);
+
     return true;
 }
 
