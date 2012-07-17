@@ -26,6 +26,7 @@
 #include "GraphicsContext.h"
 
 #include "AffineTransform.h"
+#include "AnimationTimeCounter.h"
 #include "Font.h"
 #include "Gradient.h"
 #include "NotImplemented.h"
@@ -113,6 +114,13 @@ GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
     return ctx;
 }
 
+GraphicsContext* GraphicsContext::createOffscreenRecordingContext(int width, int height)
+{
+    PlatformGraphicsContextSkia* pgc = new PlatformGraphicsContextSkia(width, height);
+    GraphicsContext* ctx = new GraphicsContext(pgc);
+    return ctx;
+}
+
 ////////////////////////////////////////////////////////////////////////////////////////////////
 
 void GraphicsContext::platformInit(PlatformGraphicsContext* gc)
@@ -126,6 +134,27 @@ void GraphicsContext::platformInit(PlatformGraphicsContext* gc)
 void GraphicsContext::platformDestroy()
 {
     delete m_data;
+}
+
+void GraphicsContext::copyState(GraphicsContext* context)
+{
+    //TODO::copyState cleanly
+    //GraphicsContextPlatformPrivate::State* copyState = context->m_data->getState();
+    //m_data->setState(copyState);
+    //m_data->setStateStack(context->m_data->getStateStack());
+}
+
+void GraphicsContext::setCurrentTransform(AffineTransform& transform)
+{
+    //TODO::setCurrentTransform
+    //m_currentTransform = transform;
+    //if(!(m_data->getPlatformGfxCtx()->isRecording()))
+    //    return;
+
+    //SkRect bounds;
+    //bounds.set(0, 0, GC2CANVAS(this)->getDevice()->width(), GC2CANVAS(this)->getDevice()->height());
+    //GC2CANVAS(this)->clipRect(bounds);
+    //concatCTM(m_currentTransform);
 }
 
 void GraphicsContext::savePlatformState()
@@ -452,6 +481,21 @@ void GraphicsContext::clearRect(const FloatRect& rect)
 {
     if (paintingDisabled())
         return;
+    
+    if(platformContext()->recordingCanvas()->getDevice() == NULL)
+    {
+        return;
+    }
+
+    FloatRect recordingRect(0, 0, platformContext()->recordingCanvas()->getDevice()->width(), platformContext()->recordingCanvas()->getDevice()->height());
+    if (rect == recordingRect && !platformContext()->isAnimating()) {
+        m_animationTimeCounter->tick();
+
+        // We are making an assumption that if the entire canvas is being
+        // cleared at a certain frame rate, it is because we are animating.
+        if (platformContext()->isDefault() && m_animationTimeCounter->isAnimating())
+            platformContext()->setIsAnimating();
+    }
 
     syncPlatformContext(this);
     platformContext()->clearRect(rect);

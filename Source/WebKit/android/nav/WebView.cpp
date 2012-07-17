@@ -58,6 +58,7 @@
 #include "WebCoreJni.h"
 #include "WebRequestContext.h"
 #include "WebViewCore.h"
+#include "HTMLCanvasElement.h"
 
 #ifdef GET_NATIVE_VIEW
 #undef GET_NATIVE_VIEW
@@ -256,6 +257,7 @@ int drawGL(WebCore::IntRect& invScreenRect, WebCore::IntRect* invalRect,
         WebCore::IntRect& screenClip, float scale, int extras, bool shouldDraw)
 {
 #if USE(ACCELERATED_COMPOSITING)
+    HTMLCanvasElement::setGLEnabled(true);
     if (!m_baseLayer)
         return 0;
 
@@ -298,6 +300,7 @@ int drawGL(WebCore::IntRect& invScreenRect, WebCore::IntRect* invalRect,
 
 void draw(SkCanvas* canvas, SkColor bgColor, DrawExtras extras)
 {
+    HTMLCanvasElement::setGLEnabled(false);
     if (!m_baseLayer) {
         canvas->drawColor(bgColor);
         return;

@@ -715,6 +715,9 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/fonts/GlyphMapAndroid.cpp \
 	platform/graphics/android/fonts/VerticalTextMap.cpp \
 	\
+	platform/graphics/android/CanvasLayerAndroid.cpp \
+	platform/graphics/android/CanvasLayerShader.cpp \
+	\
 	platform/graphics/android/layers/AndroidAnimation.cpp \
 	platform/graphics/android/layers/BaseLayerAndroid.cpp \
 	platform/graphics/android/layers/CanvasLayer.cpp \

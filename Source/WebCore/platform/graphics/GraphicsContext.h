@@ -34,6 +34,7 @@
 #include "Image.h"
 #include "Path.h"
 #include "Pattern.h"
+#include "AffineTransform.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -82,6 +83,7 @@ class PlatformGraphicsContext;
 }
 class SkPaint;
 struct SkPoint;
+class AnimationTimeCounter;
 #else
 namespace WebCore {
 class PlatformContextSkia;
@@ -305,6 +307,12 @@ namespace WebCore {
          onto another graphics context.
          */
         static GraphicsContext* createOffscreenContext(int width, int height);
+
+        static GraphicsContext* createOffscreenRecordingContext(int width, int height);
+
+        void copyState(GraphicsContext* context);
+        //Needed to keep track of transformation matrix for SkPicture based drawing
+        void setCurrentTransform(AffineTransform& transform);
 #endif
 
         void save();
@@ -584,6 +592,11 @@ namespace WebCore {
         GraphicsContextState m_state;
         Vector<GraphicsContextState> m_stack;
         bool m_updatingControlTints;
+
+#if PLATFORM(ANDROID)
+        OwnPtr<AnimationTimeCounter> m_animationTimeCounter;
+        AffineTransform m_currentTransform;
+#endif
     };
 
 } // namespace WebCore

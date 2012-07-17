@@ -26,6 +26,9 @@
 #include "config.h"
 #include "GraphicsContext.h"
 
+#if PLATFORM(ANDROID)
+#include "AnimationTimeCounter.h"
+#endif
 #include "BidiResolver.h"
 #include "Font.h"
 #include "Generator.h"
@@ -78,6 +81,9 @@ private:
 
 GraphicsContext::GraphicsContext(PlatformGraphicsContext* platformGraphicsContext)
     : m_updatingControlTints(false)
+#if PLATFORM(ANDROID)
+    , m_animationTimeCounter(new AnimationTimeCounter())
+#endif
 {
     platformInit(platformGraphicsContext);
 }

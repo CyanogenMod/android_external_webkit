@@ -25,7 +25,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef HTMLCanvasElement_h
@@ -53,6 +53,8 @@ class Image;
 class ImageData;
 class ImageBuffer;
 class IntSize;
+class LayerAndroid;
+class CanvasLayerAndroid;
 
 class CanvasObserver {
 public:
@@ -82,10 +84,10 @@ public:
     void setHeight(int);
 
     void setSize(const IntSize& newSize)
-    { 
+    {
         if (newSize == size())
             return;
-        m_ignoreReset = true; 
+        m_ignoreReset = true;
         setWidth(newSize.width());
         setHeight(newSize.height());
         m_ignoreReset = false;
@@ -101,6 +103,16 @@ public:
     void didDraw(const FloatRect&);
 
     void paint(GraphicsContext*, const IntRect&);
+#if PLATFORM(ANDROID)
+    void clearRecording(const FloatRect& rect);
+    LayerAndroid* platformLayer();
+    bool canUseGpuRendering();
+    void enableGpuRendering()   {   m_gpuRendering = true;    }
+    void disableGpuRendering()  {   m_gpuRendering = false;    }
+    bool isUsingGpuRendering()  {   return m_gpuRendering;  }
+    void setSupportedCompositing(bool val)   {   m_supportedCompositing = val;   }
+    static void setGLEnabled(bool val)       {   s_glEnabled = val;              }
+#endif
 
     GraphicsContext* drawingContext() const;
 
@@ -125,7 +137,7 @@ public:
 
     AffineTransform baseTransform() const;
 
-#if ENABLE(WEBGL)    
+#if ENABLE(WEBGL)
     bool is3D() const;
 #if PLATFORM(ANDROID)
     void documentDidBecomeActive();
@@ -171,9 +183,20 @@ private:
     // m_createdImageBuffer means we tried to malloc the buffer.  We didn't necessarily get it.
     mutable bool m_hasCreatedImageBuffer;
     mutable OwnPtr<ImageBuffer> m_imageBuffer;
-    
+
     mutable RefPtr<Image> m_presentedImage;
     mutable RefPtr<Image> m_copiedImage; // FIXME: This is temporary for platforms that have to copy the image buffer to render (and for CSSCanvasValue).
+#if PLATFORM(ANDROID)
+    bool m_recordingCanvasEnabled;
+    bool m_gpuCanvasEnabled;
+    bool m_canUseGpuRendering;
+    bool m_gpuRendering;
+    bool m_supportedCompositing;
+    bool m_gpuAccelerationStatus;
+    static int s_canvas_id; //Canvas Ids TODO::recycle and overflow checks
+    static bool s_glEnabled;
+    CanvasLayerAndroid* m_canvasLayer;
+#endif
 };
 
 } //namespace

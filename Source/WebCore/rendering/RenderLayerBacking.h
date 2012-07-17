@@ -138,6 +138,8 @@ public:
     
     // For informative purposes only.
     CompositingLayerType compositingLayerType() const;
+
+    void setContentsToCanvas(LayerAndroid* layer);
     
     void updateContentsScale(float);
 

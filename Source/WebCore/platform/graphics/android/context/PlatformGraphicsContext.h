@@ -152,6 +152,17 @@ public:
 
     void setRawState(State* state) { m_state = state; }
 
+    virtual void convertToNonRecording() {}
+    virtual void clearRecording() {}
+    virtual SkPicture* getRecordingPicture() const { return NULL; }
+
+    virtual bool isDefault() const { return true; }
+    virtual bool isAnimating() const { return false; }
+    virtual bool isRecording() const { return false; }
+    virtual bool isDirty() const {return false; }
+
+    virtual void setIsAnimating() {}
+
     struct ShadowRec {
         SkScalar blur;
         SkScalar dx;
