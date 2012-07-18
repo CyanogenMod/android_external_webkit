@@ -844,24 +844,17 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
 
     TRACE_METHOD();
 
-    if (!layer->content()) {
-        WebCore::PicturePile picture;
-        picture.setSize(IntSize(m_size.width(), m_size.height()));
-        PicturePileLayerContent* content = new PicturePileLayerContent(picture);
-        layer->setContent(content);
-        SkSafeUnref(content);
-    }
-
-    PicturePileLayerContent* pcontent = static_cast<PicturePileLayerContent*>(layer->content());
-    WebCore::PicturePile* layerContent = pcontent->picturePile();
-
-    // TODO: we might be able to reuse an existing picture instead of resetting it.
-    //       we can't do that because of transparency -- for now, we just invalidate everything.
-    layerContent->reset();
-    layerContent->setSize(IntSize(m_size.width(), m_size.height()));
+    // TODO: we might be able to reuse an existing picture instead of recreating it.
+    //       we can't do that because of transparency -- for now, we just create
+    //       a new picture every time.
+    WebCore::PicturePile picture;
+    picture.setSize(IntSize(m_size.width(), m_size.height()));
+    PicturePileLayerContent* content = new PicturePileLayerContent(picture);
+    layer->setContent(content);
+    SkSafeUnref(content);
 
     // TODO: add content checks (text, opacity, etc.)
-    layerContent->updatePicturesIfNeeded(this);
+    picture.updatePicturesIfNeeded(this);
 
     return true;
 }
