@@ -352,7 +352,6 @@ void GraphicsLayerAndroid::setSize(const FloatSize& size)
     }
 
     m_contentLayer->setSize(size.width(), size.height());
-    m_contentLayer->setContent(0);
     setNeedsDisplay();
     askForSync();
 }
@@ -849,12 +848,13 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
     //       a new picture every time.
     WebCore::PicturePile picture;
     picture.setSize(IntSize(m_size.width(), m_size.height()));
-    PicturePileLayerContent* content = new PicturePileLayerContent(picture);
-    layer->setContent(content);
-    SkSafeUnref(content);
 
     // TODO: add content checks (text, opacity, etc.)
     picture.updatePicturesIfNeeded(this);
+
+    PicturePileLayerContent* content = new PicturePileLayerContent(picture);
+    layer->setContent(content);
+    SkSafeUnref(content);
 
     return true;
 }
