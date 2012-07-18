@@ -479,6 +479,12 @@ namespace WebCore {
         bool blockNetworkImage() const { return m_blockNetworkImage; }
 #endif
 
+        void setMediaPlaybackRequiresUserGesture(bool flag) { m_mediaPlaybackRequiresUserGesture = flag; };
+        bool mediaPlaybackRequiresUserGesture() const { return m_mediaPlaybackRequiresUserGesture; }
+
+        void setMediaPlaybackAllowsInline(bool flag) { m_mediaPlaybackAllowsInline = flag; };
+        bool mediaPlaybackAllowsInline() const { return m_mediaPlaybackAllowsInline; }
+
     private:
         Page* m_page;
 
@@ -633,6 +639,8 @@ namespace WebCore {
 #ifdef ANDROID_PLUGINS
         bool m_pluginsOnDemand : 1;
 #endif
+        bool m_mediaPlaybackRequiresUserGesture : 1;
+        bool m_mediaPlaybackAllowsInline : 1;
         bool m_passwordEchoEnabled : 1;
 
 #if USE(SAFARI_THEME)

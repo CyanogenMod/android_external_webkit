@@ -151,6 +151,7 @@ struct FieldIds {
 #endif
         mOverrideCacheMode = env->GetFieldID(clazz, "mOverrideCacheMode", "I");
         mPasswordEchoEnabled = env->GetFieldID(clazz, "mPasswordEchoEnabled", "Z");
+        mMediaPlaybackRequiresUserGesture = env->GetFieldID(clazz, "mMediaPlaybackRequiresUserGesture", "Z");
 
         ALOG_ASSERT(mLayoutAlgorithm, "Could not find field mLayoutAlgorithm");
         ALOG_ASSERT(mTextSize, "Could not find field mTextSize");
@@ -195,6 +196,7 @@ struct FieldIds {
         ALOG_ASSERT(mUseDoubleTree, "Could not find field mUseDoubleTree");
         ALOG_ASSERT(mPageCacheCapacity, "Could not find field mPageCacheCapacity");
         ALOG_ASSERT(mPasswordEchoEnabled, "Could not find field mPasswordEchoEnabled");
+        ALOG_ASSERT(mMediaPlaybackRequiresUserGesture, "Could not find field mMediaPlaybackRequiresUserGesture");
 
         jclass enumClass = env->FindClass("java/lang/Enum");
         ALOG_ASSERT(enumClass, "Could not find Enum class!");
@@ -281,6 +283,7 @@ struct FieldIds {
 #endif
     jfieldID mOverrideCacheMode;
     jfieldID mPasswordEchoEnabled;
+    jfieldID mMediaPlaybackRequiresUserGesture;
 };
 
 static struct FieldIds* gFieldIds;
@@ -616,6 +619,9 @@ public:
         bool echoPassword = env->GetBooleanField(obj,
                 gFieldIds->mPasswordEchoEnabled);
         s->setPasswordEchoEnabled(echoPassword);
+
+        flag = env->GetBooleanField(obj, gFieldIds->mMediaPlaybackRequiresUserGesture);
+        s->setMediaPlaybackRequiresUserGesture(flag);
     }
 };
 

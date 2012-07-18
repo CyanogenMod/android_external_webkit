@@ -185,9 +185,9 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     document->registerForDocumentActivationCallbacks(this);
     document->registerForMediaVolumeCallbacks(this);
     document->registerForPrivateBrowsingStateChangedCallbacks(this);
-#if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-    m_restrictions |= RequireUserGestureForRateChangeRestriction;
-#endif
+
+    if (document->settings() && document->settings()->mediaPlaybackRequiresUserGesture())
+        m_restrictions |= RequireUserGestureForRateChangeRestriction;
 }
 
 HTMLMediaElement::~HTMLMediaElement()
