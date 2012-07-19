@@ -101,12 +101,16 @@ void RasterRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
     GLUtils::paintTextureWithBitmap(&renderInfo, m_bitmap);
 }
 
-void RasterRenderer::checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas)
+void RasterRenderer::deviceCheckForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas)
 {
-    m_bitmapIsPureColor = GLUtils::isPureColorBitmap(m_bitmap, m_bitmapPureColor);
+    if (!renderInfo.isPureColor) {
+        // base renderer may have already determined isPureColor, so only do the
+        // brute force check if needed
+        renderInfo.isPureColor = GLUtils::isPureColorBitmap(m_bitmap, renderInfo.pureColor);
+    }
 
-    renderInfo.isPureColor = m_bitmapIsPureColor;
-    renderInfo.pureColor = m_bitmapPureColor;
+    m_bitmapIsPureColor = renderInfo.isPureColor;
+    m_bitmapPureColor = renderInfo.pureColor;
 }
 
 } // namespace WebCore

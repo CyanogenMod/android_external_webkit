@@ -37,6 +37,7 @@ class SkDevice;
 
 namespace WebCore {
 
+class InstrumentedPlatformCanvas;
 class TextureInfo;
 class TilePainter;
 class Tile;
@@ -87,7 +88,10 @@ protected:
 
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
-    virtual void checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
+    void checkForPureColor(TileRenderInfo& renderInfo, InstrumentedPlatformCanvas& canvas);
+
+    // performs additional pure color check, renderInfo.isPureColor may already be set to true
+    virtual void deviceCheckForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas) = 0;
 
     void drawTileInfo(SkCanvas* canvas, const TileRenderInfo& renderInfo,
             int updateCount, double renderDuration);
