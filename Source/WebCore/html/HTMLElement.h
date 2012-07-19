@@ -70,8 +70,6 @@ public:
 
     virtual void accessKeyAction(bool sendToAnyElement);
 
-    bool ieForbidsInsertHTML() const;
-
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 

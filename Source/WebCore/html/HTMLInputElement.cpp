@@ -85,6 +85,7 @@ HTMLInputElement::HTMLInputElement(const QualifiedName& tagName, Document* docum
     , m_inputType(InputType::createText(this))
 {
     ASSERT(hasTagName(inputTag) || hasTagName(isindexTag));
+    setIeForbidsInsertHTML();
 }
 
 PassRefPtr<HTMLInputElement> HTMLInputElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form, bool createdByParser)

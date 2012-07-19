@@ -26,22 +26,57 @@
 #include "config.h"
 #include "HTMLAllCollection.h"
 
+#include "Element.h"
 #include "Node.h"
 
 namespace WebCore {
 
-PassRefPtr<HTMLAllCollection> HTMLAllCollection::create(PassRefPtr<Node> base)
+PassRefPtr<HTMLAllCollection> HTMLAllCollection::create(PassRefPtr<Node> base, CollectionType type)
 {
-    return adoptRef(new HTMLAllCollection(base));
+    return adoptRef(new HTMLAllCollection(base, type));
 }
 
-HTMLAllCollection::HTMLAllCollection(PassRefPtr<Node> base)
-    : HTMLCollection(base, DocAll)
+HTMLAllCollection::HTMLAllCollection(PassRefPtr<Node> base, CollectionType type)
+    : HTMLCollection(base, type)
 {
 }
 
 HTMLAllCollection::~HTMLAllCollection()
 {
 }
+
+Element* HTMLAllCollection::itemAfter(Element* previous) const
+{
+    bool includeChildren = (type() == DocAll);
+    Node* current;
+    Node* root = base();
+    if (!previous)
+        current = root->firstChild();
+    else
+        current = includeChildren ? previous->traverseNextNode(root) : previous->traverseNextSibling(root);
+
+    if (includeChildren) {
+        Node * lastDecendant = info()->lastDecendantOfBase;
+        if (!lastDecendant) {
+            info()->lastDecendantOfBase = root->lastDescendantNode();
+            lastDecendant = info()->lastDecendantOfBase;
+        }
+
+        for (; current; current = current->traverseNextNodeFastPath()) {
+            if (current->isElementNode())
+                return static_cast<Element*>(current);
+            if (current == lastDecendant)
+                break;
+        }
+    } else {
+        for (; current; current = current->traverseNextSibling(root)) {
+            if (current->isElementNode())
+                return static_cast<Element*>(current);
+        }
+    }
+
+    return 0;
+}
+
 
 } // namespace WebCore

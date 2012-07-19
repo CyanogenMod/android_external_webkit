@@ -60,7 +60,7 @@ public:
     virtual CSSStyleDeclaration* style() { return StyledElement::style(); }
 
 protected: 
-    SVGStyledElement(const QualifiedName&, Document*);
+    SVGStyledElement(const QualifiedName&, Document*, ConstructionType = CreateSVGElement);
 
     virtual bool rendererIsNeeded(RenderStyle*);
 
