@@ -35,11 +35,13 @@ class PicturePileLayerContent : public LayerContent {
 public:
     PicturePileLayerContent(const PicturePile& picturePile);
 
-    virtual int width() { return m_picturePile.size().width(); }
-    virtual int height() { return m_picturePile.size().height(); }
+    // return 0 when no content, so don't have to paint
+    virtual int width() { return m_hasContent ? m_picturePile.size().width() : 0; }
+    virtual int height() { return m_hasContent ? m_picturePile.size().height() : 0; }
+
     virtual void setCheckForOptimisations(bool check) {}
-    virtual void checkForOptimisations() {}
-    virtual bool hasText() { return true; }
+    virtual void checkForOptimisations() {} // already performed, stored in m_hasText/m_hasContent
+    virtual bool hasText() { return m_hasText; }
     virtual void draw(SkCanvas* canvas);
     virtual void serialize(SkWStream* stream);
     virtual PrerenderedInval* prerenderForRect(const IntRect& dirty);
@@ -48,6 +50,8 @@ public:
 
 private:
     PicturePile m_picturePile;
+    bool m_hasText;
+    bool m_hasContent;
 };
 
 } // WebCore

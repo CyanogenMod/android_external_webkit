@@ -71,11 +71,13 @@ public:
     IntRect area;
     bool dirty;
     RefPtr<PrerenderedInval> prerendered;
+    bool hasText;
 
     PictureContainer(const IntRect& area)
         : picture(0)
         , area(area)
         , dirty(true)
+        , hasText(false)
     {}
 
     PictureContainer(const PictureContainer& other);
@@ -101,6 +103,10 @@ public:
     void reset();
     SkRegion& dirtyRegion() { return m_dirtyRegion; }
     PrerenderedInval* prerenderedInvalForArea(const IntRect& area);
+
+    // UI-side methods used to check content, after construction/updates are complete
+    bool hasText() const;
+    bool isEmpty() const;
 
 private:
     void applyWebkitInvals();

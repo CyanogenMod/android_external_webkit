@@ -136,6 +136,8 @@ public:
     virtual void strokePath(const Path& pathToStroke);
     virtual void strokeRect(const FloatRect& rect, float lineWidth);
 
+    bool hasText() { return m_hasText; }
+    bool isEmpty() { return m_isEmpty; }
 private:
 
     virtual bool shadowsIgnoreTransforms() const {
@@ -194,6 +196,9 @@ private:
     Vector<SkMatrix> mMatrixStack;
     State* mOperationState;
     SkMatrix* mOperationMatrix;
+
+    bool m_hasText;
+    bool m_isEmpty;
 };
 
 }

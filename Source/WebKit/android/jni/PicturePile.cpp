@@ -277,6 +277,24 @@ PrerenderedInval* PicturePile::prerenderedInvalForArea(const IntRect& area)
     return 0;
 }
 
+bool PicturePile::hasText() const
+{
+    for (size_t i = 0; i < m_pile.size(); i++) {
+        if (m_pile[i].hasText)
+            return true;
+    }
+    return false;
+}
+
+bool PicturePile::isEmpty() const
+{
+    for (size_t i = 0; i < m_pile.size(); i++) {
+        if (m_pile[i].picture)
+            return false;
+    }
+    return true;
+}
+
 #if USE_RECORDING_CONTEXT
 void PicturePile::drawPicture(SkCanvas* canvas, PictureContainer& pc)
 {
@@ -286,12 +304,18 @@ void PicturePile::drawPicture(SkCanvas* canvas, PictureContainer& pc)
 
 Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& pc)
 {
-    // TODO: Support? Not needed?
-    pc.prerendered.clear();
+    pc.prerendered.clear(); // TODO: Support? Not needed?
+
     Recording* picture = new Recording();
     WebCore::PlatformGraphicsContextRecording pgc(picture);
     WebCore::GraphicsContext gc(&pgc);
     painter->paintContents(&gc, pc.area);
+    pc.hasText = pgc.hasText();
+    if (pgc.isEmpty()) {
+        SkSafeUnref(picture);
+        picture = 0;
+    }
+
     return picture;
 }
 #else
@@ -336,6 +360,10 @@ Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& p
     WebCore::GraphicsContext gc(&pgc);
     ALOGV("painting picture: " INT_RECT_FORMAT, INT_RECT_ARGS(drawArea));
     painter->paintContents(&gc, drawArea);
+
+    // TODO: consider paint-time checking for these with SkPicture painting?
+    pc.hasText = true;
+
     SkSafeUnref(canvas);
     picture->endRecording();
     return picture;

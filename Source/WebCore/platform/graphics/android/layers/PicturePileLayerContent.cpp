@@ -12,6 +12,8 @@ namespace WebCore {
 
 PicturePileLayerContent::PicturePileLayerContent(const PicturePile& picturePile)
     : m_picturePile(picturePile)
+    , m_hasText(picturePile.hasText())
+    , m_hasContent(!picturePile.isEmpty())
 {
 }
 
@@ -20,6 +22,9 @@ void PicturePileLayerContent::draw(SkCanvas* canvas)
     TRACE_METHOD();
     android::Mutex::Autolock lock(m_drawLock);
     m_picturePile.draw(canvas);
+
+    if (CC_UNLIKELY(!m_hasContent))
+        ALOGW("Warning: painting PicturePile without content!");
 }
 
 void PicturePileLayerContent::serialize(SkWStream* stream)

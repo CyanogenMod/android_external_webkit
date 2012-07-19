@@ -162,6 +162,8 @@ PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* re
     , mRecording(recording)
     , mOperationState(0)
     , mOperationMatrix(0)
+    , m_hasText(false)
+    , m_isEmpty(true)
 {
     pushMatrix();
     if (mRecording)
@@ -188,6 +190,8 @@ void PlatformGraphicsContextRecording::endRecording(const SkRect& bounds)
     GraphicsOperation::DrawComplexText* text = new GraphicsOperation::DrawComplexText(mPicture);
     appendDrawingOperation(text, bounds);
     mPicture = 0;
+
+    m_hasText = true;
 }
 
 //**************************************
@@ -599,6 +603,7 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         ALOGW("Empty bounds for %s(%s)!", operation->name(), operation->parameters().ascii().data());
         return;
     }
+    m_isEmpty = false;
     SkRect bounds;
     mCurrentMatrix->mapRect(&bounds, untranslatedBounds);
     if (mRecordingStateStack.size()) {
