@@ -318,8 +318,10 @@ void Node::add(Node* node)
     Node* NN = 0;
     if (m_nbChildren > m_tree->m_maxChildren)
         NN = split();
+    else
+        tighten();
+
     adjustTree(this, NN);
-    tighten();
 }
 
 void Node::remove(Node* node)
@@ -461,6 +463,9 @@ void Node::adjustTree(Node* N, Node* NN)
     }
     if (N->isRoot())
         return;
+
+    if (N->m_parent)
+        N->m_parent->tighten();
 
     if (NN && N->m_parent)
         N->m_parent->add(NN);
