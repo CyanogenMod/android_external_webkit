@@ -47,6 +47,7 @@ inline HTMLSourceElement::HTMLSourceElement(const QualifiedName& tagName, Docume
 {
     LOG(Media, "HTMLSourceElement::HTMLSourceElement - %p", this);
     ASSERT(hasTagName(sourceTag));
+    setIeForbidsInsertHTML();
 }
 
 PassRefPtr<HTMLSourceElement> HTMLSourceElement::create(const QualifiedName& tagName, Document* document)

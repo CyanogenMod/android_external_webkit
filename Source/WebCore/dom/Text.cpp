@@ -213,7 +213,7 @@ bool Text::rendererIsNeeded(RenderStyle *style)
     if (style->preserveNewline()) // pre/pre-wrap/pre-line always make renderers.
         return true;
     
-    RenderObject *prev = previousRenderer();
+    RenderObject* prev = m_previousRenderer ? m_previousRenderer : previousRenderer();
     if (prev && prev->isBR()) // <span><br/> <br/></span>
         return false;
         

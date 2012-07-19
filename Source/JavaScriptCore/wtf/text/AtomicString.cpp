@@ -343,7 +343,7 @@ AtomicString AtomicString::lower() const
 {
     // Note: This is a hot function in the Dromaeo benchmark.
     StringImpl* impl = this->impl();
-    if (UNLIKELY(!impl))
+    if (UNLIKELY(!impl) || impl->isLower())
         return *this;
     RefPtr<StringImpl> newImpl = impl->lower();
     if (LIKELY(newImpl == impl))

@@ -33,9 +33,9 @@ namespace WTF {
 class StringImplBase {
     WTF_MAKE_NONCOPYABLE(StringImplBase); WTF_MAKE_FAST_ALLOCATED;
 public:
-    bool isStringImpl() { return (m_refCountAndFlags & s_refCountInvalidForStringImpl) != s_refCountInvalidForStringImpl; }
+    bool isStringImpl() { return !(m_static && m_shouldReportCost); }
     unsigned length() const { return m_length; }
-    void ref() { m_refCountAndFlags += s_refCountIncrement; }
+    void ref() { ++m_refCount; }
 
 protected:
     enum BufferOwnership {
@@ -49,7 +49,14 @@ protected:
     StringImplBase() { }
 
     StringImplBase(unsigned length, BufferOwnership ownership)
-        : m_refCountAndFlags(s_refCountIncrement | s_refCountFlagShouldReportedCost | ownership)
+        : m_lower(false)
+        , m_hasTerminatingNullCharacter(false)
+        , m_atomic(false)
+        , m_static(false)
+        , m_shouldReportCost(true)
+        , m_identifier(false)
+        , m_bufferOwnership(ownership)
+        , m_refCount(1)
         , m_length(length)
     {
         ASSERT(isStringImpl());
@@ -57,7 +64,14 @@ protected:
 
     enum StaticStringConstructType { ConstructStaticString };
     StringImplBase(unsigned length, StaticStringConstructType)
-        : m_refCountAndFlags(s_refCountFlagStatic | s_refCountFlagIsIdentifier | BufferOwned)
+        : m_lower(false)
+        , m_hasTerminatingNullCharacter(false)
+        , m_atomic(false)
+        , m_static(true)
+        , m_shouldReportCost(false)
+        , m_identifier(true)
+        , m_bufferOwnership(BufferOwned)
+        , m_refCount(0)
         , m_length(length)
     {
         ASSERT(isStringImpl());
@@ -67,29 +81,28 @@ protected:
     // and sets the flags into a state marking the object as such.
     enum NonStringImplConstructType { ConstructNonStringImpl };
     StringImplBase(NonStringImplConstructType)
-        : m_refCountAndFlags(s_refCountIncrement | s_refCountInvalidForStringImpl)
+        : m_lower(false)
+        , m_hasTerminatingNullCharacter(false)
+        , m_atomic(false)
+        , m_static(true)
+        , m_shouldReportCost(true)
+        , m_identifier(false)
+        , m_bufferOwnership(0)
+        , m_refCount(1)
         , m_length(0)
     {
         ASSERT(!isStringImpl());
     }
 
-    // The bottom 7 bits hold flags, the top 25 bits hold the ref count.
-    // When dereferencing StringImpls we check for the ref count AND the
-    // static bit both being zero - static strings are never deleted.
-    static const unsigned s_refCountMask = 0xFFFFFF80;
-    static const unsigned s_refCountIncrement = 0x80;
-    static const unsigned s_refCountFlagStatic = 0x40;
-    static const unsigned s_refCountFlagHasTerminatingNullCharacter = 0x20;
-    static const unsigned s_refCountFlagIsAtomic = 0x10;
-    static const unsigned s_refCountFlagShouldReportedCost = 0x8;
-    static const unsigned s_refCountFlagIsIdentifier = 0x4;
-    static const unsigned s_refCountMaskBufferOwnership = 0x3;
-    // An invalid permutation of flags (static & shouldReportedCost - static strings do not
-    // set shouldReportedCost in the constructor, and this bit is only ever cleared, not set).
-    // Used by "ConstructNonStringImpl" constructor, above.
-    static const unsigned s_refCountInvalidForStringImpl = s_refCountFlagStatic | s_refCountFlagShouldReportedCost;
+    bool m_lower : 1;
+    bool m_hasTerminatingNullCharacter : 1;
+    bool m_atomic : 1;
+    bool m_static : 1;
+    bool m_shouldReportCost  : 1;
+    bool m_identifier : 1;
+    unsigned m_bufferOwnership : 2;
+    unsigned m_refCount : 24;
 
-    unsigned m_refCountAndFlags;
     unsigned m_length;
 };
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -55,16 +56,25 @@ PassRefPtr<StaticNodeList> createSelectorNodeList(Node* rootNode, const CSSSelec
         if (element && (rootNode->isDocumentNode() || element->isDescendantOf(rootNode)) && selectorChecker.checkSelector(onlySelector, element))
             nodes.append(element);
     } else {
-        for (Node* n = rootNode->firstChild(); n; n = n->traverseNextNode(rootNode)) {
+        Vector<CSSSelector*> querySelectors;
+        querySelectors.reserveInitialCapacity(16);
+        for (CSSSelector* selector = querySelectorList.first(); selector; selector = CSSSelectorList::next(selector))
+            querySelectors.append(selector);
+        int querySelectorsCount = querySelectors.size();
+
+        Node* lastNode = rootNode->lastDescendantNode();
+        for (Node* n = rootNode->firstChild(); n; n = n->traverseNextNodeFastPath()) {
             if (n->isElementNode()) {
                 Element* element = static_cast<Element*>(n);
-                for (CSSSelector* selector = querySelectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
-                    if (selectorChecker.checkSelector(selector, element)) {
+                for (int i = 0; i < querySelectorsCount; i++) {
+                    if (selectorChecker.checkSelector(querySelectors[i], element)) {
                         nodes.append(n);
                         break;
                     }
                 }
             }
+            if (n == lastNode)
+                break;
         }
     }
     

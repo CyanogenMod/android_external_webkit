@@ -29,24 +29,45 @@
 
 namespace WebCore {
 
-    // NodeList that limits to a particular tag.
-    class TagNodeList : public DynamicNodeList {
-    public:
-        static PassRefPtr<TagNodeList> create(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
-        {
-            return adoptRef(new TagNodeList(rootNode, namespaceURI, localName));
-        }
+// NodeList with namespace that limits to a particular tag.
+class TagNodeListNS : public DynamicNodeList {
+public:
+    static PassRefPtr<TagNodeListNS> create(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName)
+    {
+        return adoptRef(new TagNodeListNS(rootNode, namespaceURI, localName));
+    }
 
-        virtual ~TagNodeList();
+    virtual ~TagNodeListNS();
 
-    private:
-        TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName);
+private:
+    TagNodeListNS(PassRefPtr<Node> rootNode, const AtomicString& namespaceURI, const AtomicString& localName);
 
-        virtual bool nodeMatches(Element*) const;
+    virtual bool nodeMatches(Element*) const;
 
-        AtomicString m_namespaceURI;
-        AtomicString m_localName;
-    };
+    AtomicString m_namespaceURI;
+    AtomicString m_localName;
+    bool m_isStarAtomNamespaceURI : 1;
+    bool m_isStarAtomlocalName : 1;
+};
+
+// NodeList that limits to a particular tag.
+class TagNodeList : public DynamicNodeList {
+public:
+    static PassRefPtr<TagNodeList> create(PassRefPtr<Node> rootNode, const AtomicString& localName)
+    {
+        return adoptRef(new TagNodeList(rootNode, localName));
+    }
+
+    virtual ~TagNodeList();
+
+private:
+    TagNodeList(PassRefPtr<Node> rootNode, const AtomicString& localName);
+
+    virtual bool nodeMatches(Element*) const;
+
+    AtomicString m_localName;
+    bool m_isStarAtomlocalName;
+};
 
 } // namespace WebCore
 

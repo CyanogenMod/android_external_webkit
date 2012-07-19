@@ -206,40 +206,29 @@ public:
         if (bufferOwnership() == BufferSubstring)
             return m_substringBuffer->cost();
 
-        if (m_refCountAndFlags & s_refCountFlagShouldReportedCost) {
-            m_refCountAndFlags &= ~s_refCountFlagShouldReportedCost;
+        if (m_shouldReportCost) {
+            m_shouldReportCost = false;
             return m_length;
         }
         return 0;
     }
 
-    bool isIdentifier() const { return m_refCountAndFlags & s_refCountFlagIsIdentifier; }
-    void setIsIdentifier(bool isIdentifier)
-    {
-        ASSERT(!isStatic());
-        if (isIdentifier)
-            m_refCountAndFlags |= s_refCountFlagIsIdentifier;
-        else
-            m_refCountAndFlags &= ~s_refCountFlagIsIdentifier;
-    }
+    bool isIdentifier() const { return m_identifier; }
+    void setIsIdentifier(bool isIdentifier) { ASSERT(!isStatic()); m_identifier = isIdentifier; }
 
-    bool hasTerminatingNullCharacter() const { return m_refCountAndFlags & s_refCountFlagHasTerminatingNullCharacter; }
+    bool hasTerminatingNullCharacter() const { return m_hasTerminatingNullCharacter; }
 
-    bool isAtomic() const { return m_refCountAndFlags & s_refCountFlagIsAtomic; }
-    void setIsAtomic(bool isIdentifier)
-    {
-        ASSERT(!isStatic());
-        if (isIdentifier)
-            m_refCountAndFlags |= s_refCountFlagIsAtomic;
-        else
-            m_refCountAndFlags &= ~s_refCountFlagIsAtomic;
-    }
+    bool isAtomic() const { return m_atomic; }
+    void setIsAtomic(bool isAtomic) { ASSERT(!isStatic()); m_atomic = isAtomic; }
+
+    bool isLower() const { return m_lower; }
+    void setIsLower(bool isLower) { m_lower = isLower; }
 
     unsigned hash() const { if (!m_hash) m_hash = StringHasher::computeHash(m_data, m_length); return m_hash; }
     unsigned existingHash() const { ASSERT(m_hash); return m_hash; }
 
-    ALWAYS_INLINE void deref() { m_refCountAndFlags -= s_refCountIncrement; if (!(m_refCountAndFlags & (s_refCountMask | s_refCountFlagStatic))) delete this; }
-    ALWAYS_INLINE bool hasOneRef() const { return (m_refCountAndFlags & (s_refCountMask | s_refCountFlagStatic)) == s_refCountIncrement; }
+    ALWAYS_INLINE void deref() { --m_refCount; if (!m_refCount && !m_static) delete this; }
+    ALWAYS_INLINE bool hasOneRef() const { return (m_refCount == 1 && !m_static); }
 
     static StringImpl* empty();
 
@@ -328,8 +317,8 @@ private:
 
     static PassRefPtr<StringImpl> createStrippingNullCharactersSlowCase(const UChar*, unsigned length);
     
-    BufferOwnership bufferOwnership() const { return static_cast<BufferOwnership>(m_refCountAndFlags & s_refCountMaskBufferOwnership); }
-    bool isStatic() const { return m_refCountAndFlags & s_refCountFlagStatic; }
+    BufferOwnership bufferOwnership() const { return static_cast<BufferOwnership>(m_bufferOwnership); }
+    bool isStatic() const { return m_static; }
     const UChar* m_data;
     union {
         void* m_buffer;
