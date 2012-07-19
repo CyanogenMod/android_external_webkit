@@ -40,13 +40,15 @@
 namespace WebCore {
 
 SurfaceBacking::SurfaceBacking(bool isBaseSurface)
+    : m_frontTileGrid(new TileGrid(isBaseSurface))
+    , m_backTileGrid(new TileGrid(isBaseSurface))
+    , m_lowResTileGrid(new TileGrid(isBaseSurface))
+    , m_scale(-1)
+    , m_futureScale(-1)
+    , m_zooming(false)
+    , m_hasAllowedZoom(false)
+
 {
-    m_frontTileGrid = new TileGrid(isBaseSurface);
-    m_backTileGrid = new TileGrid(isBaseSurface);
-    m_lowResTileGrid = new TileGrid(isBaseSurface);
-    m_scale = -1;
-    m_futureScale = -1;
-    m_zooming = false;
 #ifdef DEBUG_COUNT
     ClassTracker::instance()->increment("SurfaceBacking");
 #endif
@@ -67,9 +69,16 @@ void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
                                TilePainter* painter, bool aggressiveRendering,
                                bool updateWithBlit)
 {
+    // If the surface backing has ever zoomed beyond 1.0 scale, it's always
+    // allowed to (so repaints aren't necessary when allowZoom toggles). If not,
+    // and allowZoom is false, don't allow scale greater than 1.0
+    m_hasAllowedZoom |= allowZoom;
     float scale = state->scale();
-    if (scale > 1 && !allowZoom)
+    bool scaleOverridden = false;
+    if (scale > 1 && !m_hasAllowedZoom) {
         scale = 1;
+        scaleOverridden = true;
+    }
 
     if (m_scale == -1) {
         m_scale = scale;
@@ -78,7 +87,10 @@ void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
 
     if (m_futureScale != scale) {
         m_futureScale = scale;
-        m_zoomUpdateTime = WTF::currentTime() + SurfaceBacking::s_zoomUpdateDelay;
+        if (scaleOverridden)
+            m_zoomUpdateTime = 0; // start rendering immediately
+        else
+            m_zoomUpdateTime = WTF::currentTime() + SurfaceBacking::s_zoomUpdateDelay;
         m_zooming = true;
 
         // release back TileGrid's TileTextures, so they can be reused immediately

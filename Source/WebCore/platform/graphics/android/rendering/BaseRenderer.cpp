@@ -148,7 +148,6 @@ void BaseRenderer::checkForPureColor(TileRenderInfo& renderInfo, InstrumentedPla
 {
     renderInfo.isPureColor = canvas.isSolidColor();
     renderInfo.pureColor = canvas.solidColor();
-    ALOGD("isPureColor = %d, pureColor = %d", renderInfo.isPureColor, renderInfo.pureColor);
     deviceCheckForPureColor(renderInfo, &canvas);
 }
 

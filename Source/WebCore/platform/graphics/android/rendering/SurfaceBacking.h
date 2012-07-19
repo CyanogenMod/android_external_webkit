@@ -95,6 +95,7 @@ private:
     float m_futureScale;
     double m_zoomUpdateTime;
     bool m_zooming;
+    bool m_hasAllowedZoom;
 };
 
 } // namespace WebCore
