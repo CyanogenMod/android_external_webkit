@@ -7,7 +7,7 @@
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved
+ * Copyright (c) 2011, 2012 The Linux Foundation All rights reserved
  * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
  * Copyright (C) 2012 Sony Mobile Communcations AB
  *
@@ -1816,7 +1816,7 @@ void Document::removeAllEventListeners()
 
     if (DOMWindow* domWindow = this->domWindow())
         domWindow->removeAllEventListeners();
-    for (Node* node = firstChild(); node; node = node->traverseNextNode())
+    for (Node* node = firstChild(); node; node = node->traverseNextNodeFastPath())
         node->removeAllEventListeners();
 }
 
@@ -3848,11 +3848,12 @@ static inline bool isValidNameASCII(const UChar* characters, unsigned length)
 
 bool Document::isValidName(const String& name)
 {
-    unsigned length = name.length();
-    if (!length)
+    if (name.isEmpty())
         return false;
 
-    const UChar* characters = name.characters();
+    StringImpl* impl = name.impl();
+    const UChar* characters = impl->characters();
+    unsigned length = impl->length();
     return isValidNameASCII(characters, length) || isValidNameNonASCII(characters, length);
 }
 

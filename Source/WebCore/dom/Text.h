@@ -43,9 +43,12 @@ public:
 
     virtual void attach();
 
+    void setPreviousRenderer(RenderObject* renderer) { m_previousRenderer = renderer; }
+
 protected:
     Text(Document* document, const String& data)
         : CharacterData(document, data, CreateText)
+        , m_previousRenderer(0)
     {
     }
 
@@ -63,6 +66,8 @@ private:
 #ifndef NDEBUG
     virtual void formatForDebugger(char* buffer, unsigned length) const;
 #endif
+
+    RenderObject* m_previousRenderer;
 };
 
 } // namespace WebCore

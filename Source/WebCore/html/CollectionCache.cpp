@@ -83,6 +83,7 @@ void CollectionCache::reset()
     deleteAllValues(nameCache);
     nameCache.clear();
     hasNameCache = false;
+    lastDecendantOfBase = 0;
 }
 
 #if !ASSERT_DISABLED

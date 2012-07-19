@@ -148,7 +148,7 @@ SharedUChar* StringImpl::sharedBuffer()
     if (ownership == BufferOwned) {
         ASSERT(!m_sharedBuffer);
         m_sharedBuffer = SharedUChar::create(new SharableUChar(m_data)).leakRef();
-        m_refCountAndFlags = (m_refCountAndFlags & ~s_refCountMaskBufferOwnership) | BufferShared;
+        m_bufferOwnership = BufferShared;
     }
 
     ASSERT(bufferOwnership() == BufferShared);
@@ -193,6 +193,8 @@ PassRefPtr<StringImpl> StringImpl::lower()
 {
     // Note: This is a hot function in the Dromaeo benchmark, specifically the
     // no-op code path up through the first 'return' statement.
+    if (isLower())
+        return this;
     
     // First scan the string for uppercase and non-ASCII characters:
     UChar ored = 0;
@@ -205,8 +207,10 @@ PassRefPtr<StringImpl> StringImpl::lower()
     }
     
     // Nothing to do if the string is all ASCII with no uppercase.
-    if (noUpper && !(ored & ~0x7F))
+    if (noUpper && !(ored & ~0x7F)) {
+        setIsLower(true);
         return this;
+    }
 
     if (m_length > static_cast<unsigned>(numeric_limits<int32_t>::max()))
         CRASH();
@@ -1060,7 +1064,7 @@ PassRefPtr<StringImpl> StringImpl::createWithTerminatingNullCharacter(const Stri
     data[length] = 0;
     terminatedString->m_length--;
     terminatedString->m_hash = string.m_hash;
-    terminatedString->m_refCountAndFlags |= s_refCountFlagHasTerminatingNullCharacter;
+    terminatedString->m_hasTerminatingNullCharacter = true;
     return terminatedString.release();
 }
 

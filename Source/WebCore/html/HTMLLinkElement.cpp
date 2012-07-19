@@ -61,6 +61,7 @@ inline HTMLLinkElement::HTMLLinkElement(const QualifiedName& tagName, Document* 
     , m_pendingSheetType(None)
 {
     ASSERT(hasTagName(linkTag));
+    setIeForbidsInsertHTML();
 }
 
 PassRefPtr<HTMLLinkElement> HTMLLinkElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)

@@ -6,7 +6,7 @@
  * Copyright (C) 2007 Alexey Proskuryakov <ap@webkit.org>
  * Copyright (C) 2007, 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
- * Copyright (c) 2011, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011, The Linux Foundation All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -7037,7 +7037,7 @@ void CSSStyleSelector::SelectorChecker::allVisitedStateChanged()
 {
     if (m_linksCheckedForVisitedState.isEmpty())
         return;
-    for (Node* node = m_document; node; node = node->traverseNextNode()) {
+    for (Node* node = m_document; node; node = node->traverseNextNodeFastPath()) {
         if (node->isLink())
             node->setNeedsStyleRecalc();
     }
@@ -7047,7 +7047,7 @@ void CSSStyleSelector::SelectorChecker::visitedStateChanged(LinkHash visitedHash
 {
     if (!m_linksCheckedForVisitedState.contains(visitedHash))
         return;
-    for (Node* node = m_document; node; node = node->traverseNextNode()) {
+    for (Node* node = m_document; node; node = node->traverseNextNodeFastPath()) {
         const AtomicString* attr = linkAttribute(node);
         if (attr && visitedLinkHash(m_document->baseURL(), *attr) == visitedHash)
             node->setNeedsStyleRecalc();

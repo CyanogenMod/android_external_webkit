@@ -110,7 +110,7 @@ public:
     virtual void updateAnimatedSVGAttribute(const QualifiedName&) const;
 
 protected:
-    SVGElement(const QualifiedName&, Document*);
+    SVGElement(const QualifiedName&, Document*, ConstructionType = CreateSVGElement);
 
     virtual void parseMappedAttribute(Attribute*);
 

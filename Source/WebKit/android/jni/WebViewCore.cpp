@@ -1,6 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
- * Copyright (C) 2011, 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (C) 2011, 2012 The Linux Foundation All rights reserved.
  * Copyright (C) 2012 Sony Ericsson Mobile Communications AB.
  * Copyright (C) 2012 Sony Mobile Communications AB
  *
@@ -2578,7 +2578,7 @@ Node* WebViewCore::getNextAnchorNode(Node* anchorNode, bool ignoreFirstNode, int
                 || isContentInputElement(currentNode))
             return currentNode;
         if (direction == DIRECTION_FORWARD)
-            currentNode = currentNode->traverseNextNode();
+            currentNode = currentNode->traverseNextNodeFastPath();
         else
             currentNode = currentNode->traversePreviousNodePostOrder(body);
     }
@@ -2700,7 +2700,7 @@ Node* WebViewCore::getIntermediaryInputElement(Node* fromNode, Node* toNode, int
         while (currentNode && currentNode != toNode) {
             if (isContentInputElement(currentNode))
                 return currentNode;
-            currentNode = currentNode->traverseNextNode();
+            currentNode = currentNode->traverseNextNodeFastPath();
         }
     } else {
         Node* currentNode = fromNode->traversePreviousNode();

@@ -32,11 +32,13 @@ namespace WebCore {
 
 class HTMLAllCollection : public HTMLCollection {
 public:
-    static PassRefPtr<HTMLAllCollection> create(PassRefPtr<Node>);
+    static PassRefPtr<HTMLAllCollection> create(PassRefPtr<Node>, CollectionType = DocAll);
     virtual ~HTMLAllCollection();
 
 private:
-    HTMLAllCollection(PassRefPtr<Node>);
+    HTMLAllCollection(PassRefPtr<Node>, CollectionType = DocAll);
+
+    virtual Element* itemAfter(Element*) const;
 };
 
 } // namespace WebCore
