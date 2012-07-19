@@ -2,6 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +25,7 @@
 #define HTMLCollection_h
 
 #include "CollectionType.h"
+#include "QualifiedName.h"
 #include <wtf/RefCounted.h>
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
@@ -72,11 +74,19 @@ private:
     virtual Element* itemAfter(Element*) const;
     virtual unsigned calcLength() const;
     virtual void updateNameCache() const;
+    void init();
+    bool nodeMatchesDeep(Element*) const;
+    bool nodeMatchesShallow(Element*) const;
 
     bool checkForNameMatch(Element*, bool checkName, const AtomicString& name) const;
 
+    enum MatchType { MatchNone, MatchTag, MatchCustom, MatchAll };
+    MatchType m_matchType;
+    QualifiedName m_matchTag;
+
     RefPtr<Node> m_base;
     CollectionType m_type;
+    bool m_includeChildren;
 
     mutable CollectionCache* m_info;
     mutable bool m_ownsInfo;

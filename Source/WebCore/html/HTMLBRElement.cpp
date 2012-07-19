@@ -36,6 +36,7 @@ HTMLBRElement::HTMLBRElement(const QualifiedName& tagName, Document* document)
     : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(brTag));
+    setIeForbidsInsertHTML();
 }
 
 PassRefPtr<HTMLBRElement> HTMLBRElement::create(Document* document)

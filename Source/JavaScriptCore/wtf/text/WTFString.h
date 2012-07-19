@@ -123,7 +123,7 @@ public:
     bool isNull() const { return !m_impl; }
     bool isEmpty() const { return !m_impl || !m_impl->length(); }
 
-    StringImpl* impl() const { return m_impl.get(); }
+    ALWAYS_INLINE StringImpl* impl() const { return m_impl.get(); }
 
     unsigned length() const
     {

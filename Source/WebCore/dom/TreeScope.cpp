@@ -97,7 +97,7 @@ Element* TreeScope::getElementByAccessKey(const String& key) const
     if (key.isEmpty())
         return 0;
     if (!m_accessKeyMapValid) {
-        for (Node* n = firstChild(); n; n = n->traverseNextNode()) {
+        for (Node* n = firstChild(); n; n = n->traverseNextNodeFastPath()) {
             if (!n->isElementNode())
                 continue;
             Element* element = static_cast<Element*>(n);
@@ -149,7 +149,7 @@ Element* TreeScope::findAnchor(const String& name)
         return 0;
     if (Element* element = getElementById(name))
         return element;
-    for (Node* node = this; node; node = node->traverseNextNode()) {
+    for (Node* node = this; node; node = node->traverseNextNodeFastPath()) {
         if (node->hasTagName(aTag)) {
             HTMLAnchorElement* anchor = static_cast<HTMLAnchorElement*>(node);
             if (document()->inQuirksMode()) {

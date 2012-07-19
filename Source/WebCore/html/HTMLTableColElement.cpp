@@ -40,6 +40,7 @@ inline HTMLTableColElement::HTMLTableColElement(const QualifiedName& tagName, Do
     : HTMLTablePartElement(tagName, document)
     , m_span(1)
 {
+    setIeForbidsInsertHTML();
 }
 
 PassRefPtr<HTMLTableColElement> HTMLTableColElement::create(const QualifiedName& tagName, Document* document)

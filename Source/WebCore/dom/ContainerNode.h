@@ -170,6 +170,17 @@ inline Node* Node::lastChild() const
     return toContainerNode(this)->lastChild();
 }
 
+inline RenderObject* Node::previousRenderer()
+{
+    // FIXME: We should have the same O(N^2) avoidance as nextRenderer does
+    // however, when I tried adding it, several tests failed.
+    for (Node* n = previousSibling(); n; n = n->previousSibling()) {
+        if (n->renderer())
+            return n->renderer();
+    }
+    return 0;
+}
+
 } // namespace WebCore
 
 #endif // ContainerNode_h

@@ -4,6 +4,7 @@
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2012 Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -75,6 +76,7 @@ class RenderStyle;
 class SVGUseElement;
 #endif
 class TagNodeList;
+class TagNodeListNS;
 class TreeScope;
 
 typedef int ExceptionCode;
@@ -121,6 +123,8 @@ public:
         DOCUMENT_POSITION_IMPLEMENTATION_SPECIFIC = 0x20,
     };
 
+    static const int cPrefetchTargetDepth;
+
     static bool isSupported(const String& feature, const String& version);
 
     static void startIgnoringLeaks();
@@ -143,8 +147,8 @@ public:
     virtual NodeType nodeType() const = 0;
     ContainerNode* parentNode() const;
     Element* parentElement() const;
-    Node* previousSibling() const { return m_previous; }
-    Node* nextSibling() const { return m_next; }
+    ALWAYS_INLINE Node* previousSibling() const { return m_previous; }
+    ALWAYS_INLINE Node* nextSibling() const { return m_next; }
     PassRefPtr<NodeList> childNodes();
     Node* firstChild() const;
     Node* lastChild() const;
@@ -187,14 +191,14 @@ public:
     
     // Other methods (not part of DOM)
 
-    bool isElementNode() const { return getFlag(IsElementFlag); }
-    bool isContainerNode() const { return getFlag(IsContainerFlag); }
+    ALWAYS_INLINE bool isElementNode() const { return getFlag(IsElementFlag); }
+    ALWAYS_INLINE bool isContainerNode() const { return getFlag(IsContainerFlag); }
     bool isTextNode() const { return getFlag(IsTextFlag); }
 
     bool isHTMLElement() const { return getFlag(IsHTMLFlag); }
 
-    bool isSVGElement() const { return getFlag(IsSVGFlag); }
-    virtual bool isSVGShadowRoot() const { return false; }
+    ALWAYS_INLINE bool isSVGElement() const { return getFlag(IsSVGFlag); }
+    ALWAYS_INLINE bool isSVGShadowRoot() const { return getFlag(IsShadowRootOrSVGShadowRootFlag) && isSVGElement(); }
 #if ENABLE(SVG)
     SVGUseElement* svgShadowHost() const;
 #endif
@@ -213,7 +217,7 @@ public:
     bool isCommentNode() const { return getFlag(IsCommentFlag); }
     virtual bool isCharacterDataNode() const { return false; }
     bool isDocumentNode() const;
-    bool isShadowRoot() const { return getFlag(IsShadowRootFlag); }
+    bool isShadowRoot() const { return getFlag(IsShadowRootOrSVGShadowRootFlag) && !isSVGElement(); }
     // FIXME: Remove this when all shadow roots are ShadowRoots.
     virtual bool isShadowBoundary() const { return false; }
     virtual bool canHaveLightChildRendererWithShadow() const { return false; }
@@ -240,7 +244,26 @@ public:
     
     // These low-level calls give the caller responsibility for maintaining the integrity of the tree.
     void setPreviousSibling(Node* previous) { m_previous = previous; }
-    void setNextSibling(Node* next) { m_next = next; }
+    ALWAYS_INLINE void updatePrefetchTarget() {
+        if (m_next) {
+            int skew;
+            Node* from = this;
+            Node* n = from->traversePreviousNodePostOrder();
+            for (skew = cPrefetchTargetDepth - 1; skew && n; skew--) {
+                from = n;
+                n = n->traversePreviousNodePostOrder();
+            }
+            from->setPrefetchTarget(m_next);
+        }
+    }
+    void setPrefetchTarget(Node *prefetch) { m_prefetch = prefetch; }
+    void setNextSibling(Node* next) { m_next = next; updatePrefetchTarget(); }
+    void updatePreviousNode() { m_previousNode = traversePreviousNode(); if (m_previousNode) m_previousNode->setNextNode(this); }
+    void updateNextNode() { m_nextNode = traverseNextNode(); if (m_nextNode) m_nextNode->setPreviousNode(this); }
+    void updatePrevNextNodesInSubtree();
+
+    void setPreviousNode(Node* previous) { m_previousNode = previous; }
+    void setNextNode(Node* next) { m_nextNode = next; }
 
     // FIXME: These two functions belong in editing -- "atomic node" is an editing concept.
     Node* previousNodeConsideringAtomicNodes() const;
@@ -313,6 +336,9 @@ public:
     void setIsLink(bool f) { setFlag(f, IsLinkFlag); }
     void setIsLink() { setFlag(IsLinkFlag); }
     void clearIsLink() { clearFlag(IsLinkFlag); }
+
+    void setIeForbidsInsertHTML() { setFlag(IeForbidsInsertHTML); }
+    bool ieForbidsInsertHTML() const { return getFlag(IeForbidsInsertHTML); }
 
     enum ShouldSetAttached {
         SetAttached,
@@ -392,11 +418,24 @@ public:
     // This can be used to restrict traversal to a particular sub-tree.
     Node* traverseNextNode(const Node* stayWithin = 0) const;
 
+    Node* traverseNextNodeFastPath() const { prefetchTarget(); return m_nextNode; }
+
+    ALWAYS_INLINE void prefetchTarget() const {
+        if (m_prefetch) {
+            __builtin_prefetch(((char *) m_prefetch));
+            __builtin_prefetch(((char *) m_prefetch) + 64);
+        }
+    }
+
+    Node* lastDescendantNode(bool includeThis = false) const;
+
     // Like traverseNextNode, but skips children and starts with the next sibling.
     Node* traverseNextSibling(const Node* stayWithin = 0) const;
 
     // Does a reverse pre-order traversal to find the node that comes before the current one in document order
     Node* traversePreviousNode(const Node* stayWithin = 0) const;
+
+    Node* traversePreviousNodeFastPath() const { return m_previousNode; }
 
     // Like traverseNextNode, but visits parents after their children.
     Node* traverseNextNodePostOrder() const;
@@ -515,9 +554,11 @@ public:
     void notifyLocalNodeListsLabelChanged();
     void removeCachedClassNodeList(ClassNodeList*, const String&);
     void removeCachedNameNodeList(NameNodeList*, const String&);
-    void removeCachedTagNodeList(TagNodeList*, const QualifiedName&);
+    void removeCachedTagNodeList(TagNodeList*, const AtomicString&);
+    void removeCachedTagNodeListNS(TagNodeListNS*, const QualifiedName&);
     void removeCachedLabelsNodeList(DynamicNodeList*);
-    
+    void removeCachedChildNodeList(DynamicNodeList*);
+
     PassRefPtr<NodeList> getElementsByTagName(const AtomicString&);
     PassRefPtr<NodeList> getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName);
     PassRefPtr<NodeList> getElementsByName(const String& elementName);
@@ -593,7 +634,7 @@ private:
         InActiveChainFlag = 1 << 15,
         InDetachFlag = 1 << 16,
         HasRareDataFlag = 1 << 17,
-        IsShadowRootFlag = 1 << 18,
+        IsShadowRootOrSVGShadowRootFlag = 1 << 18,
 
         // These bits are used by derived classes, pulled up here so they can
         // be stored in the same memory word as the Node bits above.
@@ -605,10 +646,13 @@ private:
         IsSynchronizingSVGAttributesFlag = 1 << 23, // SVGElement
         HasSVGRareDataFlag = 1 << 24, // SVGElement
 #endif
-
         StyleChangeMask = 1 << nodeStyleChangeShift | 1 << (nodeStyleChangeShift + 1),
 
         SelfOrAncestorHasDirAutoFlag = 1 << 27,
+
+        IeForbidsInsertHTML = 1 << 28,
+
+        NodeDetachClearFlags = IsActiveFlag | IsHoveredFlag | InActiveChainFlag | IsAttachedFlag | InDetachFlag,
 
 #if ENABLE(SVG)
         DefaultNodeFlags = IsParsingChildrenFinishedFlag | IsStyleAttributeValidFlag | AreSVGAttributesValidFlag
@@ -619,7 +663,7 @@ private:
 
     // 4 bits remaining
 
-    bool getFlag(NodeFlags mask) const { return m_nodeFlags & mask; }
+    ALWAYS_INLINE bool getFlag(NodeFlags mask) const { return m_nodeFlags & mask; }
     void setFlag(bool f, NodeFlags mask) const { m_nodeFlags = (m_nodeFlags & ~mask) | (-(int32_t)f & mask); } 
     void setFlag(NodeFlags mask) const { m_nodeFlags |= mask; } 
     void clearFlag(NodeFlags mask) const { m_nodeFlags &= ~mask; } 
@@ -631,9 +675,11 @@ protected:
         CreateComment = DefaultNodeFlags | IsCommentFlag,
         CreateContainer = DefaultNodeFlags | IsContainerFlag, 
         CreateElement = CreateContainer | IsElementFlag, 
+        CreateShadowRoot = CreateContainer | IsShadowRootOrSVGShadowRootFlag,
         CreateStyledElement = CreateElement | IsStyledElementFlag, 
         CreateHTMLElement = CreateStyledElement | IsHTMLFlag, 
         CreateSVGElement = CreateStyledElement | IsSVGFlag, 
+        CreateSVGShadowRoot = CreateSVGElement | IsShadowRootOrSVGShadowRootFlag,
     };
     Node(Document*, ConstructionType);
 
@@ -690,8 +736,11 @@ private:
     Document* m_document;
     Node* m_previous;
     Node* m_next;
+    Node* m_prefetch;
     RenderObject* m_renderer;
     mutable uint32_t m_nodeFlags;
+    Node* m_previousNode;
+    Node* m_nextNode;
 
 protected:
     bool isParsingChildrenFinished() const { return getFlag(IsParsingChildrenFinishedFlag); }
@@ -728,7 +777,7 @@ inline void addSubresourceURL(ListHashSet<KURL>& urls, const KURL& url)
 
 inline ContainerNode* Node::parentNode() const
 {
-    return getFlag(IsShadowRootFlag) || isSVGShadowRoot() ? 0 : parent();
+    return getFlag(IsShadowRootOrSVGShadowRootFlag) ? 0 : parent();
 }
 
 inline ContainerNode* Node::parentOrHostNode() const
@@ -738,7 +787,7 @@ inline ContainerNode* Node::parentOrHostNode() const
 
 inline ContainerNode* Node::parentNodeGuaranteedHostFree() const
 {
-    ASSERT(!getFlag(IsShadowRootFlag) && !isSVGShadowRoot());
+    ASSERT(!getFlag(IsShadowRootOrSVGShadowRootFlag));
     return parentOrHostNode();
 }
 

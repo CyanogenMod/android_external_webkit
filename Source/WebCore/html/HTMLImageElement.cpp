@@ -51,6 +51,7 @@ HTMLImageElement::HTMLImageElement(const QualifiedName& tagName, Document* docum
     ASSERT(hasTagName(imgTag));
     if (form)
         form->registerImgElement(this);
+    setIeForbidsInsertHTML();
 }
 
 PassRefPtr<HTMLImageElement> HTMLImageElement::create(Document* document)

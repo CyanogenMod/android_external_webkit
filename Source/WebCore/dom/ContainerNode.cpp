@@ -3,6 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -74,6 +75,7 @@ static void collectTargetNodes(Node* node, NodeVector& nodes)
 void ContainerNode::removeAllChildren()
 {
     removeAllChildrenInContainer<Node, ContainerNode>(this);
+    updateNextNode();
 }
 
 void ContainerNode::takeAllChildrenFrom(ContainerNode* oldParent)
@@ -208,6 +210,8 @@ void ContainerNode::insertBeforeCommon(Node* nextChild, Node* newChild)
     newChild->setParent(this);
     newChild->setPreviousSibling(prev);
     newChild->setNextSibling(nextChild);
+    newChild->updatePreviousNode();
+    newChild->lastDescendantNode(true)->updateNextNode();
     allowEventDispatch();
 }
 
@@ -335,6 +339,9 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
         child->setParent(this);
         child->setPreviousSibling(prev.get());
         child->setNextSibling(next);
+        child->updatePreviousNode();
+        child->lastDescendantNode(true)->updateNextNode();
+
         allowEventDispatch();
 
         childrenChanged(false, prev.get(), next, 1);
@@ -362,12 +369,13 @@ bool ContainerNode::replaceChild(PassRefPtr<Node> newChild, Node* oldChild, Exce
 
 void ContainerNode::willRemove()
 {
-    Vector<RefPtr<Node>, 10> nodes;
-    nodes.reserveInitialCapacity(childNodeCount());
-    for (Node* n = m_lastChild; n; n = n->previousSibling())
-        nodes.append(n);
-    for (; nodes.size(); nodes.removeLast())
-        nodes.last().get()->willRemove();
+    Node* next;
+    Node* child = m_firstChild;
+    while (child) {
+        next = child->nextSibling();
+        child->willRemove();
+        child = next;
+    }
     Node::willRemove();
 }
 
@@ -468,6 +476,8 @@ void ContainerNode::removeBetween(Node* previousChild, Node* nextChild, Node* ol
     if (oldChild->attached())
         oldChild->detach();
 
+    Node* previousNode = oldChild->traversePreviousNodeFastPath();
+
     if (nextChild)
         nextChild->setPreviousSibling(previousChild);
     if (previousChild)
@@ -480,6 +490,10 @@ void ContainerNode::removeBetween(Node* previousChild, Node* nextChild, Node* ol
     oldChild->setPreviousSibling(0);
     oldChild->setNextSibling(0);
     oldChild->setParent(0);
+    oldChild->setPreviousNode(0);
+    oldChild->lastDescendantNode(true)->setNextNode(0);
+    if (previousNode)
+        previousNode->updateNextNode();
 
     allowEventDispatch();
 }
@@ -530,6 +544,8 @@ void ContainerNode::removeChildren()
         n->setPreviousSibling(0);
         n->setNextSibling(0);
         n->setParent(0);
+        n->lastDescendantNode(true)->setNextNode(0);
+        n->setPreviousNode(0);
 
         m_firstChild = next;
         if (n == m_lastChild)
@@ -552,6 +568,7 @@ void ContainerNode::removeChildren()
             removedChild->detach();
     }
 
+    updateNextNode();
     allowEventDispatch();
 
     // Dispatch a single post-removal mutation event denoting a modified subtree.
@@ -621,6 +638,8 @@ bool ContainerNode::appendChild(PassRefPtr<Node> newChild, ExceptionCode& ec, bo
         } else
             m_firstChild = child;
         m_lastChild = child;
+        child->updatePreviousNode();
+        child->lastDescendantNode(true)->updateNextNode();
         allowEventDispatch();
 
         // Send notification about the children change.
@@ -658,6 +677,10 @@ void ContainerNode::parserAddChild(PassRefPtr<Node> newChild)
     Node* last = m_lastChild;
     // FIXME: This method should take a PassRefPtr.
     appendChildToContainer<Node, ContainerNode>(newChild.get(), this);
+    if (last)
+        last->updateNextNode();
+    newChild->updatePreviousNode();
+    newChild->lastDescendantNode(true)->updateNextNode();
     allowEventDispatch();
 
     // FIXME: Why doesn't this use notifyChildInserted(newChild) instead?
@@ -1070,8 +1093,12 @@ static void dispatchChildInsertionEvents(Node* child)
 
     // dispatch the DOMNodeInsertedIntoDocument event to all descendants
     if (c->inDocument() && document->hasListenerType(Document::DOMNODEINSERTEDINTODOCUMENT_LISTENER)) {
-        for (; c; c = c->traverseNextNode(child))
+        Node* last = child->lastDescendantNode(true);
+        for (; c; c = c->traverseNextNodeFastPath()) {
             c->dispatchScopedEvent(MutationEvent::create(eventNames().DOMNodeInsertedIntoDocumentEvent, false));
+            if (last == c)
+                break;
+        }
     }
 }
 
@@ -1092,8 +1119,12 @@ static void dispatchChildRemovalEvents(Node* child)
 
     // dispatch the DOMNodeRemovedFromDocument event to all descendants
     if (c->inDocument() && document->hasListenerType(Document::DOMNODEREMOVEDFROMDOCUMENT_LISTENER)) {
-        for (; c; c = c->traverseNextNode(child))
+        Node* last = c->lastDescendantNode(true);
+        for (; c; c = c->traverseNextNodeFastPath()) {
             c->dispatchScopedEvent(MutationEvent::create(eventNames().DOMNodeRemovedFromDocumentEvent, false));
+            if (last == c)
+                break;
+        }
     }
 }
 

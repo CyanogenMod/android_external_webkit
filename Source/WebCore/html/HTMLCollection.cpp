@@ -2,6 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2012 Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +23,7 @@
 
 #include "config.h"
 #include "HTMLCollection.h"
+#include "HTMLAllCollection.h"
 
 #include "HTMLDocument.h"
 #include "HTMLElement.h"
@@ -38,24 +40,30 @@ using namespace HTMLNames;
 
 HTMLCollection::HTMLCollection(PassRefPtr<Node> base, CollectionType type)
     : m_idsDone(false)
+    , m_matchTag(htmlTag)
     , m_base(base)
     , m_type(type)
     , m_info(m_base->isDocumentNode() ? static_cast<Document*>(m_base.get())->collectionInfo(type) : 0)
     , m_ownsInfo(false)
 {
+    init();
 }
 
 HTMLCollection::HTMLCollection(PassRefPtr<Node> base, CollectionType type, CollectionCache* info)
     : m_idsDone(false)
+    , m_matchTag(htmlTag)
     , m_base(base)
     , m_type(type)
     , m_info(info)
     , m_ownsInfo(false)
 {
+    init();
 }
 
 PassRefPtr<HTMLCollection> HTMLCollection::create(PassRefPtr<Node> base, CollectionType type)
 {
+    if (type == DocAll || type == NodeChildren)
+        return HTMLAllCollection::create(base, type);
     return adoptRef(new HTMLCollection(base, type));
 }
 
@@ -63,6 +71,91 @@ HTMLCollection::~HTMLCollection()
 {
     if (m_ownsInfo)
         delete m_info;
+}
+
+void HTMLCollection::init()
+{
+    m_includeChildren = true;
+    switch (m_type) {
+        case DocAll:
+        case DocAnchors:
+        case DocApplets:
+        case DocEmbeds:
+        case DocForms:
+        case DocImages:
+        case DocLinks:
+        case DocObjects:
+        case DocScripts:
+        case DocumentNamedItems:
+        case MapAreas:
+        case OtherCollection:
+        case SelectOptions:
+        case DataListOptions:
+        case WindowNamedItems:
+            break;
+        case NodeChildren:
+        case TRCells:
+        case TSectionRows:
+        case TableTBodies:
+            m_includeChildren = false;
+            break;
+    }
+
+    m_matchType = MatchNone;
+    switch (m_type) {
+        case DocImages:
+            m_matchTag = imgTag;
+            m_matchType = MatchTag;
+            break;
+        case DocScripts:
+            m_matchTag = scriptTag;
+            m_matchType = MatchTag;
+            break;
+        case DocForms:
+            m_matchTag = formTag;
+            m_matchType = MatchTag;
+            break;
+        case TableTBodies:
+            m_matchTag = tbodyTag;
+            m_matchType = MatchTag;
+            break;
+        case TSectionRows:
+            m_matchTag = trTag;
+            m_matchType = MatchTag;
+            break;
+        case SelectOptions:
+            m_matchTag = optionTag;
+            m_matchType = MatchTag;
+            break;
+        case MapAreas:
+            m_matchTag = areaTag;
+            m_matchType = MatchTag;
+            break;
+        case DocEmbeds:
+            m_matchTag = embedTag;
+            m_matchType = MatchTag;
+            break;
+        case DocObjects:
+            m_matchTag = objectTag;
+            m_matchType = MatchTag;
+            break;
+        case TRCells:
+        case DataListOptions:
+        case DocApplets: // all <applet> elements and <object> elements that contain Java Applets
+        case DocLinks: // all <a> and <area> elements with a value for href
+        case DocAnchors: // all <a> elements with a value for name
+            m_matchType = MatchCustom;
+            break;
+        case DocAll:
+        case NodeChildren:
+            m_matchType = MatchAll;
+            break;
+        case DocumentNamedItems:
+        case OtherCollection:
+        case WindowNamedItems:
+            m_matchType = MatchNone;
+            break;
+    }
 }
 
 void HTMLCollection::resetCollectionInfo() const
@@ -87,115 +180,74 @@ static Node* nextNodeOrSibling(Node* base, Node* node, bool includeChildren)
     return includeChildren ? node->traverseNextNode(base) : node->traverseNextSibling(base);
 }
 
-Element* HTMLCollection::itemAfter(Element* previous) const
+inline bool HTMLCollection::nodeMatchesShallow(Element* e) const
 {
-    bool deep = true;
+    if (m_matchType == MatchTag && e->hasLocalName(m_matchTag))
+        return true;
+    if (m_type == TRCells && (e->hasLocalName(tdTag) || e->hasLocalName(thTag)))
+        return true;
 
-    switch (m_type) {
-        case DocAll:
-        case DocAnchors:
-        case DocApplets:
-        case DocEmbeds:
-        case DocForms:
-        case DocImages:
-        case DocLinks:
-        case DocObjects:
-        case DocScripts:
-        case DocumentNamedItems:
-        case MapAreas:
-        case OtherCollection:
-        case SelectOptions:
-        case DataListOptions:
-        case WindowNamedItems:
-            break;
-        case NodeChildren:
-        case TRCells:
-        case TSectionRows:
-        case TableTBodies:
-            deep = false;
-            break;
-    }
+    return false;
+}
 
-    Node* current;
-    if (!previous)
-        current = m_base->firstChild();
-    else
-        current = nextNodeOrSibling(m_base.get(), previous, deep);
-
-    for (; current; current = nextNodeOrSibling(m_base.get(), current, deep)) {
-        if (!current->isElementNode())
-            continue;
-        Element* e = static_cast<Element*>(current);
+inline bool HTMLCollection::nodeMatchesDeep(Element* e) const
+{
+    if (m_matchType == MatchTag && e->hasLocalName(m_matchTag))
+        return true;
+    if (m_matchType == MatchCustom) {
         switch (m_type) {
-            case DocImages:
-                if (e->hasLocalName(imgTag))
-                    return e;
-                break;
-            case DocScripts:
-                if (e->hasLocalName(scriptTag))
-                    return e;
-                break;
-            case DocForms:
-                if (e->hasLocalName(formTag))
-                    return e;
-                break;
-            case TableTBodies:
-                if (e->hasLocalName(tbodyTag))
-                    return e;
-                break;
-            case TRCells:
-                if (e->hasLocalName(tdTag) || e->hasLocalName(thTag))
-                    return e;
-                break;
-            case TSectionRows:
-                if (e->hasLocalName(trTag))
-                    return e;
-                break;
-            case SelectOptions:
-                if (e->hasLocalName(optionTag))
-                    return e;
-                break;
             case DataListOptions:
                 if (e->hasLocalName(optionTag)) {
                     HTMLOptionElement* option = static_cast<HTMLOptionElement*>(e);
                     if (!option->disabled() && !option->value().isEmpty())
-                        return e;
+                        return true;
                 }
-                break;
-            case MapAreas:
-                if (e->hasLocalName(areaTag))
-                    return e;
                 break;
             case DocApplets: // all <applet> elements and <object> elements that contain Java Applets
                 if (e->hasLocalName(appletTag))
-                    return e;
+                    return true;
                 if (e->hasLocalName(objectTag) && static_cast<HTMLObjectElement*>(e)->containsJavaApplet())
-                    return e;
-                break;
-            case DocEmbeds:
-                if (e->hasLocalName(embedTag))
-                    return e;
-                break;
-            case DocObjects:
-                if (e->hasLocalName(objectTag))
-                    return e;
+                    return true;
                 break;
             case DocLinks: // all <a> and <area> elements with a value for href
                 if ((e->hasLocalName(aTag) || e->hasLocalName(areaTag)) && e->fastHasAttribute(hrefAttr))
-                    return e;
+                    return true;
                 break;
             case DocAnchors: // all <a> elements with a value for name
                 if (e->hasLocalName(aTag) && e->fastHasAttribute(nameAttr))
-                    return e;
+                    return true;
                 break;
-            case DocAll:
-            case NodeChildren:
-                return e;
-            case DocumentNamedItems:
-            case OtherCollection:
-            case WindowNamedItems:
-                ASSERT_NOT_REACHED();
+        }
+    }
+
+    return false;
+}
+
+Element* HTMLCollection::itemAfter(Element* previous) const
+{
+    Node* current;
+    Node* base = m_base.get();
+    if (!previous)
+        current = base->firstChild();
+    else
+        current = nextNodeOrSibling(base, previous, m_includeChildren);
+
+    if (m_includeChildren) {
+        if (!m_info->lastDecendantOfBase)
+            m_info->lastDecendantOfBase = base->lastDescendantNode();
+
+        for (; current; current = current->traverseNextNodeFastPath()) {
+            if (current->isElementNode() && HTMLCollection::nodeMatchesDeep(static_cast<Element*>(current)))
+                return static_cast<Element*>(current);
+            if (current == m_info->lastDecendantOfBase)
                 break;
+        }
+    } else {
+        for (; current; current = current->traverseNextSibling(base)) {
+            if (!current->isElementNode())
+                continue;
+            if (HTMLCollection::nodeMatchesShallow(static_cast<Element*>(current)))
+                return static_cast<Element*>(current);
         }
     }
 

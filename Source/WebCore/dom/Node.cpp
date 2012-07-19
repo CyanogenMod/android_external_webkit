@@ -5,6 +5,7 @@
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (C) 2012 Code Aurora Forum. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -129,6 +130,8 @@ using namespace std;
 namespace WebCore {
 
 using namespace HTMLNames;
+
+const int Node::cPrefetchTargetDepth = 7;
 
 bool Node::isSupported(const String& feature, const String& version)
 {
@@ -409,6 +412,8 @@ Node::~Node()
         m_previous->setNextSibling(0);
     if (m_next)
         m_next->setPreviousSibling(0);
+    m_nextNode = 0;
+    m_previousNode = 0;
 
     if (m_document)
         m_document->guardDeref();
@@ -517,9 +522,12 @@ void Node::setTreeScopeRecursively(TreeScope* newTreeScope)
     if (currentDocument && currentDocument != newDocument)
         currentDocument->incDOMTreeVersion();
 
-    for (Node* node = this; node; node = node->traverseNextNode(this)) {
+    Node* last = this->lastDescendantNode(true);
+    for (Node* node = this; node; node = node->traverseNextNodeFastPath()) {
         node->setTreeScope(newTreeScope);
         // FIXME: Once shadow scopes are landed, update parent scope, etc.
+        if (last == node)
+            break;
     }
 }
 
@@ -548,18 +556,22 @@ NodeRareData* Node::createRareData()
 
 Element* Node::shadowHost() const
 {
-    return toElement(getFlag(IsShadowRootFlag) ? parent() : 0);
+    return toElement(isShadowRoot() ? parent() : 0);
 }
 
 void Node::setShadowHost(Element* host)
 {
     ASSERT(!parentNode() && !isSVGShadowRoot());
     if (host)
-        setFlag(IsShadowRootFlag);
+        setFlag(IsShadowRootOrSVGShadowRootFlag);
     else
-        clearFlag(IsShadowRootFlag);
+        clearFlag(IsShadowRootOrSVGShadowRootFlag);
 
     setParent(host);
+    updatePreviousNode();
+    lastDescendantNode(true)->updateNextNode();
+    if (host)
+        host->updateNextNode();
 }
 
 InputElement* Node::toInputElement()
@@ -607,14 +619,13 @@ void Node::setNodeValue(const String& /*nodeValue*/, ExceptionCode& ec)
 
 PassRefPtr<NodeList> Node::childNodes()
 {
-    NodeRareData* data = ensureRareData();
-    if (!data->nodeLists()) {
-        data->setNodeLists(NodeListsNodeData::create());
-        if (document())
-            document()->addNodeListCache();
-    }
+    NodeListsNodeData* data = ensureRareData()->ensureNodeLists(this);
+    if (data->m_childNodeListCache)
+        return PassRefPtr<ChildNodeList>(data->m_childNodeListCache);
 
-    return ChildNodeList::create(this, data->nodeLists()->m_childNodeListCaches.get());
+    RefPtr<ChildNodeList> childNodeList = ChildNodeList::create(this);
+    data->m_childNodeListCache = childNodeList.get();
+    return childNodeList.release();
 }
 
 Node *Node::lastDescendant() const
@@ -862,12 +873,15 @@ void Node::setDocumentRecursively(Document* newDocument)
 {
     ASSERT(document() != newDocument);
 
-    for (Node* node = this; node; node = node->traverseNextNode(this)) {
+    Node* last = this->lastDescendantNode(true);
+    for (Node* node = this; node; node = node->traverseNextNodeFastPath()) {
         node->setDocument(newDocument);
-        if (!node->isElementNode())
-            continue;
-        if (Node* shadow = shadowRoot(node))
-            shadow->setDocumentRecursively(newDocument);
+        if (node->isElementNode()) {
+            if (Node* shadow = shadowRoot(node))
+                shadow->setDocumentRecursively(newDocument);
+        }
+        if (node == last)
+            break;
     }
 }
 
@@ -911,12 +925,15 @@ void Node::setNeedsStyleRecalc(StyleChangeType changeType)
 
 void Node::lazyAttach(ShouldSetAttached shouldSetAttached)
 {
-    for (Node* n = this; n; n = n->traverseNextNode(this)) {
+    Node* last = this->lastDescendantNode(true);
+    for (Node* n = this; n; n = n->traverseNextNodeFastPath()) {
         if (n->firstChild())
             n->setChildNeedsStyleRecalc();
         n->setStyleChange(FullStyleChange);
         if (shouldSetAttached == SetAttached)
             n->setAttached();
+        if (n == last)
+            break;
     }
     markAncestorsWithChildNeedsStyleRecalc();
 }
@@ -1092,7 +1109,7 @@ void Node::removeCachedNameNodeList(NameNodeList* list, const String& nodeName)
     data->m_nameNodeListCache.remove(nodeName);
 }
 
-void Node::removeCachedTagNodeList(TagNodeList* list, const QualifiedName& name)
+void Node::removeCachedTagNodeList(TagNodeList* list, const AtomicString& name)
 {
     ASSERT(rareData());
     ASSERT(rareData()->nodeLists());
@@ -1101,6 +1118,17 @@ void Node::removeCachedTagNodeList(TagNodeList* list, const QualifiedName& name)
     NodeListsNodeData* data = rareData()->nodeLists();
     ASSERT_UNUSED(list, list == data->m_tagNodeListCache.get(name.impl()));
     data->m_tagNodeListCache.remove(name.impl());
+}
+
+void Node::removeCachedTagNodeListNS(TagNodeListNS* list, const QualifiedName& name)
+{
+    ASSERT(rareData());
+    ASSERT(rareData()->nodeLists());
+    ASSERT_UNUSED(list, list->hasOwnCaches());
+
+    NodeListsNodeData* data = rareData()->nodeLists();
+    ASSERT_UNUSED(list, list == data->m_tagNodeListCacheNS.get(name.impl()));
+    data->m_tagNodeListCacheNS.remove(name.impl());
 }
 
 void Node::removeCachedLabelsNodeList(DynamicNodeList* list)
@@ -1113,14 +1141,27 @@ void Node::removeCachedLabelsNodeList(DynamicNodeList* list)
     data->m_labelsNodeListCache = 0;
 }
 
+void Node::removeCachedChildNodeList(DynamicNodeList* list)
+{
+    ASSERT(rareData());
+    ASSERT(rareData()->nodeLists());
+    ASSERT_UNUSED(list, list->hasOwnCaches());
+
+    NodeListsNodeData* data = rareData()->nodeLists();
+    data->m_childNodeListCache = 0;
+}
+
 Node* Node::traverseNextNode(const Node* stayWithin) const
 {
-    if (firstChild())
-        return firstChild();
+    prefetchTarget();
+    Node* fc = firstChild();
+    if (fc)
+        return fc;
     if (this == stayWithin)
         return 0;
-    if (nextSibling())
-        return nextSibling();
+    Node* ns = nextSibling();
+    if (ns)
+        return ns;
     const Node *n = this;
     while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
@@ -1129,15 +1170,54 @@ Node* Node::traverseNextNode(const Node* stayWithin) const
     return 0;
 }
 
+Node* Node::lastDescendantNode(bool includeThis) const
+{
+    Node* n = lastChild();
+    if (!n && includeThis)
+        return const_cast<Node*>(this);
+
+    Node* p = n;
+    while(n) {
+        p = n;
+        n = n->lastChild();
+    }
+    return p;
+}
+
+void Node::updatePrevNextNodesInSubtree()
+{
+    Node* n = firstChild();
+    Node* next;
+    while(n) {
+        next = n->traverseNextNode(this);
+        if (next) {
+            n->setNextNode(next);
+            next->setPreviousNode(n);
+        } else {
+            next = n->traverseNextNode();
+            n->setNextNode(next);
+            if (next)
+                next->setPreviousNode(n);
+            break;
+        }
+        n = next;
+    }
+    updateNextNode();
+}
+
 Node* Node::traverseNextSibling(const Node* stayWithin) const
 {
     if (this == stayWithin)
         return 0;
-    if (nextSibling())
-        return nextSibling();
+    prefetchTarget();
+    Node* ns = nextSibling();
+    if (ns)
+        return ns;
     const Node *n = this;
-    while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin))
+    while (n && !n->nextSibling() && (!stayWithin || n->parentNode() != stayWithin)) {
+        n->prefetchTarget();
         n = n->parentNode();
+    }
     if (n)
         return n->nextSibling();
     return 0;
@@ -1157,10 +1237,11 @@ Node* Node::traversePreviousNode(const Node* stayWithin) const
 {
     if (this == stayWithin)
         return 0;
-    if (previousSibling()) {
-        Node *n = previousSibling();
-        while (n->lastChild())
-            n = n->lastChild();
+    Node *n = previousSibling();
+    if (n) {
+        Node* lastChild;
+        while ((lastChild = n->lastChild()))
+            n = lastChild;
         return n;
     }
     return parentNode();
@@ -1168,12 +1249,12 @@ Node* Node::traversePreviousNode(const Node* stayWithin) const
 
 Node* Node::traversePreviousNodePostOrder(const Node* stayWithin) const
 {
-    if (lastChild())
-        return lastChild();
+    if (Node* lc = lastChild())
+        return lc;
     if (this == stayWithin)
         return 0;
-    if (previousSibling())
-        return previousSibling();
+    if (Node* ps = previousSibling())
+        return ps;
     const Node *n = this;
     while (n && !n->previousSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
@@ -1186,8 +1267,8 @@ Node* Node::traversePreviousSiblingPostOrder(const Node* stayWithin) const
 {
     if (this == stayWithin)
         return 0;
-    if (previousSibling())
-        return previousSibling();
+    if (Node* ps = previousSibling())
+        return ps;
     const Node *n = this;
     while (n && !n->previousSibling() && (!stayWithin || n->parentNode() != stayWithin))
         n = n->parentNode();
@@ -1333,14 +1414,20 @@ void Node::attach()
     // FIXME: This is O(N^2) for the innerHTML case, where all children are replaced at once (and not attached).
     // If this node got a renderer it may be the previousRenderer() of sibling text nodes and thus affect the
     // result of Text::rendererIsNeeded() for those nodes.
-    if (renderer()) {
+    RenderObject* renderer = this->renderer();
+    if (renderer) {
         for (Node* next = nextSibling(); next; next = next->nextSibling()) {
             if (next->renderer())
                 break;
             if (!next->attached())
                 break;  // Assume this means none of the following siblings are attached.
-            if (next->isTextNode())
+            if (next->isTextNode()) {
+                static_cast<Text*>(next)->setPreviousRenderer(renderer);
                 next->createRendererIfNeeded();
+                if (next->renderer())
+                    renderer = next->renderer();
+                static_cast<Text*>(next)->setPreviousRenderer(0);
+            }
         }
     }
 
@@ -1366,23 +1453,7 @@ void Node::detach()
     if (inActiveChain())
         doc->activeChainNodeDetached(this);
 
-    clearFlag(IsActiveFlag);
-    clearFlag(IsHoveredFlag);
-    clearFlag(InActiveChainFlag);
-    clearFlag(IsAttachedFlag);
-
-    clearFlag(InDetachFlag);
-}
-
-RenderObject* Node::previousRenderer()
-{
-    // FIXME: We should have the same O(N^2) avoidance as nextRenderer does
-    // however, when I tried adding it, several tests failed.
-    for (Node* n = previousSibling(); n; n = n->previousSibling()) {
-        if (n->renderer())
-            return n->renderer();
-    }
-    return 0;
+    clearFlag(NodeDetachClearFlags);
 }
 
 RenderObject* Node::nextRenderer()
@@ -1697,44 +1768,45 @@ bool Node::inSameContainingBlockFlowElement(Node *n)
 
 PassRefPtr<NodeList> Node::getElementsByTagName(const AtomicString& name)
 {
-    return getElementsByTagNameNS(starAtom, name);
+    if (name.isNull())
+        return 0;
+
+    NodeListsNodeData* data = ensureRareData()->ensureNodeLists(this);
+
+    AtomicString localNameAtom = document()->isHTMLDocument() ? name.lower() : name;
+
+    pair<NodeListsNodeData::TagNodeListCache::iterator, bool> result = data->m_tagNodeListCache.add(localNameAtom.impl(), 0);
+    if (!result.second)
+        return PassRefPtr<TagNodeList>(result.first->second);
+
+    RefPtr<TagNodeList> list = TagNodeList::create(this, localNameAtom);
+    result.first->second = list.get();
+    return list.release();
 }
  
 PassRefPtr<NodeList> Node::getElementsByTagNameNS(const AtomicString& namespaceURI, const AtomicString& localName)
 {
     if (localName.isNull())
         return 0;
-    
-    NodeRareData* data = ensureRareData();
-    if (!data->nodeLists()) {
-        data->setNodeLists(NodeListsNodeData::create());
-        document()->addNodeListCache();
-    }
 
-    String name = localName;
-    if (document()->isHTMLDocument())
-        name = localName.lower();
-    
-    AtomicString localNameAtom = name;
-        
-    pair<NodeListsNodeData::TagNodeListCache::iterator, bool> result = data->nodeLists()->m_tagNodeListCache.add(QualifiedName(nullAtom, localNameAtom, namespaceURI).impl(), 0);
+    NodeListsNodeData* data = ensureRareData()->ensureNodeLists(this);
+
+    AtomicString localNameAtom = document()->isHTMLDocument() ? localName.lower() : localName;
+
+    pair<NodeListsNodeData::TagNodeListCacheNS::iterator, bool> result = data->m_tagNodeListCacheNS.add(QualifiedName(nullAtom, localNameAtom, namespaceURI).impl(), 0);
     if (!result.second)
-        return PassRefPtr<TagNodeList>(result.first->second);
-    
-    RefPtr<TagNodeList> list = TagNodeList::create(this, namespaceURI.isEmpty() ? nullAtom : namespaceURI, localNameAtom);
+        return PassRefPtr<TagNodeListNS>(result.first->second);
+
+    RefPtr<TagNodeListNS> list = TagNodeListNS::create(this, namespaceURI.isEmpty() ? nullAtom : namespaceURI, localNameAtom);
     result.first->second = list.get();
     return list.release();
 }
 
 PassRefPtr<NodeList> Node::getElementsByName(const String& elementName)
 {
-    NodeRareData* data = ensureRareData();
-    if (!data->nodeLists()) {
-        data->setNodeLists(NodeListsNodeData::create());
-        document()->addNodeListCache();
-    }
+    NodeListsNodeData* data = ensureRareData()->ensureNodeLists(this);
 
-    pair<NodeListsNodeData::NameNodeListCache::iterator, bool> result = data->nodeLists()->m_nameNodeListCache.add(elementName, 0);
+    pair<NodeListsNodeData::NameNodeListCache::iterator, bool> result = data->m_nameNodeListCache.add(elementName, 0);
     if (!result.second)
         return PassRefPtr<NodeList>(result.first->second);
 
@@ -1745,13 +1817,9 @@ PassRefPtr<NodeList> Node::getElementsByName(const String& elementName)
 
 PassRefPtr<NodeList> Node::getElementsByClassName(const String& classNames)
 {
-    NodeRareData* data = ensureRareData();
-    if (!data->nodeLists()) {
-        data->setNodeLists(NodeListsNodeData::create());
-        document()->addNodeListCache();
-    }
+    NodeListsNodeData* data = ensureRareData()->ensureNodeLists(this);
 
-    pair<NodeListsNodeData::ClassNodeListCache::iterator, bool> result = data->nodeLists()->m_classNodeListCache.add(classNames, 0);
+    pair<NodeListsNodeData::ClassNodeListCache::iterator, bool> result = data->m_classNodeListCache.add(classNames, 0);
     if (!result.second)
         return PassRefPtr<NodeList>(result.first->second);
 
@@ -1794,7 +1862,8 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
     }
 
     // FIXME: We can speed this up by implementing caching similar to the one use by getElementById
-    for (Node* n = firstChild(); n; n = n->traverseNextNode(this)) {
+    Node* last = lastDescendantNode();
+    for (Node* n = firstChild(); n; n = n->traverseNextNodeFastPath()) {
         if (n->isElementNode()) {
             Element* element = static_cast<Element*>(n);
             for (CSSSelector* selector = querySelectorList.first(); selector; selector = CSSSelectorList::next(selector)) {
@@ -1802,6 +1871,8 @@ PassRefPtr<Element> Node::querySelector(const String& selectors, ExceptionCode& 
                     return element;
             }
         }
+        if (n == last)
+            break;
     }
     
     return 0;
@@ -2425,10 +2496,14 @@ void Node::formatForDebugger(char* buffer, unsigned length) const
 
 void NodeListsNodeData::invalidateCaches()
 {
-    m_childNodeListCaches->reset();
+    if (m_childNodeListCache)
+        m_childNodeListCache->invalidateCache();
 
     if (m_labelsNodeListCache)
         m_labelsNodeListCache->invalidateCache();
+    TagNodeListCacheNS::const_iterator tagCacheEndNS = m_tagNodeListCacheNS.end();
+    for (TagNodeListCacheNS::const_iterator it = m_tagNodeListCacheNS.begin(); it != tagCacheEndNS; ++it)
+        it->second->invalidateCache();
     TagNodeListCache::const_iterator tagCacheEnd = m_tagNodeListCache.end();
     for (TagNodeListCache::const_iterator it = m_tagNodeListCache.begin(); it != tagCacheEnd; ++it)
         it->second->invalidateCache();
@@ -2453,9 +2528,15 @@ bool NodeListsNodeData::isEmpty() const
     if (!m_listsWithCaches.isEmpty())
         return false;
 
-    if (m_childNodeListCaches->refCount())
+    if (m_childNodeListCache)
         return false;
     
+    TagNodeListCacheNS::const_iterator tagCacheEndNS = m_tagNodeListCacheNS.end();
+    for (TagNodeListCacheNS::const_iterator it = m_tagNodeListCacheNS.begin(); it != tagCacheEndNS; ++it) {
+        if (it->second->refCount())
+            return false;
+    }
+
     TagNodeListCache::const_iterator tagCacheEnd = m_tagNodeListCache.end();
     for (TagNodeListCache::const_iterator it = m_tagNodeListCache.begin(); it != tagCacheEnd; ++it) {
         if (it->second->refCount())
