@@ -24,7 +24,7 @@
  */
 
 #define LOG_TAG "LinearAllocator"
-#define LOG_NDEBUG 0
+#define LOG_NDEBUG 1
 
 #include "config.h"
 
