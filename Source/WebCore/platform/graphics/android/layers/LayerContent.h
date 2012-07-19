@@ -42,7 +42,7 @@ class LayerContent : public SkRefCnt {
 public:
     virtual int width() = 0;
     virtual int height() = 0;
-    virtual bool isEmpty() { return !width() || !height(); }
+    bool isEmpty() { return !width() || !height(); }
     virtual void setCheckForOptimisations(bool check) = 0;
     virtual void checkForOptimisations() = 0;
     virtual bool hasText() = 0;

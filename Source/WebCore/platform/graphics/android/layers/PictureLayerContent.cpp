@@ -45,16 +45,6 @@ int PictureLayerContent::height()
     return m_picture->height();
 }
 
-bool PictureLayerContent::isEmpty()
-{
-    if (!m_picture)
-        return true;
-    if (m_picture->width() == 0
-        || m_picture->height() == 0)
-        return true;
-    return false;
-}
-
 void PictureLayerContent::checkForOptimisations()
 {
     if (!m_checkedContent)
