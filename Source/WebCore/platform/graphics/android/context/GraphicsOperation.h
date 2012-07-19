@@ -51,10 +51,8 @@ class Operation {
 public:
     typedef enum { UndefinedOperation
                   // State management
-                  , BeginTransparencyLayerOperation
-                  , EndTransparencyLayerOperation
+                  , TransparencyLayerOperation
                   , SaveOperation
-                  , RestoreOperation
                   // State setters
                   , SetAlphaOperation
                   , SetCompositeOpOperation
@@ -124,10 +122,8 @@ public:
         switch (type()) {
             TYPE_CASE(UndefinedOperation)
             // State management
-            TYPE_CASE(BeginTransparencyLayerOperation)
-            TYPE_CASE(EndTransparencyLayerOperation)
+            TYPE_CASE(TransparencyLayerOperation)
             TYPE_CASE(SaveOperation)
-            TYPE_CASE(RestoreOperation)
             // State setters
             TYPE_CASE(SetAlphaOperation)
             TYPE_CASE(SetCompositeOpOperation)
@@ -180,28 +176,9 @@ public:
 // State management
 //**************************************
 
-class BeginTransparencyLayer : public Operation {
-public:
-    BeginTransparencyLayer(const float opacity) : m_opacity(opacity) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->beginTransparencyLayer(m_opacity);
-        return true;
-    }
-    virtual OperationType type() { return BeginTransparencyLayerOperation; }
-private:
-    float m_opacity;
-};
-class EndTransparencyLayer : public Operation {
-public:
-    EndTransparencyLayer() {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->endTransparencyLayer();
-        return true;
-    }
-    virtual OperationType type() { return EndTransparencyLayerOperation; }
-};
 class Save : public Operation {
 public:
+    Save() : m_saveMatrix(true) {}
     virtual bool applyImpl(PlatformGraphicsContext* context) {
         context->save();
         m_operations.apply(context);
@@ -210,9 +187,27 @@ public:
     }
     virtual OperationType type() { return SaveOperation; }
     GraphicsOperationCollection* operations() { return &m_operations; }
+    bool saveMatrix() { return m_saveMatrix; }
     FloatRect bounds;
-private:
+protected:
     GraphicsOperationCollection m_operations;
+    bool m_saveMatrix : 1;
+};
+
+class TransparencyLayer : public Save {
+public:
+    TransparencyLayer(const float opacity) : m_opacity(opacity) {
+        m_saveMatrix = false;
+    }
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
+        context->beginTransparencyLayer(m_opacity);
+        m_operations.apply(context);
+        context->endTransparencyLayer();
+        return true;
+    }
+    virtual OperationType type() { return TransparencyLayerOperation; }
+private:
+    float m_opacity;
 };
 
 //**************************************

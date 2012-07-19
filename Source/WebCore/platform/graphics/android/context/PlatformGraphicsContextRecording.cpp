@@ -159,12 +159,11 @@ void Recording::setRecording(RecordingImpl* impl)
 PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* recording)
     : PlatformGraphicsContext()
     , mPicture(0)
-    , mCurrentMatrix(&mRootMatrix)
     , mRecording(recording)
     , mOperationState(0)
     , mOperationMatrix(0)
 {
-    mRootMatrix.setIdentity();
+    pushMatrix();
     if (mRecording)
         mRecording->setRecording(new RecordingImpl());
 }
@@ -191,42 +190,30 @@ void PlatformGraphicsContextRecording::endRecording(const SkRect& bounds)
     mPicture = 0;
 }
 
-
 //**************************************
 // State management
 //**************************************
 
 void PlatformGraphicsContextRecording::beginTransparencyLayer(float opacity)
 {
-    appendStateOperation(new GraphicsOperation::BeginTransparencyLayer(opacity));
+    pushSaveOperation(new GraphicsOperation::TransparencyLayer(opacity));
 }
 
 void PlatformGraphicsContextRecording::endTransparencyLayer()
 {
-    appendStateOperation(new GraphicsOperation::EndTransparencyLayer());
+    popSaveOperation();
 }
 
 void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
-    mRecordingStateStack.append(new GraphicsOperation::Save());
-    mCurrentMatrix = &(mRecordingStateStack.last().mMatrix);
-    mCurrentMatrix->setIdentity();
+    pushSaveOperation(new GraphicsOperation::Save());
 }
 
 void PlatformGraphicsContextRecording::restore()
 {
     PlatformGraphicsContext::restore();
-    RecordingState state = mRecordingStateStack.last();
-    mRecordingStateStack.removeLast();
-    if (mRecordingStateStack.size())
-        mCurrentMatrix = &(mRecordingStateStack.last().mMatrix);
-    else
-        mCurrentMatrix = &mRootMatrix;
-    if (state.mHasDrawing)
-        appendDrawingOperation(state.mSaveOperation, state.mBounds);
-    else
-        delete state.mSaveOperation;
+    popSaveOperation();
 }
 
 //**************************************
@@ -366,13 +353,10 @@ void PlatformGraphicsContextRecording::translate(float x, float y)
 const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 {
     // Each RecordingState tracks the delta from its "parent" SkMatrix
-    if (mRecordingStateStack.size()) {
-        mTotalMatrix = mRootMatrix;
-        for (size_t i = 0; i < mRecordingStateStack.size(); i++)
-            mTotalMatrix.preConcat(mRecordingStateStack[i].mMatrix);
-        return mTotalMatrix;
-    }
-    return mRootMatrix;
+    mTotalMatrix = mMatrixStack.first();
+    for (size_t i = 1; i < mMatrixStack.size(); i++)
+        mTotalMatrix.preConcat(mMatrixStack[i]);
+    return mTotalMatrix;
 }
 
 //**************************************
@@ -577,6 +561,37 @@ void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
     }
 }
 
+void PlatformGraphicsContextRecording::pushSaveOperation(GraphicsOperation::Save* saveOp)
+{
+    mRecordingStateStack.append(saveOp);
+    if (saveOp->saveMatrix())
+        pushMatrix();
+}
+
+void PlatformGraphicsContextRecording::popSaveOperation()
+{
+    RecordingState state = mRecordingStateStack.last();
+    mRecordingStateStack.removeLast();
+    if (state.mSaveOperation->saveMatrix())
+        popMatrix();
+    if (state.mHasDrawing)
+        appendDrawingOperation(state.mSaveOperation, state.mBounds);
+    else
+        delete state.mSaveOperation;
+}
+
+void PlatformGraphicsContextRecording::pushMatrix()
+{
+    mMatrixStack.append(SkMatrix::I());
+    mCurrentMatrix = &(mMatrixStack.last());
+}
+
+void PlatformGraphicsContextRecording::popMatrix()
+{
+    mMatrixStack.removeLast();
+    mCurrentMatrix = &(mMatrixStack.last());
+}
+
 void PlatformGraphicsContextRecording::appendDrawingOperation(
         GraphicsOperation::Operation* operation, const FloatRect& untranslatedBounds)
 {
@@ -596,7 +611,7 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
     if (!mOperationState)
         mOperationState = mRecording->recording()->getState(m_state);
     if (!mOperationMatrix)
-        mOperationMatrix = mRecording->recording()->cloneMatrix(mRootMatrix);
+        mOperationMatrix = mRecording->recording()->cloneMatrix(mMatrixStack.first());
     operation->m_state = mOperationState;
     operation->m_matrix = mOperationMatrix;
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
@@ -617,7 +632,7 @@ void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::O
 
 void PlatformGraphicsContextRecording::onCurrentMatrixChanged()
 {
-    if (mCurrentMatrix == &mRootMatrix)
+    if (mCurrentMatrix == &(mMatrixStack.first()))
         mOperationMatrix = 0;
 }
 

@@ -146,9 +146,12 @@ private:
     void appendDrawingOperation(GraphicsOperation::Operation* operation, const FloatRect& bounds);
     void appendStateOperation(GraphicsOperation::Operation* operation);
     void onCurrentMatrixChanged();
+    void pushSaveOperation(GraphicsOperation::Save* saveOp);
+    void popSaveOperation();
+    void pushMatrix();
+    void popMatrix();
 
     SkPicture* mPicture;
-    SkMatrix mRootMatrix;
     SkMatrix* mCurrentMatrix;
     // Used for getTotalMatrix, is not valid elsewhere
     SkMatrix mTotalMatrix;
@@ -167,7 +170,6 @@ private:
             , mHasDrawing(other.mHasDrawing)
             , mHasClip(other.mHasClip)
             , mBounds(other.mBounds)
-            , mMatrix(other.mMatrix)
         {}
 
         void addBounds(const FloatRect& bounds)
@@ -187,9 +189,9 @@ private:
         bool mHasDrawing;
         bool mHasClip;
         FloatRect mBounds;
-        SkMatrix mMatrix;
     };
     Vector<RecordingState> mRecordingStateStack;
+    Vector<SkMatrix> mMatrixStack;
     State* mOperationState;
     SkMatrix* mOperationMatrix;
 };
