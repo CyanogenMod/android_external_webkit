@@ -48,9 +48,7 @@ protected:
 
     virtual void setupCanvas(const TileRenderInfo& renderInfo, SkCanvas* canvas);
     virtual void renderingComplete(const TileRenderInfo& renderInfo, SkCanvas* canvas);
-    virtual void checkForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas) {
-        renderInfo.isPureColor = false;
-    }
+    virtual void deviceCheckForPureColor(TileRenderInfo& renderInfo, SkCanvas* canvas) {}
 
 };
 
