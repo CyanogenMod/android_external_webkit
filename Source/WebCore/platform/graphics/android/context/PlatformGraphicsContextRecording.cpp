@@ -596,6 +596,28 @@ void PlatformGraphicsContextRecording::popMatrix()
     mCurrentMatrix = &(mMatrixStack.last());
 }
 
+IntRect PlatformGraphicsContextRecording::calculateFinalBounds(FloatRect bounds)
+{
+    if (m_gc->hasShadow()) {
+        const ShadowRec& shadow = m_state->shadow;
+        if (shadow.blur > 0)
+            bounds.inflate(ceilf(shadow.blur));
+        bounds.setWidth(bounds.width() + abs(shadow.dx));
+        bounds.setHeight(bounds.height() + abs(shadow.dy));
+        if (shadow.dx < 0)
+            bounds.move(shadow.dx, 0);
+        if (shadow.dy < 0)
+            bounds.move(0, shadow.dy);
+        // Add a bit extra to deal with rounding and blurring
+        bounds.inflate(4);
+    }
+    if (m_state->strokeStyle != NoStroke)
+        bounds.inflate(std::min(1.0f, m_state->strokeThickness));
+    SkRect translated;
+    mCurrentMatrix->mapRect(&translated, bounds);
+    return enclosingIntRect(translated);
+}
+
 void PlatformGraphicsContextRecording::appendDrawingOperation(
         GraphicsOperation::Operation* operation, const FloatRect& untranslatedBounds)
 {
@@ -604,12 +626,11 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         return;
     }
     m_isEmpty = false;
-    SkRect bounds;
-    mCurrentMatrix->mapRect(&bounds, untranslatedBounds);
     if (mRecordingStateStack.size()) {
         RecordingState& state = mRecordingStateStack.last();
         state.mHasDrawing = true;
-        state.addBounds(bounds);
+        if (!state.mHasClip)
+            state.addBounds(calculateFinalBounds(untranslatedBounds));
         state.mSaveOperation->operations()->adoptAndAppend(operation);
         return;
     }
@@ -621,7 +642,7 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
     operation->m_matrix = mOperationMatrix;
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
 
-    WebCore::IntRect ibounds = enclosingIntRect(bounds);
+    WebCore::IntRect ibounds = calculateFinalBounds(untranslatedBounds);
     mRecording->recording()->m_tree.insert(ibounds, data);
 }
 
