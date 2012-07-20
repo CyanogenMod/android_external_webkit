@@ -134,6 +134,7 @@
 #include "autofill/WebAutofill.h"
 #include "htmlediting.h"
 #include "markup.h"
+#include "unicode/uloc.h"
 #include "visible_units.h"
 
 #include <JNIHelp.h>
@@ -4404,6 +4405,44 @@ void WebViewCore::getLocale(String& language, String& region)
     region = String(propRegn, 2);
 }
 
+// generate bcp47 identifier for the supplied language/region
+static void toLanguageTag(char* output, size_t outSize, const String& language,
+    const String& region) {
+    if (output == NULL || outSize <= 0)
+        return;
+    String locale = language;
+    locale.append('_');
+    locale.append(region);
+    char canonicalChars[ULOC_FULLNAME_CAPACITY];
+    UErrorCode uErr = U_ZERO_ERROR;
+    uloc_canonicalize(locale.ascii().data(), canonicalChars,
+        ULOC_FULLNAME_CAPACITY, &uErr);
+    if (U_SUCCESS(uErr)) {
+        char likelyChars[ULOC_FULLNAME_CAPACITY];
+        uErr = U_ZERO_ERROR;
+        uloc_addLikelySubtags(canonicalChars, likelyChars,
+            ULOC_FULLNAME_CAPACITY, &uErr);
+        if (U_SUCCESS(uErr)) {
+            uErr = U_ZERO_ERROR;
+            uloc_toLanguageTag(likelyChars, output, outSize, FALSE, &uErr);
+            if (U_SUCCESS(uErr)) {
+                return;
+            } else {
+                ALOGD("uloc_toLanguageTag(\"%s\") failed: %s", likelyChars,
+                    u_errorName(uErr));
+            }
+        } else {
+            ALOGD("uloc_addLikelySubtags(\"%s\") failed: %s", canonicalChars,
+                u_errorName(uErr));
+        }
+    } else {
+        ALOGD("uloc_canonicalize(\"%s\") failed: %s", locale.ascii().data(),
+            u_errorName(uErr));
+    }
+    // unable to build a proper language identifier
+    output[0] = '\0';
+}
+
 void WebViewCore::updateLocale()
 {
     static String prevLang;
@@ -4418,6 +4457,9 @@ void WebViewCore::updateLocale()
         prevRegn = region;
         GlyphPageTreeNode::resetRoots();
         fontCache()->invalidate();
+        char langTag[ULOC_FULLNAME_CAPACITY];
+        toLanguageTag(langTag, ULOC_FULLNAME_CAPACITY, language, region);
+        FontPlatformData::setDefaultLanguage(langTag);
     }
 }
 

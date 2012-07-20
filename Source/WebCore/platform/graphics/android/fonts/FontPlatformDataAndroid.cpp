@@ -41,26 +41,26 @@
 //#define COUNT_FONTPLATFORMDATA_LIFE
 
 #ifdef COUNT_FONTPLATFORMDATA_LIFE
-static int gCount;
-static int gMaxCount;
+static int g_count;
+static int g_maxCount;
 
 static void inc_count()
 {
-    if (++gCount > gMaxCount)
+    if (++g_count > g_maxCount)
     {
-        gMaxCount = gCount;
-        SkDebugf("---------- FontPlatformData %d\n", gMaxCount);
+        g_maxCount = g_count;
+        SkDebugf("---------- FontPlatformData %d\n", g_maxCount);
     }
 }
 
-static void dec_count() { --gCount; }
+static void dec_count() { --g_count; }
 #else
     #define inc_count()
     #define dec_count()
 #endif
 
 #ifdef TRACE_FONTPLATFORMDATA_LIFE
-    #define trace(num)  SkDebugf("FontPlatformData%d %p %g %d %d\n", num, mTypeface, mTextSize, mFakeBold, mFakeItalic)
+    #define trace(num)  SkDebugf("FontPlatformData%d %p %g %d %d\n", num, m_typeface, m_textSize, m_fakeBold, m_fakeItalic)
 #else
     #define trace(num)
 #endif
@@ -75,8 +75,8 @@ FontPlatformData::RefCountedHarfbuzzFace::~RefCountedHarfbuzzFace()
 }
 
 FontPlatformData::FontPlatformData()
-    : mTypeface(NULL), mTextSize(0), mEmSizeInFontUnits(0), mFakeBold(false), mFakeItalic(false),
-      mOrientation(Horizontal), mTextOrientation(TextOrientationVerticalRight)
+    : m_typeface(NULL), m_textSize(0), m_emSizeInFontUnits(0), m_fakeBold(false), m_fakeItalic(false),
+      m_orientation(Horizontal), m_textOrientation(TextOrientationVerticalRight)
 {
     inc_count();
     trace(1);
@@ -84,30 +84,29 @@ FontPlatformData::FontPlatformData()
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src)
 {
-    if (hashTableDeletedFontValue() != src.mTypeface) {
-        SkSafeRef(src.mTypeface);
+    if (hashTableDeletedFontValue() != src.m_typeface) {
+        SkSafeRef(src.m_typeface);
     }
 
-    mTypeface = src.mTypeface;
-    mTextSize = src.mTextSize;
-    mEmSizeInFontUnits = src.mEmSizeInFontUnits;
-    mFakeBold = src.mFakeBold;
-    mFakeItalic = src.mFakeItalic;
+    m_typeface = src.m_typeface;
+    m_textSize = src.m_textSize;
+    m_emSizeInFontUnits = src.m_emSizeInFontUnits;
+    m_fakeBold = src.m_fakeBold;
+    m_fakeItalic = src.m_fakeItalic;
     m_harfbuzzFace = src.m_harfbuzzFace;
-    mOrientation = src.mOrientation;
-    mTextOrientation = src.mTextOrientation;
-
+    m_orientation = src.m_orientation;
+    m_textOrientation = src.m_textOrientation;
     inc_count();
     trace(2);
 }
 
 FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold, bool fakeItalic,
     FontOrientation orientation, TextOrientation textOrientation)
-    : mTypeface(tf), mTextSize(textSize), mEmSizeInFontUnits(0), mFakeBold(fakeBold), mFakeItalic(fakeItalic),
-      mOrientation(orientation), mTextOrientation(textOrientation)
+    : m_typeface(tf), m_textSize(textSize), m_emSizeInFontUnits(0), m_fakeBold(fakeBold), m_fakeItalic(fakeItalic),
+      m_orientation(orientation), m_textOrientation(textOrientation)
 {
-    if (hashTableDeletedFontValue() != mTypeface) {
-        SkSafeRef(mTypeface);
+    if (hashTableDeletedFontValue() != m_typeface) {
+        SkSafeRef(m_typeface);
     }
 
     inc_count();
@@ -115,11 +114,11 @@ FontPlatformData::FontPlatformData(SkTypeface* tf, float textSize, bool fakeBold
 }
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
-    : mTypeface(src.mTypeface), mTextSize(textSize), mEmSizeInFontUnits(src.mEmSizeInFontUnits), mFakeBold(src.mFakeBold), mFakeItalic(src.mFakeItalic),
-      mOrientation(src.mOrientation), mTextOrientation(src.mTextOrientation), m_harfbuzzFace(src.m_harfbuzzFace)
+    : m_typeface(src.m_typeface), m_textSize(textSize), m_emSizeInFontUnits(src.m_emSizeInFontUnits), m_fakeBold(src.m_fakeBold), m_fakeItalic(src.m_fakeItalic),
+      m_orientation(src.m_orientation), m_textOrientation(src.m_textOrientation), m_harfbuzzFace(src.m_harfbuzzFace)
 {
-    if (hashTableDeletedFontValue() != mTypeface) {
-        SkSafeRef(mTypeface);
+    if (hashTableDeletedFontValue() != m_typeface) {
+        SkSafeRef(m_typeface);
     }
 
     inc_count();
@@ -127,20 +126,20 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
 }
 
 FontPlatformData::FontPlatformData(float size, bool bold, bool oblique)
-    : mTypeface(NULL), mTextSize(size),  mEmSizeInFontUnits(0), mFakeBold(bold), mFakeItalic(oblique),
-      mOrientation(Horizontal), mTextOrientation(TextOrientationVerticalRight)
+    : m_typeface(NULL), m_textSize(size),  m_emSizeInFontUnits(0), m_fakeBold(bold), m_fakeItalic(oblique),
+      m_orientation(Horizontal), m_textOrientation(TextOrientationVerticalRight)
 {
     inc_count();
     trace(5);
 }
 
 FontPlatformData::FontPlatformData(const FontPlatformData& src, SkTypeface* tf)
-    : mTypeface(tf), mTextSize(src.mTextSize),  mEmSizeInFontUnits(0), mFakeBold(src.mFakeBold),
-      mFakeItalic(src.mFakeItalic), mOrientation(src.mOrientation),
-      mTextOrientation(src.mTextOrientation)
+    : m_typeface(tf), m_textSize(src.m_textSize),  m_emSizeInFontUnits(0), m_fakeBold(src.m_fakeBold),
+      m_fakeItalic(src.m_fakeItalic), m_orientation(src.m_orientation),
+      m_textOrientation(src.m_textOrientation)
 {
-    if (hashTableDeletedFontValue() != mTypeface) {
-        SkSafeRef(mTypeface);
+    if (hashTableDeletedFontValue() != m_typeface) {
+        SkSafeRef(m_typeface);
     }
 
     inc_count();
@@ -154,61 +153,67 @@ FontPlatformData::~FontPlatformData()
     SkDebugf("----------- ~FontPlatformData\n");
 #endif
 
-    if (hashTableDeletedFontValue() != mTypeface) {
-        SkSafeUnref(mTypeface);
+    if (hashTableDeletedFontValue() != m_typeface) {
+        SkSafeUnref(m_typeface);
     }
 }
 
 int FontPlatformData::emSizeInFontUnits() const
 {
-    if (mEmSizeInFontUnits)
-        return mEmSizeInFontUnits;
+    if (m_emSizeInFontUnits)
+        return m_emSizeInFontUnits;
 
     SkAdvancedTypefaceMetrics* metrics = 0;
-    if (mTypeface)
-        metrics = mTypeface->getAdvancedTypefaceMetrics(SkAdvancedTypefaceMetrics::kNo_PerGlyphInfo);
+    if (m_typeface)
+        metrics = m_typeface->getAdvancedTypefaceMetrics(SkAdvancedTypefaceMetrics::kNo_PerGlyphInfo);
     if (metrics) {
-        mEmSizeInFontUnits = metrics->fEmSize;
+        m_emSizeInFontUnits = metrics->fEmSize;
         metrics->unref();
     } else
-        mEmSizeInFontUnits = 1000;  // default value copied from Skia.
-    return mEmSizeInFontUnits;
+        m_emSizeInFontUnits = 1000;  // default value copied from Skia.
+    return m_emSizeInFontUnits;
 }
 
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
 {
-    if (hashTableDeletedFontValue() != src.mTypeface) {
-        SkSafeRef(src.mTypeface);
+    if (hashTableDeletedFontValue() != src.m_typeface) {
+        SkSafeRef(src.m_typeface);
     }
-    if (hashTableDeletedFontValue() != mTypeface) {
-        SkSafeUnref(mTypeface);
+    if (hashTableDeletedFontValue() != m_typeface) {
+        SkSafeUnref(m_typeface);
     }
 
-    mTypeface = src.mTypeface;
-    mEmSizeInFontUnits = src.mEmSizeInFontUnits;
-    mTextSize = src.mTextSize;
-    mFakeBold = src.mFakeBold;
-    mFakeItalic = src.mFakeItalic;
+    m_typeface = src.m_typeface;
+    m_emSizeInFontUnits = src.m_emSizeInFontUnits;
+    m_textSize = src.m_textSize;
+    m_fakeBold = src.m_fakeBold;
+    m_fakeItalic = src.m_fakeItalic;
     m_harfbuzzFace = src.m_harfbuzzFace;
-    mOrientation = src.mOrientation;
-    mTextOrientation = src.mTextOrientation;
+    m_orientation = src.m_orientation;
+    m_textOrientation = src.m_textOrientation;
 
     return *this;
 }
 
+SkLanguage FontPlatformData::s_defaultLanguage;
+void FontPlatformData::setDefaultLanguage(const char* language) {
+    s_defaultLanguage = SkLanguage(language);
+}
+
 void FontPlatformData::setupPaint(SkPaint* paint) const
 {
-    if (hashTableDeletedFontValue() == mTypeface)
+    if (hashTableDeletedFontValue() == m_typeface)
         paint->setTypeface(0);
     else
-        paint->setTypeface(mTypeface);
+        paint->setTypeface(m_typeface);
 
     paint->setAntiAlias(true);
     paint->setSubpixelText(true);
     paint->setHinting(SkPaint::kSlight_Hinting);
-    paint->setTextSize(SkFloatToScalar(mTextSize));
-    paint->setFakeBoldText(mFakeBold);
-    paint->setTextSkewX(mFakeItalic ? -SK_Scalar1/4 : 0);
+    paint->setTextSize(SkFloatToScalar(m_textSize));
+    paint->setFakeBoldText(m_fakeBold);
+    paint->setTextSkewX(m_fakeItalic ? -SK_Scalar1/4 : 0);
+    paint->setLanguage(s_defaultLanguage);
 #ifndef SUPPORT_COMPLEX_SCRIPTS
     paint->setTextEncoding(SkPaint::kUTF16_TextEncoding);
 #endif
@@ -216,44 +221,44 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
 
 uint32_t FontPlatformData::uniqueID() const
 {
-    if (hashTableDeletedFontValue() == mTypeface)
+    if (hashTableDeletedFontValue() == m_typeface)
         return SkTypeface::UniqueID(0);
     else
-        return SkTypeface::UniqueID(mTypeface);
+        return SkTypeface::UniqueID(m_typeface);
 }
 
 bool FontPlatformData::operator==(const FontPlatformData& a) const
 {
-    return  mTypeface == a.mTypeface &&
-            mTextSize == a.mTextSize &&
-            mFakeBold == a.mFakeBold &&
-            mFakeItalic == a.mFakeItalic &&
-            mOrientation == a.mOrientation &&
-            mTextOrientation == a.mTextOrientation;
+    return  m_typeface == a.m_typeface &&
+            m_textSize == a.m_textSize &&
+            m_fakeBold == a.m_fakeBold &&
+            m_fakeItalic == a.m_fakeItalic &&
+            m_orientation == a.m_orientation &&
+            m_textOrientation == a.m_textOrientation;
 }
 
 unsigned FontPlatformData::hash() const
 {
     unsigned h;
 
-    if (hashTableDeletedFontValue() == mTypeface) {
-        h = reinterpret_cast<unsigned>(mTypeface);
+    if (hashTableDeletedFontValue() == m_typeface) {
+        h = reinterpret_cast<unsigned>(m_typeface);
     } else {
-        h = SkTypeface::UniqueID(mTypeface);
+        h = SkTypeface::UniqueID(m_typeface);
     }
 
-    uint32_t sizeAsInt = *reinterpret_cast<const uint32_t*>(&mTextSize);
+    uint32_t sizeAsInt = *reinterpret_cast<const uint32_t*>(&m_textSize);
 
-    h ^= 0x01010101 * ((static_cast<int>(mTextOrientation) << 3) | (static_cast<int>(mOrientation) << 2) |
-         ((int)mFakeBold << 1) | (int)mFakeItalic);
+    h ^= 0x01010101 * ((static_cast<int>(m_textOrientation) << 3) | (static_cast<int>(m_orientation) << 2) |
+         ((int)m_fakeBold << 1) | (int)m_fakeItalic);
     h ^= sizeAsInt;
     return h;
 }
 
 bool FontPlatformData::isFixedPitch() const
 {
-    if (mTypeface && (mTypeface != hashTableDeletedFontValue()))
-        return mTypeface->isFixedWidth();
+    if (m_typeface && (m_typeface != hashTableDeletedFontValue()))
+        return m_typeface->isFixedWidth();
     else
         return false;
 }
