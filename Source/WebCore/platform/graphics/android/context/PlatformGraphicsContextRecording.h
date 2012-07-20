@@ -152,6 +152,7 @@ private:
     void popSaveOperation();
     void pushMatrix();
     void popMatrix();
+    IntRect calculateFinalBounds(FloatRect bounds);
 
     SkPicture* mPicture;
     SkMatrix* mCurrentMatrix;
