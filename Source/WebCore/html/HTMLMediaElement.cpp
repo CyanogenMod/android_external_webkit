@@ -1036,7 +1036,10 @@ void HTMLMediaElement::setReadyState(MediaPlayer::ReadyState state)
 
         if (isPotentiallyPlaying && oldState <= HAVE_CURRENT_DATA)
             scheduleEvent(eventNames().playingEvent);
-
+#if PLATFORM(ANDROID)
+        // autoplay should not be honored if we require user gesture.
+        if (!(m_restrictions & RequireUserGestureForRateChangeRestriction))
+#endif
         if (m_autoplaying && m_paused && autoplay()) {
             m_paused = false;
             invalidateCachedTime();
