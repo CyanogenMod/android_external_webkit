@@ -201,6 +201,8 @@ Settings::Settings(Page* page)
 #else
     , m_passwordEchoEnabled(false)
 #endif
+    , m_mediaPlaybackRequiresUserGesture(false)
+    , m_mediaPlaybackAllowsInline(true)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
