@@ -82,7 +82,9 @@ public:
                   // Drawing
                   , DrawBitmapPatternOperation
                   , DrawBitmapRectOperation
+                  , DrawConvexPolygonQuadOperation
                   , DrawEllipseOperation
+                  , DrawFocusRingOperation
                   , DrawLineOperation
                   , DrawLineForTextOperation
                   , DrawLineForTextCheckingOperation
@@ -153,7 +155,9 @@ public:
             // Drawing
             TYPE_CASE(DrawBitmapPatternOperation)
             TYPE_CASE(DrawBitmapRectOperation)
+            TYPE_CASE(DrawConvexPolygonQuadOperation)
             TYPE_CASE(DrawEllipseOperation)
+            TYPE_CASE(DrawFocusRingOperation)
             TYPE_CASE(DrawLineOperation)
             TYPE_CASE(DrawLineForTextOperation)
             TYPE_CASE(DrawLineForTextCheckingOperation)
@@ -577,6 +581,23 @@ private:
     CompositeOperator m_operator;
 };
 
+class DrawConvexPolygonQuad : public Operation {
+public:
+    DrawConvexPolygonQuad(const FloatPoint* points, bool shouldAntiAlias)
+        : m_shouldAntiAlias(shouldAntiAlias)
+    {
+        memcpy(m_points, points, 4 * sizeof(FloatPoint));
+    }
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
+        context->drawConvexPolygon(4, m_points, m_shouldAntiAlias);
+        return true;
+    }
+    virtual OperationType type() { return DrawConvexPolygonQuadOperation; }
+private:
+    bool m_shouldAntiAlias;
+    FloatPoint m_points[4];
+};
+
 class DrawEllipse : public Operation {
 public:
     DrawEllipse(const IntRect& rect) : m_rect(rect) {}
@@ -587,6 +608,26 @@ public:
     virtual OperationType type() { return DrawEllipseOperation; }
 private:
     IntRect m_rect;
+};
+
+class DrawFocusRing : public Operation {
+public:
+    DrawFocusRing(const Vector<IntRect>& rects, int width, int offset, const Color& color)
+        : m_rects(rects)
+        , m_width(width)
+        , m_offset(offset)
+        , m_color(color)
+    {}
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
+        context->drawFocusRing(m_rects, m_width, m_offset, m_color);
+        return true;
+    }
+    virtual OperationType type() { return DrawFocusRingOperation; }
+private:
+    Vector<IntRect> m_rects;
+    int m_width;
+    int m_offset;
+    Color m_color;
 };
 
 class DrawLine : public Operation {

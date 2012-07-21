@@ -449,7 +449,15 @@ void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,
                                                 const FloatPoint* points,
                                                 bool shouldAntialias)
 {
-    // TODO
+    if (numPoints < 1) return;
+    if (numPoints != 4) {
+        // TODO: Build a path and call draw on that (webkit currently never calls this)
+        ALOGW("drawConvexPolygon with numPoints != 4 is not supported!");
+        return;
+    }
+    FloatRect bounds;
+    bounds.fitToPoints(points[0], points[1], points[2], points[3]);
+    appendDrawingOperation(new GraphicsOperation::DrawConvexPolygonQuad(points, shouldAntialias), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawEllipse(const IntRect& rect)
@@ -458,10 +466,15 @@ void PlatformGraphicsContextRecording::drawEllipse(const IntRect& rect)
 }
 
 void PlatformGraphicsContextRecording::drawFocusRing(const Vector<IntRect>& rects,
-                                            int /* width */, int /* offset */,
+                                            int width, int offset,
                                             const Color& color)
 {
-    // TODO
+    if (!rects.size())
+        return;
+    IntRect bounds = rects[0];
+    for (size_t i = 1; i < rects.size(); i++)
+        bounds.unite(rects[i]);
+    appendDrawingOperation(new GraphicsOperation::DrawFocusRing(rects, width, offset, color), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawHighlightForText(
