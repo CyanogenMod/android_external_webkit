@@ -852,8 +852,9 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
     // TODO: add content checks (text, opacity, etc.)
     picture.updatePicturesIfNeeded(this);
 
+    // store the newly painted content in the layer if it's not empty
     PicturePileLayerContent* content = new PicturePileLayerContent(picture);
-    layer->setContent(content);
+    layer->setContent(content->isEmpty() ? 0 : content);
     SkSafeUnref(content);
 
     return true;
