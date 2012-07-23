@@ -369,7 +369,14 @@ LOCAL_CFLAGS += -DSUPPORT_COMPLEX_SCRIPTS=1
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu libv8
+LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu
+
+ifeq ($(DYNAMIC_SHARED_LIBV8SO),true)
+LOCAL_SHARED_LIBRARIES += libv8
+$(shell mkdir -p $(OUT)/obj/SHARED_LIBRARIES/libv8_intermediates/export_includes)
+else
+LOCAL_STATIC_LIBRARIES += libv8
+endif
 
 ifeq ($(ENABLE_WEBGL),true)
 LOCAL_STATIC_LIBRARIES += libpng
