@@ -85,7 +85,7 @@ private:
     void swapTileGrids();
 
     // Delay before we schedule a new tile at the new scale factor
-    static const double s_zoomUpdateDelay = 0.2; // 200 ms
+    static const double s_zoomUpdateDelay = 0.1; // 100 ms
 
     TileGrid* m_frontTileGrid;
     TileGrid* m_backTileGrid;
