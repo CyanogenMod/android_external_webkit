@@ -177,7 +177,8 @@ GLfloat* VideoLayerManager::getMatrix(const int layerId)
 {
     android::Mutex::Autolock lock(m_videoLayerInfoMapLock);
     GLfloat* result = 0;
-    if (m_videoLayerInfoMap.contains(layerId))
+    VideoLayerInfo* pInfo = m_videoLayerInfoMap.get(layerId);
+    if (pInfo && pInfo->matrixInitialized)
         result = m_videoLayerInfoMap.get(layerId)->surfaceMatrix;
     return result;
 }
@@ -197,26 +198,34 @@ void VideoLayerManager::registerTexture(const int layerId, const GLuint textureI
 {
     android::Mutex::Autolock lock(m_videoLayerInfoMapLock);
     // If the texture has been registered, then early return.
-    if (m_videoLayerInfoMap.get(layerId)) {
-        GLuint oldTextureId = m_videoLayerInfoMap.get(layerId)->textureId;
-        if (oldTextureId != textureId)
-            removeLayerInternal(layerId);
-        else
-            return;
-    }
+    VideoLayerInfo* pPreviousInfo = m_videoLayerInfoMap.get(layerId);
+
+    if (pPreviousInfo && pPreviousInfo->textureId == textureId)
+        return;
+
     // The old info is deleted and now complete the new info and store it.
     VideoLayerInfo* pInfo = new VideoLayerInfo();
     pInfo->textureId = textureId;
-    memset(pInfo->surfaceMatrix, 0, sizeof(pInfo->surfaceMatrix));
+    if (pPreviousInfo == NULL) {
+        memset(pInfo->surfaceMatrix, 0, sizeof(pInfo->surfaceMatrix));
+        pInfo->matrixInitialized = false;
+    } else {
+        // Need the previous surface matrix to composite the new texture
+        memcpy(pInfo->surfaceMatrix, pPreviousInfo->surfaceMatrix, sizeof(pInfo->surfaceMatrix));
+        pInfo->matrixInitialized = true;
+        // Can now delete the previous entry
+        removeLayerInternal(layerId);
+    }
     pInfo->videoSize = 0;
     pInfo->aspectRatio = DEFAULT_VIDEO_ASPECT_RATIO;
     m_currentTimeStamp++;
     pInfo->timeStamp = m_currentTimeStamp;
+    pInfo->canBeRecycled = false;
     pInfo->lastIconShownTime = 0;
     pInfo->iconState = Registered;
 
     m_videoLayerInfoMap.add(layerId, pInfo);
-    ALOGV("GL texture %d regisered for layerId %d", textureId, layerId);
+    ALOGV("GL texture %d registered for layerId %d", textureId, layerId);
 
     return;
 }
@@ -256,12 +265,23 @@ void VideoLayerManager::updateMatrix(const int layerId, const GLfloat* matrix)
         ASSERT(matrix);
         if (pInfo && !memcmp(matrix, pInfo->surfaceMatrix, sizeof(pInfo->surfaceMatrix)))
             return;
+        pInfo->matrixInitialized = true;
         memcpy(pInfo->surfaceMatrix, matrix, sizeof(pInfo->surfaceMatrix));
     } else {
         ALOGV("Error: should not reach here, the layerId %d should exist!", layerId);
         ASSERT(false);
     }
     return;
+}
+
+// When a texture is marked for recycling, the client is indicating that there are no
+// longer any external references to the texture and it may be recycled if needed.
+void VideoLayerManager::markTextureForRecycling(const int layerId, const GLuint textureId)
+{
+    android::Mutex::Autolock lock(m_videoLayerInfoMapLock);
+    if (m_videoLayerInfoMap.contains(layerId)) {
+        m_videoLayerInfoMap.get(layerId)->canBeRecycled = true;
+    }
 }
 
 // This is called on the webcore thread, save the GL texture for recycle in
@@ -282,7 +302,7 @@ bool VideoLayerManager::recycleTextureMem()
               it->first, it->second->textureId, it->second->videoSize, it->second->timeStamp);
 #endif
     for (InfoIterator it = m_videoLayerInfoMap.begin(); it != end; ++it) {
-        if (it->second->timeStamp < oldestTimeStamp) {
+        if (it->second->canBeRecycled && it->second->timeStamp < oldestTimeStamp) {
             oldestTimeStamp = it->second->timeStamp;
             oldestLayerId = it->first;
         }

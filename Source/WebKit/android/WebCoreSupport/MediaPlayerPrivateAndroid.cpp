@@ -23,6 +23,8 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#define LOG_TAG "MediaPlayerPrivateAndroid"
+#define LOG_NDEBUG 1
 
 #include "config.h"
 #include "MediaPlayerPrivateAndroid.h"
@@ -42,6 +44,7 @@
 #include <JNIUtility.h>
 #include <SkBitmap.h>
 #include <gui/SurfaceTexture.h>
+#include "AndroidLog.h"
 
 using namespace android;
 // Forward decl
@@ -230,14 +233,6 @@ void MediaPlayerPrivate::onRequestPlay()
     play();
 }
 
-void MediaPlayerPrivate::onRestoreState()
-{
-    if (!m_paused) {
-        //Kick off a JNI call to start the video.
-        play();
-    }
-}
-
 void MediaPlayerPrivate::onPaused()
 {
     m_paused = true;
@@ -293,8 +288,7 @@ public:
 
         jstring jUrl = wtfStringToJstring(env, m_url);
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl,
-                            static_cast<jint>(m_currentTime * 1000.0f),
-                            m_videoLayer->uniqueId());
+                            static_cast<jint>(m_currentTime * 1000.0f));
         env->DeleteLocalRef(jUrl);
 
         checkException(env);
@@ -322,13 +316,17 @@ public:
         m_naturalSize = IntSize(width, height);
         m_naturalSizeUnknown = false;
         m_player->sizeChanged();
-        TilesManager::instance()->videoLayerManager()->updateVideoLayerSize(
-            m_player->platformLayer()->uniqueId(), width * height,
-            width / (float)height);
+        updateVideoLayerSize();
 
         // This is needed to update the ready and network states in the case
         // where video goes to fullscreen before it starts playing
         m_player->prepareToPlay();
+    }
+
+    void updateVideoLayerSize() {
+        TilesManager::instance()->videoLayerManager()->updateVideoLayerSize(
+            m_player->platformLayer()->uniqueId(), m_naturalSize.width() * m_naturalSize.height(),
+            m_naturalSize.width() / (float)m_naturalSize.height());
     }
 
     void updateDuration(int duration)
@@ -427,18 +425,18 @@ public:
             return;
 
         m_glue = new JavaGlue;
-        m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;I)Landroid/webkit/HTML5VideoViewProxy;");
+        m_glue->m_getInstance = env->GetStaticMethodID(clazz, "getInstance", "(Landroid/webkit/WebViewCore;II)Landroid/webkit/HTML5VideoViewProxy;");
         m_glue->m_loadPoster = env->GetMethodID(clazz, "loadPoster", "(Ljava/lang/String;)V");
-        m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;II)V");
+        m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;I)V");
 
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
         m_glue->m_pause = env->GetMethodID(clazz, "pause", "()V");
         m_glue->m_setVolume = env->GetMethodID(clazz, "setVolume", "(F)V");
         m_glue->m_javaProxy = 0;
-        m_glue->m_loadVideo = env->GetMethodID(clazz, "loadVideo", "(Ljava/lang/String;I)V");
-        m_glue->m_loadMetadata = env->GetMethodID(clazz, "loadMetadata", "(Ljava/lang/String;I)V");
-        m_glue->m_enterFullscreen = env->GetMethodID(clazz, "enterFullscreen", "(Ljava/lang/String;IFFFF)V");
+        m_glue->m_loadVideo = env->GetMethodID(clazz, "loadVideo", "(Ljava/lang/String;)V");
+        m_glue->m_loadMetadata = env->GetMethodID(clazz, "loadMetadata", "(Ljava/lang/String;)V");
+        m_glue->m_enterFullscreen = env->GetMethodID(clazz, "enterFullscreen", "(Ljava/lang/String;FFFF)V");
         m_glue->m_exitFullscreen = env->GetMethodID(clazz, "exitFullscreen", "(FFFF)V");
         env->DeleteLocalRef(clazz);
         // An exception is raised if any of the above fails.
@@ -472,7 +470,7 @@ public:
             return;
 
         // Get the HTML5VideoViewProxy instance
-        obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, javaObject.get(), this);
+        obj = env->CallStaticObjectMethod(clazz, m_glue->m_getInstance, javaObject.get(), this, m_videoLayer->uniqueId());
         m_glue->m_javaProxy = env->NewGlobalRef(obj);
         // Send the poster
         jstring jUrl = 0;
@@ -505,11 +503,9 @@ public:
         if (m_url.length()) {
             jstring jUrl = wtfStringToJstring(env, m_url);
             if (m_player->preload() == MediaPlayer::MetaData)
-                env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadMetadata, jUrl,
-                        m_videoLayer->uniqueId());
+                env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadMetadata, jUrl);
             else
-                env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadVideo, jUrl,
-                        m_videoLayer->uniqueId());
+                env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadVideo, jUrl);
             m_isMediaLoaded = true;
             env->DeleteLocalRef(jUrl);
             checkException(env);
@@ -531,7 +527,7 @@ public:
 
         jstring jUrl = wtfStringToJstring(env, m_url);
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_enterFullscreen, jUrl,
-                            m_videoLayer->uniqueId(), screenRect.x(), screenRect.y(),
+                            screenRect.x(), screenRect.y(),
                             screenRect.width(), screenRect.height());
         env->DeleteLocalRef(jUrl);
 
@@ -776,15 +772,6 @@ static void OnTimeupdate(JNIEnv* env, jobject obj, int position, int pointer)
     }
 }
 
-static void OnRestoreState(JNIEnv* env, jobject obj, int pointer)
-{
-    if (pointer) {
-        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
-        player->onRestoreState();
-    }
-}
-
-
 // This is called on the UI thread only.
 // The video layers are composited on the webkit thread and then copied over
 // to the UI thread with the same ID. For rendering, we are only using the
@@ -798,6 +785,24 @@ static void OnRestoreState(JNIEnv* env, jobject obj, int pointer)
 static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
                                int baseLayer, int videoLayerId,
                                int textureName, int playerState, int pointer) {
+    WebCore::MediaPlayerPrivate* player = 0;
+    if (pointer) {
+        // Always save the playerState in MediaPlayerPrivate's video layer instance.
+        player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        VideoLayerAndroid* videoLayer = static_cast<VideoLayerAndroid*>(player->platformLayer());
+        videoLayer->setPlayerState(static_cast<PlayerState>(playerState));
+        if (playerState == RELEASED) {
+            TilesManager::instance()->videoLayerManager()->markTextureForRecycling(
+                    videoLayer->uniqueId(), textureName);
+        } else {
+            TilesManager::instance()->videoLayerManager()->registerTexture(
+                    videoLayer->uniqueId(), textureName);
+            // Call updateVideoLayerSize in case the media was prepared before SendSurfaceTexture
+            // can be called (i.e. when video playback is started in fullscreen mode)
+            player->updateVideoLayerSize();
+        }
+    }
+
     if (!surfTex)
         return false;
 
@@ -817,11 +822,8 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
     // Set the SurfaceTexture to the layer we found
     videoLayer->setSurfaceTexture(texture, textureName, static_cast<PlayerState>(playerState));
 
-    if (pointer) {
-        WebCore::MediaPlayerPrivate* player =
-            reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+    if (player)
         videoLayer->registerVideoLayerObserver(player->getVideoLayerObserver());
-    }
 
     return true;
 }
@@ -871,8 +873,6 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnPlaying },
     { "nativeOnPosterFetched", "(Landroid/graphics/Bitmap;I)V",
         (void*) OnPosterFetched },
-    { "nativeOnRestoreState", "(I)V",
-        (void*) OnRestoreState },
     { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIIII)Z",
         (void*) SendSurfaceTexture },
     { "nativeOnTimeupdate", "(II)V",

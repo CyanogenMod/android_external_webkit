@@ -186,7 +186,12 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
     document->registerForMediaVolumeCallbacks(this);
     document->registerForPrivateBrowsingStateChangedCallbacks(this);
 #if PLATFORM(ANDROID) && ENABLE(TOUCH_EVENTS)
-    m_restrictions |= RequireUserGestureForRateChangeRestriction;
+    // Allow javascript to make rate changes when preload is enabled
+    bool preloadEnabled = document->settings() && document->settings()->mediaPreloadEnabled();
+    if (preloadEnabled)
+        m_userGestureInitiated = true;
+    else
+        m_restrictions |= RequireUserGestureForRateChangeRestriction;
 #endif
 }
 
