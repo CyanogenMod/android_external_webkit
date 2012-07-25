@@ -30,7 +30,6 @@
 
 #include "AndroidLog.h"
 #include "EmojiFont.h"
-#include "GraphicsOperationCollection.h"
 #include "GraphicsOperation.h"
 #include "Font.h"
 #include "FontData.h"
