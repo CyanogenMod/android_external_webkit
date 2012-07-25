@@ -316,6 +316,7 @@ void Node::add(Node* node)
     m_children[m_nbChildren] = node;
     m_nbChildren++;
     Node* NN = 0;
+
     if (m_nbChildren > m_tree->m_maxChildren)
         NN = split();
     else
@@ -354,6 +355,10 @@ void Node::destroy(int index)
 void Node::removeAll()
 {
     m_nbChildren = 0;
+    m_minX = 0;
+    m_maxX = 0;
+    m_minY = 0;
+    m_maxY = 0;
 }
 
 Node* Node::split()
@@ -464,11 +469,13 @@ void Node::adjustTree(Node* N, Node* NN)
     if (N->isRoot())
         return;
 
-    if (N->m_parent)
+    if (N->m_parent) {
         N->m_parent->tighten();
-
-    if (NN && N->m_parent)
-        N->m_parent->add(NN);
+        if (NN)
+            N->m_parent->add(NN);
+        else
+            adjustTree(N->m_parent, 0);
+    }
 }
 
 #ifdef DEBUG
