@@ -29,7 +29,6 @@
 #include "Color.h"
 #include "FloatRect.h"
 #include "GlyphBuffer.h"
-#include "GraphicsOperationCollection.h"
 #include "Font.h"
 #include "IntRect.h"
 #include "PlatformGraphicsContext.h"
@@ -45,29 +44,13 @@
 
 namespace WebCore {
 
+class CanvasState;
+
 namespace GraphicsOperation {
 
 class Operation {
 public:
     typedef enum { UndefinedOperation
-                  // State management
-                  , TransparencyLayerOperation
-                  , SaveOperation
-                  // State setters
-                  , SetAlphaOperation
-                  , SetCompositeOpOperation
-                  , SetFillColorOperation
-                  , SetFillShaderOperation
-                  , SetLineCapOperation
-                  , SetLineDashOperation
-                  , SetLineJoinOperation
-                  , SetMiterLimitOperation
-                  , SetShadowOperation
-                  , SetShouldAntialiasOperation
-                  , SetStrokeColorOperation
-                  , SetStrokeShaderOperation
-                  , SetStrokeStyleOperation
-                  , SetStrokeThicknessOperation
                   // Matrix operations
                   , ConcatCTMOperation
                   , ScaleOperation
@@ -102,13 +85,15 @@ public:
 
     Operation()
         : m_state(0)
-        , m_matrix(0)
+        , m_canvasState(0)
     {}
 
     // This m_state is applied by ourselves
     PlatformGraphicsContext::State* m_state;
-    // This m_matrix is applied by Recording::draw
-    SkMatrix* m_matrix;
+    // This is the canvas state that this operation needs
+    // Only used for drawing operations, state operations will be undefined
+    CanvasState* m_canvasState;
+    IntRect m_globalBounds;
 
     bool apply(PlatformGraphicsContext* context) {
         if (m_state)
@@ -119,28 +104,11 @@ public:
     virtual ~Operation() {}
     virtual OperationType type() { return UndefinedOperation; }
     virtual String parameters() { return ""; }
+    virtual void subtractOpaqueClip(FloatRect& clip) {}
     const char* name()
     {
         switch (type()) {
             TYPE_CASE(UndefinedOperation)
-            // State management
-            TYPE_CASE(TransparencyLayerOperation)
-            TYPE_CASE(SaveOperation)
-            // State setters
-            TYPE_CASE(SetAlphaOperation)
-            TYPE_CASE(SetCompositeOpOperation)
-            TYPE_CASE(SetFillColorOperation)
-            TYPE_CASE(SetFillShaderOperation)
-            TYPE_CASE(SetLineCapOperation)
-            TYPE_CASE(SetLineDashOperation)
-            TYPE_CASE(SetLineJoinOperation)
-            TYPE_CASE(SetMiterLimitOperation)
-            TYPE_CASE(SetShadowOperation)
-            TYPE_CASE(SetShouldAntialiasOperation)
-            TYPE_CASE(SetStrokeColorOperation)
-            TYPE_CASE(SetStrokeShaderOperation)
-            TYPE_CASE(SetStrokeStyleOperation)
-            TYPE_CASE(SetStrokeThicknessOperation)
             // Matrix operations
             TYPE_CASE(ConcatCTMOperation)
             TYPE_CASE(ScaleOperation)
@@ -174,235 +142,6 @@ public:
         }
         return "Undefined";
     }
-};
-
-//**************************************
-// State management
-//**************************************
-
-class Save : public Operation {
-public:
-    Save() : m_saveMatrix(true) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->save();
-        m_operations.apply(context);
-        context->restore();
-        return true;
-    }
-    virtual OperationType type() { return SaveOperation; }
-    GraphicsOperationCollection* operations() { return &m_operations; }
-    bool saveMatrix() { return m_saveMatrix; }
-    FloatRect bounds;
-protected:
-    GraphicsOperationCollection m_operations;
-    bool m_saveMatrix : 1;
-};
-
-class TransparencyLayer : public Save {
-public:
-    TransparencyLayer(const float opacity) : m_opacity(opacity) {
-        m_saveMatrix = false;
-    }
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->beginTransparencyLayer(m_opacity);
-        m_operations.apply(context);
-        context->endTransparencyLayer();
-        return true;
-    }
-    virtual OperationType type() { return TransparencyLayerOperation; }
-private:
-    float m_opacity;
-};
-
-//**************************************
-// State setters
-//**************************************
-
-class SetAlpha : public Operation {
-public:
-    SetAlpha(const float alpha) : m_alpha(alpha) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setAlpha(m_alpha);
-        return true;
-    }
-    virtual OperationType type() { return SetAlphaOperation; }
-private:
-    float m_alpha;
-};
-
-class SetCompositeOperation : public Operation {
-public:
-    SetCompositeOperation(CompositeOperator op) : m_operator(op) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setCompositeOperation(m_operator);
-        return true;
-    }
-    virtual OperationType type() { return SetCompositeOpOperation; }
-private:
-    CompositeOperator m_operator;
-};
-
-class SetFillColor : public Operation {
-public:
-    SetFillColor(Color color) : m_color(color) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setFillColor(m_color);
-        return true;
-    }
-    virtual OperationType type() { return SetFillColorOperation; }
-    virtual String parameters() {
-        return String::format("r: %d g: %d b: %d a: %d",
-                              m_color.red(),
-                              m_color.green(),
-                              m_color.blue(),
-                              m_color.alpha());
-    }
-private:
-    Color m_color;
-};
-
-class SetFillShader : public Operation {
-public:
-    SetFillShader(SkShader* shader) : m_shader(shader) {
-        SkSafeRef(m_shader);
-    }
-    ~SetFillShader() { SkSafeUnref(m_shader); }
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setFillShader(m_shader);
-        return true;
-    }
-    virtual OperationType type() { return SetFillShaderOperation; }
-private:
-    SkShader* m_shader;
-};
-
-class SetLineCap : public Operation {
-public:
-    SetLineCap(LineCap cap) : m_cap(cap) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setLineCap(m_cap);
-        return true;
-    }
-    virtual OperationType type() { return SetLineCapOperation; }
-private:
-    LineCap m_cap;
-};
-
-class SetLineDash : public Operation {
-public:
-    SetLineDash(const DashArray& dashes, float dashOffset)
-        : m_dashes(dashes), m_dashOffset(dashOffset) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setLineDash(m_dashes, m_dashOffset);
-        return true;
-    }
-    virtual OperationType type() { return SetLineDashOperation; }
-private:
-    DashArray m_dashes;
-    float m_dashOffset;
-};
-
-class SetLineJoin : public Operation {
-public:
-    SetLineJoin(LineJoin join) : m_join(join) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setLineJoin(m_join);
-        return true;
-    }
-    virtual OperationType type() { return SetLineJoinOperation; }
-private:
-    LineJoin m_join;
-};
-
-class SetMiterLimit : public Operation {
-public:
-    SetMiterLimit(float limit) : m_limit(limit) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setMiterLimit(m_limit);
-        return true;
-    }
-    virtual OperationType type() { return SetMiterLimitOperation; }
-private:
-    float m_limit;
-};
-
-class SetShadow : public Operation {
-public:
-    SetShadow(int radius, int dx, int dy, SkColor c)
-        : m_radius(radius), m_dx(dx), m_dy(dy), m_color(c) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setShadow(m_radius, m_dx, m_dy, m_color);
-        return true;
-    }
-    virtual OperationType type() { return SetShadowOperation; }
-private:
-    int m_radius;
-    int m_dx;
-    int m_dy;
-    SkColor m_color;
-};
-
-class SetShouldAntialias : public Operation {
-public:
-    SetShouldAntialias(bool useAA) : m_useAA(useAA) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setShouldAntialias(m_useAA);
-        return true;
-    }
-    virtual OperationType type() { return SetShouldAntialiasOperation; }
-private:
-    bool m_useAA;
-};
-
-class SetStrokeColor : public Operation {
-public:
-    SetStrokeColor(const Color& c) : m_color(c) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setStrokeColor(m_color);
-        return true;
-    }
-    virtual OperationType type() { return SetStrokeColorOperation; }
-private:
-    Color m_color;
-};
-
-class SetStrokeShader : public Operation {
-public:
-    SetStrokeShader(SkShader* strokeShader) : m_shader(strokeShader) {
-        SkSafeRef(m_shader);
-    }
-    ~SetStrokeShader() { SkSafeUnref(m_shader); }
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setStrokeShader(m_shader);
-        return true;
-    }
-    virtual OperationType type() { return SetStrokeShaderOperation; }
-private:
-    SkShader* m_shader;
-};
-
-class SetStrokeStyle : public Operation {
-public:
-    SetStrokeStyle(StrokeStyle style) : m_style(style) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setStrokeStyle(m_style);
-        return true;
-    }
-    virtual OperationType type() { return SetStrokeStyleOperation; }
-private:
-    StrokeStyle m_style;
-};
-
-class SetStrokeThickness : public Operation {
-public:
-    SetStrokeThickness(float thickness) : m_thickness(thickness) {}
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->setStrokeThickness(m_thickness);
-        return true;
-    }
-    virtual OperationType type() { return SetStrokeThicknessOperation; }
-private:
-    float m_thickness;
 };
 
 //**************************************
@@ -552,8 +291,7 @@ public:
     }
     virtual OperationType type() { return DrawBitmapPatternOperation; }
 private:
-    // TODO: use refcounted bitmap
-    const SkBitmap m_bitmap;
+    SkBitmap m_bitmap;
     SkMatrix m_matrix;
     CompositeOperator m_operator;
     FloatRect m_destRect;
@@ -575,7 +313,7 @@ public:
                  m_dstR.width(), m_dstR.height());
     }
 private:
-    const SkBitmap& m_bitmap;
+    SkBitmap m_bitmap;
     SkIRect m_srcR;
     SkRect m_dstR;
     CompositeOperator m_operator;

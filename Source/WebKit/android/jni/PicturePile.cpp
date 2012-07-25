@@ -40,7 +40,6 @@
 #include "SkRegion.h"
 
 #if USE_RECORDING_CONTEXT
-#include "GraphicsOperationCollection.h"
 #include "PlatformGraphicsContextRecording.h"
 #else
 #include "SkPicture.h"
