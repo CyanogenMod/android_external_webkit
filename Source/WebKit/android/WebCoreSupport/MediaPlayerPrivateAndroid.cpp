@@ -315,6 +315,13 @@ public:
             m_naturalSize = IntSize(poster->width(), poster->height());
             m_player->sizeChanged();
         }
+        // At this time, we know that the proxy has been setup. And it is the
+        // right time to trigger autoplay through the HTMLMediaElement state
+        // change. Since we are using the java MediaPlayer, so we have to
+        // pretend that the MediaPlayer has enough data.
+        m_readyState = MediaPlayer::HaveEnoughData;
+        m_player->readyStateChanged();
+
     }
 
     void onPrepared(int duration, int width, int height)
