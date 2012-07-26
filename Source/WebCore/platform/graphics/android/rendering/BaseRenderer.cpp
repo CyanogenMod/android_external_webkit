@@ -95,8 +95,10 @@ void BaseRenderer::renderTiledContent(TileRenderInfo& renderInfo)
     const bool visualIndicator = TilesManager::instance()->getShowVisualIndicator();
     const SkSize& tileSize = renderInfo.tileSize;
 
+    Color *background = renderInfo.tilePainter->background();
     InstrumentedPlatformCanvas canvas(TilesManager::instance()->tileWidth(),
-                                      TilesManager::instance()->tileHeight());
+                                      TilesManager::instance()->tileHeight(),
+                                      background ? *background : Color::transparent);
     setupCanvas(renderInfo, &canvas);
 
     if (!canvas.getDevice()) {
