@@ -63,7 +63,6 @@
 #include "Geolocation.h"
 #include "GraphicsContext.h"
 #include "GraphicsJNI.h"
-#include "GraphicsOperationCollection.h"
 #include "HTMLAnchorElement.h"
 #include "HTMLAreaElement.h"
 #include "HTMLElement.h"

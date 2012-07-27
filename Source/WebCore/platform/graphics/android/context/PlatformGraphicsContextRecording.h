@@ -28,7 +28,6 @@
 
 #include "PlatformGraphicsContext.h"
 
-#include "GraphicsOperationCollection.h"
 #include "SkRefCnt.h"
 
 class SkCanvas;
@@ -36,9 +35,9 @@ class SkCanvas;
 namespace WebCore {
 namespace GraphicsOperation {
 class Operation;
-class Save;
 }
 
+class CanvasState;
 class RecordingImpl;
 class Recording : public SkRefCnt {
 public:
@@ -147,48 +146,42 @@ private:
     void clipState(const FloatRect& clip);
     void appendDrawingOperation(GraphicsOperation::Operation* operation, const FloatRect& bounds);
     void appendStateOperation(GraphicsOperation::Operation* operation);
-    void onCurrentMatrixChanged();
-    void pushSaveOperation(GraphicsOperation::Save* saveOp);
-    void popSaveOperation();
+    void pushStateOperation(CanvasState* canvasState);
+    void popStateOperation();
     void pushMatrix();
     void popMatrix();
     IntRect calculateFinalBounds(FloatRect bounds);
 
     SkPicture* mPicture;
     SkMatrix* mCurrentMatrix;
-    // Used for getTotalMatrix, is not valid elsewhere
-    SkMatrix mTotalMatrix;
 
     Recording* mRecording;
     class RecordingState {
     public:
-        RecordingState(GraphicsOperation::Save* saveOp)
-            : mSaveOperation(saveOp)
+        RecordingState(CanvasState* state)
+            : mCanvasState(state)
             , mHasDrawing(false)
             , mHasClip(false)
         {}
 
         RecordingState(const RecordingState& other)
-            : mSaveOperation(other.mSaveOperation)
+            : mCanvasState(other.mCanvasState)
             , mHasDrawing(other.mHasDrawing)
             , mHasClip(other.mHasClip)
             , mBounds(other.mBounds)
         {}
 
-        void addBounds(const FloatRect& bounds)
-        {
-            if (mHasClip)
-                return;
-            mBounds.unite(bounds);
-        }
-
         void clip(const FloatRect& rect)
         {
-            addBounds(rect);
-            mHasClip = true;
+            if (mHasClip)
+                mBounds.intersect(rect);
+            else {
+                mBounds = rect;
+                mHasClip = true;
+            }
         }
 
-        GraphicsOperation::Save* mSaveOperation;
+        CanvasState* mCanvasState;
         bool mHasDrawing;
         bool mHasClip;
         FloatRect mBounds;
@@ -196,7 +189,6 @@ private:
     Vector<RecordingState> mRecordingStateStack;
     Vector<SkMatrix> mMatrixStack;
     State* mOperationState;
-    SkMatrix* mOperationMatrix;
 
     bool m_hasText;
     bool m_isEmpty;

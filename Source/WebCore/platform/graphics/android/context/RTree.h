@@ -36,7 +36,7 @@ class LinearAllocator;
 
 class RecordingData {
 public:
-    RecordingData(GraphicsOperation::Operation* ops, int orderBy)
+    RecordingData(GraphicsOperation::Operation* ops, size_t orderBy)
         : m_orderBy(orderBy)
         , m_operation(ops)
     {}
@@ -44,7 +44,7 @@ public:
         delete m_operation;
     }
 
-    unsigned int m_orderBy;
+    size_t m_orderBy;
     GraphicsOperation::Operation* m_operation;
 };
 

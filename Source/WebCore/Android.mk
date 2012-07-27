@@ -642,7 +642,6 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/SharedBufferStream.cpp \
 	\
 	platform/graphics/android/context/GraphicsContextAndroid.cpp \
-	platform/graphics/android/context/GraphicsOperationCollection.cpp \
 	platform/graphics/android/context/PlatformGraphicsContext.cpp \
 	platform/graphics/android/context/PlatformGraphicsContextRecording.cpp \
 	platform/graphics/android/context/PlatformGraphicsContextSkia.cpp \

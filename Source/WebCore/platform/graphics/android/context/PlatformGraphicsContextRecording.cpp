@@ -9,7 +9,6 @@
 #include "FloatQuad.h"
 #include "Font.h"
 #include "GraphicsContext.h"
-#include "GraphicsOperationCollection.h"
 #include "GraphicsOperation.h"
 #include "PlatformGraphicsContextSkia.h"
 #include "RTree.h"
@@ -38,6 +37,82 @@ public:
 
 typedef HashSet<PlatformGraphicsContext::State*, StateHash> StateHashSet;
 
+class CanvasState {
+public:
+    CanvasState(CanvasState* parent)
+        : m_parent(parent)
+        , m_isTransparencyLayer(false)
+    {}
+
+    CanvasState(CanvasState* parent, float opacity)
+        : m_parent(parent)
+        , m_isTransparencyLayer(true)
+        , m_opacity(opacity)
+    {}
+
+    ~CanvasState() {
+        ALOGV("Delete %p", this);
+        for (size_t i = 0; i < m_operations.size(); i++)
+            delete m_operations[i];
+        m_operations.clear();
+    }
+
+    bool isParentOf(CanvasState* other) {
+        while (other->m_parent) {
+            if (other->m_parent == this)
+                return true;
+            other = other->m_parent;
+        }
+        return false;
+    }
+
+    void playback(PlatformGraphicsContext* context, size_t fromId, size_t toId) const {
+        ALOGV("playback %p from %d->%d", this, fromId, toId);
+        for (size_t i = 0; i < m_operations.size(); i++) {
+            RecordingData *data = m_operations[i];
+            if (data->m_orderBy < fromId)
+                continue;
+            if (data->m_orderBy > toId)
+                break;
+            ALOGV("Applying operation[%d] %p->%s()", i, data->m_operation,
+                  data->m_operation->name());
+            data->m_operation->apply(context);
+        }
+    }
+
+    CanvasState* parent() { return m_parent; }
+
+    void enterState(PlatformGraphicsContext* context) {
+        ALOGV("enterState %p", this);
+        if (m_isTransparencyLayer)
+            context->beginTransparencyLayer(m_opacity);
+        else
+            context->save();
+    }
+
+    void exitState(PlatformGraphicsContext* context) {
+        ALOGV("exitState %p", this);
+        if (m_isTransparencyLayer)
+            context->endTransparencyLayer();
+        else
+            context->restore();
+    }
+
+    void adoptAndAppend(RecordingData* data) {
+        m_operations.append(data);
+    }
+
+    bool isTransparencyLayer() {
+        return m_isTransparencyLayer;
+    }
+
+private:
+    CanvasState *m_parent;
+    bool m_isTransparencyLayer;
+    float m_opacity;
+    Vector<RecordingData*> m_operations;
+};
+
 class RecordingImpl {
 public:
     RecordingImpl()
@@ -47,7 +122,7 @@ public:
 
     ~RecordingImpl() {
         clearStates();
-        clearMatrixes();
+        clearCanvasStates();
     }
 
     PlatformGraphicsContext::State* getState(PlatformGraphicsContext::State* inState) {
@@ -60,9 +135,47 @@ public:
         return state;
     }
 
-    SkMatrix* cloneMatrix(const SkMatrix& matrix) {
-        m_matrixes.append(new SkMatrix(matrix));
-        return m_matrixes.last();
+    void addCanvasState(CanvasState* state) {
+        m_canvasStates.append(state);
+    }
+
+    void removeCanvasState(const CanvasState* state) {
+        if (m_canvasStates.last() == state)
+            m_canvasStates.removeLast();
+        else {
+            size_t indx = m_canvasStates.find(state);
+            m_canvasStates.remove(indx);
+        }
+    }
+
+    void applyState(PlatformGraphicsContext* context,
+                    CanvasState* fromState, size_t fromId,
+                    CanvasState* toState, size_t toId) {
+        ALOGV("applyState(%p->%p, %d-%d)", fromState, toState, fromId, toId);
+        if (fromState != toState && fromState) {
+            if (fromState->isParentOf(toState)) {
+                // Going down the tree, playback any parent operations then save
+                // before playing back our current operations
+                applyState(context, fromState, fromId, toState->parent(), toId);
+                toState->enterState(context);
+            } else if (toState->isParentOf(fromState)) {
+                // Going up the tree, pop some states
+                while (fromState != toState) {
+                    fromState->exitState(context);
+                    fromState = fromState->parent();
+                }
+            } else {
+                // Siblings in the tree
+                fromState->exitState(context);
+                applyState(context, fromState->parent(), fromId, toState, toId);
+                return;
+            }
+        } else if (!fromState) {
+            if (toState->parent())
+                applyState(context, fromState, fromId, toState->parent(), toId);
+            toState->enterState(context);
+        }
+        toState->playback(context, fromId, toId);
     }
 
     RTree::RTree m_tree;
@@ -77,15 +190,15 @@ private:
         m_states.clear();
     }
 
-    void clearMatrixes() {
-        for (size_t i = 0; i < m_matrixes.size(); i++)
-            delete m_matrixes[i];
-        m_matrixes.clear();
+    void clearCanvasStates() {
+        for (size_t i = 0; i < m_canvasStates.size(); i++)
+            delete m_canvasStates[i];
+        m_canvasStates.clear();
     }
 
     // TODO: Use a global pool?
     StateHashSet m_states;
-    Vector<SkMatrix*> m_matrixes;
+    Vector<CanvasState*> m_canvasStates;
 };
 
 Recording::~Recording()
@@ -115,31 +228,29 @@ void Recording::draw(SkCanvas* canvas)
     m_recording->m_tree.search(iclip, nodes);
 
     size_t count = nodes.size();
-    ALOGV("Drawing %d nodes out of %d (state storage=%d)", count,
-          m_recording->m_nodeCount, sizeof(PlatformGraphicsContext::State) * m_recording->m_states.size());
+    ALOGV("Drawing %d nodes out of %d", count, m_recording->m_nodeCount);
     if (count) {
+        int saveCount = canvas->getSaveCount();
         nonCopyingSort(nodes.begin(), nodes.end(), CompareRecordingDataOrder);
         PlatformGraphicsContextSkia context(canvas);
-        SkMatrix* matrix = 0;
-        int saveCount = 0;
+        CanvasState* currState = 0;
+        size_t lastOperationId = 0;
         for (size_t i = 0; i < count; i++) {
             GraphicsOperation::Operation* op = nodes[i]->m_operation;
-            SkMatrix* opMatrix = op->m_matrix;
-            if (opMatrix != matrix) {
-                matrix = opMatrix;
-                if (saveCount) {
-                    canvas->restoreToCount(saveCount);
-                    saveCount = 0;
-                }
-                if (!matrix->isIdentity()) {
-                    saveCount = canvas->save(SkCanvas::kMatrix_SaveFlag);
-                    canvas->concat(*matrix);
-                }
-            }
+            m_recording->applyState(&context, currState, lastOperationId,
+                    op->m_canvasState, nodes[i]->m_orderBy);
+            currState = op->m_canvasState;
+            lastOperationId = nodes[i]->m_orderBy;
+            ALOGV("apply: %p->%s(%s)", op, op->name(), op->parameters().ascii().data());
             op->apply(&context);
         }
-        if (saveCount)
-            canvas->restoreToCount(saveCount);
+        while (currState) {
+            currState->exitState(&context);
+            currState = currState->parent();
+        }
+        if (saveCount != canvas->getSaveCount()) {
+            ALOGW("Save/restore mismatch! %d vs. %d", saveCount, canvas->getSaveCount());
+        }
     }
 }
 
@@ -161,13 +272,14 @@ PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* re
     , mPicture(0)
     , mRecording(recording)
     , mOperationState(0)
-    , mOperationMatrix(0)
     , m_hasText(false)
     , m_isEmpty(true)
 {
-    pushMatrix();
     if (mRecording)
         mRecording->setRecording(new RecordingImpl());
+    mMatrixStack.append(SkMatrix::I());
+    mCurrentMatrix = &(mMatrixStack.last());
+    pushStateOperation(new CanvasState(0));
 }
 
 bool PlatformGraphicsContextRecording::isPaintingDisabled()
@@ -200,24 +312,28 @@ void PlatformGraphicsContextRecording::endRecording(const SkRect& bounds)
 
 void PlatformGraphicsContextRecording::beginTransparencyLayer(float opacity)
 {
-    pushSaveOperation(new GraphicsOperation::TransparencyLayer(opacity));
+    CanvasState* parent = mRecordingStateStack.last().mCanvasState;
+    pushStateOperation(new CanvasState(parent, opacity));
 }
 
 void PlatformGraphicsContextRecording::endTransparencyLayer()
 {
-    popSaveOperation();
+    popStateOperation();
 }
 
 void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
-    pushSaveOperation(new GraphicsOperation::Save());
+    CanvasState* parent = mRecordingStateStack.last().mCanvasState;
+    pushStateOperation(new CanvasState(parent));
+    pushMatrix();
 }
 
 void PlatformGraphicsContextRecording::restore()
 {
     PlatformGraphicsContext::restore();
-    popSaveOperation();
+    popMatrix();
+    popStateOperation();
 }
 
 //**************************************
@@ -227,19 +343,19 @@ void PlatformGraphicsContextRecording::restore()
 void PlatformGraphicsContextRecording::setAlpha(float alpha)
 {
     PlatformGraphicsContext::setAlpha(alpha);
-    appendStateOperation(new GraphicsOperation::SetAlpha(alpha));
+    mOperationState = 0;
 }
 
 void PlatformGraphicsContextRecording::setCompositeOperation(CompositeOperator op)
 {
     PlatformGraphicsContext::setCompositeOperation(op);
-    appendStateOperation(new GraphicsOperation::SetCompositeOperation(op));
+    mOperationState = 0;
 }
 
 bool PlatformGraphicsContextRecording::setFillColor(const Color& c)
 {
     if (PlatformGraphicsContext::setFillColor(c)) {
-        appendStateOperation(new GraphicsOperation::SetFillColor(c));
+        mOperationState = 0;
         return true;
     }
     return false;
@@ -248,7 +364,7 @@ bool PlatformGraphicsContextRecording::setFillColor(const Color& c)
 bool PlatformGraphicsContextRecording::setFillShader(SkShader* fillShader)
 {
     if (PlatformGraphicsContext::setFillShader(fillShader)) {
-        appendStateOperation(new GraphicsOperation::SetFillShader(fillShader));
+        mOperationState = 0;
         return true;
     }
     return false;
@@ -257,44 +373,44 @@ bool PlatformGraphicsContextRecording::setFillShader(SkShader* fillShader)
 void PlatformGraphicsContextRecording::setLineCap(LineCap cap)
 {
     PlatformGraphicsContext::setLineCap(cap);
-    appendStateOperation(new GraphicsOperation::SetLineCap(cap));
+    mOperationState = 0;
 }
 
 void PlatformGraphicsContextRecording::setLineDash(const DashArray& dashes, float dashOffset)
 {
     PlatformGraphicsContext::setLineDash(dashes, dashOffset);
-    appendStateOperation(new GraphicsOperation::SetLineDash(dashes, dashOffset));
+    mOperationState = 0;
 }
 
 void PlatformGraphicsContextRecording::setLineJoin(LineJoin join)
 {
     PlatformGraphicsContext::setLineJoin(join);
-    appendStateOperation(new GraphicsOperation::SetLineJoin(join));
+    mOperationState = 0;
 }
 
 void PlatformGraphicsContextRecording::setMiterLimit(float limit)
 {
     PlatformGraphicsContext::setMiterLimit(limit);
-    appendStateOperation(new GraphicsOperation::SetMiterLimit(limit));
+    mOperationState = 0;
 }
 
 void PlatformGraphicsContextRecording::setShadow(int radius, int dx, int dy, SkColor c)
 {
     PlatformGraphicsContext::setShadow(radius, dx, dy, c);
-    appendStateOperation(new GraphicsOperation::SetShadow(radius, dx, dy, c));
+    mOperationState = 0;
 }
 
 void PlatformGraphicsContextRecording::setShouldAntialias(bool useAA)
 {
     m_state->useAA = useAA;
     PlatformGraphicsContext::setShouldAntialias(useAA);
-    appendStateOperation(new GraphicsOperation::SetShouldAntialias(useAA));
+    mOperationState = 0;
 }
 
 bool PlatformGraphicsContextRecording::setStrokeColor(const Color& c)
 {
     if (PlatformGraphicsContext::setStrokeColor(c)) {
-        appendStateOperation(new GraphicsOperation::SetStrokeColor(c));
+        mOperationState = 0;
         return true;
     }
     return false;
@@ -303,7 +419,7 @@ bool PlatformGraphicsContextRecording::setStrokeColor(const Color& c)
 bool PlatformGraphicsContextRecording::setStrokeShader(SkShader* strokeShader)
 {
     if (PlatformGraphicsContext::setStrokeShader(strokeShader)) {
-        appendStateOperation(new GraphicsOperation::SetStrokeShader(strokeShader));
+        mOperationState = 0;
         return true;
     }
     return false;
@@ -312,13 +428,13 @@ bool PlatformGraphicsContextRecording::setStrokeShader(SkShader* strokeShader)
 void PlatformGraphicsContextRecording::setStrokeStyle(StrokeStyle style)
 {
     PlatformGraphicsContext::setStrokeStyle(style);
-    appendStateOperation(new GraphicsOperation::SetStrokeStyle(style));
+    mOperationState = 0;
 }
 
 void PlatformGraphicsContextRecording::setStrokeThickness(float f)
 {
     PlatformGraphicsContext::setStrokeThickness(f);
-    appendStateOperation(new GraphicsOperation::SetStrokeThickness(f));
+    mOperationState = 0;
 }
 
 //**************************************
@@ -328,7 +444,6 @@ void PlatformGraphicsContextRecording::setStrokeThickness(float f)
 void PlatformGraphicsContextRecording::concatCTM(const AffineTransform& affine)
 {
     mCurrentMatrix->preConcat(affine);
-    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::ConcatCTM(affine));
 }
 
@@ -336,31 +451,24 @@ void PlatformGraphicsContextRecording::rotate(float angleInRadians)
 {
     float value = angleInRadians * (180.0f / 3.14159265f);
     mCurrentMatrix->preRotate(SkFloatToScalar(value));
-    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::Rotate(angleInRadians));
 }
 
 void PlatformGraphicsContextRecording::scale(const FloatSize& size)
 {
     mCurrentMatrix->preScale(SkFloatToScalar(size.width()), SkFloatToScalar(size.height()));
-    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::Scale(size));
 }
 
 void PlatformGraphicsContextRecording::translate(float x, float y)
 {
     mCurrentMatrix->preTranslate(SkFloatToScalar(x), SkFloatToScalar(y));
-    onCurrentMatrixChanged();
     appendStateOperation(new GraphicsOperation::Translate(x, y));
 }
 
 const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 {
-    // Each RecordingState tracks the delta from its "parent" SkMatrix
-    mTotalMatrix = mMatrixStack.first();
-    for (size_t i = 1; i < mMatrixStack.size(); i++)
-        mTotalMatrix.preConcat(mMatrixStack[i]);
-    return mTotalMatrix;
+    return *mCurrentMatrix;
 }
 
 //**************************************
@@ -578,28 +686,33 @@ void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
     }
 }
 
-void PlatformGraphicsContextRecording::pushSaveOperation(GraphicsOperation::Save* saveOp)
+void PlatformGraphicsContextRecording::pushStateOperation(CanvasState* canvasState)
 {
-    mRecordingStateStack.append(saveOp);
-    if (saveOp->saveMatrix())
-        pushMatrix();
+    ALOGV("pushStateOperation: %p(isLayer=%d)", canvasState, canvasState->isTransparencyLayer());
+    mRecordingStateStack.append(canvasState);
+    mRecording->recording()->addCanvasState(canvasState);
 }
 
-void PlatformGraphicsContextRecording::popSaveOperation()
+void PlatformGraphicsContextRecording::popStateOperation()
 {
     RecordingState state = mRecordingStateStack.last();
     mRecordingStateStack.removeLast();
-    if (state.mSaveOperation->saveMatrix())
-        popMatrix();
-    if (state.mHasDrawing)
-        appendDrawingOperation(state.mSaveOperation, state.mBounds);
-    else
-        delete state.mSaveOperation;
+    if (!state.mHasDrawing) {
+        ALOGV("popStateOperation is deleting %p(isLayer=%d)",
+                state.mCanvasState, state.mCanvasState->isTransparencyLayer());
+        mRecording->recording()->removeCanvasState(state.mCanvasState);
+        delete state.mCanvasState;
+    } else {
+        ALOGV("popStateOperation: %p(isLayer=%d)",
+                state.mCanvasState, state.mCanvasState->isTransparencyLayer());
+        // Make sure we propagate drawing upwards so we don't delete our parent
+        mRecordingStateStack.last().mHasDrawing = true;
+    }
 }
 
 void PlatformGraphicsContextRecording::pushMatrix()
 {
-    mMatrixStack.append(SkMatrix::I());
+    mMatrixStack.append(mMatrixStack.last());
     mCurrentMatrix = &(mMatrixStack.last());
 }
 
@@ -611,6 +724,10 @@ void PlatformGraphicsContextRecording::popMatrix()
 
 IntRect PlatformGraphicsContextRecording::calculateFinalBounds(FloatRect bounds)
 {
+    if (bounds.isEmpty() && mRecordingStateStack.last().mHasClip) {
+        ALOGV("Empty bounds, but has clip so using that");
+        return enclosingIntRect(mRecordingStateStack.last().mBounds);
+    }
     if (m_gc->hasShadow()) {
         const ShadowRec& shadow = m_state->shadow;
         if (shadow.blur > 0)
@@ -628,51 +745,45 @@ IntRect PlatformGraphicsContextRecording::calculateFinalBounds(FloatRect bounds)
         bounds.inflate(std::min(1.0f, m_state->strokeThickness));
     SkRect translated;
     mCurrentMatrix->mapRect(&translated, bounds);
+    FloatRect ftrect = translated;
+    if (mRecordingStateStack.last().mHasClip
+            && !translated.intersect(mRecordingStateStack.last().mBounds)) {
+        ALOGV("Operation bounds=" FLOAT_RECT_FORMAT " clipped out by clip=" FLOAT_RECT_FORMAT,
+                FLOAT_RECT_ARGS(ftrect), FLOAT_RECT_ARGS(mRecordingStateStack.last().mBounds));
+        return IntRect();
+    }
     return enclosingIntRect(translated);
 }
 
 void PlatformGraphicsContextRecording::appendDrawingOperation(
         GraphicsOperation::Operation* operation, const FloatRect& untranslatedBounds)
 {
-    if (untranslatedBounds.isEmpty()) {
-        ALOGW("Empty bounds for %s(%s)!", operation->name(), operation->parameters().ascii().data());
-        return;
-    }
     m_isEmpty = false;
-    if (mRecordingStateStack.size()) {
-        RecordingState& state = mRecordingStateStack.last();
-        state.mHasDrawing = true;
-        if (!state.mHasClip)
-            state.addBounds(calculateFinalBounds(untranslatedBounds));
-        state.mSaveOperation->operations()->adoptAndAppend(operation);
-        return;
-    }
+    RecordingState& state = mRecordingStateStack.last();
+    state.mHasDrawing = true;
     if (!mOperationState)
         mOperationState = mRecording->recording()->getState(m_state);
-    if (!mOperationMatrix)
-        mOperationMatrix = mRecording->recording()->cloneMatrix(mMatrixStack.first());
     operation->m_state = mOperationState;
-    operation->m_matrix = mOperationMatrix;
-    RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
+    operation->m_canvasState = state.mCanvasState;
 
     WebCore::IntRect ibounds = calculateFinalBounds(untranslatedBounds);
+    if (ibounds.isEmpty()) {
+        ALOGV("Operation %s(%s) was clipped out", operation->name(),
+                operation->parameters().ascii().data());
+        delete operation;
+        return;
+    }
+    ALOGV("appendOperation %p->%s()", operation, operation->name());
+    operation->m_globalBounds = ibounds;
+    RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecording->recording()->m_tree.insert(ibounds, data);
 }
 
 void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::Operation* operation)
 {
-    if (mRecordingStateStack.size())
-        mRecordingStateStack.last().mSaveOperation->operations()->adoptAndAppend(operation);
-    else {
-        delete operation;
-        mOperationState = 0;
-    }
-}
-
-void PlatformGraphicsContextRecording::onCurrentMatrixChanged()
-{
-    if (mCurrentMatrix == &(mMatrixStack.first()))
-        mOperationMatrix = 0;
+    ALOGV("appendOperation %p->%s()", operation, operation->name());
+    RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
+    mRecordingStateStack.last().mCanvasState->adoptAndAppend(data);
 }
 
 }   // WebCore
