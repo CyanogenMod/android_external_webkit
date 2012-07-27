@@ -36,10 +36,10 @@ namespace WebCore {
 
 class InstrumentedPlatformCanvas : public SkCanvas {
 public:
-    InstrumentedPlatformCanvas(int width, int height)
+    InstrumentedPlatformCanvas(int width, int height, Color initialColor)
         : m_size(width, height)
         , m_isSolidColor(true)
-        , m_solidColor(0, 0, 0, 0)
+        , m_solidColor(initialColor)
     {
     }
 
