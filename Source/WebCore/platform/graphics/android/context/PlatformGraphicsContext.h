@@ -141,7 +141,6 @@ public:
     virtual void strokeRect(const FloatRect& rect, float lineWidth) = 0;
 
     virtual SkCanvas* recordingCanvas() = 0;
-    virtual void endRecording(const SkRect& bounds) = 0;
 
     void setRawState(State* state) { m_state = state; }
 

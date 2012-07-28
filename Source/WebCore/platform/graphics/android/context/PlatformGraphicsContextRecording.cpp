@@ -1,3 +1,28 @@
+/*
+ * Copyright 2012, The Android Open Source Project
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *  * Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *  * Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+ * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+ * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
+ * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
 #define LOG_TAG "PlatformGraphicsContextRecording"
 #define LOG_NDEBUG 1
 
@@ -18,6 +43,39 @@
 #include "wtf/StringHasher.h"
 
 namespace WebCore {
+
+static FloatRect approximateTextBounds(size_t numGlyphs,
+    const SkPoint pos[], const SkPaint& paint)
+{
+    if (!numGlyphs || !pos) {
+        return FloatRect();
+    }
+
+    // get glyph position bounds
+    SkScalar minX = pos[0].x();
+    SkScalar maxX = minX;
+    SkScalar minY = pos[0].y();
+    SkScalar maxY = minY;
+    for (size_t i = 1; i < numGlyphs; ++i) {
+        SkScalar x = pos[i].x();
+        SkScalar y = pos[i].y();
+        minX = std::min(minX, x);
+        maxX = std::max(maxX, x);
+        minY = std::min(minY, y);
+        maxY = std::max(maxY, y);
+    }
+
+    // build final rect
+    SkPaint::FontMetrics metrics;
+    SkScalar bufY = paint.getFontMetrics(&metrics);
+    SkScalar bufX = bufY * 2;
+    SkScalar adjY = metrics.fAscent / 2;
+    minY += adjY;
+    maxY += adjY;
+    SkRect rect;
+    rect.set(minX - bufX, minY - bufY, maxX + bufX, maxY + bufY);
+    return rect;
+}
 
 class StateHash {
 public:
@@ -274,6 +332,7 @@ PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* re
     , mOperationState(0)
     , m_hasText(false)
     , m_isEmpty(true)
+    , m_canvasProxy(this)
 {
     if (mRecording)
         mRecording->setRecording(new RecordingImpl());
@@ -289,21 +348,8 @@ bool PlatformGraphicsContextRecording::isPaintingDisabled()
 
 SkCanvas* PlatformGraphicsContextRecording::recordingCanvas()
 {
-    SkSafeUnref(mPicture);
-    mPicture = new SkPicture();
-    return mPicture->beginRecording(0, 0, 0);
-}
-
-void PlatformGraphicsContextRecording::endRecording(const SkRect& bounds)
-{
-    if (!mPicture)
-        return;
-    mPicture->endRecording();
-    GraphicsOperation::DrawComplexText* text = new GraphicsOperation::DrawComplexText(mPicture);
-    appendDrawingOperation(text, bounds);
-    mPicture = 0;
-
     m_hasText = true;
+    return &m_canvasProxy;
 }
 
 //**************************************
@@ -675,6 +721,16 @@ void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float l
     FloatRect bounds = rect;
     bounds.inflate(lineWidth);
     appendDrawingOperation(new GraphicsOperation::StrokeRect(rect, lineWidth), bounds);
+}
+
+void PlatformGraphicsContextRecording::drawPosText(const void* text, size_t byteLength,
+                                                   const SkPoint pos[], const SkPaint& paint)
+{
+    if (paint.getTextEncoding() != SkPaint::kGlyphID_TextEncoding) {
+        ALOGE("Unsupported text encoding! %d", paint.getTextEncoding());
+    }
+    FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), pos, paint);
+    appendDrawingOperation(new GraphicsOperation::DrawPosText(text, byteLength, pos, paint), bounds);
 }
 
 void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
