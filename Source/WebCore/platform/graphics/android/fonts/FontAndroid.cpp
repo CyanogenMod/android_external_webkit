@@ -177,48 +177,6 @@ static bool setupForText(SkPaint* paint, GraphicsContext* gc,
     return true;
 }
 
-static void approximateTextBounds(SkRect& rect, size_t numGlyphs,
-    const SkPoint pos[], const SkPaint& paint)
-{
-    if (!numGlyphs || !pos) {
-        return;
-    }
-
-    // get glyph position bounds
-    SkScalar minX = pos[0].x();
-    SkScalar maxX = minX;
-    SkScalar minY = pos[0].y();
-    SkScalar maxY = minY;
-    for (size_t i = 1; i < numGlyphs; ++i) {
-        SkScalar x = pos[i].x();
-        SkScalar y = pos[i].y();
-        minX = std::min(minX, x);
-        maxX = std::max(maxX, x);
-        minY = std::min(minY, y);
-        maxY = std::max(maxY, y);
-    }
-
-    // build final rect
-    SkPaint::FontMetrics metrics;
-    SkScalar bufY = paint.getFontMetrics(&metrics);
-    SkScalar bufX = bufY * 2;
-    SkScalar adjY = metrics.fAscent / 2;
-    minY += adjY;
-    maxY += adjY;
-    rect.set(minX - bufX, minY - bufY, maxX + bufX, maxY + bufY);
-}
-
-static SkRect drawPosText(SkCanvas* canvas, const void* text,
-    size_t byteLength, const SkPoint pos[], const SkPaint& paint)
-{
-    canvas->drawPosText(text, byteLength, pos, paint);
-    SkRect textBounds;
-    approximateTextBounds(textBounds, byteLength / sizeof(uint16_t), pos,
-        paint);
-    canvas->getTotalMatrix().mapRect(&textBounds);
-    return textBounds;
-}
-
 bool Font::canReturnFallbackFontsForComplexText()
 {
     return false;
@@ -263,7 +221,6 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
     if (font->platformData().orientation() == Vertical)
         y += SkFloatToScalar(font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
 
-    FloatRect textBounds;
     if (EmojiFont::IsAvailable()) {
         // set filtering, to make scaled images look nice(r)
         paint.setFilterBitmap(true);
@@ -273,14 +230,11 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         for (int i = 0; i < numGlyphs; i++) {
             if (EmojiFont::IsEmojiGlyph(glyphs[i])) {
                 if (localCount) {
-                    textBounds.unite(drawPosText(canvas, &glyphs[localIndex],
+                    canvas->drawPosText(&glyphs[localIndex],
                                      localCount * sizeof(uint16_t),
-                                     &pos[localIndex], paint));
+                                     &pos[localIndex], paint);
                 }
                 EmojiFont::Draw(canvas, glyphs[i], x, y, paint);
-                float size = paint.getTextSize();
-                FloatRect emojiBounds(x, y - size + 0.2f, size, size);
-                textBounds.unite(emojiBounds);
                 // reset local index/count track for "real" glyphs
                 localCount = 0;
                 localIndex = i + 1;
@@ -293,9 +247,9 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         }
         // draw the last run of glyphs (if any)
         if (localCount) {
-            textBounds.unite(drawPosText(canvas, &glyphs[localIndex],
+            canvas->drawPosText(&glyphs[localIndex],
                              localCount * sizeof(uint16_t),
-                             &pos[localIndex], paint));
+                             &pos[localIndex], paint);
         }
     } else {
         for (int i = 0; i < numGlyphs; i++) {
@@ -312,13 +266,12 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
             rotator.setRotate(90);
             rotator.mapPoints(pos, numGlyphs);
         }
-        textBounds.unite(drawPosText(canvas, glyphs,
-            numGlyphs * sizeof(uint16_t), pos, paint));
+        canvas->drawPosText(glyphs,
+            numGlyphs * sizeof(uint16_t), pos, paint);
 
         if (font->platformData().orientation() == Vertical)
             canvas->restore();
     }
-    gc->platformContext()->endRecording(textBounds);
 }
 
 void Font::drawEmphasisMarksForComplexText(WebCore::GraphicsContext*, WebCore::TextRun const&, WTF::AtomicString const&, WebCore::FloatPoint const&, int, int) const
@@ -1082,23 +1035,21 @@ void Font::drawComplexText(GraphicsContext* gc, TextRun const& run,
     walker.setWordAndLetterSpacing(wordSpacing(), letterSpacing());
     walker.setPadding(run.expansion());
 
-    FloatRect textBounds;
     while (walker.nextScriptRun()) {
         if (fill) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&fillPaint);
             adjustTextRenderMode(&fillPaint, haveMultipleLayers);
-            textBounds.unite(drawPosText(canvas, walker.glyphs(),
-                walker.length() << 1, walker.positions(), fillPaint));
+            canvas->drawPosText(walker.glyphs(),
+                walker.length() << 1, walker.positions(), fillPaint);
         }
         if (stroke) {
             walker.fontPlatformDataForScriptRun()->setupPaint(&strokePaint);
             adjustTextRenderMode(&strokePaint, haveMultipleLayers);
-            textBounds.unite(drawPosText(canvas, walker.glyphs(),
-                walker.length() << 1, walker.positions(), strokePaint));
+            canvas->drawPosText(walker.glyphs(),
+                walker.length() << 1, walker.positions(), strokePaint);
         }
     }
 
-    gc->platformContext()->endRecording(textBounds);
 }
 
 float Font::floatWidthForComplexText(const TextRun& run,
