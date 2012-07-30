@@ -41,7 +41,7 @@ public:
         , m_operation(ops)
     {}
     ~RecordingData() {
-        delete m_operation;
+        m_operation->~Operation();
     }
 
     size_t m_orderBy;
