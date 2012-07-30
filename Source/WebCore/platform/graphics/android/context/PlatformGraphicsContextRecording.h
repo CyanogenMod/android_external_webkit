@@ -28,9 +28,8 @@
 
 #include "PlatformGraphicsContext.h"
 
+#include "RecordingContextCanvasProxy.h"
 #include "SkRefCnt.h"
-
-class SkCanvas;
 
 namespace WebCore {
 namespace GraphicsOperation {
@@ -62,7 +61,6 @@ public:
     virtual SkCanvas* getCanvas() { return 0; }
 
     virtual SkCanvas* recordingCanvas();
-    virtual void endRecording(const SkRect& bounds);
 
     virtual ContextType type() { return RecordingContext; }
 
@@ -135,6 +133,9 @@ public:
     virtual void strokePath(const Path& pathToStroke);
     virtual void strokeRect(const FloatRect& rect, float lineWidth);
 
+    void drawPosText(const void* text, size_t byteLength,
+                     const SkPoint pos[], const SkPaint& paint);
+
     bool hasText() { return m_hasText; }
     bool isEmpty() { return m_isEmpty; }
 private:
@@ -192,6 +193,7 @@ private:
 
     bool m_hasText;
     bool m_isEmpty;
+    RecordingContextCanvasProxy m_canvasProxy;
 };
 
 }

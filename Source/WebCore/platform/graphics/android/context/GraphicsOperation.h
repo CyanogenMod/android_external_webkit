@@ -79,8 +79,7 @@ public:
                   , StrokePathOperation
                   , StrokeRectOperation
                   // Text
-                  , DrawComplexTextOperation
-                  , DrawTextOperation
+                  , DrawPosTextOperation
     } OperationType;
 
     Operation()
@@ -137,8 +136,7 @@ public:
             TYPE_CASE(StrokePathOperation)
             TYPE_CASE(StrokeRectOperation)
             // Text
-            TYPE_CASE(DrawComplexTextOperation)
-            TYPE_CASE(DrawTextOperation)
+            TYPE_CASE(DrawPosTextOperation)
         }
         return "Undefined";
     }
@@ -536,56 +534,32 @@ private:
 // Text
 //**************************************
 
-class DrawComplexText : public Operation {
+class DrawPosText : public Operation {
 public:
-    DrawComplexText(SkPicture* picture) : m_picture(picture) {
-        SkSafeRef(m_picture);
+    DrawPosText(const void* text, size_t byteLength,
+                const SkPoint pos[], const SkPaint& paint)
+        : m_byteLength(byteLength)
+        , m_paint(paint)
+    {
+        size_t points = paint.countText(text, byteLength);
+        m_pos = new SkPoint[points];
+        memcpy(m_pos, pos, sizeof(SkPoint) * points);
+        m_text = malloc(byteLength);
+        memcpy(m_text, text, byteLength);
     }
-    ~DrawComplexText() { SkSafeUnref(m_picture); }
+    ~DrawPosText() { delete m_pos; free(m_text); }
     virtual bool applyImpl(PlatformGraphicsContext* context) {
         if (!context->getCanvas())
             return true;
-        context->getCanvas()->drawPicture(*m_picture);
+        context->getCanvas()->drawPosText(m_text, m_byteLength, m_pos, m_paint);
         return true;
     }
-    virtual OperationType type() { return DrawComplexTextOperation; }
+    virtual OperationType type() { return DrawPosTextOperation; }
 private:
-    SkPicture* m_picture;
-};
-
-class DrawText : public Operation {
-public:
-    DrawText(const Font* font, const SimpleFontData* simpleFont,
-             const GlyphBuffer& glyphBuffer,
-             int from, int numGlyphs, const FloatPoint& point)
-        : m_font(font), m_simpleFont(simpleFont)
-        , m_glyphBuffer(glyphBuffer), m_from(from)
-        , m_numGlyphs(numGlyphs), m_point(point) {
-        SkPicture* picture = new SkPicture();
-        SkCanvas* canvas = picture->beginRecording(0, 0, 0);
-        PlatformGraphicsContextSkia platformContext(canvas);
-        GraphicsContext graphicsContext(&platformContext);
-        m_font->drawGlyphs(&graphicsContext, m_simpleFont,
-                           m_glyphBuffer, m_from, m_numGlyphs, m_point);
-        picture->endRecording();
-        m_picture = picture;
-    }
-    ~DrawText() { SkSafeUnref(m_picture); }
-    virtual bool applyImpl(PlatformGraphicsContext* context) {
-        if (!context->getCanvas())
-            return true;
-        context->getCanvas()->drawPicture(*m_picture);
-        return true;
-    }
-    virtual OperationType type() { return DrawTextOperation; }
-private:
-    SkPicture* m_picture;
-    const Font* m_font;
-    const SimpleFontData* m_simpleFont;
-    const GlyphBuffer m_glyphBuffer;
-    int m_from;
-    int m_numGlyphs;
-    const FloatPoint m_point;
+    void* m_text;
+    size_t m_byteLength;
+    SkPoint* m_pos;
+    SkPaint m_paint;
 };
 
 }
