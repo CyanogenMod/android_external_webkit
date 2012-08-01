@@ -850,7 +850,6 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         return;
     }
     ALOGV("appendOperation %p->%s()", operation, operation->name());
-    operation->m_globalBounds = ibounds;
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecording->recording()->m_tree.insert(ibounds, data);
 }
