@@ -32,6 +32,7 @@
 
 #include <GeolocationError.h>
 #include <GeolocationPosition.h>
+#include "JNIHelp.h"
 #include "ScopedLocalRef.h"
 #include <wtf/CurrentTime.h>
 
