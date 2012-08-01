@@ -1569,7 +1569,11 @@ bool HTMLInputElement::hasSpinButton() const
 
 bool HTMLInputElement::supportsPlaceholder() const
 {
+#if PLATFORM(ANDROID)
+    return isTextType() || isNumberField();
+#else
     return isTextType();
+#endif
 }
 
 CheckedRadioButtons& HTMLInputElement::checkedRadioButtons() const
