@@ -153,14 +153,30 @@ void PicturePile::setSize(const IntSize& size)
 {
     if (m_size == size)
         return;
+    IntSize oldSize = m_size;
     m_size = size;
-    // TODO: See above about just adding invals for new content
-    m_pile.clear();
-    m_webkitInvals.clear();
-    if (!size.isEmpty()) {
-        IntRect area(0, 0, size.width(), size.height());
-        m_webkitInvals.append(area);
-        m_pile.append(area);
+    if (size.width() <= oldSize.width() && size.height() <= oldSize.height()) {
+        // We are shrinking - huzzah, nothing to do!
+        // TODO: Loop through and throw out Pictures that are now clipped out
+    } else if (oldSize.width() == size.width()) {
+        // Only changing vertically
+        IntRect rect(0, std::min(oldSize.height(), size.height()),
+                     size.width(), std::abs(oldSize.height() - size.height()));
+        invalidate(rect);
+    } else if (oldSize.height() == size.height()) {
+        // Only changing horizontally
+        IntRect rect(std::min(oldSize.width(), size.width()), 0,
+                     std::abs(oldSize.width() - size.width()), size.height());
+        invalidate(rect);
+    } else {
+        // Both width & height changed, full inval :(
+        m_pile.clear();
+        m_webkitInvals.clear();
+        if (!size.isEmpty()) {
+            IntRect area(0, 0, size.width(), size.height());
+            m_webkitInvals.append(area);
+            m_pile.append(area);
+        }
     }
 }
 
