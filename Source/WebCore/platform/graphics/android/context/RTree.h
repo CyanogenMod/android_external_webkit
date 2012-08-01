@@ -88,7 +88,7 @@ public:
 
     ElementList(int size);
     ~ElementList();
-    void add(Node* n, bool doTighten = true);
+    void add(Node* n);
     void tighten();
     int delta(Node* n);
     void removeAll();
@@ -104,6 +104,7 @@ private:
     int m_minY;
     int m_maxY;
     int m_area;
+    bool m_didTighten;
 };
 
 class Node {
@@ -133,6 +134,7 @@ private:
 
     void setParent(Node* n);
     Node* findNode(Node* n);
+    void simpleAdd(Node* n);
     void add(Node* n);
     void remove(Node* n);
     void destroy(int index);
@@ -140,6 +142,7 @@ private:
     Node* split();
     void adjustTree(Node* N, Node* NN);
     void tighten();
+    bool updateBounds();
     int delta(Node* n);
 
     bool overlap(int minx, int miny, int maxx, int maxy);

@@ -185,6 +185,7 @@ ElementList::ElementList(int size)
     , m_minY(0)
     , m_maxY(0)
     , m_area(0)
+    , m_didTighten(false)
 {
     m_children = new Node*[size];
 }
@@ -194,22 +195,26 @@ ElementList::~ElementList()
     delete[] m_children;
 }
 
-void ElementList::add(Node* node, bool doTighten)
+void ElementList::add(Node* node)
 {
     m_children[m_nbChildren] = node;
     m_nbChildren++;
-    if (doTighten)
-        tighten();
+    m_didTighten = false;
 }
 
 void ElementList::tighten()
 {
+    if (m_didTighten)
+        return;
     recomputeBounds(m_minX, m_minY, m_maxX, m_maxY,
                     m_nbChildren, m_children, &m_area);
+    m_didTighten = true;
 }
 
 int ElementList::delta(Node* node)
 {
+    if (!m_didTighten)
+        tighten();
     return computeDeltaArea(node, m_minX, m_minY, m_maxX, m_maxY);
 }
 
@@ -221,6 +226,7 @@ void ElementList::removeAll()
     m_minY = 0;
     m_maxY = 0;
     m_area = 0;
+    m_didTighten = false;
 }
 
 void ElementList::display() {
@@ -306,19 +312,21 @@ int Node::delta(Node* node)
     return computeDeltaArea(node, m_minX, m_minY, m_maxX, m_maxY);
 }
 
-void Node::add(Node* node)
+void Node::simpleAdd(Node* node)
 {
     node->setParent(this);
     if (!m_children)
         m_children = new Node*[m_tree->m_maxChildren + 1];
     m_children[m_nbChildren] = node;
     m_nbChildren++;
-    Node* NN = 0;
+}
 
+void Node::add(Node* node)
+{
+    simpleAdd(node);
+    Node* NN = 0;
     if (m_nbChildren > m_tree->m_maxChildren)
         NN = split();
-    else
-        tighten();
 
     adjustTree(this, NN);
 }
@@ -437,11 +445,12 @@ Node* Node::split()
     // Use the list to rebuild the nodes
     removeAll();
     for (unsigned int i = 0; i < listA->m_nbChildren; i++)
-        add(listA->m_children[i]);
+        simpleAdd(listA->m_children[i]);
 
     Node* NN = Node::create(m_tree);
     for (unsigned int i = 0; i < listB->m_nbChildren; i++)
-        NN->add(listB->m_children[i]);
+        NN->simpleAdd(listB->m_children[i]);
+    NN->tighten();
 
     return NN;
 }
@@ -453,36 +462,52 @@ bool Node::isRoot()
 
 void Node::adjustTree(Node* N, Node* NN)
 {
+    bool callParent = N->updateBounds();
+
     if (N->isRoot() && NN) {
         // build new root
         Node* root = Node::create(m_tree);
 #ifdef DEBUG
         ALOGV("-> node %d created as new root", root->m_tid);
 #endif
-        root->add(N);
-        root->add(NN);
+        root->simpleAdd(N);
+        root->simpleAdd(NN);
+        root->tighten();
         m_tree->m_root = root;
         return;
     }
+
     if (N->isRoot())
         return;
 
     if (N->m_parent) {
-        N->m_parent->tighten();
         if (NN)
             N->m_parent->add(NN);
-        else
+        else if (callParent)
             adjustTree(N->m_parent, 0);
     }
+}
+
+bool Node::updateBounds()
+{
+    int ominx = m_minX;
+    int ominy = m_minY;
+    int omaxx = m_maxX;
+    int omaxy = m_maxY;
+    tighten();
+    if ((ominx != m_minX)
+        || (ominy != m_minY)
+        || (omaxx != m_maxX)
+        || (omaxy != m_maxY))
+        return true;
+    return false;
 }
 
 #ifdef DEBUG
 static int gMaxLevel = 0;
 static int gNbNodes = 0;
 static int gNbElements = 0;
-#endif
 
-#ifdef DEBUG
 void Node::drawTree(int level)
 {
     if (level == 0) {
