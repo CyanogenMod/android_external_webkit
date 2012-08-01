@@ -35,12 +35,15 @@
 #include "Font.h"
 #include "GraphicsContext.h"
 #include "GraphicsOperation.h"
+#include "LinearAllocator.h"
 #include "PlatformGraphicsContextSkia.h"
 #include "RTree.h"
 
 #include "wtf/NonCopyingSort.h"
 #include "wtf/HashSet.h"
 #include "wtf/StringHasher.h"
+
+#define NEW_OP(X) new (operationHeap()) GraphicsOperation::X
 
 namespace WebCore {
 
@@ -164,6 +167,10 @@ public:
         return m_isTransparencyLayer;
     }
 
+    void* operator new(size_t size, LinearAllocator* la) {
+        return la->alloc(size);
+    }
+
 private:
     CanvasState *m_parent;
     bool m_isTransparencyLayer;
@@ -172,9 +179,18 @@ private:
 };
 
 class RecordingImpl {
+private:
+    // Careful, ordering matters here. Ordering is first constructed == last destroyed,
+    // so we have to make sure our Heap is the first thing listed so that it is
+    // the last thing destroyed.
+    LinearAllocator m_operationHeap;
+    LinearAllocator m_canvasStateHeap;
+    LinearAllocator m_stateHeap;
 public:
     RecordingImpl()
-        : m_nodeCount(0)
+        : m_canvasStateHeap(sizeof(CanvasState))
+        , m_stateHeap(sizeof(PlatformGraphicsContext::State))
+        , m_nodeCount(0)
     {
     }
 
@@ -187,8 +203,8 @@ public:
         StateHashSet::iterator it = m_states.find(inState);
         if (it != m_states.end())
             return (*it);
-        // TODO: Use a custom allocator
-        PlatformGraphicsContext::State* state = new PlatformGraphicsContext::State(*inState);
+        void* buf = m_stateHeap.alloc(sizeof(PlatformGraphicsContext::State));
+        PlatformGraphicsContext::State* state = new (buf) PlatformGraphicsContext::State(*inState);
         m_states.add(state);
         return state;
     }
@@ -236,6 +252,9 @@ public:
         toState->playback(context, fromId, toId);
     }
 
+    LinearAllocator* operationHeap() { return &m_operationHeap; }
+    LinearAllocator* canvasStateHeap() { return &m_canvasStateHeap; }
+
     RTree::RTree m_tree;
     int m_nodeCount;
 
@@ -244,13 +263,13 @@ private:
     void clearStates() {
         StateHashSet::iterator end = m_states.end();
         for (StateHashSet::iterator it = m_states.begin(); it != end; ++it)
-            delete (*it);
+            (*it)->~State();
         m_states.clear();
     }
 
     void clearCanvasStates() {
         for (size_t i = 0; i < m_canvasStates.size(); i++)
-            delete m_canvasStates[i];
+            m_canvasStates[i]->~CanvasState();
         m_canvasStates.clear();
     }
 
@@ -299,7 +318,7 @@ void Recording::draw(SkCanvas* canvas)
                     op->m_canvasState, nodes[i]->m_orderBy);
             currState = op->m_canvasState;
             lastOperationId = nodes[i]->m_orderBy;
-            ALOGV("apply: %p->%s(%s)", op, op->name(), op->parameters().ascii().data());
+            ALOGV("apply: %p->%s()", op, op->name());
             op->apply(&context);
         }
         while (currState) {
@@ -338,7 +357,7 @@ PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* re
         mRecording->setRecording(new RecordingImpl());
     mMatrixStack.append(SkMatrix::I());
     mCurrentMatrix = &(mMatrixStack.last());
-    pushStateOperation(new CanvasState(0));
+    pushStateOperation(new (canvasStateHeap()) CanvasState(0));
 }
 
 bool PlatformGraphicsContextRecording::isPaintingDisabled()
@@ -359,7 +378,7 @@ SkCanvas* PlatformGraphicsContextRecording::recordingCanvas()
 void PlatformGraphicsContextRecording::beginTransparencyLayer(float opacity)
 {
     CanvasState* parent = mRecordingStateStack.last().mCanvasState;
-    pushStateOperation(new CanvasState(parent, opacity));
+    pushStateOperation(new (canvasStateHeap()) CanvasState(parent, opacity));
 }
 
 void PlatformGraphicsContextRecording::endTransparencyLayer()
@@ -371,7 +390,7 @@ void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
     CanvasState* parent = mRecordingStateStack.last().mCanvasState;
-    pushStateOperation(new CanvasState(parent));
+    pushStateOperation(new (canvasStateHeap()) CanvasState(parent));
     pushMatrix();
 }
 
@@ -490,26 +509,26 @@ void PlatformGraphicsContextRecording::setStrokeThickness(float f)
 void PlatformGraphicsContextRecording::concatCTM(const AffineTransform& affine)
 {
     mCurrentMatrix->preConcat(affine);
-    appendStateOperation(new GraphicsOperation::ConcatCTM(affine));
+    appendStateOperation(NEW_OP(ConcatCTM)(affine));
 }
 
 void PlatformGraphicsContextRecording::rotate(float angleInRadians)
 {
     float value = angleInRadians * (180.0f / 3.14159265f);
     mCurrentMatrix->preRotate(SkFloatToScalar(value));
-    appendStateOperation(new GraphicsOperation::Rotate(angleInRadians));
+    appendStateOperation(NEW_OP(Rotate)(angleInRadians));
 }
 
 void PlatformGraphicsContextRecording::scale(const FloatSize& size)
 {
     mCurrentMatrix->preScale(SkFloatToScalar(size.width()), SkFloatToScalar(size.height()));
-    appendStateOperation(new GraphicsOperation::Scale(size));
+    appendStateOperation(NEW_OP(Scale)(size));
 }
 
 void PlatformGraphicsContextRecording::translate(float x, float y)
 {
     mCurrentMatrix->preTranslate(SkFloatToScalar(x), SkFloatToScalar(y));
-    appendStateOperation(new GraphicsOperation::Translate(x, y));
+    appendStateOperation(NEW_OP(Translate)(x, y));
 }
 
 const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
@@ -524,7 +543,7 @@ const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 void PlatformGraphicsContextRecording::addInnerRoundedRectClip(const IntRect& rect,
                                                       int thickness)
 {
-    appendStateOperation(new GraphicsOperation::InnerRoundedRectClip(rect, thickness));
+    appendStateOperation(NEW_OP(InnerRoundedRectClip)(rect, thickness));
 }
 
 void PlatformGraphicsContextRecording::canvasClip(const Path& path)
@@ -535,14 +554,14 @@ void PlatformGraphicsContextRecording::canvasClip(const Path& path)
 bool PlatformGraphicsContextRecording::clip(const FloatRect& rect)
 {
     clipState(rect);
-    appendStateOperation(new GraphicsOperation::Clip(rect));
+    appendStateOperation(NEW_OP(Clip)(rect));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clip(const Path& path)
 {
     clipState(path.boundingRect());
-    appendStateOperation(new GraphicsOperation::ClipPath(path));
+    appendStateOperation(NEW_OP(ClipPath)(path));
     return true;
 }
 
@@ -555,20 +574,20 @@ bool PlatformGraphicsContextRecording::clipConvexPolygon(size_t numPoints,
 
 bool PlatformGraphicsContextRecording::clipOut(const IntRect& r)
 {
-    appendStateOperation(new GraphicsOperation::ClipOut(r));
+    appendStateOperation(NEW_OP(ClipOut)(r));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clipOut(const Path& path)
 {
-    appendStateOperation(new GraphicsOperation::ClipPath(path, true));
+    appendStateOperation(NEW_OP(ClipPath)(path, true));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
 {
     clipState(pathToClip.boundingRect());
-    GraphicsOperation::ClipPath* operation = new GraphicsOperation::ClipPath(pathToClip);
+    GraphicsOperation::ClipPath* operation = NEW_OP(ClipPath)(pathToClip);
     operation->setWindRule(clipRule);
     appendStateOperation(operation);
     return true;
@@ -576,7 +595,7 @@ bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule
 
 void PlatformGraphicsContextRecording::clearRect(const FloatRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::ClearRect(rect), rect);
+    appendDrawingOperation(NEW_OP(ClearRect)(rect), rect);
 }
 
 //**************************************
@@ -588,7 +607,7 @@ void PlatformGraphicsContextRecording::drawBitmapPattern(
         CompositeOperator compositeOp, const FloatRect& destRect)
 {
     appendDrawingOperation(
-            new GraphicsOperation::DrawBitmapPattern(bitmap, matrix, compositeOp, destRect),
+            NEW_OP(DrawBitmapPattern)(bitmap, matrix, compositeOp, destRect),
             destRect);
 }
 
@@ -596,7 +615,7 @@ void PlatformGraphicsContextRecording::drawBitmapRect(const SkBitmap& bitmap,
                                    const SkIRect* src, const SkRect& dst,
                                    CompositeOperator op)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawBitmapRect(bitmap, *src, dst, op), dst);
+    appendDrawingOperation(NEW_OP(DrawBitmapRect)(bitmap, *src, dst, op), dst);
 }
 
 void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,
@@ -611,12 +630,12 @@ void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,
     }
     FloatRect bounds;
     bounds.fitToPoints(points[0], points[1], points[2], points[3]);
-    appendDrawingOperation(new GraphicsOperation::DrawConvexPolygonQuad(points, shouldAntialias), bounds);
+    appendDrawingOperation(NEW_OP(DrawConvexPolygonQuad)(points, shouldAntialias), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawEllipse(const IntRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawEllipse(rect), rect);
+    appendDrawingOperation(NEW_OP(DrawEllipse)(rect), rect);
 }
 
 void PlatformGraphicsContextRecording::drawFocusRing(const Vector<IntRect>& rects,
@@ -628,7 +647,7 @@ void PlatformGraphicsContextRecording::drawFocusRing(const Vector<IntRect>& rect
     IntRect bounds = rects[0];
     for (size_t i = 1; i < rects.size(); i++)
         bounds.unite(rects[i]);
-    appendDrawingOperation(new GraphicsOperation::DrawFocusRing(rects, width, offset, color), bounds);
+    appendDrawingOperation(NEW_OP(DrawFocusRing)(rects, width, offset, color), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawHighlightForText(
@@ -657,41 +676,41 @@ void PlatformGraphicsContextRecording::drawLine(const IntPoint& point1,
     float width = m_state->strokeThickness;
     if (!width) width = 1;
     bounds.inflate(width);
-    appendDrawingOperation(new GraphicsOperation::DrawLine(point1, point2), bounds);
+    appendDrawingOperation(NEW_OP(DrawLine)(point1, point2), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawLineForText(const FloatPoint& pt, float width)
 {
     FloatRect bounds(pt.x(), pt.y(), width, m_state->strokeThickness);
-    appendDrawingOperation(new GraphicsOperation::DrawLineForText(pt, width), bounds);
+    appendDrawingOperation(NEW_OP(DrawLineForText)(pt, width), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawLineForTextChecking(const FloatPoint& pt,
         float width, GraphicsContext::TextCheckingLineStyle lineStyle)
 {
     FloatRect bounds(pt.x(), pt.y(), width, m_state->strokeThickness);
-    appendDrawingOperation(new GraphicsOperation::DrawLineForTextChecking(pt, width, lineStyle), bounds);
+    appendDrawingOperation(NEW_OP(DrawLineForTextChecking)(pt, width, lineStyle), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawRect(const IntRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::DrawRect(rect), rect);
+    appendDrawingOperation(NEW_OP(DrawRect)(rect), rect);
 }
 
 void PlatformGraphicsContextRecording::fillPath(const Path& pathToFill, WindRule fillRule)
 {
-    appendDrawingOperation(new GraphicsOperation::FillPath(pathToFill, fillRule), pathToFill.boundingRect());
+    appendDrawingOperation(NEW_OP(FillPath)(pathToFill, fillRule), pathToFill.boundingRect());
 }
 
 void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect)
 {
-    appendDrawingOperation(new GraphicsOperation::FillRect(rect), rect);
+    appendDrawingOperation(NEW_OP(FillRect)(rect), rect);
 }
 
 void PlatformGraphicsContextRecording::fillRect(const FloatRect& rect,
                                        const Color& color)
 {
-    GraphicsOperation::FillRect* operation = new GraphicsOperation::FillRect(rect);
+    GraphicsOperation::FillRect* operation = NEW_OP(FillRect)(rect);
     operation->setColor(color);
     appendDrawingOperation(operation, rect);
 }
@@ -701,26 +720,26 @@ void PlatformGraphicsContextRecording::fillRoundedRect(
         const IntSize& bottomLeft, const IntSize& bottomRight,
         const Color& color)
 {
-    appendDrawingOperation(new GraphicsOperation::FillRoundedRect(rect, topLeft,
+    appendDrawingOperation(NEW_OP(FillRoundedRect)(rect, topLeft,
                  topRight, bottomLeft, bottomRight, color), rect);
 }
 
 void PlatformGraphicsContextRecording::strokeArc(const IntRect& r, int startAngle,
                               int angleSpan)
 {
-    appendDrawingOperation(new GraphicsOperation::StrokeArc(r, startAngle, angleSpan), r);
+    appendDrawingOperation(NEW_OP(StrokeArc)(r, startAngle, angleSpan), r);
 }
 
 void PlatformGraphicsContextRecording::strokePath(const Path& pathToStroke)
 {
-    appendDrawingOperation(new GraphicsOperation::StrokePath(pathToStroke), pathToStroke.boundingRect());
+    appendDrawingOperation(NEW_OP(StrokePath)(pathToStroke), pathToStroke.boundingRect());
 }
 
 void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float lineWidth)
 {
     FloatRect bounds = rect;
     bounds.inflate(lineWidth);
-    appendDrawingOperation(new GraphicsOperation::StrokeRect(rect, lineWidth), bounds);
+    appendDrawingOperation(NEW_OP(StrokeRect)(rect, lineWidth), bounds);
 }
 
 void PlatformGraphicsContextRecording::drawPosText(const void* text, size_t byteLength,
@@ -730,7 +749,7 @@ void PlatformGraphicsContextRecording::drawPosText(const void* text, size_t byte
         ALOGE("Unsupported text encoding! %d", paint.getTextEncoding());
     }
     FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), pos, paint);
-    appendDrawingOperation(new GraphicsOperation::DrawPosText(text, byteLength, pos, paint), bounds);
+    appendDrawingOperation(NEW_OP(DrawPosText)(text, byteLength, pos, paint), bounds);
 }
 
 void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
@@ -757,7 +776,8 @@ void PlatformGraphicsContextRecording::popStateOperation()
         ALOGV("popStateOperation is deleting %p(isLayer=%d)",
                 state.mCanvasState, state.mCanvasState->isTransparencyLayer());
         mRecording->recording()->removeCanvasState(state.mCanvasState);
-        delete state.mCanvasState;
+        state.mCanvasState->~CanvasState();
+        canvasStateHeap()->rewindTo(state.mCanvasState);
     } else {
         ALOGV("popStateOperation: %p(isLayer=%d)",
                 state.mCanvasState, state.mCanvasState->isTransparencyLayer());
@@ -824,9 +844,9 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
 
     WebCore::IntRect ibounds = calculateFinalBounds(untranslatedBounds);
     if (ibounds.isEmpty()) {
-        ALOGV("Operation %s(%s) was clipped out", operation->name(),
-                operation->parameters().ascii().data());
-        delete operation;
+        ALOGV("Operation %s() was clipped out", operation->name());
+        operation->~Operation();
+        operationHeap()->rewindTo(operation);
         return;
     }
     ALOGV("appendOperation %p->%s()", operation, operation->name());
@@ -840,6 +860,16 @@ void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::O
     ALOGV("appendOperation %p->%s()", operation, operation->name());
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecordingStateStack.last().mCanvasState->adoptAndAppend(data);
+}
+
+LinearAllocator* PlatformGraphicsContextRecording::operationHeap()
+{
+    return mRecording->recording()->operationHeap();
+}
+
+LinearAllocator* PlatformGraphicsContextRecording::canvasStateHeap()
+{
+    return mRecording->recording()->canvasStateHeap();
 }
 
 }   // WebCore

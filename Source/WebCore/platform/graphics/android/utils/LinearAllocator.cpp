@@ -27,7 +27,6 @@
 #define LOG_NDEBUG 1
 
 #include "config.h"
-
 #include "LinearAllocator.h"
 
 #include "AndroidLog.h"
@@ -39,6 +38,33 @@ namespace WebCore {
 
 // our pool needs to big enough to hold at least this many items
 #define MIN_OBJECT_COUNT 4
+
+#if LOG_NDEBUG
+#define ADD_ALLOCATION(size)
+#define RM_ALLOCATION(size)
+#else
+#include <utils/Thread.h>
+static size_t s_totalAllocations = 0;
+static double s_lastLogged = 0;
+static android::Mutex s_mutex;
+
+static void _logUsageLocked() {
+    double now = currentTimeMS();
+    if (now - s_lastLogged > 5) {
+        s_lastLogged = now;
+        ALOGV("Total memory usage: %d kb", s_totalAllocations / 1024);
+    }
+}
+
+static void _addAllocation(size_t size) {
+    android::AutoMutex lock(s_mutex);
+    s_totalAllocations += size;
+    _logUsageLocked();
+}
+
+#define ADD_ALLOCATION(size) _addAllocation(size);
+#define RM_ALLOCATION(size) _addAllocation(-size);
+#endif
 
 class LinearAllocator::Page {
 public:
@@ -64,30 +90,29 @@ private:
     Page* m_nextPage;
 };
 
-LinearAllocator::LinearAllocator(size_t allocSize)
-    : m_allocSize(allocSize)
-    , m_allocCount(0)
-    , m_next(0)
+LinearAllocator::LinearAllocator(size_t averageAllocSize)
+    : m_next(0)
     , m_currentPage(0)
     , m_pages(0)
 {
-    int usable_page_size = TARGET_PAGE_SIZE - sizeof(LinearAllocator::Page);
-    int pcount = usable_page_size / allocSize;
-    if (pcount < MIN_OBJECT_COUNT)
-        pcount = MIN_OBJECT_COUNT;
-    m_pageSize = pcount * allocSize + sizeof(LinearAllocator::Page);
+    if (averageAllocSize) {
+        int usable_page_size = TARGET_PAGE_SIZE - sizeof(LinearAllocator::Page);
+        int pcount = usable_page_size / averageAllocSize;
+        if (pcount < MIN_OBJECT_COUNT)
+            pcount = MIN_OBJECT_COUNT;
+        m_pageSize = pcount * averageAllocSize + sizeof(LinearAllocator::Page);
+    } else
+        m_pageSize = TARGET_PAGE_SIZE;
+    m_maxAllocSize = (m_pageSize - sizeof(LinearAllocator::Page));
 }
 
 LinearAllocator::~LinearAllocator(void)
 {
-    if (m_allocCount)
-        ALOGW("Leaked allocations!");
-    IF_ALOGV()
-        ALOGV("Freeing to %dkb", memusage() >> 10);
     Page* p = m_pages;
     while (p) {
         Page* next = p->next();
         delete p;
+        RM_ALLOCATION(m_pageSize);
         p = next;
     }
 }
@@ -102,9 +127,9 @@ void* LinearAllocator::end(Page* p)
     return ((char*)p) + m_pageSize;
 }
 
-void LinearAllocator::ensureNext()
+void LinearAllocator::ensureNext(size_t size)
 {
-    if (m_next && m_next < end(m_currentPage))
+    if (m_next && ((char*)m_next + size) <= end(m_currentPage))
         return;
     Page* p = newPage();
     if (m_currentPage)
@@ -113,9 +138,6 @@ void LinearAllocator::ensureNext()
     if (!m_pages)
         m_pages = m_currentPage;
     m_next = start(m_currentPage);
-
-    IF_ALOGV()
-        ALOGV("Allocator grew to %dkb", memusage() >> 10);
 }
 
 unsigned LinearAllocator::memusage()
@@ -129,28 +151,28 @@ unsigned LinearAllocator::memusage()
     return memusage;
 }
 
-void* LinearAllocator::alloc()
+void* LinearAllocator::alloc(size_t size)
 {
-    m_allocCount++;
-    ensureNext();
+    if (size > m_maxAllocSize) {
+        ALOGE("Allocation too large! (%d exceeds max size %d)", size, m_maxAllocSize);
+        return 0;
+    }
+    ensureNext(size);
     void* ptr = m_next;
-    m_next = ((char*)m_next) + m_allocSize;
+    m_next = ((char*)m_next) + size;
     return ptr;
 }
 
-void LinearAllocator::dealloc(void* ptr)
+void LinearAllocator::rewindTo(void* ptr)
 {
-    m_allocCount--;
-    if (m_next > start(m_currentPage)) {
-        // If this happened to be the previous allocation, just rewind m_next
-        void* prev = ((char*)m_next) - m_allocSize;
-        if (ptr == prev)
-            m_next = prev;
-    }
+    // Don't bother rewinding across pages
+    if (ptr >= start(m_currentPage) && ptr < end(m_currentPage))
+        m_next = ptr;
 }
 
 LinearAllocator::Page* LinearAllocator::newPage()
 {
+    ADD_ALLOCATION(m_pageSize);
     void* buf = malloc(m_pageSize);
     return new (buf) Page();
 }

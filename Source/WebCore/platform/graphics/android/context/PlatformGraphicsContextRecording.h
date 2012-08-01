@@ -37,7 +37,9 @@ class Operation;
 }
 
 class CanvasState;
+class LinearAllocator;
 class RecordingImpl;
+
 class Recording : public SkRefCnt {
 public:
     Recording()
@@ -152,6 +154,8 @@ private:
     void pushMatrix();
     void popMatrix();
     IntRect calculateFinalBounds(FloatRect bounds);
+    LinearAllocator* operationHeap();
+    LinearAllocator* canvasStateHeap();
 
     SkPicture* mPicture;
     SkMatrix* mCurrentMatrix;

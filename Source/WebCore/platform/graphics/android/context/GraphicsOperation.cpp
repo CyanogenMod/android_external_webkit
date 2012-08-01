@@ -22,40 +22,34 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+#define LOG_TAG "GraphicsOperation"
 
-#ifndef LinearAllocator_h
-#define LinearAllocator_h
+#include "config.h"
+#include "GraphicsOperation.h"
+
+#include "AndroidLog.h"
+#include "LinearAllocator.h"
 
 namespace WebCore {
+namespace GraphicsOperation {
 
-class LinearAllocator
+void* Operation::operator new(size_t size, LinearAllocator* allocator)
 {
-public:
-    LinearAllocator(size_t averageAllocSize = 0);
-    ~LinearAllocator();
+    return allocator->alloc(size);
+}
 
-    void* alloc(size_t size);
-    void rewindTo(void*);
+void* Operation::operator new(size_t size)
+{
+    ALOGE("Cannot allocate a new Operation directly!");
+    CRASH();
+    return (void*) 0xBADBEEF;
+}
 
-private:
-    LinearAllocator(const LinearAllocator& other);
+void Operation::operator delete(void*)
+{
+    ALOGE("Cannot call delete on an Operation!");
+    CRASH();
+}
 
-    class Page;
-
-    Page* newPage();
-    void ensureNext(size_t size);
-    void* start(Page *p);
-    void* end(Page* p);
-
-    unsigned memusage();
-
-    size_t m_pageSize;
-    size_t m_maxAllocSize;
-    void* m_next;
-    Page* m_currentPage;
-    Page* m_pages;
-};
-
+} // namespace GraphicsOperation
 } // namespace WebCore
-
-#endif // LinearAllocator_h
