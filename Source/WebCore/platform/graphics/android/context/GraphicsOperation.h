@@ -42,6 +42,14 @@
 
 #define TYPE_CASE(type) case type: return #type;
 
+#define DEBUG_GRAPHICS_OPERATIONS false
+
+#if DEBUG_GRAPHICS_OPERATIONS
+#define TYPE(x) virtual OperationType type() { return x; }
+#else
+#define TYPE(x)
+#endif
+
 namespace WebCore {
 
 class CanvasState;
@@ -51,6 +59,32 @@ namespace GraphicsOperation {
 
 class Operation {
 public:
+    Operation()
+        : m_state(0)
+        , m_canvasState(0)
+    {}
+
+    void* operator new(size_t size, LinearAllocator* allocator);
+
+    // Purposely not implemented - use a LinearAllocator please
+    void* operator new(size_t size);
+    void operator delete(void* ptr);
+
+    // This m_state is applied by ourselves
+    PlatformGraphicsContext::State* m_state;
+    // This is the canvas state that this operation needs
+    // Only used for drawing operations, state operations will be undefined
+    CanvasState* m_canvasState;
+
+    bool apply(PlatformGraphicsContext* context) {
+        if (m_state)
+            context->setRawState(m_state);
+        return applyImpl(context);
+    }
+    virtual bool applyImpl(PlatformGraphicsContext* context) = 0;
+    virtual ~Operation() {}
+
+#if DEBUG_GRAPHICS_OPERATIONS
     typedef enum { UndefinedOperation
                   // Matrix operations
                   , ConcatCTMOperation
@@ -83,33 +117,6 @@ public:
                   , DrawPosTextOperation
     } OperationType;
 
-    Operation()
-        : m_state(0)
-        , m_canvasState(0)
-    {}
-
-    void* operator new(size_t size, LinearAllocator* allocator);
-
-    // Purposely not implemented - use a LinearAllocator please
-    void* operator new(size_t size);
-    void operator delete(void* ptr);
-
-    // This m_state is applied by ourselves
-    PlatformGraphicsContext::State* m_state;
-    // This is the canvas state that this operation needs
-    // Only used for drawing operations, state operations will be undefined
-    CanvasState* m_canvasState;
-    IntRect m_globalBounds;
-
-    bool apply(PlatformGraphicsContext* context) {
-        if (m_state)
-            context->setRawState(m_state);
-        return applyImpl(context);
-    }
-    virtual bool applyImpl(PlatformGraphicsContext* context) = 0;
-    virtual ~Operation() {}
-    virtual OperationType type() { return UndefinedOperation; }
-    virtual void subtractOpaqueClip(FloatRect& clip) {}
     const char* name()
     {
         switch (type()) {
@@ -146,6 +153,8 @@ public:
         }
         return "Undefined";
     }
+#endif
+    TYPE(UndefinedOperation)
 };
 
 //**************************************
@@ -159,7 +168,7 @@ public:
         context->concatCTM(m_matrix);
         return true;
     }
-    virtual OperationType type() { return ConcatCTMOperation; }
+    TYPE(ConcatCTMOperation)
 private:
     AffineTransform m_matrix;
 };
@@ -171,7 +180,7 @@ public:
         context->rotate(m_angle);
         return true;
     }
-    virtual OperationType type() { return RotateOperation; }
+    TYPE(RotateOperation)
 private:
     float m_angle;
 };
@@ -183,7 +192,7 @@ public:
         context->scale(m_scale);
         return true;
     }
-    virtual OperationType type() { return ScaleOperation; }
+    TYPE(ScaleOperation)
 private:
     FloatSize m_scale;
 };
@@ -195,7 +204,7 @@ public:
         context->translate(m_x, m_y);
         return true;
     }
-    virtual OperationType type() { return TranslateOperation; }
+    TYPE(TranslateOperation)
 private:
     float m_x;
     float m_y;
@@ -213,7 +222,7 @@ public:
         context->addInnerRoundedRectClip(m_rect, m_thickness);
         return true;
     }
-    virtual OperationType type() { return InnerRoundedRectClipOperation; }
+    TYPE(InnerRoundedRectClipOperation)
 private:
     IntRect m_rect;
     int m_thickness;
@@ -225,7 +234,7 @@ public:
     virtual bool applyImpl(PlatformGraphicsContext* context) {
         return context->clip(m_rect);
     }
-    virtual OperationType type() { return ClipOperation; }
+    TYPE(ClipOperation)
 private:
     const FloatRect m_rect;
 };
@@ -244,7 +253,7 @@ public:
         else
             return context->clip(m_path);
     }
-    virtual OperationType type() { return ClipPathOperation; }
+    TYPE(ClipPathOperation)
 private:
     const Path m_path;
     bool m_clipOut;
@@ -258,7 +267,7 @@ public:
     virtual bool applyImpl(PlatformGraphicsContext* context) {
         return context->clipOut(m_rect);
     }
-    virtual OperationType type() { return ClipOutOperation; }
+    TYPE(ClipOutOperation)
 private:
     const IntRect m_rect;
 };
@@ -270,7 +279,7 @@ public:
         context->clearRect(m_rect);
         return true;
     }
-    virtual OperationType type() { return ClearRectOperation; }
+    TYPE(ClearRectOperation)
 private:
     FloatRect m_rect;
 };
@@ -288,7 +297,7 @@ public:
         context->drawBitmapPattern(m_bitmap, m_matrix, m_operator, m_destRect);
         return true;
     }
-    virtual OperationType type() { return DrawBitmapPatternOperation; }
+    TYPE(DrawBitmapPatternOperation)
 private:
     SkBitmap m_bitmap;
     SkMatrix m_matrix;
@@ -305,7 +314,7 @@ public:
         context->drawBitmapRect(m_bitmap, &m_srcR, m_dstR, m_operator);
         return true;
     }
-    virtual OperationType type() { return DrawBitmapRectOperation; }
+    TYPE(DrawBitmapRectOperation)
 private:
     SkBitmap m_bitmap;
     SkIRect m_srcR;
@@ -324,7 +333,7 @@ public:
         context->drawConvexPolygon(4, m_points, m_shouldAntiAlias);
         return true;
     }
-    virtual OperationType type() { return DrawConvexPolygonQuadOperation; }
+    TYPE(DrawConvexPolygonQuadOperation)
 private:
     bool m_shouldAntiAlias;
     FloatPoint m_points[4];
@@ -337,7 +346,7 @@ public:
         context->drawEllipse(m_rect);
         return true;
     }
-    virtual OperationType type() { return DrawEllipseOperation; }
+    TYPE(DrawEllipseOperation)
 private:
     IntRect m_rect;
 };
@@ -354,7 +363,7 @@ public:
         context->drawFocusRing(m_rects, m_width, m_offset, m_color);
         return true;
     }
-    virtual OperationType type() { return DrawFocusRingOperation; }
+    TYPE(DrawFocusRingOperation)
 private:
     Vector<IntRect> m_rects;
     int m_width;
@@ -370,7 +379,7 @@ public:
         context->drawLine(m_point1, m_point2);
         return true;
     }
-    virtual OperationType type() { return DrawLineOperation; }
+    TYPE(DrawLineOperation)
 private:
     IntPoint m_point1;
     IntPoint m_point2;
@@ -384,7 +393,7 @@ public:
         context->drawLineForText(m_point, m_width);
         return true;
     }
-    virtual OperationType type() { return DrawLineForTextOperation; }
+    TYPE(DrawLineForTextOperation)
 private:
     FloatPoint m_point;
     float m_width;
@@ -399,7 +408,7 @@ public:
         context->drawLineForTextChecking(m_point, m_width, m_lineStyle);
         return true;
     }
-    virtual OperationType type() { return DrawLineForTextCheckingOperation; }
+    TYPE(DrawLineForTextCheckingOperation)
 private:
     FloatPoint m_point;
     float m_width;
@@ -413,7 +422,7 @@ public:
         context->drawRect(m_rect);
         return true;
     }
-    virtual OperationType type() { return DrawRectOperation; }
+    TYPE(DrawRectOperation)
 private:
     IntRect m_rect;
 };
@@ -426,7 +435,7 @@ public:
         context->fillPath(m_path, m_fillRule);
         return true;
     }
-    virtual OperationType type() { return FillPathOperation; }
+    TYPE(FillPathOperation)
 private:
     Path m_path;
     WindRule m_fillRule;
@@ -443,7 +452,7 @@ public:
              context->fillRect(m_rect);
         return true;
     }
-    virtual OperationType type() { return FillRectOperation; }
+    TYPE(FillRectOperation)
 private:
     FloatRect m_rect;
     Color m_color;
@@ -471,7 +480,7 @@ public:
                                  m_color);
         return true;
     }
-    virtual OperationType type() { return FillRoundedRectOperation; }
+    TYPE(FillRoundedRectOperation)
 private:
     IntRect m_rect;
     IntSize m_topLeft;
@@ -492,7 +501,7 @@ public:
         context->strokeArc(m_rect, m_startAngle, m_angleSpan);
         return true;
     }
-    virtual OperationType type() { return StrokeArcOperation; }
+    TYPE(StrokeArcOperation)
 private:
     IntRect m_rect;
     int m_startAngle;
@@ -506,7 +515,7 @@ public:
         context->strokePath(m_path);
         return true;
     }
-    virtual OperationType type() { return StrokePathOperation; }
+    TYPE(StrokePathOperation)
 private:
     Path m_path;
 };
@@ -520,7 +529,7 @@ public:
         context->strokeRect(m_rect, m_lineWidth);
         return true;
     }
-    virtual OperationType type() { return StrokeRectOperation; }
+    TYPE(StrokeRectOperation)
 private:
     FloatRect m_rect;
     float m_lineWidth;
@@ -550,7 +559,7 @@ public:
         context->getCanvas()->drawPosText(m_text, m_byteLength, m_pos, m_paint);
         return true;
     }
-    virtual OperationType type() { return DrawPosTextOperation; }
+    TYPE(DrawPosTextOperation)
 private:
     void* m_text;
     size_t m_byteLength;
