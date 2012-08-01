@@ -166,15 +166,13 @@ void RTree::display()
 
 void* RTree::allocateNode()
 {
-    return m_allocator->alloc();
+    return m_allocator->alloc(sizeof(Node));
 }
 
 void RTree::deleteNode(Node* n)
 {
-    if (n) {
+    if (n)
         n->~Node();
-        m_allocator->dealloc(n);
-    }
 }
 
 //////////////////////////////////////////////////////////////////////

@@ -45,6 +45,7 @@
 namespace WebCore {
 
 class CanvasState;
+class LinearAllocator;
 
 namespace GraphicsOperation {
 
@@ -87,6 +88,12 @@ public:
         , m_canvasState(0)
     {}
 
+    void* operator new(size_t size, LinearAllocator* allocator);
+
+    // Purposely not implemented - use a LinearAllocator please
+    void* operator new(size_t size);
+    void operator delete(void* ptr);
+
     // This m_state is applied by ourselves
     PlatformGraphicsContext::State* m_state;
     // This is the canvas state that this operation needs
@@ -102,7 +109,6 @@ public:
     virtual bool applyImpl(PlatformGraphicsContext* context) = 0;
     virtual ~Operation() {}
     virtual OperationType type() { return UndefinedOperation; }
-    virtual String parameters() { return ""; }
     virtual void subtractOpaqueClip(FloatRect& clip) {}
     const char* name()
     {
@@ -220,11 +226,6 @@ public:
         return context->clip(m_rect);
     }
     virtual OperationType type() { return ClipOperation; }
-    virtual String parameters() {
-        return String::format("[x=%.2f,y=%.2f,w=%.2f,h=%.2f]",
-                         m_rect.x(), m_rect.y(),
-                         m_rect.width(), m_rect.height());
-    }
 private:
     const FloatRect m_rect;
 };
@@ -305,11 +306,6 @@ public:
         return true;
     }
     virtual OperationType type() { return DrawBitmapRectOperation; }
-    virtual String parameters() {
-        return String::format("%.2f, %.2f - %.2f x %.2f",
-                 m_dstR.fLeft, m_dstR.fTop,
-                 m_dstR.width(), m_dstR.height());
-    }
 private:
     SkBitmap m_bitmap;
     SkIRect m_srcR;
