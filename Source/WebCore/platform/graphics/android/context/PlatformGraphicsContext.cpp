@@ -161,7 +161,7 @@ bool PlatformGraphicsContext::State::setupShadowPaint(SkPaint* paint, SkPoint* o
     // HTMLCanvasElement have shadows ignore transforms set.  This
     // allows us to distinguish between CSS and Canvas shadows which
     // have different rendering specifications.
-    uint32_t flags = SkBlurMaskFilter::kHighQuality_BlurFlag;
+    uint32_t flags = SkBlurMaskFilter::kNone_BlurFlag;
     if (shadowsIgnoreTransforms) {
         offset->fY = -offset->fY;
         flags |= SkBlurMaskFilter::kIgnoreTransform_BlurFlag;
@@ -169,7 +169,7 @@ bool PlatformGraphicsContext::State::setupShadowPaint(SkPaint* paint, SkPoint* o
 
     if (shadow.blur > 0) {
         paint->setMaskFilter(SkBlurMaskFilter::Create(shadow.blur,
-                             SkBlurMaskFilter::kNormal_BlurStyle))->unref();
+                             SkBlurMaskFilter::kNormal_BlurStyle, flags))->unref();
     }
     return SkColorGetA(shadow.color) && (shadow.blur || shadow.dx || shadow.dy);
 }
@@ -395,7 +395,7 @@ void PlatformGraphicsContext::setupPaintCommon(SkPaint* paint) const
         // allows us to distinguish between CSS and Canvas shadows which
         // have different rendering specifications.
         SkScalar dy = m_state->shadow.dy;
-        uint32_t flags = SkBlurDrawLooper::kHighQuality_BlurFlag;
+        uint32_t flags = SkBlurDrawLooper::kNone_BlurFlag;
         if (shadowsIgnoreTransforms()) {
             dy = -dy;
             flags |= SkBlurDrawLooper::kIgnoreTransform_BlurFlag;
