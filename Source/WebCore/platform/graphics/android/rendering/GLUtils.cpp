@@ -409,7 +409,7 @@ bool GLUtils::isPureColorBitmap(const SkBitmap& bitmap, Color& pureColor)
     pixelsRow = 0;
 
     if (sameColor) {
-        char* rgbaPtr = static_cast<char*>(bitmap.getPixels());
+        unsigned char* rgbaPtr = static_cast<unsigned char*>(bitmap.getPixels());
         pureColor = Color(rgbaPtr[0], rgbaPtr[1], rgbaPtr[2], rgbaPtr[3]);
         ALOGV("sameColor tile found , %x at (%d, %d, %d, %d)",
               *firstPixelPtr, rgbaPtr[0], rgbaPtr[1], rgbaPtr[2], rgbaPtr[3]);
