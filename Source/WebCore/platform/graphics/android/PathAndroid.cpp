@@ -37,7 +37,6 @@
 #include "SkRegion.h"
 #include "StrokeStyleApplier.h"
 #include "TransformationMatrix.h"
-#include "android_graphics.h"
 
 namespace WebCore {
 

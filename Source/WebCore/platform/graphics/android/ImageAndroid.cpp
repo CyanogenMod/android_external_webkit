@@ -34,7 +34,6 @@
 #include "PlatformString.h"
 #include "SharedBuffer.h"
 
-#include "android_graphics.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
 #include "SkColorPriv.h"

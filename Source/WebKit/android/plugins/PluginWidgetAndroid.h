@@ -28,6 +28,7 @@
 
 #include "android_npapi.h"
 #include "ANPSystem_npapi.h"
+#include "GraphicsContext.h"
 #include "IntPoint.h"
 #include "IntRect.h"
 #include "MediaLayer.h"
@@ -98,7 +99,7 @@ struct PluginWidgetAndroid {
     /*  Called to draw into the plugin's bitmap. If canvas is non-null, the
         bitmap itself is then drawn into the canvas.
      */
-    void draw(SkCanvas* canvas = NULL);
+    void draw(PlatformGraphicsContext* context = NULL);
 
     /*  Send this event to the plugin instance. A non-zero value will be
         returned if the plugin handled the event.

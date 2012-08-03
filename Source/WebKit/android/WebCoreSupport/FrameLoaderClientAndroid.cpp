@@ -76,7 +76,6 @@
 #include "WebViewClientError.h"
 #include "WebViewCore.h"
 #include "autofill/WebAutofill.h"
-#include "android_graphics.h"
 
 #include <androidfw/AssetManager.h>
 #include <wtf/text/CString.h>

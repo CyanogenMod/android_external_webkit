@@ -26,9 +26,14 @@
 #ifndef ImageBufferDataAndroid_h
 #define ImageBufferDataAndroid_h
 
+class SkCanvas;
+
 namespace WebCore {
 
 class IntSize;
+class ImageBuffer;
+
+SkCanvas* imageBufferCanvas(const ImageBuffer* buffer);
 
 class ImageBufferData {
 public:

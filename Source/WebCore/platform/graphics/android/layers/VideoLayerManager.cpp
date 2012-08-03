@@ -73,7 +73,7 @@ int VideoLayerManager::getButtonSize()
     return VIDEO_BUTTON_SIZE;
 }
 
-GLuint VideoLayerManager::createTextureFromImage(int buttonType)
+GLuint VideoLayerManager::createTextureFromImage(RenderSkinMediaButton::MediaButton buttonType)
 {
     SkRect rect = SkRect(m_buttonRect);
     SkBitmap bitmap;
@@ -83,8 +83,7 @@ GLuint VideoLayerManager::createTextureFromImage(int buttonType)
 
     SkCanvas canvas(bitmap);
     canvas.drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
-    RenderSkinMediaButton::Draw(&canvas, m_buttonRect, buttonType, true, 0,
-                                false);
+    RenderSkinMediaButton::Draw(&canvas, m_buttonRect, buttonType, true, false);
 
     GLuint texture;
     glGenTextures(1, &texture);

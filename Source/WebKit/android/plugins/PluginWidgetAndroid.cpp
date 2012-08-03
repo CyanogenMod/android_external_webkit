@@ -42,7 +42,6 @@
 #include "SkString.h"
 #include "SkTime.h"
 #include "WebViewCore.h"
-#include "android_graphics.h"
 #include <JNIUtility.h>
 
 //#define PLUGIN_DEBUG_LOCAL // controls the printing of log messages
@@ -225,7 +224,7 @@ void PluginWidgetAndroid::viewInvalidate() {
     m_core->viewInvalidate(rect);
 }
 
-void PluginWidgetAndroid::draw(SkCanvas* canvas) {
+void PluginWidgetAndroid::draw(PlatformGraphicsContext* context) {
     if (NULL == m_flipPixelRef || !m_flipPixelRef->isDirty()) {
         return;
     }
@@ -249,10 +248,11 @@ void PluginWidgetAndroid::draw(SkCanvas* canvas) {
                                  bitmap) &&
                     pkg->pluginFuncs()->event(instance, &event)) {
 
-                if (canvas && m_pluginWindow) {
+                if (context && m_pluginWindow) {
                     SkBitmap bm(bitmap);
                     bm.setPixelRef(m_flipPixelRef);
-                    canvas->drawBitmap(bm, 0, 0);
+                    IntRect dst(0, 0, bm.width(), bm.height());
+                    context->drawBitmapRect(bm, 0, dst);
                 }
             }
             break;

@@ -28,6 +28,7 @@
 
 #include "GLUtils.h"
 #include "IntRect.h"
+#include "RenderSkinMediaButton.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 #include <utils/threads.h>
@@ -122,7 +123,7 @@ private:
     Vector<GLuint> m_retiredTextures;
     android::Mutex m_retiredTexturesLock;
 
-    GLuint createTextureFromImage(int buttonType);
+    GLuint createTextureFromImage(RenderSkinMediaButton::MediaButton buttonType);
 
     // Texture for showing the static image will be created at native side.
     bool m_createdTexture;

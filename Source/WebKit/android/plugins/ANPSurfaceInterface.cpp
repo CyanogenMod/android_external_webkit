@@ -30,7 +30,6 @@
 #include "PluginView.h"
 #include "PluginWidgetAndroid.h"
 #include "SkANP.h"
-#include "android_graphics.h"
 #include <JNIUtility.h>
 #include <gui/Surface.h>
 #include <ui/Rect.h>

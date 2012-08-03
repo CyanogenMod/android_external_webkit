@@ -29,6 +29,7 @@
 #include "IntRect.h"
 #include "GraphicsContext.h"
 #include "RenderSkinAndroid.h"
+#include "RenderSkinMediaButton.h"
 #include "SkCanvas.h"
 #include "SkPicture.h"
 #include "SkTDArray.h"
@@ -45,7 +46,6 @@ public:
     PlatformGraphicsContext();
     virtual ~PlatformGraphicsContext();
     virtual bool isPaintingDisabled() = 0;
-    virtual SkCanvas* getCanvas() = 0;
 
     void setGraphicsContext(GraphicsContext* gc) { m_gc = gc; }
     virtual bool deleteUs() const { return false; }
@@ -100,13 +100,14 @@ public:
     virtual bool clipOut(const IntRect& r) = 0;
     virtual bool clipOut(const Path& p) = 0;
     virtual bool clipPath(const Path& pathToClip, WindRule clipRule) = 0;
+    virtual SkIRect getTotalClipBounds() = 0;
 
     // Drawing
     virtual void clearRect(const FloatRect& rect) = 0;
     virtual void drawBitmapPattern(const SkBitmap& bitmap, const SkMatrix& matrix,
                            CompositeOperator compositeOp, const FloatRect& destRect) = 0;
     virtual void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
-                        const SkRect& dst, CompositeOperator op) = 0;
+                        const SkRect& dst, CompositeOperator op = CompositeSourceOver) = 0;
     virtual void drawConvexPolygon(size_t numPoints, const FloatPoint* points,
                            bool shouldAntialias) = 0;
     virtual void drawEllipse(const IntRect& rect) = 0;
@@ -139,6 +140,12 @@ public:
     virtual void strokeArc(const IntRect& r, int startAngle, int angleSpan) = 0;
     virtual void strokePath(const Path& pathToStroke) = 0;
     virtual void strokeRect(const FloatRect& rect, float lineWidth) = 0;
+
+    virtual void drawPosText(const void* text, size_t byteLength,
+                             const SkPoint pos[], const SkPaint& paint) = 0;
+    virtual void drawMediaButton(const IntRect& rect, RenderSkinMediaButton::MediaButton buttonType,
+                                 bool translucent = false, bool drawBackground = true,
+                                 const IntRect& thumb = IntRect()) = 0;
 
     virtual SkCanvas* recordingCanvas() = 0;
 

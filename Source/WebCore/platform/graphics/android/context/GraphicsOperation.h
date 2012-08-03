@@ -113,6 +113,7 @@ public:
                   , StrokeArcOperation
                   , StrokePathOperation
                   , StrokeRectOperation
+                  , DrawMediaButtonOperation
                   // Text
                   , DrawPosTextOperation
     } OperationType;
@@ -148,6 +149,7 @@ public:
             TYPE_CASE(StrokeArcOperation)
             TYPE_CASE(StrokePathOperation)
             TYPE_CASE(StrokeRectOperation)
+            TYPE_CASE(DrawMediaButtonOperation)
             // Text
             TYPE_CASE(DrawPosTextOperation)
         }
@@ -535,6 +537,30 @@ private:
     float m_lineWidth;
 };
 
+class DrawMediaButton : public Operation {
+public:
+    DrawMediaButton(const IntRect& rect, RenderSkinMediaButton::MediaButton buttonType,
+                    bool translucent, bool drawBackground,
+                    const IntRect& thumb)
+        : m_rect(rect)
+        , m_thumb(thumb)
+        , m_buttonType(buttonType)
+        , m_translucent(translucent)
+        , m_drawBackground(drawBackground)
+    {}
+    virtual bool applyImpl(PlatformGraphicsContext* context) {
+        context->drawMediaButton(m_rect, m_buttonType, m_translucent, m_drawBackground, m_thumb);
+        return true;
+    }
+    TYPE(DrawMediaButtonOperation)
+private:
+    IntRect m_rect;
+    IntRect m_thumb;
+    RenderSkinMediaButton::MediaButton m_buttonType;
+    bool m_translucent : 1;
+    bool m_drawBackground : 1;
+};
+
 //**************************************
 // Text
 //**************************************
@@ -554,9 +580,7 @@ public:
     }
     ~DrawPosText() { delete m_pos; free(m_text); }
     virtual bool applyImpl(PlatformGraphicsContext* context) {
-        if (!context->getCanvas())
-            return true;
-        context->getCanvas()->drawPosText(m_text, m_byteLength, m_pos, m_paint);
+        context->drawPosText(m_text, m_byteLength, m_pos, m_paint);
         return true;
     }
     TYPE(DrawPosTextOperation)

@@ -131,7 +131,6 @@
 #include "WebCoreJni.h"
 #include "WebFrameView.h"
 #include "WindowsKeyboardCodes.h"
-#include "android_graphics.h"
 #include "autofill/WebAutofill.h"
 #include "htmlediting.h"
 #include "markup.h"
