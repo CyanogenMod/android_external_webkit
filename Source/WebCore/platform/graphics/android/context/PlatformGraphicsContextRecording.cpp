@@ -752,6 +752,14 @@ void PlatformGraphicsContextRecording::drawPosText(const void* text, size_t byte
     appendDrawingOperation(NEW_OP(DrawPosText)(text, byteLength, pos, paint), bounds);
 }
 
+void PlatformGraphicsContextRecording::drawMediaButton(const IntRect& rect, RenderSkinMediaButton::MediaButton buttonType,
+                                                       bool translucent, bool drawBackground,
+                                                       const IntRect& thumb)
+{
+    appendDrawingOperation(NEW_OP(DrawMediaButton)(rect, buttonType,
+            translucent, drawBackground, thumb), rect);
+}
+
 void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
 {
     if (mRecordingStateStack.size()) {

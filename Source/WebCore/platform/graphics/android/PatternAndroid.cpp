@@ -26,7 +26,6 @@
 #include "config.h"
 #include "Pattern.h"
 
-#include "android_graphics.h"
 #include "GraphicsContext.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"

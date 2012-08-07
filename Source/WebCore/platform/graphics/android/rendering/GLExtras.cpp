@@ -35,7 +35,6 @@
 #include "IntRect.h"
 #include "SkPath.h"
 #include "TilesManager.h"
-#include "android_graphics.h"
 
 // Touch ring border width. This is doubled if the ring is not pressed
 #define RING_BORDER_WIDTH 1

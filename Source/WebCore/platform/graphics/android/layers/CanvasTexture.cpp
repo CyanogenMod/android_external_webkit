@@ -31,7 +31,6 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include "android_graphics.h"
 #include "AndroidLog.h"
 #include "GLUtils.h"
 #include "Image.h"
@@ -134,10 +133,10 @@ bool CanvasTexture::uploadImageBuffer(ImageBuffer* imageBuffer)
     // Size mismatch, early abort (will fall back to software)
     if (imageBuffer->size() != m_size)
         return false;
-    GraphicsContext* gc = imageBuffer ? imageBuffer->context() : 0;
-    if (!gc)
+    SkCanvas* canvas = imageBufferCanvas(imageBuffer);
+    if (!canvas)
         return false;
-    const SkBitmap& bitmap = android_gc2canvas(gc)->getDevice()->accessBitmap(false);
+    const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(false);
     if (!GLUtils::updateSharedSurfaceTextureWithBitmap(anw, bitmap))
         return false;
     m_hasValidTexture = true;
