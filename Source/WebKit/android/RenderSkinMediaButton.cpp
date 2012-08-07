@@ -26,12 +26,13 @@
 #define LOG_TAG "WebCore"
 
 #include "config.h"
-#include "android_graphics.h"
+#include "RenderSkinMediaButton.h"
+
 #include "Document.h"
 #include "IntRect.h"
 #include "Node.h"
 #include "RenderObject.h"
-#include "RenderSkinMediaButton.h"
+#include "RenderSkinAndroid.h"
 #include "RenderSlider.h"
 #include "SkCanvas.h"
 #include "SkNinePatch.h"
@@ -88,8 +89,9 @@ void RenderSkinMediaButton::Decode()
     }
 }
 
-void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonType,
-                                 bool translucent, RenderObject* o, bool drawBackground)
+void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r,
+                                 MediaButton buttonType, bool translucent,
+                                 bool drawBackground, const IntRect& thumb)
 {
     if (!gDecoded) {
         Decode();
@@ -179,9 +181,7 @@ void RenderSkinMediaButton::Draw(SkCanvas* canvas, const IntRect& r, int buttonT
             SkScalar quarterHeight = SkScalarHalf(SkScalarHalf(bounds.height()));
             bounds.fTop += quarterHeight + SkScalarHalf(3);
             bounds.fBottom += -quarterHeight + SK_ScalarHalf;
-            if (o && o->isSlider()) {
-                RenderSlider* slider = toRenderSlider(o);
-                IntRect thumb = slider->thumbRect();
+            if (!thumb.isEmpty()) {
                 // Inset the track by half the width of the thumb, so the track
                 // does not appear to go beyond the space where the thumb can
                 // be.

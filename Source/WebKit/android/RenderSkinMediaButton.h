@@ -26,27 +26,43 @@
 #ifndef RenderSkinMediaButton_h
 #define RenderSkinMediaButton_h
 
-#include "RenderSkinAndroid.h"
+#include "IntRect.h"
 
 class SkCanvas;
 
 namespace WebCore {
-class IntRect;
-class RenderObject;
 
 class RenderSkinMediaButton {
 public:
     static void Decode();
+
+    /**
+     * Button types
+     */
+    typedef enum
+    {
+        PAUSE,
+        PLAY,
+        MUTE,
+        REWIND,
+        FORWARD,
+        FULLSCREEN,
+        SPINNER_OUTER,
+        SPINNER_INNER,
+        VIDEO,
+        BACKGROUND_SLIDER,
+        SLIDER_TRACK,
+        SLIDER_THUMB
+    } MediaButton;
+
     /**
      * Draw the skin to the canvas, using the rectangle for its bounds and the
      * State to determine which skin to use, i.e. focused or not focused.
      */
-    static void Draw(SkCanvas* , const IntRect& , int buttonType, bool translucent = false,
-                     RenderObject* o = 0, bool drawBackground = true);
-    /**
-     * Button types
-     */
-    enum { PAUSE, PLAY, MUTE, REWIND, FORWARD, FULLSCREEN, SPINNER_OUTER, SPINNER_INNER , VIDEO, BACKGROUND_SLIDER, SLIDER_TRACK, SLIDER_THUMB };
+    static void Draw(SkCanvas* canvas, const IntRect& rect, MediaButton buttonType,
+                     bool translucent = false, bool drawBackground = true,
+                     const IntRect& thumb = IntRect());
+
     /**
      * Slider dimensions
      */

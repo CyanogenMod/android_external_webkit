@@ -55,7 +55,6 @@
 #include "Touch.h"
 #include "TouchEvent.h"
 #include "TouchList.h"
-#include "android_graphics.h"
 #include "SkCanvas.h"
 #include "npruntime_impl.h"
 // #include "runtime_root.h"
@@ -690,15 +689,12 @@ void PluginView::paint(GraphicsContext* context, const IntRect& rect)
            notification of its global position change.
          */
         updatePluginWidget();
-        SkCanvas* canvas = context->platformContext()->getCanvas();
-        if (!canvas)
-           return;
-        m_window->setSurfaceClip(canvas->getTotalClip().getBounds());
+        m_window->setSurfaceClip(context->platformContext()->getTotalClipBounds());
     } else {
         m_window->inval(rect, false);
         context->save();
         context->translate(frame.x(), frame.y());
-        m_window->draw(android_gc2canvas(context));
+        m_window->draw(context->platformContext());
         context->restore();
     }
 

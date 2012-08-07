@@ -46,7 +46,6 @@
 #include "SkString.h"
 #include "SkiaUtils.h"
 #include "TransformationMatrix.h"
-#include "android_graphics.h"
 
 using namespace std;
 
@@ -104,7 +103,7 @@ GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     bitmap.allocPixels();
     bitmap.eraseColor(0);
-    pgc->getCanvas()->setBitmapDevice(bitmap);
+    pgc->canvas()->setBitmapDevice(bitmap);
 
     GraphicsContext* ctx = new GraphicsContext(pgc);
     return ctx;
@@ -656,10 +655,3 @@ void GraphicsContext::drawHighlightForText(const Font& font, const TextRun& run,
 }
 
 } // namespace WebCore
-
-///////////////////////////////////////////////////////////////////////////////
-
-SkCanvas* android_gc2canvas(WebCore::GraphicsContext* gc)
-{
-    return gc->platformContext()->getCanvas();
-}

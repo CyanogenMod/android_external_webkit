@@ -55,7 +55,7 @@ void RecordingContextCanvasProxy::drawBitmapRect(const SkBitmap& bitmap,
                                                  const SkRect& dst,
                                                  const SkPaint*)
 {
-    m_pgc->drawBitmapRect(bitmap, src, dst, CompositeSourceOver);
+    m_pgc->drawBitmapRect(bitmap, src, dst);
 }
 
 // Return value is unused by FontAndroid

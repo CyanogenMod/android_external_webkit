@@ -33,6 +33,7 @@
 #include "NotImplemented.h"
 #include "PlatformBridge.h"
 #include "PlatformGraphicsContext.h"
+#include "PlatformGraphicsContextSkia.h"
 #include "SkBitmapRef.h"
 #include "SkCanvas.h"
 #include "SkColorPriv.h"
@@ -41,11 +42,20 @@
 #include "SkImageEncoder.h"
 #include "SkStream.h"
 #include "SkUnPreMultiply.h"
-#include "android_graphics.h"
 
 using namespace std;
 
 namespace WebCore {
+
+SkCanvas* imageBufferCanvas(const ImageBuffer* buffer)
+{
+    // We know that our PlatformGraphicsContext is a PlatformGraphicsContextSkia
+    // because that is what we create in GraphicsContext::createOffscreenContext
+    if (!buffer || !buffer->context())
+        return 0;
+    PlatformGraphicsContext* pc = buffer->context()->platformContext();
+    return static_cast<PlatformGraphicsContextSkia*>(pc)->canvas();
+}
 
 ImageBufferData::ImageBufferData(const IntSize&)
 {
@@ -82,7 +92,7 @@ PassRefPtr<Image> ImageBuffer::copyImage() const
 {
     ASSERT(context());
 
-    SkCanvas* canvas = context()->platformContext()->getCanvas();
+    SkCanvas* canvas = imageBufferCanvas(this);
     if (!canvas)
       return 0;
 
@@ -123,7 +133,7 @@ PassRefPtr<ByteArray> ImageBuffer::getUnmultipliedImageData(const IntRect& rect)
         return 0;
     }
 
-    const SkBitmap& src = android_gc2canvas(gc)->getDevice()->accessBitmap(false);
+    const SkBitmap& src = imageBufferCanvas(this)->getDevice()->accessBitmap(false);
     SkAutoLockPixels alp(src);
     if (!src.getPixels()) {
         return 0;
@@ -185,7 +195,7 @@ void ImageBuffer::putUnmultipliedImageData(ByteArray* source, const IntSize& sou
         return;
     }
 
-    const SkBitmap& dst = android_gc2canvas(gc)->getDevice()->accessBitmap(true);
+    const SkBitmap& dst = imageBufferCanvas(this)->getDevice()->accessBitmap(true);
     SkAutoLockPixels alp(dst);
     if (!dst.getPixels()) {
         return;
@@ -240,7 +250,7 @@ String ImageBuffer::toDataURL(const String&, const double*) const
 {
     // Encode the image into a vector.
     SkDynamicMemoryWStream pngStream;
-    const SkBitmap& dst = android_gc2canvas(context())->getDevice()->accessBitmap(true);
+    const SkBitmap& dst = imageBufferCanvas(this)->getDevice()->accessBitmap(true);
     SkImageEncoder::EncodeStream(&pngStream, dst, SkImageEncoder::kPNG_Type, 100);
 
     // Convert it into base64.

@@ -28,7 +28,6 @@
 #include <config.h>
 #include "WebFrameView.h"
 
-#include "android_graphics.h"
 #include "GraphicsContext.h"
 #include "Frame.h"
 #include "FrameTree.h"

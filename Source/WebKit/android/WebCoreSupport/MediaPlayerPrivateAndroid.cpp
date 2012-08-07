@@ -286,9 +286,6 @@ public:
         if (!m_poster || (!m_poster->getPixels() && !m_poster->pixelRef()))
             return;
 
-        SkCanvas*   canvas = ctxt->platformContext()->getCanvas();
-        if (!canvas)
-            return;
         // We paint with the following rules in mind:
         // - only downscale the poster, never upscale
         // - maintain the natural aspect ratio of the poster
@@ -299,7 +296,7 @@ public:
         int posterX = ((r.width() - posterWidth) / 2) + r.x();
         int posterY = ((r.height() - posterHeight) / 2) + r.y();
         IntRect targetRect(posterX, posterY, posterWidth, posterHeight);
-        canvas->drawBitmapRect(*m_poster, 0, targetRect, 0);
+        ctxt->platformContext()->drawBitmapRect(*m_poster, 0, targetRect);
     }
 
     void onPosterFetched(SkBitmap* poster)

@@ -89,7 +89,6 @@
 #include "WebFrameView.h"
 #include "WebUrlLoaderClient.h"
 #include "WebViewCore.h"
-#include "android_graphics.h"
 #include "jni.h"
 #include "wds/DebugServer.h"
 

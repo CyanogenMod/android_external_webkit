@@ -35,7 +35,7 @@ public:
     PlatformGraphicsContextSkia(SkCanvas* canvas, bool takeCanvasOwnership = false);
     virtual ~PlatformGraphicsContextSkia();
     virtual bool isPaintingDisabled();
-    virtual SkCanvas* getCanvas() { return mCanvas; }
+    SkCanvas* canvas() { return mCanvas; }
 
     virtual ContextType type() { return PaintingContext; }
     virtual SkCanvas* recordingCanvas() { return mCanvas; }
@@ -67,13 +67,14 @@ public:
     virtual bool clipOut(const IntRect& r);
     virtual bool clipOut(const Path& p);
     virtual bool clipPath(const Path& pathToClip, WindRule clipRule);
+    virtual SkIRect getTotalClipBounds() { return mCanvas->getTotalClip().getBounds(); }
 
     // Drawing
     virtual void clearRect(const FloatRect& rect);
     virtual void drawBitmapPattern(const SkBitmap& bitmap, const SkMatrix& matrix,
                            CompositeOperator compositeOp, const FloatRect& destRect);
     virtual void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
-                        const SkRect& dst, CompositeOperator op);
+                        const SkRect& dst, CompositeOperator op = CompositeSourceOver);
     virtual void drawConvexPolygon(size_t numPoints, const FloatPoint* points,
                            bool shouldAntialias);
     virtual void drawEllipse(const IntRect& rect);
@@ -97,6 +98,11 @@ public:
     virtual void strokeArc(const IntRect& r, int startAngle, int angleSpan);
     virtual void strokePath(const Path& pathToStroke);
     virtual void strokeRect(const FloatRect& rect, float lineWidth);
+    virtual void drawPosText(const void* text, size_t byteLength,
+                             const SkPoint pos[], const SkPaint& paint);
+    virtual void drawMediaButton(const IntRect& rect, RenderSkinMediaButton::MediaButton buttonType,
+                                 bool translucent = false, bool drawBackground = true,
+                                 const IntRect& thumb = IntRect());
 
 private:
 

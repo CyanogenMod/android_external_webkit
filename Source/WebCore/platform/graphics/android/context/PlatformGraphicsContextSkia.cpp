@@ -607,4 +607,17 @@ void PlatformGraphicsContextSkia::strokeRect(const FloatRect& rect, float lineWi
     mCanvas->drawRect(rect, paint);
 }
 
+void PlatformGraphicsContextSkia::drawPosText(const void* text, size_t byteLength,
+                                              const SkPoint pos[], const SkPaint& paint)
+{
+    mCanvas->drawPosText(text, byteLength, pos, paint);
+}
+
+void PlatformGraphicsContextSkia::drawMediaButton(const IntRect& rect, RenderSkinMediaButton::MediaButton buttonType,
+                                                  bool translucent, bool drawBackground,
+                                                  const IntRect& thumb)
+{
+    RenderSkinMediaButton::Draw(mCanvas, rect, buttonType, translucent, drawBackground, thumb);
+}
+
 }   // WebCore
