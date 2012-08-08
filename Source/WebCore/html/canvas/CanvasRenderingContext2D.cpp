@@ -542,7 +542,6 @@ void CanvasRenderingContext2D::setGlobalCompositeOperation(const String& operati
     if(op != CompositeSourceOver){
         canvas()->setSupportedCompositing(false);
         canvas()->disableGpuRendering();
-        canvas()->setNeedsStyleRecalc(SyntheticStyleChange);
     }
     else
         canvas()->setSupportedCompositing(true);
@@ -1337,6 +1336,9 @@ void CanvasRenderingContext2D::drawImage(HTMLCanvasElement* sourceCanvas, const 
         return;
     }
 
+    canvas()->setSupportedCompositing(false);
+    canvas()->disableGpuRendering();
+
     FloatRect srcCanvasRect = FloatRect(FloatPoint(), sourceCanvas->size());
 
     if (!srcCanvasRect.width() || !srcCanvasRect.height()) {
@@ -1421,6 +1423,9 @@ void CanvasRenderingContext2D::drawImage(HTMLVideoElement* video, const FloatRec
         ec = TYPE_MISMATCH_ERR;
         return;
     }
+
+    canvas()->setSupportedCompositing(false);
+    canvas()->disableGpuRendering();
 
     ec = 0;
 

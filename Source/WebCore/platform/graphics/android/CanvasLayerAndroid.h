@@ -54,12 +54,14 @@ public:
     virtual bool needsTexture() const { return false; }
     virtual void paintBitmapGL() {}
 
-    virtual bool drawGL(bool layerTilesDisabled);
+    virtual bool drawGL(bool layerTilesDisabled, TransformationMatrix& drawTransform);
 
     void setPicture(SkPicture& picture, IntSize& size);
 
     void setCanvasID(int& id)   {   m_canvas_id = id;   }
     int getCanvasID()   {   return m_canvas_id; }
+    void setGpuCanvasStatus(bool val)  { MutexLocker locker(m_mutex);   m_gpuCanvasEnabled = val;   }
+    bool isGpuCanvasEnabled()          { MutexLocker locker(m_mutex);  bool val = m_gpuCanvasEnabled;  return val;}
 
     static void markGLAssetsForRemoval(int id);
     static void cleanupAssets();
@@ -72,6 +74,9 @@ protected:
 private:
     int m_width, m_height;
     int m_canvas_id;
+    bool m_gpuCanvasEnabled;
+    bool m_oomStatus;
+    WTF::Mutex m_mutex;
 
     static WTF::Mutex s_mutex;
 

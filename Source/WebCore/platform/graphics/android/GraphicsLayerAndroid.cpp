@@ -1074,33 +1074,6 @@ void GraphicsLayerAndroid::setContentsToMedia(PlatformLayer* mediaLayer)
     }
 }
 
-void GraphicsLayerAndroid::setContentsToCanvas(PlatformLayer* canvasLayer)
-{
-    if (m_contentLayer != canvasLayer && canvasLayer) {
-
-        // TODO add a copy method to LayerAndroid to sync everything
-        // copy data from the original content layer to the new one
-        canvasLayer->setPosition(m_contentLayer->getPosition().fX,
-                                m_contentLayer->getPosition().fY);
-        canvasLayer->setSize(m_contentLayer->getWidth(), m_contentLayer->getHeight());
-        canvasLayer->setDrawTransform(*m_contentLayer->drawTransform());
-
-        canvasLayer->ref();
-        m_contentLayer->unref();
-        m_contentLayer = canvasLayer;
-
-        // If the parent exists then notify it to re-sync it's children
-        if (m_parent) {
-            GraphicsLayerAndroid* parent = static_cast<GraphicsLayerAndroid*>(m_parent);
-            parent->m_needsSyncChildren = true;
-        }
-        m_needsSyncChildren = true;
-
-        setNeedsDisplay();
-        askForSync();
-    }
-}
-
 PlatformLayer* GraphicsLayerAndroid::platformLayer() const
 {
     ALOGV("platformLayer");

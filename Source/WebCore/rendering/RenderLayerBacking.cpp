@@ -306,25 +306,11 @@ bool RenderLayerBacking::updateGraphicsLayerConfiguration()
         layerConfigChanged = true;
     }
 #endif
-    else if (renderer->isCanvas()){
-        HTMLCanvasElement *canvas = static_cast<HTMLCanvasElement*>(renderer->node());
-        if (canvas->isUsingGpuRendering())
-        {
-            m_graphicsLayer->setContentsToCanvas(canvas->platformLayer());
-        }
-        layerConfigChanged = true;
-    }
 
     if (renderer->isRenderPart())
         layerConfigChanged = RenderLayerCompositor::parentFrameContentLayers(toRenderPart(renderer));
 
     return layerConfigChanged;
-}
-
-void RenderLayerBacking::setContentsToCanvas(LayerAndroid* layer)
-{
-    if(m_graphicsLayer)
-        m_graphicsLayer->setContentsToCanvas(layer);
 }
 
 static IntRect clipBox(RenderBox* renderer)

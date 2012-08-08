@@ -124,6 +124,23 @@ android::Surface* CanvasTexture::nativeWindow()
     return m_ANW.get();
 }
 
+bool CanvasTexture::uploadImageBitmap(SkBitmap* bitmap)
+{
+    m_hasValidTexture = false;
+    android::Surface* anw = nativeWindow();
+    if (!anw)
+        return false;
+    // Size mismatch, early abort (will fall back to software)
+    if (bitmap->width() != m_size.width() ||
+            bitmap->height() != m_size.height())
+        return false;
+
+    if (!GLUtils::updateSharedSurfaceTextureWithBitmap(anw, *bitmap))
+        return false;
+    m_hasValidTexture = true;
+    return true;
+}
+
 bool CanvasTexture::uploadImageBuffer(ImageBuffer* imageBuffer)
 {
     m_hasValidTexture = false;

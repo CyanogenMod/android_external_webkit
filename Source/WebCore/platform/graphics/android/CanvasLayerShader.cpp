@@ -247,7 +247,7 @@ void CanvasLayerShader::cleanupData(int textureId)
 }
 
 bool CanvasLayerShader::drawPrimitives(std::vector<SkRect>& primitives, std::vector<FloatRect>& texturecoords,
-                                        std::vector<int>& primScaleX, std::vector<int>& primScaleY,
+                                        std::vector<int>& primScaleX, std::vector<int>& primScaleY, std::vector<SkMatrix>& primMatrix,
                                         int textureId, TransformationMatrix& matrix, float opacity)
 {
     int num_vertices_per_primitive = 6; //Later to be 4
@@ -329,6 +329,20 @@ bool CanvasLayerShader::drawPrimitives(std::vector<SkRect>& primitives, std::vec
 
         int& scaleX = primScaleX[jj];
         int& scaleY = primScaleY[jj];
+        SkMatrix& tempMatrix = primMatrix[jj];
+
+        //Convert to right format
+        TransformationMatrix tempWebCoreMatrix;
+        tempWebCoreMatrix.setM11(SkScalarToFloat(tempMatrix[0]));  //m11 scaleX
+        tempWebCoreMatrix.setM12(SkScalarToFloat(tempMatrix[3]));  //m12 skewY
+        tempWebCoreMatrix.setM21(SkScalarToFloat(tempMatrix[1]));  //m21 skewX
+        tempWebCoreMatrix.setM22(SkScalarToFloat(tempMatrix[4]));  //m22 scaleY
+        tempWebCoreMatrix.setM41(SkScalarToFloat(tempMatrix[2]));  //m41 transX
+        tempWebCoreMatrix.setM42(SkScalarToFloat(tempMatrix[5]));  //m42 transY
+        tempWebCoreMatrix.setM14(SkScalarToFloat(tempMatrix[6]));  //m14 persp0
+        tempWebCoreMatrix.setM24(SkScalarToFloat(tempMatrix[7]));  //m24 persp1
+        tempWebCoreMatrix.setM44(SkScalarToFloat(tempMatrix[8]));  //m44 persp2
+
 
         float fLeft = SkScalarRound(geometry.fLeft);
         float fTop = SkScalarRound(geometry.fTop);
@@ -346,6 +360,7 @@ bool CanvasLayerShader::drawPrimitives(std::vector<SkRect>& primitives, std::vec
         //TransformationMatrix total = m_projectionMatrix;
         TransformationMatrix total = m_surfaceProjectionMatrix;
         total.multiply(matrix);
+        total.multiply(tempWebCoreMatrix);
         total.multiply(translate);
         total.multiply(scale);
 
@@ -558,10 +573,6 @@ bool CanvasLayerShader::drawPrimitives(std::vector<SkRect>& primitives, std::vec
     glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 
     glDrawArrays(GL_TRIANGLES, 0, numVertices);
-    glDisableVertexAttribArray(m_saPos);
-    glDisableVertexAttribArray(m_saTexCoords);
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-
     return true;
 }
 

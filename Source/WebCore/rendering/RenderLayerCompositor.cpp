@@ -1567,11 +1567,6 @@ bool RenderLayerCompositor::requiresCompositingForCanvas(RenderObject* renderer)
 
     if (renderer->isCanvas()) {
         HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer->node());
-        return canvas->isUsingGpuRendering();
-    }
-
-    if (renderer->isCanvas()) {
-        HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer->node());
         return canvas->renderingContext() && canvas->renderingContext()->isAccelerated();
     }
     return false;

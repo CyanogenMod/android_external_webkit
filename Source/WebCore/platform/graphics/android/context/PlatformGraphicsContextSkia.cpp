@@ -107,13 +107,36 @@ PlatformGraphicsContextSkia::PlatformGraphicsContextSkia(SkCanvas* canvas,
     m_gc = 0;
 }
 
-PlatformGraphicsContextSkia::PlatformGraphicsContextSkia(int width, int height)
+PlatformGraphicsContextSkia::PlatformGraphicsContextSkia(int width, int height, PlatformGraphicsContext* existing)
     : PlatformGraphicsContext()
     , m_deleteCanvas(false)
     , m_canvasState(RECORDING)
     , m_picture(new SkPicture)
 {
     mCanvas = m_picture->beginRecording(width, height, 0);
+    if(existing)
+    {
+        PlatformGraphicsContextSkia* existingSkia = static_cast<PlatformGraphicsContextSkia*>(existing);
+        if(existingSkia)
+        {
+            //Copy over current state
+            State* existingState = existingSkia->getState();
+            if(existingState)
+                m_state = new State(*existingState);
+
+            //Copy over stateStack
+            WTF::Vector<State>& existingStateStack = existingSkia->getStateStack();
+            WTF::Vector<State>::const_iterator it = existingStateStack.begin();
+            for(; it != existingStateStack.end(); it++)
+            {
+                m_stateStack.append(*it);
+            }
+
+            //Copy over transform
+            SkMatrix existingMatrix = existingSkia->getTotalMatrix();
+            mCanvas->concat(existingMatrix);
+        }
+    }
 }
 
 PlatformGraphicsContextSkia::~PlatformGraphicsContextSkia()

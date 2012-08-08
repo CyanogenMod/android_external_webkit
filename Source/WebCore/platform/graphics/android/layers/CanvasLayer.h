@@ -1,5 +1,6 @@
 /*
  * Copyright 2012, The Android Open Source Project
+ * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -32,6 +33,8 @@
 #include "ImageData.h"
 #include "LayerAndroid.h"
 #include "RenderLayer.h"
+
+#include <map>
 
 #include <wtf/RefPtr.h>
 
@@ -73,6 +76,28 @@ private:
     SkRegion m_dirtyCanvas;
     SkBitmapRef* m_bitmap;
     RefPtr<CanvasTexture> m_texture;
+
+    /*******************************
+     * Recording/GPU Canvas
+     ******************************/
+
+    /*******************************
+     * WebKit Thread
+     ******************************/
+    static SkBitmap* getRecordingBitmap(CanvasLayer* layer);
+    static SkCanvas* getRecordingCanvas(CanvasLayer* layer);
+    static void setRecordingBitmap(SkBitmap* bitmap, CanvasLayer* layer);
+    static void setRecordingCanvas(SkCanvas* canvas, CanvasLayer* layer);
+    static void setGpuCanvas(CanvasLayerAndroid* canvas, CanvasLayer* layer);
+
+    /*******************************
+     * UI Thread
+     ******************************/
+    static CanvasLayerAndroid* getGpuCanvas(CanvasLayer* layer);
+
+    static std::map<int, SkBitmap*> s_recording_bitmap;
+    static std::map<int, SkCanvas*> s_recording_canvas;
+    static std::map<int, CanvasLayerAndroid*> s_gpu_canvas;
 };
 
 } // namespace WebCore
