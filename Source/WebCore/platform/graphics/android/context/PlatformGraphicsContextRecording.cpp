@@ -45,6 +45,8 @@
 
 #define NEW_OP(X) new (operationHeap()) GraphicsOperation::X
 
+#define USE_CLIPPING_PAINTER true
+
 namespace WebCore {
 
 static FloatRect approximateTextBounds(size_t numGlyphs,
@@ -288,6 +290,94 @@ static bool CompareRecordingDataOrder(const RecordingData* a, const RecordingDat
     return a->m_orderBy < b->m_orderBy;
 }
 
+static IntRect enclosedIntRect(const FloatRect& rect)
+{
+    float left = ceilf(rect.x());
+    float top = ceilf(rect.y());
+    float width = floorf(rect.maxX()) - left;
+    float height = floorf(rect.maxY()) - top;
+
+    return IntRect(clampToInteger(left), clampToInteger(top),
+                   clampToInteger(width), clampToInteger(height));
+}
+
+#if USE_CLIPPING_PAINTER
+class ClippingPainter {
+public:
+    ClippingPainter(RecordingImpl* recording,
+                    PlatformGraphicsContextSkia& context,
+                    const SkMatrix& initialMatrix,
+                    Vector<RecordingData*> &nodes)
+        : m_recording(recording)
+        , m_context(context)
+        , m_initialMatrix(initialMatrix)
+        , m_nodes(nodes)
+        , m_lastOperationId(0)
+        , m_currState(0)
+    {}
+
+    void draw(const SkIRect& bounds) {
+        SkRegion coveredArea(bounds);
+
+        drawWithClipRecursive(static_cast<int>(m_nodes.size()) - 1, coveredArea);
+
+        while (m_currState) {
+            m_currState->exitState(&m_context);
+            m_currState = m_currState->parent();
+        }
+    }
+
+private:
+    void drawOperation(RecordingData* node, const SkRegion& covered)
+    {
+        GraphicsOperation::Operation* op = node->m_operation;
+        m_recording->applyState(&m_context, m_currState,
+                                m_lastOperationId, op->m_canvasState, node->m_orderBy);
+        m_currState = op->m_canvasState;
+        m_lastOperationId = node->m_orderBy;
+
+        // if other opaque operations will cover the current one, clip that area out
+        // (and restore the clip immediately after drawing)
+        if (!covered.isEmpty()) {
+            m_context.save();
+            m_context.canvas()->clipRegion(covered, SkRegion::kIntersect_Op);
+        }
+        op->apply(&(m_context));
+        if (!covered.isEmpty())
+            m_context.restore();
+    }
+
+    void drawWithClipRecursive(int index, const SkRegion& covered)
+    {
+        if (index < 0)
+            return;
+        RecordingData* recordingData = m_nodes[index];
+        GraphicsOperation::Operation* op = recordingData->m_operation;
+        if (index != 0) {
+            const IntRect* opaqueRect = op->opaqueRect();
+            if (!opaqueRect || opaqueRect->isEmpty()) {
+                drawWithClipRecursive(index - 1, covered);
+            } else {
+                SkRegion newCovered = covered;
+                SkRect mappedRect = *opaqueRect;
+                m_initialMatrix.mapRect(&mappedRect);
+                newCovered.op(enclosedIntRect(mappedRect), SkRegion::kDifference_Op);
+                if (!newCovered.isEmpty())
+                    drawWithClipRecursive(index - 1, newCovered);
+            }
+        }
+        drawOperation(recordingData, covered);
+    }
+
+    RecordingImpl* m_recording;
+    PlatformGraphicsContextSkia& m_context;
+    const SkMatrix& m_initialMatrix;
+    const Vector<RecordingData*>& m_nodes;
+    size_t m_lastOperationId;
+    CanvasState* m_currState;
+};
+#endif // USE_CLIPPING_PAINTER
+
 void Recording::draw(SkCanvas* canvas)
 {
     if (!m_recording) {
@@ -310,6 +400,10 @@ void Recording::draw(SkCanvas* canvas)
         int saveCount = canvas->getSaveCount();
         nonCopyingSort(nodes.begin(), nodes.end(), CompareRecordingDataOrder);
         PlatformGraphicsContextSkia context(canvas);
+#if USE_CLIPPING_PAINTER
+        ClippingPainter painter(recording(), context, canvas->getTotalMatrix(), nodes);
+        painter.draw(canvas->getTotalClip().getBounds());
+#else
         CanvasState* currState = 0;
         size_t lastOperationId = 0;
         for (size_t i = 0; i < count; i++) {
@@ -325,6 +419,7 @@ void Recording::draw(SkCanvas* canvas)
             currState->exitState(&context);
             currState = currState->parent();
         }
+#endif
         if (saveCount != canvas->getSaveCount()) {
             ALOGW("Save/restore mismatch! %d vs. %d", saveCount, canvas->getSaveCount());
         }
@@ -543,11 +638,13 @@ const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 void PlatformGraphicsContextRecording::addInnerRoundedRectClip(const IntRect& rect,
                                                       int thickness)
 {
+    mRecordingStateStack.last().setHasComplexClip();
     appendStateOperation(NEW_OP(InnerRoundedRectClip)(rect, thickness));
 }
 
 void PlatformGraphicsContextRecording::canvasClip(const Path& path)
 {
+    mRecordingStateStack.last().setHasComplexClip();
     clip(path);
 }
 
@@ -560,6 +657,7 @@ bool PlatformGraphicsContextRecording::clip(const FloatRect& rect)
 
 bool PlatformGraphicsContextRecording::clip(const Path& path)
 {
+    mRecordingStateStack.last().setHasComplexClip();
     clipState(path.boundingRect());
     appendStateOperation(NEW_OP(ClipPath)(path));
     return true;
@@ -574,18 +672,21 @@ bool PlatformGraphicsContextRecording::clipConvexPolygon(size_t numPoints,
 
 bool PlatformGraphicsContextRecording::clipOut(const IntRect& r)
 {
+    mRecordingStateStack.last().setHasComplexClip();
     appendStateOperation(NEW_OP(ClipOut)(r));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clipOut(const Path& path)
 {
+    mRecordingStateStack.last().setHasComplexClip();
     appendStateOperation(NEW_OP(ClipPath)(path, true));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
 {
+    mRecordingStateStack.last().setHasComplexClip();
     clipState(pathToClip.boundingRect());
     GraphicsOperation::ClipPath* operation = NEW_OP(ClipPath)(pathToClip);
     operation->setWindRule(clipRule);
@@ -839,6 +940,20 @@ IntRect PlatformGraphicsContextRecording::calculateFinalBounds(FloatRect bounds)
     return enclosingIntRect(translated);
 }
 
+IntRect PlatformGraphicsContextRecording::calculateCoveredBounds(FloatRect bounds)
+{
+    SkRect translated;
+    mCurrentMatrix->mapRect(&translated, bounds);
+    FloatRect ftrect = translated;
+    if (mRecordingStateStack.last().mHasClip
+            && !translated.intersect(mRecordingStateStack.last().mBounds)) {
+        ALOGV("Operation opaque area=" FLOAT_RECT_FORMAT " clipped out by clip=" FLOAT_RECT_FORMAT,
+                FLOAT_RECT_ARGS(ftrect), FLOAT_RECT_ARGS(mRecordingStateStack.last().mBounds));
+        return IntRect();
+    }
+    return enclosedIntRect(translated);
+}
+
 void PlatformGraphicsContextRecording::appendDrawingOperation(
         GraphicsOperation::Operation* operation, const FloatRect& untranslatedBounds)
 {
@@ -857,7 +972,16 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         operationHeap()->rewindTo(operation);
         return;
     }
-    ALOGV("appendOperation %p->%s()", operation, operation->name());
+    if (operation->isOpaque()
+        && !untranslatedBounds.isEmpty()
+        && operation->m_state->alpha == 1.0f
+        && mCurrentMatrix->rectStaysRect()
+        && !state.mHasComplexClip) {
+        // if the operation maps to an opaque rect, record the area it will cover
+        operation->setOpaqueRect(calculateCoveredBounds(untranslatedBounds));
+    }
+    ALOGV("appendOperation %p->%s() bounds " INT_RECT_FORMAT, operation, operation->name(),
+            INT_RECT_ARGS(ibounds));
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecording->recording()->m_tree.insert(ibounds, data);
 }
