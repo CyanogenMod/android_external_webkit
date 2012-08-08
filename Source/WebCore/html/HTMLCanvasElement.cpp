@@ -81,7 +81,7 @@ static const int DefaultHeight = 150;
 #if PLATFORM(ANDROID)
 //TODO::VA::Make this robust later (prototyping)... needs to be protected by ifdefs for android
 int HTMLCanvasElement::s_canvas_id = 0;
-bool HTMLCanvasElement::s_glEnabled = true;
+int HTMLCanvasElement::s_recordingCanvasThreshold = 5;
 #endif
 
 // Firefox limits width/height to 32767 pixels, but slows down dramatically before it
@@ -115,16 +115,16 @@ HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc
 #if PLATFORM(ANDROID)
     , m_recordingCanvasEnabled(true)
     , m_gpuCanvasEnabled(true)
-    , m_canvasLayer(new CanvasLayerAndroid())
     , m_gpuRendering(false)
     , m_supportedCompositing(true)
     , m_canUseGpuRendering(false)
-    , m_gpuAccelerationStatus(false)
 #endif
 {
     ASSERT(hasTagName(canvasTag));
 
 # if PLATFORM(ANDROID)
+    m_canvasLayer = new CanvasLayerAndroid();
+
     char pval[PROPERTY_VALUE_MAX];
     property_get("debug.recordingcanvas", pval, "0");
 
@@ -134,6 +134,12 @@ HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc
     property_get("debug.gpucanvas", pval2, "0");
 
     m_gpuCanvasEnabled = atoi(pval2) ? true : false;
+
+    //Allow threshold value to be set per device
+    char pval3[PROPERTY_VALUE_MAX];
+    property_get("debug.recordingcanvas.threshold", pval3, "5");
+
+    s_recordingCanvasThreshold = atoi(pval3);
 
     //Set the canvas ID
     SLOGD("++++++++++++++++++++++Setting up the canvas ID to be %d", s_canvas_id);
@@ -354,43 +360,9 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
     if (hasCreatedImageBuffer()) {
         ImageBuffer* imageBuffer = buffer();
         if (imageBuffer) {
-#if PLATFORM(ANDROID)
-    if (imageBuffer->drawsUsingRecording()) {
-        // The canvas will draw onto a recording canvas. We want to pass the
-        // recorded canvas content onto the GraphicsLayerAndroid recording
-        // canvas.
 
-        m_canUseGpuRendering = imageBuffer->canUseGpuRendering();
-        int id = m_canvasLayer->getCanvasID();
-        bool oom_status = CanvasLayerAndroid::isCanvasOOM(id);
-
-        if(m_canUseGpuRendering && m_gpuRendering && m_gpuCanvasEnabled && !oom_status && s_glEnabled)
-        {
-            imageBuffer->copyRecordingToLayer(context, r, m_canvasLayer);
-            m_gpuAccelerationStatus = true;
-        }
-        else
-        {
-            if(s_glEnabled && m_gpuAccelerationStatus)
-            {
-                imageBuffer->resetRecordingToLayer(context, r, m_canvasLayer);
-                m_gpuAccelerationStatus = false;
-            }
-            imageBuffer->copyRecordingToCanvas(context, r);
-        }
-
-        return;
-    }
-    else
-    {
-        if(m_gpuAccelerationStatus)
-        {
-            imageBuffer->resetRecordingToLayer(context, r, m_canvasLayer);
-            m_gpuAccelerationStatus = false;
-        }
-        m_canUseGpuRendering = false;
-    }
-#endif
+            if(imageBuffer->drawsUsingRecording())
+                return;
 
             if (m_presentedImage)
                 context->drawImage(m_presentedImage.get(), ColorSpaceDeviceRGB, r);
@@ -398,14 +370,6 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
                 context->drawImage(copiedImage(), ColorSpaceDeviceRGB, r);
             else
                 context->drawImageBuffer(imageBuffer, ColorSpaceDeviceRGB, r);
-
-#if PLATFORM(ANDROID)
-    // Allow one frame to be painted, then switch to a recording canvas.
-            if (imageBuffer->isAnimating() && m_recordingCanvasEnabled) {
-                SLOGD("[%s] Animation detected. Converting the HTML5 canvas buffer to a SkPicture.", __FUNCTION__);
-                imageBuffer->convertToRecording();
-            }
-#endif
         }
     }
 
@@ -421,7 +385,7 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
 }
 
 #if PLATFORM(ANDROID)
-LayerAndroid* HTMLCanvasElement::platformLayer()
+CanvasLayerAndroid* HTMLCanvasElement::gpuCanvasLayer()
 {
     if(m_canvasLayer)
         return m_canvasLayer;
@@ -431,11 +395,7 @@ LayerAndroid* HTMLCanvasElement::platformLayer()
 
 bool HTMLCanvasElement::canUseGpuRendering()
 {
-    ImageBuffer* imageBuffer = buffer();
-    if(imageBuffer)
-        return (imageBuffer->drawsUsingRecording() && m_canUseGpuRendering && m_supportedCompositing && m_gpuCanvasEnabled);
-
-    return false;
+    return (m_supportedCompositing && m_gpuCanvasEnabled);
 }
 #endif
 
@@ -628,11 +588,45 @@ void HTMLCanvasElement::createImageBuffer() const
 }
 
 #if PLATFORM(ANDROID)
+void HTMLCanvasElement::enableGpuRendering()
+{
+    if(m_gpuRendering)
+        return;
+
+    m_gpuRendering = true;
+    m_canvasLayer->setGpuCanvasStatus(true);
+}
+
+void HTMLCanvasElement::disableGpuRendering()
+{
+    if(!m_gpuRendering)
+        return;
+
+    m_gpuRendering = false;
+    m_canvasLayer->setGpuCanvasStatus(false);
+}
+
 void HTMLCanvasElement::clearRecording(const FloatRect& rect)
 {
     FloatRect recordingRect(0, 0, width(), height());
     if(m_imageBuffer && (rect == recordingRect))
+    {
+        m_canUseGpuRendering = m_imageBuffer->canUseGpuRendering();
+        if(m_gpuRendering)
+        {
+            if(m_canUseGpuRendering)
+            {
+                //gpu canvas path
+                IntRect r(rect.x(), rect.y(), rect.width(), rect.height());
+                m_imageBuffer->copyRecordingToLayer(NULL, r, m_canvasLayer);
+            }
+            else
+            {
+                disableGpuRendering();
+            }
+        }
         m_imageBuffer->clearRecording();
+    }
 }
 #endif
 

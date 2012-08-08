@@ -34,7 +34,7 @@ class PlatformGraphicsContextSkia : public PlatformGraphicsContext {
 public:
     PlatformGraphicsContextSkia(SkCanvas* canvas, bool takeCanvasOwnership = false);
     // Create a recording canvas
-    PlatformGraphicsContextSkia(int width, int height);
+    PlatformGraphicsContextSkia(int width, int height, PlatformGraphicsContext* existing);
     virtual ~PlatformGraphicsContextSkia();
     virtual bool isPaintingDisabled();
     SkCanvas* canvas() { return mCanvas; }
@@ -130,6 +130,8 @@ public:
     virtual bool isDirty() const { return m_canvasState == DIRTY; }
 
     virtual void setIsAnimating();
+    virtual State* getState()     {   return m_state; }
+    virtual WTF::Vector<State>& getStateStack() {   return m_stateStack;    }
 
 private:
 

@@ -28,6 +28,7 @@
 
 #if PLATFORM(ANDROID)
 #include "AnimationTimeCounter.h"
+#include "HTMLCanvasElement.h"
 #endif
 #include "BidiResolver.h"
 #include "Font.h"
@@ -85,6 +86,9 @@ GraphicsContext::GraphicsContext(PlatformGraphicsContext* platformGraphicsContex
     , m_animationTimeCounter(new AnimationTimeCounter())
 #endif
 {
+#if PLATFORM(ANDROID)
+    m_animationTimeCounter->setAnimationDetectionThreshold(HTMLCanvasElement::getRecordingCanvasThreshold());
+#endif
     platformInit(platformGraphicsContext);
 }
 

@@ -65,7 +65,7 @@ public:
     
     
     bool drawPrimitives(std::vector<SkRect>& primitives, std::vector<FloatRect>& texturecoords,
-                            std::vector<int>& primScaleX, std::vector<int>& primScaleY,
+                            std::vector<int>& primScaleX, std::vector<int>& primScaleY, std::vector<SkMatrix>& primMatrix,
                             int textureId, TransformationMatrix& matrix, float opacity);
     void cleanupData(int textureId);
     void resetBlending();

@@ -139,8 +139,6 @@ public:
     // For informative purposes only.
     CompositingLayerType compositingLayerType() const;
 
-    void setContentsToCanvas(LayerAndroid* layer);
-    
     void updateContentsScale(float);
 
     GraphicsLayer* layerForHorizontalScrollbar() const { return m_layerForHorizontalScrollbar.get(); }

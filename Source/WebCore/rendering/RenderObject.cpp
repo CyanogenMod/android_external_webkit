@@ -443,6 +443,13 @@ static void addLayers(RenderObject* obj, RenderLayer* parentLayer, RenderObject*
             // this the first time we find a child layer, and then we update the
             // pointer values for newObject and beforeChild used by everyone else.
             beforeChild = newObject->parent()->findNextLayer(parentLayer, newObject);
+            if(!beforeChild && newObject->previousSibling())
+            {
+                RenderLayer* layer = newObject->previousSibling()->enclosingLayer();
+
+                if(layer != NULL  && layer->parent() == parentLayer)
+                    beforeChild = layer;
+            }
             newObject = 0;
         }
         parentLayer->addChild(toRenderBoxModelObject(obj)->layer(), beforeChild);

@@ -105,13 +105,15 @@ public:
     void paint(GraphicsContext*, const IntRect&);
 #if PLATFORM(ANDROID)
     void clearRecording(const FloatRect& rect);
-    LayerAndroid* platformLayer();
+    CanvasLayerAndroid* gpuCanvasLayer();
     bool canUseGpuRendering();
-    void enableGpuRendering()   {   m_gpuRendering = true;    }
-    void disableGpuRendering()  {   m_gpuRendering = false;    }
+    void enableGpuRendering();
+    void disableGpuRendering();
     bool isUsingGpuRendering()  {   return m_gpuRendering;  }
     void setSupportedCompositing(bool val)   {   m_supportedCompositing = val;   }
-    static void setGLEnabled(bool val)       {   s_glEnabled = val;              }
+    bool isRecordingCanvasEnabled() {   return m_recordingCanvasEnabled;    }
+    bool isGpuCanvasEnabled()       {   return m_gpuCanvasEnabled;  }
+    static int& getRecordingCanvasThreshold()    {   return s_recordingCanvasThreshold;  }
 #endif
 
     GraphicsContext* drawingContext() const;
@@ -189,12 +191,13 @@ private:
 #if PLATFORM(ANDROID)
     bool m_recordingCanvasEnabled;
     bool m_gpuCanvasEnabled;
+
     bool m_canUseGpuRendering;
     bool m_gpuRendering;
     bool m_supportedCompositing;
-    bool m_gpuAccelerationStatus;
+
     static int s_canvas_id; //Canvas Ids TODO::recycle and overflow checks
-    static bool s_glEnabled;
+    static int s_recordingCanvasThreshold;
     CanvasLayerAndroid* m_canvasLayer;
 #endif
 };

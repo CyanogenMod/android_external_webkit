@@ -36,6 +36,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include "SkAltCanvas.h"
 #include "CanvasLayerShader.h"
 #include <wtf/CurrentTime.h>
+#include <cutils/log.h>
 #include <map>
 
 namespace WebCore {
@@ -53,7 +54,7 @@ std::map<uint32_t, std::vector<int> > CanvasLayerAndroid::s_texture_refs;
 WTF::Mutex CanvasLayerAndroid::s_mutex;
 std::map<uint32_t, int> CanvasLayerAndroid::s_texture_usage;
 std::list<int> CanvasLayerAndroid::s_canvas_oom;
-int CanvasLayerAndroid::s_maxTextureThreshold = 1;     //Aggressive collection of resources
+int CanvasLayerAndroid::s_maxTextureThreshold = 5;     //Aggressive collection of resources
 std::map<int, IntSize> CanvasLayerAndroid::s_canvas_dimensions;
 
 std::map<int, SkPicture> CanvasLayerAndroid::s_picture_map;
@@ -62,12 +63,14 @@ std::map<int, SkBitmap> CanvasLayerAndroid::s_bitmap_map;
 CanvasLayerAndroid::CanvasLayerAndroid()
     : LayerAndroid((RenderLayer*)0)
     , m_canvas_id(-1)
+    , m_gpuCanvasEnabled(false)
 {
 }
 
 CanvasLayerAndroid::CanvasLayerAndroid(const CanvasLayerAndroid& layer)
     : LayerAndroid(layer)
     , m_canvas_id(layer.m_canvas_id)
+    , m_gpuCanvasEnabled(layer.m_gpuCanvasEnabled)
 {
 }
 
@@ -298,8 +301,9 @@ SkBitmap CanvasLayerAndroid::ScaleBitmap(SkBitmap src, float sx, float sy)
     return dst;
 }
 
-bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
+bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled, TransformationMatrix& drawTransform)
 {
+    m_drawTransform = drawTransform;
     std::vector<uint32_t> generationIDs;
     std::vector<uint32_t> generationIDsUsed;
 
@@ -418,23 +422,21 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
 
         glUseProgram(s_shader.getProgram());
         glUniform1i(s_shader.getSampler(), 0);
-        //s_shader.setViewport(TilesManager::instance()->shader()->getViewport());
         s_shader.setTitleBarHeight(TilesManager::instance()->shader()->getTitleBarHeight());
-        //s_shader.setViewRect(TilesManager::instance()->shader()->getViewRect());
-        //s_shader.setWebViewRect(TilesManager::instance()->shader()->getWebViewRect());
 
         s_shader.setContentViewport(TilesManager::instance()->shader()->getContentViewport());
         s_shader.setSurfaceProjectionMatrix(TilesManager::instance()->shader()->getSurfaceProjectionMatrix());
         s_shader.setClipProjectionMatrix(TilesManager::instance()->shader()->getClipProjectionMatrix());
         s_shader.setVisibleContentRectProjectionMatrix(TilesManager::instance()->shader()->getVisibleContentRectProjectionMatrix());
 
-        FloatRect clippingRect = TilesManager::instance()->shader()->rectInViewCoord(m_drawTransform, currentSize);
+        FloatRect clippingRect = TilesManager::instance()->shader()->rectInInvViewCoord(m_drawTransform, currentSize);
         TilesManager::instance()->shader()->clip(clippingRect);
 
         std::map<int, std::vector<SkRect> > primitives_map;
         std::map<int, std::vector<FloatRect> > primTexCoord_map;
         std::map<int, std::vector<int> > primScaleX_map;
         std::map<int, std::vector<int> > primScaleY_map;
+        std::map<int, std::vector<SkMatrix> > primMatrix_map;
 
         int texture_id;
         for(int ii=0; ii<numPrimitives; ++ii)
@@ -443,6 +445,7 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
             SkIRect& tex_rect = canvas.getPrimitiveTexCoord(ii);
             int& _scaleX = canvas.getScaleX(ii);
             int& _scaleY = canvas.getScaleY(ii);
+            SkMatrix& matrix = canvas.getMatrix(ii);
 
             int& bm = canvas.getPrimitiveBmMap(ii);
 
@@ -463,16 +466,19 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
                     std::map<int, std::vector<FloatRect> >::iterator pr_tx_it = primTexCoord_map.find(texture_id);
                     std::map<int, std::vector<int> >::iterator prScX_it = primScaleX_map.find(texture_id);
                     std::map<int, std::vector<int> >::iterator prScY_it = primScaleY_map.find(texture_id);
+                    std::map<int, std::vector<SkMatrix> >::iterator prMat_it = primMatrix_map.find(texture_id);
 
                     if(pr_it != primitives_map.end() &&
                         pr_tx_it != primTexCoord_map.end() &&
                         prScX_it != primScaleX_map.end() &&
-                        prScY_it != primScaleY_map.end() )
+                        prScY_it != primScaleY_map.end() &&
+                        prMat_it != primMatrix_map.end())
                     {
                         std::vector<SkRect>& primitives = pr_it->second;
                         std::vector<FloatRect>& primTexCoord = pr_tx_it->second;
                         std::vector<int>& primScaleX = prScX_it->second;
                         std::vector<int>& primScaleY = prScY_it->second;
+                        std::vector<SkMatrix>& primMatrix = prMat_it->second;
 
                         SkRect temp;
                         temp.set(rect.fLeft, rect.fTop, rect.fRight, rect.fBottom);
@@ -497,6 +503,7 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
 
                         primScaleX.push_back(_scaleX);
                         primScaleY.push_back(_scaleY);
+                        primMatrix.push_back(matrix);
                     }
                     else
                     {
@@ -504,6 +511,7 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
                         std::vector<FloatRect> primTexCoord;
                         std::vector<int> primScaleX;
                         std::vector<int> primScaleY;
+                        std::vector<SkMatrix> primMatrix;
 
                         SkRect temp;
                         temp.set(rect.fLeft, rect.fTop, rect.fRight, rect.fBottom);
@@ -528,12 +536,14 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
 
                         primScaleX.push_back(_scaleX);
                         primScaleY.push_back(_scaleY);
+                        primMatrix.push_back(matrix);
 
                         //Add it to map
                         primitives_map.insert(std::make_pair(texture_id, primitives));
                         primTexCoord_map.insert(std::make_pair(texture_id, primTexCoord));
                         primScaleX_map.insert(std::make_pair(texture_id, primScaleX));
                         primScaleY_map.insert(std::make_pair(texture_id, primScaleY));
+                        primMatrix_map.insert(std::make_pair(texture_id, primMatrix));
                     }
                 }
             }
@@ -554,20 +564,23 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
                 std::map<int, std::vector<FloatRect> >::iterator pr_tx_it = primTexCoord_map.find(texture);
                 std::map<int, std::vector<int> >::iterator prScX_it = primScaleX_map.find(texture);
                 std::map<int, std::vector<int> >::iterator prScY_it = primScaleY_map.find(texture);
+                std::map<int, std::vector<SkMatrix> >::iterator prMat_it = primMatrix_map.find(texture);
 
                 if(pr_it != primitives_map.end() &&
                     pr_tx_it != primTexCoord_map.end() &&
                     prScX_it != primScaleX_map.end() &&
-                    prScY_it != primScaleY_map.end() )
+                    prScY_it != primScaleY_map.end() &&
+                    prMat_it != primMatrix_map.end())
                 {
                     std::vector<SkRect>& primitives = pr_it->second;
                     std::vector<FloatRect>& primTexCoord = pr_tx_it->second;
                     std::vector<int>& primScaleX = prScX_it->second;
                     std::vector<int>& primScaleY = prScY_it->second;
+                    std::vector<SkMatrix>& primMatrix = prMat_it->second;
 
                     if(primitives.size() > 0)
                     {
-                        bool drawVal = s_shader.drawPrimitives(primitives, primTexCoord, primScaleX, primScaleY, texture, m_drawTransform, 1.0f);
+                        bool drawVal = s_shader.drawPrimitives(primitives, primTexCoord, primScaleX, primScaleY, primMatrix, texture, m_drawTransform, 1.0f);
 
                         if(!drawVal)
                         {
@@ -630,7 +643,10 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled)
                 continue;
 
             if(std::find(generationIDsUsed.begin(), generationIDsUsed.end(), generationID) != generationIDsUsed.end())
+            {
+                value = 0;
                 --value;
+            }
         }
     }
 

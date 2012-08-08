@@ -92,7 +92,6 @@ namespace WebCore {
         void clearRecording() const;
         void copyRecordingToCanvas(GraphicsContext*, const IntRect&) const; // Playback our recording into the layer recording canvas.
         void copyRecordingToLayer(GraphicsContext*, const IntRect&, CanvasLayerAndroid* canvasLayer) const;
-        void resetRecordingToLayer(GraphicsContext*, const IntRect&, CanvasLayerAndroid* canvasLayer) const;
         bool canUseGpuRendering();
 #endif
         bool isAccelerated() const { return m_accelerateRendering; }

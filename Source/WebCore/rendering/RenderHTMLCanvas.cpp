@@ -60,7 +60,7 @@ bool RenderHTMLCanvas::requiresLayer() const
         return true;
     
     HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(node());
-    return (m_requiresLayer || (canvas && canvas->renderingContext() && canvas->renderingContext()->isAccelerated()));
+    return (canvas && canvas->renderingContext() && canvas->renderingContext()->isAccelerated());
 }
 
 void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
@@ -68,21 +68,6 @@ void RenderHTMLCanvas::paintReplaced(PaintInfo& paintInfo, int tx, int ty)
     IntRect rect = contentBoxRect();
     rect.move(tx, ty);
     static_cast<HTMLCanvasElement*>(node())->paint(paintInfo.context, rect);
-
-    bool canUseGPU = static_cast<HTMLCanvasElement*>(node())->canUseGpuRendering();
-    if(canUseGPU && !m_acceleratedCanvas)
-    {
-        static_cast<HTMLCanvasElement*>(node())->setNeedsStyleRecalc(SyntheticStyleChange);
-        static_cast<HTMLCanvasElement*>(node())->enableGpuRendering();
-        m_requiresLayer = true;
-        m_acceleratedCanvas = true;
-    }else if(!canUseGPU && m_acceleratedCanvas)
-    {
-        static_cast<HTMLCanvasElement*>(node())->setNeedsStyleRecalc(SyntheticStyleChange);
-        static_cast<HTMLCanvasElement*>(node())->disableGpuRendering();
-        m_requiresLayer = false;
-        m_acceleratedCanvas = false;
-    }
 }
 
 void RenderHTMLCanvas::canvasSizeChanged()

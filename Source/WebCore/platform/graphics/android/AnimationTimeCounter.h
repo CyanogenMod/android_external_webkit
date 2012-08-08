@@ -68,11 +68,16 @@ class AnimationTimeCounter
             return (m_elapsedTime >= 1) && (static_cast<int>(m_numFrames / m_elapsedTime) > ANIMATION_FPS_THRESHOLD);
         }
 
+        void setAnimationDetectionThreshold(int val)
+        {
+            ANIMATION_FPS_THRESHOLD = val;
+        }
+
     private:
         int m_numFrames;
         double m_startTime; // seconds
         double m_elapsedTime; // seconds
-        static const int ANIMATION_FPS_THRESHOLD = 5;
+        int ANIMATION_FPS_THRESHOLD;
 };
 
 #endif // AnimationTimeCounter_h

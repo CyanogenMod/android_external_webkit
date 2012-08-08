@@ -308,9 +308,8 @@ namespace WebCore {
          */
         static GraphicsContext* createOffscreenContext(int width, int height);
 
-        static GraphicsContext* createOffscreenRecordingContext(int width, int height);
+        static GraphicsContext* createOffscreenRecordingContext(int width, int height, PlatformGraphicsContext* existing);
 
-        void copyState(GraphicsContext* context);
         //Needed to keep track of transformation matrix for SkPicture based drawing
         void setCurrentTransform(AffineTransform& transform);
 #endif

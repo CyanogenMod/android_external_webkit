@@ -92,8 +92,8 @@ GraphicsContext* ImageBuffer::context() const
 
 void ImageBuffer::convertToRecording()
 {
-    GraphicsContext* context = GraphicsContext::createOffscreenRecordingContext(m_size.width(), m_size.height());
-    context->copyState(m_context.get());
+    PlatformGraphicsContext* existing = context()->platformContext();
+    GraphicsContext* context = GraphicsContext::createOffscreenRecordingContext(m_size.width(), m_size.height(), existing);
     m_context.set(context);
 }
 
@@ -142,16 +142,6 @@ void ImageBuffer::copyRecordingToLayer( GraphicsContext* paintContext, const Int
                                         CanvasLayerAndroid* canvasLayer) const
 {
     SkPicture* canvasRecording = context()->platformContext()->getRecordingPicture();
-    SkPicture dstPicture(*canvasRecording);
-    IntSize size = r.size();
-    canvasLayer->setPicture(dstPicture, size);
-    clearRecording();
-}
-
-void ImageBuffer::resetRecordingToLayer( GraphicsContext* paintContext, const IntRect& r,
-                                         CanvasLayerAndroid* canvasLayer) const
-{
-    SkPicture* canvasRecording = new SkPicture();
     SkPicture dstPicture(*canvasRecording);
     IntSize size = r.size();
     canvasLayer->setPicture(dstPicture, size);

@@ -114,9 +114,9 @@ GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
     return ctx;
 }
 
-GraphicsContext* GraphicsContext::createOffscreenRecordingContext(int width, int height)
+GraphicsContext* GraphicsContext::createOffscreenRecordingContext(int width, int height, PlatformGraphicsContext* existing)
 {
-    PlatformGraphicsContextSkia* pgc = new PlatformGraphicsContextSkia(width, height);
+    PlatformGraphicsContextSkia* pgc = new PlatformGraphicsContextSkia(width, height, existing);
     GraphicsContext* ctx = new GraphicsContext(pgc);
     return ctx;
 }
@@ -134,14 +134,6 @@ void GraphicsContext::platformInit(PlatformGraphicsContext* gc)
 void GraphicsContext::platformDestroy()
 {
     delete m_data;
-}
-
-void GraphicsContext::copyState(GraphicsContext* context)
-{
-    //TODO::copyState cleanly
-    //GraphicsContextPlatformPrivate::State* copyState = context->m_data->getState();
-    //m_data->setState(copyState);
-    //m_data->setStateStack(context->m_data->getStateStack());
 }
 
 void GraphicsContext::setCurrentTransform(AffineTransform& transform)
