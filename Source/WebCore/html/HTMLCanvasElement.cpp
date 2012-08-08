@@ -353,6 +353,10 @@ void HTMLCanvasElement::paint(GraphicsContext* context, const IntRect& r)
             if(imageBuffer->drawsUsingRecording())
                 return;
 
+#if PLATFORM(ANDROID)
+            return;     //Prevent old-style canvas rendering (causes ghosting background images)
+#endif
+
             if (m_presentedImage)
                 context->drawImage(m_presentedImage.get(), ColorSpaceDeviceRGB, r);
             else if (imageBuffer->drawsUsingCopy())
