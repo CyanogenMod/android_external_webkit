@@ -39,6 +39,8 @@ class Operation;
 class CanvasState;
 class LinearAllocator;
 class RecordingImpl;
+class PlatformGraphicsContextSkia;
+class RecordingData;
 
 class Recording : public SkRefCnt {
 public:
@@ -157,6 +159,7 @@ private:
     void pushMatrix();
     void popMatrix();
     IntRect calculateFinalBounds(FloatRect bounds);
+    IntRect calculateCoveredBounds(FloatRect bounds);
     LinearAllocator* operationHeap();
     LinearAllocator* canvasStateHeap();
 
@@ -170,14 +173,18 @@ private:
             : mCanvasState(state)
             , mHasDrawing(false)
             , mHasClip(false)
+            , mHasComplexClip(false)
         {}
 
         RecordingState(const RecordingState& other)
             : mCanvasState(other.mCanvasState)
             , mHasDrawing(other.mHasDrawing)
             , mHasClip(other.mHasClip)
+            , mHasComplexClip(false)
             , mBounds(other.mBounds)
         {}
+
+        void setHasComplexClip() { mHasComplexClip = true; }
 
         void clip(const FloatRect& rect)
         {
@@ -192,6 +199,7 @@ private:
         CanvasState* mCanvasState;
         bool mHasDrawing;
         bool mHasClip;
+        bool mHasComplexClip;
         FloatRect mBounds;
     };
     Vector<RecordingState> mRecordingStateStack;

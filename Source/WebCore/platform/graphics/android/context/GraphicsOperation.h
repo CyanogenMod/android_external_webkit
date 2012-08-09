@@ -84,6 +84,10 @@ public:
     virtual bool applyImpl(PlatformGraphicsContext* context) = 0;
     virtual ~Operation() {}
 
+    virtual const IntRect*  opaqueRect() { return 0; }
+    virtual bool isOpaque() { return false; }
+    virtual void setOpaqueRect(const IntRect& bounds) {}
+
 #if DEBUG_GRAPHICS_OPERATIONS
     typedef enum { UndefinedOperation
                   // Matrix operations
@@ -157,6 +161,15 @@ public:
     }
 #endif
     TYPE(UndefinedOperation)
+};
+
+class PossiblyOpaqueOperation : public Operation {
+public:
+    virtual const IntRect* opaqueRect() { return &m_absoluteOpaqueRect; }
+    virtual void setOpaqueRect(const IntRect& bounds) { m_absoluteOpaqueRect = bounds; }
+
+private:
+    IntRect m_absoluteOpaqueRect;
 };
 
 //**************************************
@@ -290,7 +303,7 @@ private:
 // Drawing
 //**************************************
 
-class DrawBitmapPattern : public Operation {
+class DrawBitmapPattern : public PossiblyOpaqueOperation {
 public:
     DrawBitmapPattern(const SkBitmap& bitmap, const SkMatrix& matrix,
                       CompositeOperator op, const FloatRect& destRect)
@@ -299,7 +312,9 @@ public:
         context->drawBitmapPattern(m_bitmap, m_matrix, m_operator, m_destRect);
         return true;
     }
+    virtual bool isOpaque() { return m_bitmap.isOpaque(); }
     TYPE(DrawBitmapPatternOperation)
+
 private:
     SkBitmap m_bitmap;
     SkMatrix m_matrix;
@@ -307,7 +322,7 @@ private:
     FloatRect m_destRect;
 };
 
-class DrawBitmapRect : public Operation {
+class DrawBitmapRect : public PossiblyOpaqueOperation {
 public:
     DrawBitmapRect(const SkBitmap& bitmap, const SkIRect& srcR,
                    const SkRect& dstR, CompositeOperator op)
@@ -316,6 +331,7 @@ public:
         context->drawBitmapRect(m_bitmap, &m_srcR, m_dstR, m_operator);
         return true;
     }
+    virtual bool isOpaque() { return m_bitmap.isOpaque(); }
     TYPE(DrawBitmapRectOperation)
 private:
     SkBitmap m_bitmap;
@@ -443,7 +459,7 @@ private:
     WindRule m_fillRule;
 };
 
-class FillRect : public Operation {
+class FillRect : public PossiblyOpaqueOperation {
 public:
     FillRect(const FloatRect& rect) : m_rect(rect), m_hasColor(false) {}
     void setColor(Color c) { m_color = c; m_hasColor = true; }
@@ -454,6 +470,8 @@ public:
              context->fillRect(m_rect);
         return true;
     }
+    virtual bool isOpaque() { return (m_hasColor && !m_color.hasAlpha())
+            || (!m_hasColor && SkColorGetA(m_state->fillColor) == 0xFF); }
     TYPE(FillRectOperation)
 private:
     FloatRect m_rect;
