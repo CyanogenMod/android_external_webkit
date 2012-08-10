@@ -847,7 +847,7 @@ bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
     //       we can't do that because of transparency -- for now, we just create
     //       a new picture every time.
     WebCore::PicturePile picture;
-    picture.setSize(IntSize(m_size.width(), m_size.height()));
+    picture.setSize(IntSize(rect.width(), rect.height()));
 
     // TODO: add content checks (text, opacity, etc.)
     picture.updatePicturesIfNeeded(this);
