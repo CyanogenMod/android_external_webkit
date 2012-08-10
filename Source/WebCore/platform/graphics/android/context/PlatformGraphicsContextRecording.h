@@ -60,7 +60,7 @@ private:
 class PlatformGraphicsContextRecording : public PlatformGraphicsContext {
 public:
     PlatformGraphicsContextRecording(Recording* picture);
-    virtual ~PlatformGraphicsContextRecording() {}
+    virtual ~PlatformGraphicsContextRecording();
     virtual bool isPaintingDisabled();
 
     virtual SkCanvas* recordingCanvas();

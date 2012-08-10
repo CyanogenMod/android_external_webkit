@@ -448,11 +448,17 @@ PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* re
     , m_isEmpty(true)
     , m_canvasProxy(this)
 {
+    ALOGV("RECORDING: begin");
     if (mRecording)
         mRecording->setRecording(new RecordingImpl());
     mMatrixStack.append(SkMatrix::I());
     mCurrentMatrix = &(mMatrixStack.last());
     pushStateOperation(new (canvasStateHeap()) CanvasState(0));
+}
+
+PlatformGraphicsContextRecording::~PlatformGraphicsContextRecording()
+{
+    ALOGV("RECORDING: end");
 }
 
 bool PlatformGraphicsContextRecording::isPaintingDisabled()
@@ -872,7 +878,7 @@ void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
 
 void PlatformGraphicsContextRecording::pushStateOperation(CanvasState* canvasState)
 {
-    ALOGV("pushStateOperation: %p(isLayer=%d)", canvasState, canvasState->isTransparencyLayer());
+    ALOGV("RECORDING: pushStateOperation: %p(isLayer=%d)", canvasState, canvasState->isTransparencyLayer());
     mRecordingStateStack.append(canvasState);
     mRecording->recording()->addCanvasState(canvasState);
 }
@@ -881,14 +887,15 @@ void PlatformGraphicsContextRecording::popStateOperation()
 {
     RecordingState state = mRecordingStateStack.last();
     mRecordingStateStack.removeLast();
+    mOperationState = 0;
     if (!state.mHasDrawing) {
-        ALOGV("popStateOperation is deleting %p(isLayer=%d)",
+        ALOGV("RECORDING: popStateOperation is deleting %p(isLayer=%d)",
                 state.mCanvasState, state.mCanvasState->isTransparencyLayer());
         mRecording->recording()->removeCanvasState(state.mCanvasState);
         state.mCanvasState->~CanvasState();
         canvasStateHeap()->rewindTo(state.mCanvasState);
     } else {
-        ALOGV("popStateOperation: %p(isLayer=%d)",
+        ALOGV("RECORDING: popStateOperation: %p(isLayer=%d)",
                 state.mCanvasState, state.mCanvasState->isTransparencyLayer());
         // Make sure we propagate drawing upwards so we don't delete our parent
         mRecordingStateStack.last().mHasDrawing = true;
@@ -967,7 +974,7 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
 
     WebCore::IntRect ibounds = calculateFinalBounds(untranslatedBounds);
     if (ibounds.isEmpty()) {
-        ALOGV("Operation %s() was clipped out", operation->name());
+        ALOGV("RECORDING: Operation %s() was clipped out", operation->name());
         operation->~Operation();
         operationHeap()->rewindTo(operation);
         return;
@@ -980,7 +987,7 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         // if the operation maps to an opaque rect, record the area it will cover
         operation->setOpaqueRect(calculateCoveredBounds(untranslatedBounds));
     }
-    ALOGV("appendOperation %p->%s() bounds " INT_RECT_FORMAT, operation, operation->name(),
+    ALOGV("RECORDING: appendOperation %p->%s() bounds " INT_RECT_FORMAT, operation, operation->name(),
             INT_RECT_ARGS(ibounds));
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecording->recording()->m_tree.insert(ibounds, data);
@@ -988,7 +995,7 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
 
 void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::Operation* operation)
 {
-    ALOGV("appendOperation %p->%s()", operation, operation->name());
+    ALOGV("RECORDING: appendOperation %p->%s()", operation, operation->name());
     RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecordingStateStack.last().mCanvasState->adoptAndAppend(data);
 }
