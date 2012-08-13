@@ -317,9 +317,7 @@ public:
     {}
 
     void draw(const SkIRect& bounds) {
-        SkRegion coveredArea(bounds);
-
-        drawWithClipRecursive(static_cast<int>(m_nodes.size()) - 1, coveredArea);
+        drawWithClipRecursive(static_cast<int>(m_nodes.size()) - 1, bounds, 0);
 
         while (m_currState) {
             m_currState->exitState(&m_context);
@@ -328,7 +326,7 @@ public:
     }
 
 private:
-    void drawOperation(RecordingData* node, const SkRegion& covered)
+    void drawOperation(RecordingData* node, const SkRegion* uncovered)
     {
         GraphicsOperation::Operation* op = node->m_operation;
         m_recording->applyState(&m_context, m_currState,
@@ -338,16 +336,16 @@ private:
 
         // if other opaque operations will cover the current one, clip that area out
         // (and restore the clip immediately after drawing)
-        if (!covered.isEmpty()) {
+        if (uncovered) {
             m_context.save();
-            m_context.canvas()->clipRegion(covered, SkRegion::kIntersect_Op);
+            m_context.canvas()->clipRegion(*uncovered, SkRegion::kIntersect_Op);
         }
         op->apply(&(m_context));
-        if (!covered.isEmpty())
+        if (uncovered)
             m_context.restore();
     }
 
-    void drawWithClipRecursive(int index, const SkRegion& covered)
+    void drawWithClipRecursive(int index, const SkIRect& bounds, const SkRegion* uncovered)
     {
         if (index < 0)
             return;
@@ -356,17 +354,24 @@ private:
         if (index != 0) {
             const IntRect* opaqueRect = op->opaqueRect();
             if (!opaqueRect || opaqueRect->isEmpty()) {
-                drawWithClipRecursive(index - 1, covered);
+                drawWithClipRecursive(index - 1, bounds, uncovered);
             } else {
-                SkRegion newCovered = covered;
+                SkRegion newUncovered;
+                if (uncovered)
+                    newUncovered = *uncovered;
+                else
+                    newUncovered = SkRegion(bounds);
+
                 SkRect mappedRect = *opaqueRect;
                 m_initialMatrix.mapRect(&mappedRect);
-                newCovered.op(enclosedIntRect(mappedRect), SkRegion::kDifference_Op);
-                if (!newCovered.isEmpty())
-                    drawWithClipRecursive(index - 1, newCovered);
+                newUncovered.op(enclosedIntRect(mappedRect), SkRegion::kDifference_Op);
+                if (!newUncovered.isEmpty())
+                    drawWithClipRecursive(index - 1, bounds, &newUncovered);
             }
         }
-        drawOperation(recordingData, covered);
+
+        if (!uncovered || !uncovered->isEmpty())
+            drawOperation(recordingData, uncovered);
     }
 
     RecordingImpl* m_recording;

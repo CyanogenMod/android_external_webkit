@@ -23,11 +23,9 @@
 
 #define DEBUG_SKIA_DRAWING 0
 #if DEBUG_SKIA_DRAWING
-#define WRAPCANVAS_LOG_ENTRY(...) do { \
-    fprintf(stderr, "%s ", __FUNCTION__); \
-    fprintf(stderr, __VA_ARGS__); \
-    fprintf(stderr, "\n"); \
-} while (0)
+#include "AndroidLog.h" // NOTE: AndroidLog.h normally shouldn't be included in a header
+#include "FloatRect.h"
+#define WRAPCANVAS_LOG_ENTRY(...) {ALOGD("non-rect %s, m_isSolidColor %d", __FUNCTION__, m_isSolidColor);}
 #else
 #define WRAPCANVAS_LOG_ENTRY(...) ((void)0)
 #endif
@@ -120,7 +118,8 @@ public:
     virtual bool clipRegion(const SkRegion& region, SkRegion::Op op)
     {
         WRAPCANVAS_LOG_ENTRY("");
-        m_isSolidColor = false;
+        if (!region.isRect())
+            m_isSolidColor = false;
         return SkCanvas::clipRegion(region, op);
     }
 
@@ -147,27 +146,37 @@ public:
         SkCanvas::drawPoints(mode, count, pts, paint);
     }
 
-    virtual void drawRect(const SkRect& rect, const SkPaint& paint)
+    bool rectFullyOverlaps(const SkRect& rect)
     {
-#if DEBUG_SKIA_DRAWING
-        IntRect rectToDraw(rect);
-        WRAPCANVAS_LOG_ENTRY("rect = (x=%d,y=%d,width=%d,height=%d)", INT_RECT_ARGS(rectToDraw);
-#endif
         IntRect canvasRect(IntPoint(), m_size);
-        if (m_isSolidColor
-            && getTotalMatrix().rectStaysRect()
+        if (getTotalMatrix().rectStaysRect()
             && getTotalClip().contains(canvasRect)) {
             const SkMatrix& matrix = getTotalMatrix();
             SkRect mapped;
             matrix.mapRect(&mapped, rect);
-            if (mapped.contains(canvasRect)) {
-                Color color = solidColor(paint);
-                m_isSolidColor = color.isValid();
-                m_solidColor = color;
-             } else
-                 m_isSolidColor = false;
-        } else
-            m_isSolidColor = false;
+            return mapped.contains(canvasRect);
+        }
+        return false;
+    }
+
+    virtual void drawRect(const SkRect& rect, const SkPaint& paint)
+    {
+
+#if DEBUG_SKIA_DRAWING
+        FloatRect rectToDraw = rect;
+        ALOGD("drawrect " FLOAT_RECT_FORMAT ", is solid %d", FLOAT_RECT_ARGS(rectToDraw), m_isSolidColor);
+#endif
+
+        if (m_isSolidColor) {
+            Color color = solidColor(paint);
+            if (color != m_solidColor) {
+                if (color.isValid() && rectFullyOverlaps(rect))
+                    m_solidColor = color;
+                else
+                    m_isSolidColor = false;
+            }
+        }
+
         SkCanvas::drawRect(rect, paint);
     }
 
