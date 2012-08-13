@@ -60,7 +60,7 @@ public:
         : m_context(platformContext) { }
     ~GraphicsContextPlatformPrivate()
     {
-        if (m_context->deleteUs())
+        if (m_context && m_context->deleteUs())
             delete m_context;
     }
 
