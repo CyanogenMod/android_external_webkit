@@ -98,7 +98,24 @@ public:
     static const bool safeToCompareToEmptyOrDeleted = false;
 };
 
+class SkPaintHash {
+public:
+    static unsigned hash(const SkPaint* const& paint)
+    {
+        return StringHasher::hashMemory(paint, sizeof(SkPaint));
+    }
+
+    static bool equal(const SkPaint* const& a,
+                      const SkPaint* const& b)
+    {
+        return a && b && (*a == *b);
+    }
+
+    static const bool safeToCompareToEmptyOrDeleted = false;
+};
+
 typedef HashSet<PlatformGraphicsContext::State*, StateHash> StateHashSet;
+typedef HashSet<const SkPaint*, SkPaintHash> SkPaintHashSet;
 
 class CanvasState {
 public:
@@ -187,11 +204,13 @@ private:
     // the last thing destroyed.
     LinearAllocator m_operationHeap;
     LinearAllocator m_canvasStateHeap;
+    // Used by both PlatformGraphicsContext::State and SkPaint, as both are
+    // roughly the same size (72 bytes vs. 76 bytes, respectively)
     LinearAllocator m_stateHeap;
 public:
     RecordingImpl()
         : m_canvasStateHeap(sizeof(CanvasState))
-        , m_stateHeap(sizeof(PlatformGraphicsContext::State))
+        , m_stateHeap(sizeof(SkPaint))
         , m_nodeCount(0)
     {
     }
@@ -199,6 +218,7 @@ public:
     ~RecordingImpl() {
         clearStates();
         clearCanvasStates();
+        clearSkPaints();
     }
 
     PlatformGraphicsContext::State* getState(PlatformGraphicsContext::State* inState) {
@@ -209,6 +229,16 @@ public:
         PlatformGraphicsContext::State* state = new (buf) PlatformGraphicsContext::State(*inState);
         m_states.add(state);
         return state;
+    }
+
+    const SkPaint* getSkPaint(const SkPaint& inPaint) {
+        SkPaintHashSet::iterator it = m_paints.find(&inPaint);
+        if (it != m_paints.end())
+            return (*it);
+        void* buf = m_stateHeap.alloc(sizeof(SkPaint));
+        SkPaint* paint = new (buf) SkPaint(inPaint);
+        m_paints.add(paint);
+        return paint;
     }
 
     void addCanvasState(CanvasState* state) {
@@ -269,14 +299,21 @@ private:
         m_states.clear();
     }
 
+    void clearSkPaints() {
+        SkPaintHashSet::iterator end = m_paints.end();
+        for (SkPaintHashSet::iterator it = m_paints.begin(); it != end; ++it)
+            (*it)->~SkPaint();
+        m_paints.clear();
+    }
+
     void clearCanvasStates() {
         for (size_t i = 0; i < m_canvasStates.size(); i++)
             m_canvasStates[i]->~CanvasState();
         m_canvasStates.clear();
     }
 
-    // TODO: Use a global pool?
     StateHashSet m_states;
+    SkPaintHashSet m_paints;
     Vector<CanvasState*> m_canvasStates;
 };
 
@@ -855,12 +892,14 @@ void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float l
 }
 
 void PlatformGraphicsContextRecording::drawPosText(const void* text, size_t byteLength,
-                                                   const SkPoint pos[], const SkPaint& paint)
+                                                   const SkPoint pos[], const SkPaint& inPaint)
 {
-    if (paint.getTextEncoding() != SkPaint::kGlyphID_TextEncoding) {
-        ALOGE("Unsupported text encoding! %d", paint.getTextEncoding());
+    if (inPaint.getTextEncoding() != SkPaint::kGlyphID_TextEncoding) {
+        ALOGE("Unsupported text encoding! %d", inPaint.getTextEncoding());
+        return;
     }
-    FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), pos, paint);
+    FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), pos, inPaint);
+    const SkPaint* paint = mRecording->recording()->getSkPaint(inPaint);
     appendDrawingOperation(NEW_OP(DrawPosText)(text, byteLength, pos, paint), bounds);
 }
 
