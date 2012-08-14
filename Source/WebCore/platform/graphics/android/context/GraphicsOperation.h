@@ -586,11 +586,11 @@ private:
 class DrawPosText : public Operation {
 public:
     DrawPosText(const void* text, size_t byteLength,
-                const SkPoint pos[], const SkPaint& paint)
+                const SkPoint pos[], const SkPaint* paint)
         : m_byteLength(byteLength)
         , m_paint(paint)
     {
-        size_t points = paint.countText(text, byteLength);
+        size_t points = m_paint->countText(text, byteLength);
         m_pos = new SkPoint[points];
         memcpy(m_pos, pos, sizeof(SkPoint) * points);
         m_text = malloc(byteLength);
@@ -598,7 +598,7 @@ public:
     }
     ~DrawPosText() { delete m_pos; free(m_text); }
     virtual bool applyImpl(PlatformGraphicsContext* context) {
-        context->drawPosText(m_text, m_byteLength, m_pos, m_paint);
+        context->drawPosText(m_text, m_byteLength, m_pos, *m_paint);
         return true;
     }
     TYPE(DrawPosTextOperation)
@@ -606,7 +606,7 @@ private:
     void* m_text;
     size_t m_byteLength;
     SkPoint* m_pos;
-    SkPaint m_paint;
+    const SkPaint* m_paint;
 };
 
 }
