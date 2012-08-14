@@ -152,7 +152,7 @@ SkDevice* GaneshContext::getDeviceForTile(const TileRenderInfo& renderInfo)
         GrPlatformRenderTargetDesc renderTargetDesc;
         renderTargetDesc.fWidth = TilesManager::tileWidth();
         renderTargetDesc.fHeight = TilesManager::tileHeight();
-        renderTargetDesc.fConfig = kRGBA_8888_PM_GrPixelConfig;
+        renderTargetDesc.fConfig = kRGBA_8888_GrPixelConfig;
         renderTargetDesc.fSampleCnt = 0;
         renderTargetDesc.fStencilBits = 8;
         renderTargetDesc.fRenderTargetHandle = 0;
