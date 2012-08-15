@@ -891,15 +891,20 @@ void PlatformGraphicsContextRecording::strokeRect(const FloatRect& rect, float l
     appendDrawingOperation(NEW_OP(StrokeRect)(rect, lineWidth), bounds);
 }
 
-void PlatformGraphicsContextRecording::drawPosText(const void* text, size_t byteLength,
-                                                   const SkPoint pos[], const SkPaint& inPaint)
+void PlatformGraphicsContextRecording::drawPosText(const void* inText, size_t byteLength,
+                                                   const SkPoint inPos[], const SkPaint& inPaint)
 {
     if (inPaint.getTextEncoding() != SkPaint::kGlyphID_TextEncoding) {
         ALOGE("Unsupported text encoding! %d", inPaint.getTextEncoding());
         return;
     }
-    FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), pos, inPaint);
+    FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), inPos, inPaint);
     const SkPaint* paint = mRecording->recording()->getSkPaint(inPaint);
+    int posSize = sizeof(SkPoint) * paint->countText(inText, byteLength);
+    void* text = operationHeap()->alloc(posSize + byteLength);
+    SkPoint* pos = (SkPoint*) ((char*)text + byteLength);
+    memcpy(text, inText, byteLength);
+    memcpy(pos, inPos, posSize);
     appendDrawingOperation(NEW_OP(DrawPosText)(text, byteLength, pos, paint), bounds);
 }
 
