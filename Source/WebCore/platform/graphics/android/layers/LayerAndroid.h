@@ -151,6 +151,9 @@ public:
 
     float getScale() { return m_scale; }
 
+    // draw the layer tree recursively in draw order, grouping and sorting 3d rendering contexts
+    bool drawTreeSurfacesGL();
+
     virtual bool drawGL(bool layerTilesDisabled);
     virtual bool drawCanvas(SkCanvas* canvas, bool drawChildren, PaintStyle style);
     bool drawChildrenCanvas(SkCanvas* canvas, PaintStyle style);
@@ -312,12 +315,13 @@ private:
         return contentIsScrollable() || isPositionFixed() || (m_animations.size() != 0);
     }
 
+    // recurse through the current 3d rendering context, adding layers in the context to the vector
+    void collect3dRenderingContext(Vector<LayerAndroid*>& layersInContext);
+    bool drawSurfaceAndChildrenGL();
+
 #if DUMP_NAV_CACHE
     friend class CachedLayer::Debug; // debugging access only
 #endif
-
-    void copyAnimationStartTimes(LayerAndroid* oldLayer);
-    bool prepareContext(bool force = false);
 
     // -------------------------------------------------------------------
     // Fields to be serialized
