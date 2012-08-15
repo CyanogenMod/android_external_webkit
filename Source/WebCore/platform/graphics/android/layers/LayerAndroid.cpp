@@ -398,22 +398,27 @@ void LayerAndroid::updateLocalTransformAndClip(const TransformationMatrix& paren
 {
     FloatPoint position(getPosition().x() + m_replicatedLayerPosition.x() - getScrollOffset().x(),
                         getPosition().y() + m_replicatedLayerPosition.y() - getScrollOffset().y());
-    float originX = getAnchorPoint().x() * getWidth();
-    float originY = getAnchorPoint().y() * getHeight();
-
-    TransformationMatrix localMatrix;
 
     if (isPositionFixed())
         m_drawTransform.makeIdentity();
     else
         m_drawTransform = parentMatrix;
-    m_drawTransform.translate3d(originX + position.x(),
-                                originY + position.y(),
-                                anchorPointZ());
-    m_drawTransform.multiply(m_transform);
-    m_drawTransform.translate3d(-originX,
-                                -originY,
-                                -anchorPointZ());
+
+    if (m_transform.isIdentity()) {
+        m_drawTransform.translate3d(position.x(),
+                                    position.y(),
+                                    0);
+    } else {
+        float originX = getAnchorPoint().x() * getWidth();
+        float originY = getAnchorPoint().y() * getHeight();
+        m_drawTransform.translate3d(originX + position.x(),
+                                    originY + position.y(),
+                                    anchorPointZ());
+        m_drawTransform.multiply(m_transform);
+        m_drawTransform.translate3d(-originX,
+                                    -originY,
+                                    -anchorPointZ());
+    }
 
     m_drawTransformUnfudged = m_drawTransform;
     if (m_drawTransform.isIdentityOrTranslation()
@@ -473,23 +478,19 @@ void LayerAndroid::updateGLPositionsAndScale(const TransformationMatrix& parentM
     if (!countChildren() || !m_visible)
         return;
 
-    TransformationMatrix localMatrix = m_drawTransformUnfudged;
-
+    TransformationMatrix childMatrix = m_drawTransformUnfudged;
     // Flatten to 2D if the layer doesn't preserve 3D.
     if (!preserves3D()) {
-        localMatrix.setM13(0);
-        localMatrix.setM23(0);
-        localMatrix.setM31(0);
-        localMatrix.setM32(0);
-        localMatrix.setM33(1);
-        localMatrix.setM34(0);
-        localMatrix.setM43(0);
+        childMatrix.setM13(0);
+        childMatrix.setM23(0);
+        childMatrix.setM31(0);
+        childMatrix.setM32(0);
+        childMatrix.setM33(1);
+        childMatrix.setM34(0);
+        childMatrix.setM43(0);
     }
 
     // now apply it to our children
-
-    TransformationMatrix childMatrix;
-    childMatrix = localMatrix;
     childMatrix.translate3d(getScrollOffset().x(), getScrollOffset().y(), 0);
     if (!m_childrenTransform.isIdentity()) {
         childMatrix.translate(getSize().width() * 0.5f, getSize().height() * 0.5f);
@@ -816,6 +817,55 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas, bool drawChildren, PaintStyle st
 
     // When the layer is dirty, the UI thread should be notified to redraw.
     askScreenUpdate |= drawChildrenCanvas(canvas, style);
+    return askScreenUpdate;
+}
+
+void LayerAndroid::collect3dRenderingContext(Vector<LayerAndroid*>& layersInContext)
+{
+    layersInContext.append(this);
+    if (preserves3D()) {
+        int count = countChildren();
+        for (int i = 0; i < count; i++)
+            getChild(i)->collect3dRenderingContext(layersInContext);
+    }
+}
+
+bool LayerAndroid::drawSurfaceAndChildrenGL()
+{
+    bool askScreenUpdate = false;
+    if (surface()->getFirstLayer() == this)
+        askScreenUpdate |= surface()->drawGL(false);
+
+    // return early, since children will be painted directly by drawTreeSurfacesGL
+    if (preserves3D())
+        return askScreenUpdate;
+
+    int count = countChildren();
+    Vector <LayerAndroid*> sublayers;
+    for (int i = 0; i < count; i++)
+        sublayers.append(getChild(i));
+
+    std::stable_sort(sublayers.begin(), sublayers.end(), compareLayerZ);
+    for (int i = 0; i < count; i++)
+        askScreenUpdate |= sublayers[i]->drawTreeSurfacesGL();
+
+    return askScreenUpdate;
+}
+
+bool LayerAndroid::drawTreeSurfacesGL()
+{
+    bool askScreenUpdate = false;
+    if (preserves3D()) {
+        // hit a preserve-3d layer, so render the entire 3D rendering context in z order
+        Vector<LayerAndroid*> contextLayers;
+        collect3dRenderingContext(contextLayers);
+        std::stable_sort(contextLayers.begin(), contextLayers.end(), compareLayerZ);
+
+        for (unsigned int i = 0; i < contextLayers.size(); i++)
+            askScreenUpdate |= contextLayers[i]->drawSurfaceAndChildrenGL();
+    } else
+        askScreenUpdate |= drawSurfaceAndChildrenGL();
+
     return askScreenUpdate;
 }
 
