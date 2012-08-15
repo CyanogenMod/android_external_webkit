@@ -33,17 +33,16 @@
 
 namespace WebCore {
 
-// The ideal size of a page allocation
-#define TARGET_PAGE_SIZE 16384 // 16kb
-
-// our pool needs to big enough to hold at least this many items
-#define MIN_OBJECT_COUNT 4
+// The ideal size of a page allocation (these need to be multiples of 4)
+#define INITIAL_PAGE_SIZE ((size_t)4096) // 4kb
+#define MAX_PAGE_SIZE ((size_t)131072) // 128kb
 
 // The maximum amount of wasted space we can have per page
 // Allocations exceeding this will have their own dedicated page
 // If this is too low, we will malloc too much
 // Too high, and we may waste too much space
-#define MAX_WASTE_SIZE ((size_t)256)
+// Must be smaller than INITIAL_PAGE_SIZE
+#define MAX_WASTE_SIZE ((size_t)1024)
 
 #define ALIGN(x) (x + (x % sizeof(int)))
 
@@ -98,21 +97,17 @@ private:
     Page* m_nextPage;
 };
 
-LinearAllocator::LinearAllocator(size_t averageAllocSize)
-    : m_next(0)
+LinearAllocator::LinearAllocator()
+    : m_pageSize(INITIAL_PAGE_SIZE)
+    , m_maxAllocSize(MAX_WASTE_SIZE)
+    , m_next(0)
     , m_currentPage(0)
     , m_pages(0)
+    , m_totalAllocated(0)
+    , m_wastedSpace(0)
+    , m_pageCount(0)
+    , m_dedicatedPageCount(0)
 {
-    if (averageAllocSize) {
-        int usable_page_size = TARGET_PAGE_SIZE - sizeof(LinearAllocator::Page);
-        int pcount = usable_page_size / averageAllocSize;
-        if (pcount < MIN_OBJECT_COUNT)
-            pcount = MIN_OBJECT_COUNT;
-        m_pageSize = pcount * averageAllocSize + sizeof(LinearAllocator::Page);
-    } else
-        m_pageSize = TARGET_PAGE_SIZE;
-    m_pageSize = ALIGN(m_pageSize);
-    m_maxAllocSize = std::min(MAX_WASTE_SIZE, (m_pageSize - sizeof(LinearAllocator::Page)));
 }
 
 LinearAllocator::~LinearAllocator(void)
@@ -136,11 +131,21 @@ void* LinearAllocator::end(Page* p)
     return ((char*)p) + m_pageSize;
 }
 
+bool LinearAllocator::fitsInCurrentPage(size_t size)
+{
+    return m_next && ((char*)m_next + size) <= end(m_currentPage);
+}
+
 void LinearAllocator::ensureNext(size_t size)
 {
-    if (m_next && ((char*)m_next + size) <= end(m_currentPage))
+    if (fitsInCurrentPage(size))
         return;
-    Page* p = newPage();
+    if (m_currentPage && m_pageSize < MAX_PAGE_SIZE) {
+        m_pageSize = std::min(MAX_PAGE_SIZE, m_pageSize * 2);
+        m_pageSize = ALIGN(m_pageSize);
+    }
+    m_wastedSpace += m_pageSize;
+    Page* p = newPage(m_pageSize);
     if (m_currentPage)
         m_currentPage->setNext(p);
     m_currentPage = p;
@@ -149,25 +154,14 @@ void LinearAllocator::ensureNext(size_t size)
     m_next = start(m_currentPage);
 }
 
-unsigned LinearAllocator::memusage()
-{
-    unsigned memusage = 0;
-    Page* p = m_pages;
-    while (p) {
-        memusage += m_pageSize;
-        p = p->next();
-    }
-    return memusage;
-}
-
 void* LinearAllocator::alloc(size_t size)
 {
     size = ALIGN(size);
-    if (size > m_maxAllocSize) {
+    if (size > m_maxAllocSize && !fitsInCurrentPage(size)) {
+        ALOGV("Exceeded max size %d > %d", size, m_maxAllocSize);
         // Allocation is too large, create a dedicated page for the allocation
-        ADD_ALLOCATION(size);
-        void* buf = malloc(size + sizeof(LinearAllocator::Page));
-        Page* page = new (buf) Page();
+        Page* page = newPage(size);
+        m_dedicatedPageCount++;
         page->setNext(m_pages);
         m_pages = page;
         if (!m_currentPage)
@@ -177,21 +171,55 @@ void* LinearAllocator::alloc(size_t size)
     ensureNext(size);
     void* ptr = m_next;
     m_next = ((char*)m_next) + size;
+    m_wastedSpace -= size;
     return ptr;
 }
 
-void LinearAllocator::rewindTo(void* ptr)
+void LinearAllocator::rewindIfLastAlloc(void* ptr, size_t allocSize)
 {
     // Don't bother rewinding across pages
-    if (ptr >= start(m_currentPage) && ptr < end(m_currentPage))
+    if (ptr >= start(m_currentPage) && ptr < end(m_currentPage)
+            && ptr == ((char*)m_next - allocSize)) {
+        m_totalAllocated -= allocSize;
+        m_wastedSpace += allocSize;
         m_next = ptr;
+    }
 }
 
-LinearAllocator::Page* LinearAllocator::newPage()
+LinearAllocator::Page* LinearAllocator::newPage(size_t pageSize)
 {
-    ADD_ALLOCATION(m_pageSize);
-    void* buf = malloc(m_pageSize);
+    pageSize += sizeof(LinearAllocator::Page);
+    ADD_ALLOCATION(pageSize);
+    m_totalAllocated += pageSize;
+    m_pageCount++;
+    void* buf = malloc(pageSize);
     return new (buf) Page();
+}
+
+static const char* toSize(size_t value, float& result)
+{
+    if (value < 2000) {
+        result = value;
+        return "B";
+    }
+    if (value < 2000000) {
+        result = value / 1024.0f;
+        return "KB";
+    }
+    result = value / 1048576.0f;
+    return "MB";
+}
+
+void LinearAllocator::dumpMemoryStats(const char* prefix)
+{
+    float prettySize;
+    const char* prettySuffix;
+    prettySuffix = toSize(m_totalAllocated, prettySize);
+    ALOGD("%sTotal allocated: %.2f%s", prefix, prettySize, prettySuffix);
+    prettySuffix = toSize(m_wastedSpace, prettySize);
+    ALOGD("%sWasted space: %.2f%s (%.1f%%)", prefix, prettySize, prettySuffix,
+          (float) m_wastedSpace / (float) m_totalAllocated * 100.0f);
+    ALOGD("%sPages %d (dedicated %d)", prefix, m_pageCount, m_dedicatedPageCount);
 }
 
 } // namespace WebCore

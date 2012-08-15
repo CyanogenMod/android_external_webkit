@@ -43,7 +43,7 @@
 #include "wtf/HashSet.h"
 #include "wtf/StringHasher.h"
 
-#define NEW_OP(X) new (operationHeap()) GraphicsOperation::X
+#define NEW_OP(X) new (heap()) GraphicsOperation::X
 
 #define USE_CLIPPING_PAINTER true
 
@@ -133,7 +133,7 @@ public:
     ~CanvasState() {
         ALOGV("Delete %p", this);
         for (size_t i = 0; i < m_operations.size(); i++)
-            delete m_operations[i];
+            m_operations[i]->~RecordingData();
         m_operations.clear();
     }
 
@@ -202,15 +202,10 @@ private:
     // Careful, ordering matters here. Ordering is first constructed == last destroyed,
     // so we have to make sure our Heap is the first thing listed so that it is
     // the last thing destroyed.
-    LinearAllocator m_operationHeap;
-    LinearAllocator m_canvasStateHeap;
-    // Used by both PlatformGraphicsContext::State and SkPaint, as both are
-    // roughly the same size (72 bytes vs. 76 bytes, respectively)
-    LinearAllocator m_stateHeap;
+    LinearAllocator m_heap;
 public:
     RecordingImpl()
-        : m_canvasStateHeap(sizeof(CanvasState))
-        , m_stateHeap(sizeof(SkPaint))
+        : m_tree(&m_heap)
         , m_nodeCount(0)
     {
     }
@@ -225,7 +220,7 @@ public:
         StateHashSet::iterator it = m_states.find(inState);
         if (it != m_states.end())
             return (*it);
-        void* buf = m_stateHeap.alloc(sizeof(PlatformGraphicsContext::State));
+        void* buf = heap()->alloc(sizeof(PlatformGraphicsContext::State));
         PlatformGraphicsContext::State* state = new (buf) PlatformGraphicsContext::State(*inState);
         m_states.add(state);
         return state;
@@ -235,7 +230,7 @@ public:
         SkPaintHashSet::iterator it = m_paints.find(&inPaint);
         if (it != m_paints.end())
             return (*it);
-        void* buf = m_stateHeap.alloc(sizeof(SkPaint));
+        void* buf = heap()->alloc(sizeof(SkPaint));
         SkPaint* paint = new (buf) SkPaint(inPaint);
         m_paints.add(paint);
         return paint;
@@ -284,11 +279,16 @@ public:
         toState->playback(context, fromId, toId);
     }
 
-    LinearAllocator* operationHeap() { return &m_operationHeap; }
-    LinearAllocator* canvasStateHeap() { return &m_canvasStateHeap; }
+    LinearAllocator* heap() { return &m_heap; }
 
     RTree::RTree m_tree;
     int m_nodeCount;
+
+    void dumpMemoryStats() {
+        static const char* PREFIX = "  ";
+        ALOGD("Heap:");
+        m_heap.dumpMemoryStats(PREFIX);
+    }
 
 private:
 
@@ -495,12 +495,14 @@ PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* re
         mRecording->setRecording(new RecordingImpl());
     mMatrixStack.append(SkMatrix::I());
     mCurrentMatrix = &(mMatrixStack.last());
-    pushStateOperation(new (canvasStateHeap()) CanvasState(0));
+    pushStateOperation(new (heap()) CanvasState(0));
 }
 
 PlatformGraphicsContextRecording::~PlatformGraphicsContextRecording()
 {
     ALOGV("RECORDING: end");
+    IF_ALOGV()
+        mRecording->recording()->dumpMemoryStats();
 }
 
 bool PlatformGraphicsContextRecording::isPaintingDisabled()
@@ -521,7 +523,7 @@ SkCanvas* PlatformGraphicsContextRecording::recordingCanvas()
 void PlatformGraphicsContextRecording::beginTransparencyLayer(float opacity)
 {
     CanvasState* parent = mRecordingStateStack.last().mCanvasState;
-    pushStateOperation(new (canvasStateHeap()) CanvasState(parent, opacity));
+    pushStateOperation(new (heap()) CanvasState(parent, opacity));
 }
 
 void PlatformGraphicsContextRecording::endTransparencyLayer()
@@ -533,7 +535,7 @@ void PlatformGraphicsContextRecording::save()
 {
     PlatformGraphicsContext::save();
     CanvasState* parent = mRecordingStateStack.last().mCanvasState;
-    pushStateOperation(new (canvasStateHeap()) CanvasState(parent));
+    pushStateOperation(new (heap()) CanvasState(parent));
     pushMatrix();
 }
 
@@ -901,7 +903,7 @@ void PlatformGraphicsContextRecording::drawPosText(const void* inText, size_t by
     FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), inPos, inPaint);
     const SkPaint* paint = mRecording->recording()->getSkPaint(inPaint);
     int posSize = sizeof(SkPoint) * paint->countText(inText, byteLength);
-    void* text = operationHeap()->alloc(posSize + byteLength);
+    void* text = heap()->alloc(posSize + byteLength);
     SkPoint* pos = (SkPoint*) ((char*)text + byteLength);
     memcpy(text, inText, byteLength);
     memcpy(pos, inPos, posSize);
@@ -942,7 +944,7 @@ void PlatformGraphicsContextRecording::popStateOperation()
                 state.mCanvasState, state.mCanvasState->isTransparencyLayer());
         mRecording->recording()->removeCanvasState(state.mCanvasState);
         state.mCanvasState->~CanvasState();
-        canvasStateHeap()->rewindTo(state.mCanvasState);
+        heap()->rewindIfLastAlloc(state.mCanvasState, sizeof(CanvasState));
     } else {
         ALOGV("RECORDING: popStateOperation: %p(isLayer=%d)",
                 state.mCanvasState, state.mCanvasState->isTransparencyLayer());
@@ -1025,7 +1027,6 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
     if (ibounds.isEmpty()) {
         ALOGV("RECORDING: Operation %s() was clipped out", operation->name());
         operation->~Operation();
-        operationHeap()->rewindTo(operation);
         return;
     }
     if (operation->isOpaque()
@@ -1038,25 +1039,20 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
     }
     ALOGV("RECORDING: appendOperation %p->%s() bounds " INT_RECT_FORMAT, operation, operation->name(),
             INT_RECT_ARGS(ibounds));
-    RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
+    RecordingData* data = new (heap()) RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecording->recording()->m_tree.insert(ibounds, data);
 }
 
 void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::Operation* operation)
 {
     ALOGV("RECORDING: appendOperation %p->%s()", operation, operation->name());
-    RecordingData* data = new RecordingData(operation, mRecording->recording()->m_nodeCount++);
+    RecordingData* data = new (heap()) RecordingData(operation, mRecording->recording()->m_nodeCount++);
     mRecordingStateStack.last().mCanvasState->adoptAndAppend(data);
 }
 
-LinearAllocator* PlatformGraphicsContextRecording::operationHeap()
+LinearAllocator* PlatformGraphicsContextRecording::heap()
 {
-    return mRecording->recording()->operationHeap();
-}
-
-LinearAllocator* PlatformGraphicsContextRecording::canvasStateHeap()
-{
-    return mRecording->recording()->canvasStateHeap();
+    return mRecording->recording()->heap();
 }
 
 }   // WebCore
