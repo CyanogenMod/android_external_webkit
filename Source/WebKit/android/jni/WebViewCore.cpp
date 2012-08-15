@@ -3006,7 +3006,7 @@ void WebViewCore::scrollFocusedTextInput(float xPercent, int y)
     }
 
     int x = (int)round(xPercent * (renderText->scrollWidth() -
-        renderText->clientWidth()));
+        renderText->contentWidth()));
     renderText->setScrollLeft(x);
     renderText->setScrollTop(y);
     focus->document()->frame()->selection()->recomputeCaretRect();
@@ -3417,6 +3417,9 @@ WebCore::IntRect WebViewCore::absoluteClientRect(WebCore::Node* node,
 
             RenderBox* renderBox = toRenderBox(render);
             clientRect = renderBox->clientBoxRect();
+            IntRect contentBox = renderBox->contentBoxRect();
+            clientRect.setX(contentBox.x());
+            clientRect.setWidth(contentBox.width());
             FloatPoint absPos = renderBox->localToAbsolute(FloatPoint());
             clientRect.move(absPos.x() - offset.x(), absPos.y() - offset.y());
         }
