@@ -39,6 +39,14 @@ namespace WebCore {
 // our pool needs to big enough to hold at least this many items
 #define MIN_OBJECT_COUNT 4
 
+// The maximum amount of wasted space we can have per page
+// Allocations exceeding this will have their own dedicated page
+// If this is too low, we will malloc too much
+// Too high, and we may waste too much space
+#define MAX_WASTE_SIZE ((size_t)256)
+
+#define ALIGN(x) (x + (x % sizeof(int)))
+
 #if LOG_NDEBUG
 #define ADD_ALLOCATION(size)
 #define RM_ALLOCATION(size)
@@ -103,7 +111,8 @@ LinearAllocator::LinearAllocator(size_t averageAllocSize)
         m_pageSize = pcount * averageAllocSize + sizeof(LinearAllocator::Page);
     } else
         m_pageSize = TARGET_PAGE_SIZE;
-    m_maxAllocSize = (m_pageSize - sizeof(LinearAllocator::Page));
+    m_pageSize = ALIGN(m_pageSize);
+    m_maxAllocSize = std::min(MAX_WASTE_SIZE, (m_pageSize - sizeof(LinearAllocator::Page)));
 }
 
 LinearAllocator::~LinearAllocator(void)
@@ -153,9 +162,17 @@ unsigned LinearAllocator::memusage()
 
 void* LinearAllocator::alloc(size_t size)
 {
+    size = ALIGN(size);
     if (size > m_maxAllocSize) {
-        ALOGE("Allocation too large! (%d exceeds max size %d)", size, m_maxAllocSize);
-        return 0;
+        // Allocation is too large, create a dedicated page for the allocation
+        ADD_ALLOCATION(size);
+        void* buf = malloc(size + sizeof(LinearAllocator::Page));
+        Page* page = new (buf) Page();
+        page->setNext(m_pages);
+        m_pages = page;
+        if (!m_currentPage)
+            m_currentPage = m_pages;
+        return start(page);
     }
     ensureNext(size);
     void* ptr = m_next;
