@@ -274,6 +274,11 @@ ShaderProgram::ShaderProgram()
     , m_currentScale(1.0f)
     , m_needsInit(true)
 {
+    // initialize the matrix to calculate z values correctly, since it can be
+    // used for that before setupDrawing is called.
+    GLUtils::setOrthographicMatrix(m_visibleContentRectProjectionMatrix,
+                                   0,0,1,1,
+                                   -1000, 1000);
 }
 
 void ShaderProgram::cleanupGLResources()
