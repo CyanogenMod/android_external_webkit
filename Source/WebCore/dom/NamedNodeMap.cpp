@@ -54,7 +54,7 @@ NamedNodeMap::~NamedNodeMap()
     detachAttributesFromElement();
 }
 
-PassRefPtr<Node> NamedNodeMap::getNamedItem(const String& name) const
+PassRefPtr<Node> NamedNodeMap::getNamedItem(const AtomicString& name) const
 {
     Attribute* a = getAttributeItem(name, shouldIgnoreAttributeCase(m_element));
     if (!a)
@@ -63,12 +63,12 @@ PassRefPtr<Node> NamedNodeMap::getNamedItem(const String& name) const
     return a->createAttrIfNeeded(m_element);
 }
 
-PassRefPtr<Node> NamedNodeMap::getNamedItemNS(const String& namespaceURI, const String& localName) const
+PassRefPtr<Node> NamedNodeMap::getNamedItemNS(const AtomicString& namespaceURI, const AtomicString& localName) const
 {
     return getNamedItem(QualifiedName(nullAtom, localName, namespaceURI));
 }
 
-PassRefPtr<Node> NamedNodeMap::removeNamedItem(const String& name, ExceptionCode& ec)
+PassRefPtr<Node> NamedNodeMap::removeNamedItem(const AtomicString& name, ExceptionCode& ec)
 {
     Attribute* a = getAttributeItem(name, shouldIgnoreAttributeCase(m_element));
     if (!a) {
@@ -79,7 +79,7 @@ PassRefPtr<Node> NamedNodeMap::removeNamedItem(const String& name, ExceptionCode
     return removeNamedItem(a->name(), ec);
 }
 
-PassRefPtr<Node> NamedNodeMap::removeNamedItemNS(const String& namespaceURI, const String& localName, ExceptionCode& ec)
+PassRefPtr<Node> NamedNodeMap::removeNamedItemNS(const AtomicString& namespaceURI, const AtomicString& localName, ExceptionCode& ec)
 {
     return removeNamedItem(QualifiedName(nullAtom, localName, namespaceURI), ec);
 }
@@ -171,7 +171,7 @@ void NamedNodeMap::copyAttributesToVector(Vector<RefPtr<Attribute> >& copy)
     copy = m_attributes;
 }
 
-Attribute* NamedNodeMap::getAttributeItemSlowCase(const String& name, bool shouldIgnoreAttributeCase) const
+Attribute* NamedNodeMap::getAttributeItemSlowCase(const AtomicString& name, bool shouldIgnoreAttributeCase) const
 {
     unsigned len = length();
 

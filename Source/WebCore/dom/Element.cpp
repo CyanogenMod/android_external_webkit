@@ -622,7 +622,7 @@ static inline bool shouldIgnoreAttributeCase(const Element* e)
     return e && e->document()->isHTMLDocument() && e->isHTMLElement();
 }
 
-const AtomicString& Element::getAttribute(const String& name) const
+const AtomicString& Element::getAttribute(const AtomicString& name) const
 {
     bool ignoreCase = shouldIgnoreAttributeCase(this);
     
@@ -645,7 +645,7 @@ const AtomicString& Element::getAttribute(const String& name) const
     return nullAtom;
 }
 
-const AtomicString& Element::getAttributeNS(const String& namespaceURI, const String& localName) const
+const AtomicString& Element::getAttributeNS(const AtomicString& namespaceURI, const AtomicString& localName) const
 {
     return getAttribute(QualifiedName(nullAtom, localName, namespaceURI));
 }
@@ -1471,11 +1471,11 @@ void Element::setAttributeNS(const AtomicString& namespaceURI, const AtomicStrin
     setAttribute(qName, value, ec);
 }
 
-void Element::removeAttribute(const String& name, ExceptionCode& ec)
+void Element::removeAttribute(const AtomicString& name, ExceptionCode& ec)
 {
     InspectorInstrumentation::willModifyDOMAttr(document(), this);
 
-    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
+    AtomicString localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
 
     if (m_attributeMap) {
         m_attributeMap->removeNamedItem(localName, ec);
@@ -1486,21 +1486,21 @@ void Element::removeAttribute(const String& name, ExceptionCode& ec)
     InspectorInstrumentation::didModifyDOMAttr(document(), this);
 }
 
-void Element::removeAttributeNS(const String& namespaceURI, const String& localName, ExceptionCode& ec)
+void Element::removeAttributeNS(const AtomicString& namespaceURI, const AtomicString& localName, ExceptionCode& ec)
 {
     removeAttribute(QualifiedName(nullAtom, localName, namespaceURI), ec);
 }
 
-PassRefPtr<Attr> Element::getAttributeNode(const String& name)
+PassRefPtr<Attr> Element::getAttributeNode(const AtomicString& name)
 {
     NamedNodeMap* attrs = attributes(true);
     if (!attrs)
         return 0;
-    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
+    AtomicString localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
     return static_pointer_cast<Attr>(attrs->getNamedItem(localName));
 }
 
-PassRefPtr<Attr> Element::getAttributeNodeNS(const String& namespaceURI, const String& localName)
+PassRefPtr<Attr> Element::getAttributeNodeNS(const AtomicString& namespaceURI, const AtomicString& localName)
 {
     NamedNodeMap* attrs = attributes(true);
     if (!attrs)
@@ -1508,7 +1508,7 @@ PassRefPtr<Attr> Element::getAttributeNodeNS(const String& namespaceURI, const S
     return static_pointer_cast<Attr>(attrs->getNamedItem(QualifiedName(nullAtom, localName, namespaceURI)));
 }
 
-bool Element::hasAttribute(const String& name) const
+bool Element::hasAttribute(const AtomicString& name) const
 {
     NamedNodeMap* attrs = attributes(true);
     if (!attrs)
@@ -1516,11 +1516,11 @@ bool Element::hasAttribute(const String& name) const
 
     // This call to String::lower() seems to be required but
     // there may be a way to remove it.
-    String localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
+    AtomicString localName = shouldIgnoreAttributeCase(this) ? name.lower() : name;
     return attrs->getAttributeItem(localName, false);
 }
 
-bool Element::hasAttributeNS(const String& namespaceURI, const String& localName) const
+bool Element::hasAttributeNS(const AtomicString& namespaceURI, const AtomicString& localName) const
 {
     NamedNodeMap* attrs = attributes(true);
     if (!attrs)
