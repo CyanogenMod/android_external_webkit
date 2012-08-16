@@ -33,6 +33,15 @@
 #include "AndroidLog.h"
 #include "LinearAllocator.h"
 
+namespace WebCore {
+
+void* RecordingData::operator new(size_t size, LinearAllocator* allocator)
+{
+    return allocator->alloc(size);
+}
+
+}
+
 namespace RTree {
 
 #ifdef DEBUG
@@ -123,12 +132,12 @@ int computeDeltaArea(Node* node, int& minx, int& miny,
 //
 //////////////////////////////////////////////////////////////////////
 
-RTree::RTree(int M)
+RTree::RTree(WebCore::LinearAllocator* allocator, int M)
+    : m_allocator(allocator)
 {
     m_maxChildren = M;
     m_listA = new ElementList(M);
     m_listB = new ElementList(M);
-    m_allocator = new WebCore::LinearAllocator(sizeof(Node));
     m_root = Node::create(this);
 }
 
@@ -137,7 +146,6 @@ RTree::~RTree()
     delete m_listA;
     delete m_listB;
     deleteNode(m_root);
-    delete m_allocator;
 }
 
 void RTree::insert(WebCore::IntRect& bounds, WebCore::RecordingData* payload)
@@ -263,7 +271,8 @@ Node::~Node()
     for (unsigned i = 0; i < m_nbChildren; i++)
         m_tree->deleteNode(m_children[i]);
     delete[] m_children;
-    delete m_payload;
+    if (m_payload)
+        m_payload->~RecordingData();
 }
 
 void Node::setParent(Node* node)

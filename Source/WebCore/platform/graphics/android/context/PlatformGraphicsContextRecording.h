@@ -160,8 +160,7 @@ private:
     void popMatrix();
     IntRect calculateFinalBounds(FloatRect bounds);
     IntRect calculateCoveredBounds(FloatRect bounds);
-    LinearAllocator* operationHeap();
-    LinearAllocator* canvasStateHeap();
+    LinearAllocator* heap();
 
     SkPicture* mPicture;
     SkMatrix* mCurrentMatrix;
