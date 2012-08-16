@@ -46,6 +46,12 @@ public:
 
     size_t m_orderBy;
     GraphicsOperation::Operation* m_operation;
+
+    void* operator new(size_t size, LinearAllocator* allocator);
+
+    // Purposely not implemented - use a LinearAllocator please
+    void* operator new(size_t size);
+    void operator delete(void* ptr);
 };
 
 } // namespace WebCore
@@ -58,7 +64,7 @@ class Node;
 class RTree {
 public:
     // M -- max number of children per node
-    RTree(int M = 10);
+    RTree(WebCore::LinearAllocator* allocator, int M = 10);
     ~RTree();
 
     void insert(WebCore::IntRect& bounds, WebCore::RecordingData* payload);
