@@ -394,7 +394,7 @@ Node::~Node()
     else {
         if (m_document && rareData()->nodeLists())
             m_document->removeNodeListCache();
-        
+
         NodeRareData::NodeRareDataMap& dataMap = NodeRareData::rareDataMap();
         NodeRareData::NodeRareDataMap::iterator it = dataMap.find(this);
         ASSERT(it != dataMap.end());
@@ -534,7 +534,9 @@ void Node::setTreeScopeRecursively(TreeScope* newTreeScope)
 NodeRareData* Node::rareData() const
 {
     ASSERT(hasRareData());
-    return NodeRareData::rareDataFromMap(this);
+    NodeRareData* data = isDocumentNode() ? static_cast<const Document*>(this)->documentRareData() : NodeRareData::rareDataFromMap(this);
+    ASSERT(data);
+    return data;
 }
 
 NodeRareData* Node::ensureRareData()
@@ -542,9 +544,15 @@ NodeRareData* Node::ensureRareData()
     if (hasRareData())
         return rareData();
     
-    ASSERT(!NodeRareData::rareDataMap().contains(this));
     NodeRareData* data = createRareData();
-    NodeRareData::rareDataMap().set(this, data);
+    if (isDocumentNode()) {
+        // Fast path for a Document. A Document knows a pointer to NodeRareData.
+        ASSERT(!static_cast<Document*>(this)->documentRareData());
+        static_cast<Document*>(this)->setDocumentRareData(data);
+    } else {
+        ASSERT(!NodeRareData::rareDataMap().contains(this));
+        NodeRareData::rareDataMap().set(this, data);
+    }
     setFlag(HasRareDataFlag);
     return data;
 }

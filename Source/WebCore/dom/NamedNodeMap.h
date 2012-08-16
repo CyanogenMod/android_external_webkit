@@ -46,11 +46,11 @@ public:
 
     // Public DOM interface.
 
-    PassRefPtr<Node> getNamedItem(const String& name) const;
-    PassRefPtr<Node> removeNamedItem(const String& name, ExceptionCode&);
+    PassRefPtr<Node> getNamedItem(const AtomicString& name) const;
+    PassRefPtr<Node> removeNamedItem(const AtomicString& name, ExceptionCode&);
 
-    PassRefPtr<Node> getNamedItemNS(const String& namespaceURI, const String& localName) const;
-    PassRefPtr<Node> removeNamedItemNS(const String& namespaceURI, const String& localName, ExceptionCode&);
+    PassRefPtr<Node> getNamedItemNS(const AtomicString& namespaceURI, const AtomicString& localName) const;
+    PassRefPtr<Node> removeNamedItemNS(const AtomicString& namespaceURI, const AtomicString& localName, ExceptionCode&);
 
     PassRefPtr<Node> getNamedItem(const QualifiedName& name) const;
     PassRefPtr<Node> removeNamedItem(const QualifiedName& name, ExceptionCode&);
@@ -111,8 +111,8 @@ private:
 
     void detachAttributesFromElement();
     void detachFromElement();
-    Attribute* getAttributeItem(const String& name, bool shouldIgnoreAttributeCase) const;
-    Attribute* getAttributeItemSlowCase(const String& name, bool shouldIgnoreAttributeCase) const;
+    Attribute* getAttributeItem(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
+    Attribute* getAttributeItemSlowCase(const AtomicString& name, bool shouldIgnoreAttributeCase) const;
     void clearAttributes();
     int declCount() const;
 
@@ -135,7 +135,7 @@ inline Attribute* NamedNodeMap::getAttributeItem(const QualifiedName& name) cons
 
 // We use a boolean parameter instead of calling shouldIgnoreAttributeCase so that the caller
 // can tune the behavior (hasAttribute is case sensitive whereas getAttribute is not).
-inline Attribute* NamedNodeMap::getAttributeItem(const String& name, bool shouldIgnoreAttributeCase) const
+inline Attribute* NamedNodeMap::getAttributeItem(const AtomicString& name, bool shouldIgnoreAttributeCase) const
 {
     unsigned len = length();
     bool doSlowCheck = shouldIgnoreAttributeCase;

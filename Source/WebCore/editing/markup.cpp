@@ -130,12 +130,12 @@ public:
     String takeResults();
 
 private:
-    virtual void appendText(Vector<UChar>& out, Text*);
+    virtual void appendText(StringBuilder& out, Text*);
     String renderedText(const Node*, const Range*);
     String stringValueForRange(const Node*, const Range*);
     void removeExteriorStyles(CSSMutableStyleDeclaration*);
-    void appendElement(Vector<UChar>& out, Element* element, bool addDisplayInline, RangeFullySelectsNode);
-    void appendElement(Vector<UChar>& out, Element* element, Namespaces*) { appendElement(out, element, false, DoesFullySelectNode); }
+    void appendElement(StringBuilder& out, Element* element, bool addDisplayInline, RangeFullySelectsNode);
+    void appendElement(StringBuilder& out, Element* element, Namespaces*) { appendElement(out, element, false, DoesFullySelectNode); }
 
     bool shouldAnnotate() { return m_shouldAnnotate == AnnotateForInterchange; }
 
@@ -145,12 +145,12 @@ private:
 
 void StyledMarkupAccumulator::wrapWithNode(Node* node, bool convertBlocksToInlines, RangeFullySelectsNode rangeFullySelectsNode)
 {
-    Vector<UChar> markup;
+    StringBuilder markup;
     if (node->isElementNode())
         appendElement(markup, static_cast<Element*>(node), convertBlocksToInlines && isBlock(const_cast<Node*>(node)), rangeFullySelectsNode);
     else
         appendStartMarkup(markup, node, 0);
-    m_reversedPrecedingMarkup.append(String::adopt(markup));
+    m_reversedPrecedingMarkup.append(markup.toString());
     appendEndTag(node);
     if (m_nodes)
         m_nodes->append(node);
@@ -165,30 +165,30 @@ void StyledMarkupAccumulator::wrapWithStyleNode(CSSStyleDeclaration* style, Docu
     DEFINE_STATIC_LOCAL(const String, divClose, ("</div>"));
     DEFINE_STATIC_LOCAL(const String, styleSpanOpen, ("<span class=\"" AppleStyleSpanClass "\" style=\""));
     DEFINE_STATIC_LOCAL(const String, styleSpanClose, ("</span>"));
-    Vector<UChar> openTag;
-    append(openTag, isBlock ? divStyle : styleSpanOpen);
+    StringBuilder openTag;
+    openTag.append(isBlock ? divStyle : styleSpanOpen);
     appendAttributeValue(openTag, style->cssText(), document->isHTMLDocument());
     openTag.append('\"');
     openTag.append('>');
-    m_reversedPrecedingMarkup.append(String::adopt(openTag));
+    m_reversedPrecedingMarkup.append(openTag.toString());
     appendString(isBlock ? divClose : styleSpanClose);
 }
 
 String StyledMarkupAccumulator::takeResults()
 {
-    Vector<UChar> result;
-    result.reserveInitialCapacity(totalLength(m_reversedPrecedingMarkup) + length());
+    StringBuilder result;
+    result.reserveCapacity(totalLength(m_reversedPrecedingMarkup) + length());
 
     for (size_t i = m_reversedPrecedingMarkup.size(); i > 0; --i)
-        append(result, m_reversedPrecedingMarkup[i - 1]);
+        result.append(m_reversedPrecedingMarkup[i - 1]);
 
     concatenateMarkup(result);
 
     // We remove '\0' characters because they are not visibly rendered to the user.
-    return String::adopt(result).replace(0, "");
+    return result.toString().replace(0, "");
 }
 
-void StyledMarkupAccumulator::appendText(Vector<UChar>& out, Text* text)
+void StyledMarkupAccumulator::appendText(StringBuilder& out, Text* text)
 {
     if (!shouldAnnotate() || (text->parentElement() && text->parentElement()->tagQName() == textareaTag)) {
         MarkupAccumulator::appendText(out, text);
@@ -197,9 +197,9 @@ void StyledMarkupAccumulator::appendText(Vector<UChar>& out, Text* text)
 
     bool useRenderedText = !enclosingNodeWithTag(firstPositionInNode(text), selectTag);
     String content = useRenderedText ? renderedText(text, m_range) : stringValueForRange(text, m_range);
-    Vector<UChar> buffer;
+    StringBuilder buffer;
     appendCharactersReplacingEntities(buffer, content.characters(), content.length(), EntityMaskInPCDATA);
-    append(out, convertHTMLTextToInterchangeFormat(String::adopt(buffer), text));
+    out.append(convertHTMLTextToInterchangeFormat(buffer.toString(), text));
 }
     
 String StyledMarkupAccumulator::renderedText(const Node* node, const Range* range)
@@ -252,7 +252,7 @@ static PassRefPtr<CSSMutableStyleDeclaration> styleFromMatchedRulesForElement(El
     return style.release();
 }
 
-void StyledMarkupAccumulator::appendElement(Vector<UChar>& out, Element* element, bool addDisplayInline, RangeFullySelectsNode rangeFullySelectsNode)
+void StyledMarkupAccumulator::appendElement(StringBuilder& out, Element* element, bool addDisplayInline, RangeFullySelectsNode rangeFullySelectsNode)
 {
     bool documentIsHTML = element->document()->isHTMLDocument();
     appendOpenTag(out, element, 0);
@@ -303,7 +303,7 @@ void StyledMarkupAccumulator::appendElement(Vector<UChar>& out, Element* element
             removeExteriorStyles(style.get());
         if (style->length() > 0) {
             DEFINE_STATIC_LOCAL(const String, stylePrefix, (" style=\""));
-            append(out, stylePrefix);
+            out.append(stylePrefix);
             appendAttributeValue(out, style->cssText(), documentIsHTML);
             out.append('\"');
         }
@@ -819,7 +819,7 @@ PassRefPtr<DocumentFragment> createFragmentFromText(Range* context, const String
         if (s.isEmpty() && i + 1 == numLines) {
             // For last line, use the "magic BR" rather than a P.
             element = createBreakElement(document);
-            element->setAttribute(classAttr, AppleInterchangeNewline);            
+            element->setAttribute(classAttr, AppleInterchangeNewline);
         } else {
             if (useClonesOfEnclosingBlock)
                 element = block->cloneElementWithoutChildren();
@@ -905,13 +905,13 @@ String createFullMarkup(const Range* range)
 
 String urlToMarkup(const KURL& url, const String& title)
 {
-    Vector<UChar> markup;
-    append(markup, "<a href=\"");
-    append(markup, url.string());
-    append(markup, "\">");
+    StringBuilder markup;
+    markup.append("<a href=\"");
+    markup.append(url.string());
+    markup.append("\">");
     appendCharactersReplacingEntities(markup, title.characters(), title.length(), EntityMaskInPCDATA);
-    append(markup, "</a>");
-    return String::adopt(markup);
+    markup.append("</a>");
+    return markup.toString();
 }
 
 }

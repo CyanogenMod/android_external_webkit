@@ -43,6 +43,9 @@ public:
 
     void append(const String& string)
     {
+        if (!string.length())
+            return;
+
         // If we're appending to an empty string, and there is not buffer
         // (in case reserveCapacity has been called) then just retain the
         // string.
@@ -52,6 +55,22 @@ public:
             return;
         }
         append(string.characters(), string.length());
+    }
+
+    void append(const StringBuilder& other)
+    {
+        if (!other.m_length)
+            return;
+
+        // If we're appending to an empty string, and there is not a buffer (reserveCapacity has not been called)
+        // then just retain the string.
+        if (!m_length && !m_buffer && !other.m_string.isNull()) {
+            m_string = other.m_string;
+            m_length = other.m_length;
+            return;
+        }
+
+        append(other.characters(), other.m_length);
     }
 
     void append(const char* characters)
@@ -112,6 +131,16 @@ public:
             return m_string[i];
         ASSERT(m_buffer);
         return m_buffer->characters()[i];
+    }
+
+    const UChar* characters() const
+    {
+        if (!m_length)
+            return 0;
+        if (!m_string.isNull())
+            return m_string.characters();
+        ASSERT(m_buffer);
+        return m_buffer->characters();
     }
 
     void clear()
