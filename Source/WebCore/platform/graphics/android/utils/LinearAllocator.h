@@ -31,29 +31,36 @@ namespace WebCore {
 class LinearAllocator
 {
 public:
-    LinearAllocator(size_t averageAllocSize = 0);
+    LinearAllocator();
     ~LinearAllocator();
 
     void* alloc(size_t size);
-    void rewindTo(void*);
+    void rewindIfLastAlloc(void* ptr, size_t allocSize);
+
+    void dumpMemoryStats(const char* prefix = "");
 
 private:
     LinearAllocator(const LinearAllocator& other);
 
     class Page;
 
-    Page* newPage();
+    Page* newPage(size_t pageSize);
+    bool fitsInCurrentPage(size_t size);
     void ensureNext(size_t size);
     void* start(Page *p);
     void* end(Page* p);
-
-    unsigned memusage();
 
     size_t m_pageSize;
     size_t m_maxAllocSize;
     void* m_next;
     Page* m_currentPage;
     Page* m_pages;
+
+    // Memory usage tracking
+    size_t m_totalAllocated;
+    size_t m_wastedSpace;
+    size_t m_pageCount;
+    size_t m_dedicatedPageCount;
 };
 
 } // namespace WebCore
