@@ -803,13 +803,14 @@ bool LayerAndroid::drawCanvas(SkCanvas* canvas, bool drawChildren, PaintStyle st
         r.set(m_clippingRect.x(), m_clippingRect.y(),
               m_clippingRect.x() + m_clippingRect.width(),
               m_clippingRect.y() + m_clippingRect.height());
-        canvas->clipRect(r);
-        SkMatrix matrix;
-        GLUtils::toSkMatrix(matrix, m_drawTransform);
-        SkMatrix canvasMatrix = canvas->getTotalMatrix();
-        matrix.postConcat(canvasMatrix);
-        canvas->setMatrix(matrix);
-        onDraw(canvas, m_drawOpacity, 0, style);
+        if (canvas->clipRect(r)) {
+            SkMatrix matrix;
+            GLUtils::toSkMatrix(matrix, m_drawTransform);
+            SkMatrix canvasMatrix = canvas->getTotalMatrix();
+            matrix.postConcat(canvasMatrix);
+            canvas->setMatrix(matrix);
+            onDraw(canvas, m_drawOpacity, 0, style);
+        }
     }
 
     if (!drawChildren)
