@@ -57,7 +57,7 @@
 // number to cap the layer tile texturs, it worked on both phones and tablets.
 // TODO: after merge the pool of base tiles and layer tiles, we should revisit
 // the logic of allocation management.
-#define MAX_TEXTURE_ALLOCATION ((6+TILE_PREFETCH_DISTANCE*2)*(5+TILE_PREFETCH_DISTANCE*2)*4)
+#define MAX_TEXTURE_ALLOCATION ((10+TILE_PREFETCH_DISTANCE*2)*(7+TILE_PREFETCH_DISTANCE*2)*4)
 #define TILE_WIDTH 256
 #define TILE_HEIGHT 256
 
@@ -105,10 +105,10 @@ TilesManager::TilesManager()
     , m_eglContext(EGL_NO_CONTEXT)
 {
     ALOGV("TilesManager ctor");
-    m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
-    m_availableTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
-    m_tilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
-    m_availableTilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION);
+    m_textures.reserveCapacity(MAX_TEXTURE_ALLOCATION / 2);
+    m_availableTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION / 2);
+    m_tilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION / 2);
+    m_availableTilesTextures.reserveCapacity(MAX_TEXTURE_ALLOCATION / 2);
 
     m_textureGenerators = new sp<TexturesGenerator>[NUM_TEXTURES_GENERATORS];
     for (int i = 0; i < NUM_TEXTURES_GENERATORS; i++) {
