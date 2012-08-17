@@ -55,16 +55,6 @@ static SkIRect toSkIRect(const IntRect& rect) {
     return SkIRect::MakeXYWH(rect.x(), rect.y(), rect.width(), rect.height());
 }
 
-static IntRect extractClipBounds(SkCanvas* canvas, const IntSize& size) {
-    SkRect clip;
-    if (!canvas->getClipBounds(&clip)) {
-        ALOGW("Empty clip!");
-        return IntRect();
-    }
-    clip.intersect(0, 0, size.width(), size.height());
-    return enclosingIntRect(clip);
-}
-
 PictureContainer::PictureContainer(const PictureContainer& other)
     : picture(other.picture)
     , area(other.area)
@@ -94,11 +84,10 @@ void PicturePile::draw(SkCanvas* canvas)
      * the rect bounds of the SkRegion for the clip, so this still can't be
      * used for translucent surfaces
      */
-    IntRect clipBounds = extractClipBounds(canvas, m_size);
-    if (clipBounds.isEmpty())
+    if (canvas->quickReject(SkRect::MakeWH(m_size.width(), m_size.height()),
+            SkCanvas::kBW_EdgeType))
         return;
-    SkRegion clipRegion(toSkIRect(clipBounds));
-    drawWithClipRecursive(canvas, clipRegion, m_pile.size() - 1);
+    drawWithClipRecursive(canvas, m_pile.size() - 1);
 }
 
 void PicturePile::clearPrerenders()
@@ -107,24 +96,23 @@ void PicturePile::clearPrerenders()
         m_pile[i].prerendered.clear();
 }
 
-void PicturePile::drawWithClipRecursive(SkCanvas* canvas, SkRegion& clipRegion,
-                                        int index)
+void PicturePile::drawWithClipRecursive(SkCanvas* canvas, int index)
 {
     // TODO: Add some debug visualizations of this
-    if (index < 0 || clipRegion.isEmpty())
+    if (index < 0)
         return;
     PictureContainer& pc = m_pile[index];
-    IntRect intersection = clipRegion.getBounds();
-    intersection.intersect(pc.area);
-    if (pc.picture && !intersection.isEmpty()) {
-        clipRegion.op(intersection, SkRegion::kDifference_Op);
-        drawWithClipRecursive(canvas, clipRegion, index - 1);
-        int saved = canvas->save();
-        if (canvas->clipRect(intersection))
+    if (pc.picture && !canvas->quickReject(pc.area, SkCanvas::kBW_EdgeType)) {
+        int saved = canvas->save(SkCanvas::kClip_SaveFlag);
+        if (canvas->clipRect(pc.area, SkRegion::kDifference_Op))
+            drawWithClipRecursive(canvas, index - 1);
+        canvas->restoreToCount(saved);
+        saved = canvas->save(SkCanvas::kClip_SaveFlag);
+        if (canvas->clipRect(pc.area))
             drawPicture(canvas, pc);
         canvas->restoreToCount(saved);
     } else
-        drawWithClipRecursive(canvas, clipRegion, index - 1);
+        drawWithClipRecursive(canvas, index - 1);
 }
 
 // Used by WebViewCore

@@ -113,7 +113,7 @@ private:
     void updatePicture(PicturePainter* painter, PictureContainer& container);
     Picture* recordPicture(PicturePainter* painter, PictureContainer& container);
     void appendToPile(const IntRect& inval, const IntRect& originalInval = IntRect());
-    void drawWithClipRecursive(SkCanvas* canvas, SkRegion& clipRegion, int index);
+    void drawWithClipRecursive(SkCanvas* canvas, int index);
     void drawPicture(SkCanvas* canvas, PictureContainer& pc);
 
     IntSize m_size;

@@ -154,9 +154,7 @@ private:
     bool repaint();
     void needsNotifyClient();
 
-    bool paintContext(LayerAndroid* layer,
-                      const IntRect& rect,
-                      bool checkOptimisations = true);
+    bool paintContext(LayerAndroid* layer, PicturePile& picture);
 
     bool m_needsSyncChildren;
     bool m_needsSyncMask;
@@ -167,12 +165,13 @@ private:
     bool m_newImage;
     Image* m_image;
 
-    SkRegion m_dirtyRegion;
-
     LayerAndroid* m_contentLayer;
     FixedBackgroundImageLayerAndroid* m_fixedBackgroundLayer;
     LayerAndroid* m_foregroundLayer;
     LayerAndroid* m_foregroundClipLayer;
+
+    PicturePile m_contentLayerContent;
+    PicturePile m_foregroundLayerContent;
 };
 
 } // namespace WebCore
