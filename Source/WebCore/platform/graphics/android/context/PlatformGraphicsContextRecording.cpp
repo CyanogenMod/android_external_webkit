@@ -902,9 +902,9 @@ void PlatformGraphicsContextRecording::drawPosText(const void* inText, size_t by
     }
     FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), inPos, inPaint);
     const SkPaint* paint = mRecording->recording()->getSkPaint(inPaint);
-    int posSize = sizeof(SkPoint) * paint->countText(inText, byteLength);
-    void* text = heap()->alloc(posSize + byteLength);
-    SkPoint* pos = (SkPoint*) ((char*)text + byteLength);
+    size_t posSize = sizeof(SkPoint) * paint->countText(inText, byteLength);
+    void* text = heap()->alloc(byteLength);
+    SkPoint* pos = (SkPoint*) heap()->alloc(posSize);
     memcpy(text, inText, byteLength);
     memcpy(pos, inPos, posSize);
     appendDrawingOperation(NEW_OP(DrawPosText)(text, byteLength, pos, paint), bounds);
