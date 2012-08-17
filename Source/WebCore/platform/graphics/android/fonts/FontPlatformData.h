@@ -33,12 +33,13 @@
 #include "FontOrientation.h"
 #include "TextOrientation.h"
 #include <wtf/text/StringImpl.h>
+#include "SkLanguage.h"
+#include "SkPaint.h"
 
 #ifndef NDEBUG
 #include "PlatformString.h"
 #endif
 
-class SkPaint;
 class SkTypeface;
 
 struct HB_FaceRec_;
@@ -62,13 +63,13 @@ public:
     ~FontPlatformData();
 
     FontPlatformData(WTF::HashTableDeletedValueType)
-        : mTypeface(hashTableDeletedFontValue()) { }
+        : m_typeface(hashTableDeletedFontValue()) { }
     bool isHashTableDeletedValue() const {
-        return mTypeface == hashTableDeletedFontValue();
+        return m_typeface == hashTableDeletedFontValue();
     }
 
-    FontOrientation orientation() const { return mOrientation; }
-    void setOrientation(FontOrientation orientation) { mOrientation = orientation; }
+    FontOrientation orientation() const { return m_orientation; }
+    void setOrientation(FontOrientation orientation) { m_orientation = orientation; }
     FontPlatformData& operator=(const FontPlatformData&);
     bool operator==(const FontPlatformData& a) const;
 
@@ -80,7 +81,7 @@ public:
     // -------------------------------------------------------------------------
     uint32_t uniqueID() const;
 
-    float size() const { return mTextSize; }
+    float size() const { return m_textSize; }
     unsigned hash() const;
     int emSizeInFontUnits() const;
     bool isFixedPitch() const;
@@ -90,10 +91,12 @@ public:
 #endif
 
     HB_FaceRec_* harfbuzzFace() const;
-    SkTypeface* typeface() const { return mTypeface; }
+    SkTypeface* typeface() const { return m_typeface; }
 
-    bool isFakeBold() const { return mFakeBold; }
-    bool isFakeItalic() const { return mFakeItalic; }
+    bool isFakeBold() const { return m_fakeBold; }
+    bool isFakeItalic() const { return m_fakeItalic; }
+
+    static void setDefaultLanguage(const char* language);
 
 private:
     class RefCountedHarfbuzzFace : public RefCounted<RefCountedHarfbuzzFace> {
@@ -115,14 +118,15 @@ private:
         HB_FaceRec_* m_harfbuzzFace;
     };
 
-    SkTypeface* mTypeface;
-    float       mTextSize;
-    mutable int mEmSizeInFontUnits;
-    bool        mFakeBold;
-    bool        mFakeItalic;
-    FontOrientation mOrientation;
-    TextOrientation mTextOrientation;
+    SkTypeface* m_typeface;
+    float       m_textSize;
+    mutable int m_emSizeInFontUnits;
+    bool        m_fakeBold;
+    bool        m_fakeItalic;
+    FontOrientation m_orientation;
+    TextOrientation m_textOrientation;
     mutable RefPtr<RefCountedHarfbuzzFace> m_harfbuzzFace;
+    static SkLanguage s_defaultLanguage;
 
     static SkTypeface* hashTableDeletedFontValue() {
         return reinterpret_cast<SkTypeface*>(-1);
