@@ -524,6 +524,7 @@ void PlatformGraphicsContextRecording::beginTransparencyLayer(float opacity)
 {
     CanvasState* parent = mRecordingStateStack.last().mCanvasState;
     pushStateOperation(new (heap()) CanvasState(parent, opacity));
+    mRecordingStateStack.last().disableOpaqueTracking();
 }
 
 void PlatformGraphicsContextRecording::endTransparencyLayer()
@@ -688,13 +689,13 @@ const SkMatrix& PlatformGraphicsContextRecording::getTotalMatrix()
 void PlatformGraphicsContextRecording::addInnerRoundedRectClip(const IntRect& rect,
                                                       int thickness)
 {
-    mRecordingStateStack.last().setHasComplexClip();
+    mRecordingStateStack.last().disableOpaqueTracking();
     appendStateOperation(NEW_OP(InnerRoundedRectClip)(rect, thickness));
 }
 
 void PlatformGraphicsContextRecording::canvasClip(const Path& path)
 {
-    mRecordingStateStack.last().setHasComplexClip();
+    mRecordingStateStack.last().disableOpaqueTracking();
     clip(path);
 }
 
@@ -707,7 +708,7 @@ bool PlatformGraphicsContextRecording::clip(const FloatRect& rect)
 
 bool PlatformGraphicsContextRecording::clip(const Path& path)
 {
-    mRecordingStateStack.last().setHasComplexClip();
+    mRecordingStateStack.last().disableOpaqueTracking();
     clipState(path.boundingRect());
     appendStateOperation(NEW_OP(ClipPath)(path));
     return true;
@@ -722,21 +723,21 @@ bool PlatformGraphicsContextRecording::clipConvexPolygon(size_t numPoints,
 
 bool PlatformGraphicsContextRecording::clipOut(const IntRect& r)
 {
-    mRecordingStateStack.last().setHasComplexClip();
+    mRecordingStateStack.last().disableOpaqueTracking();
     appendStateOperation(NEW_OP(ClipOut)(r));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clipOut(const Path& path)
 {
-    mRecordingStateStack.last().setHasComplexClip();
+    mRecordingStateStack.last().disableOpaqueTracking();
     appendStateOperation(NEW_OP(ClipPath)(path, true));
     return true;
 }
 
 bool PlatformGraphicsContextRecording::clipPath(const Path& pathToClip, WindRule clipRule)
 {
-    mRecordingStateStack.last().setHasComplexClip();
+    mRecordingStateStack.last().disableOpaqueTracking();
     clipState(pathToClip.boundingRect());
     GraphicsOperation::ClipPath* operation = NEW_OP(ClipPath)(pathToClip);
     operation->setWindRule(clipRule);
@@ -930,7 +931,9 @@ void PlatformGraphicsContextRecording::clipState(const FloatRect& clip)
 void PlatformGraphicsContextRecording::pushStateOperation(CanvasState* canvasState)
 {
     ALOGV("RECORDING: pushStateOperation: %p(isLayer=%d)", canvasState, canvasState->isTransparencyLayer());
-    mRecordingStateStack.append(canvasState);
+
+    RecordingState* parent = mRecordingStateStack.isEmpty() ? 0 : &(mRecordingStateStack.last());
+    mRecordingStateStack.append(RecordingState(canvasState, parent));
     mRecording->recording()->addCanvasState(canvasState);
 }
 
@@ -1000,6 +1003,13 @@ IntRect PlatformGraphicsContextRecording::calculateFinalBounds(FloatRect bounds)
 
 IntRect PlatformGraphicsContextRecording::calculateCoveredBounds(FloatRect bounds)
 {
+    if (mRecordingStateStack.last().mOpaqueTrackingDisabled
+        || m_state->alpha != 1.0f
+        || (m_state->mode != SkXfermode::kSrc_Mode && m_state->mode != SkXfermode::kSrcOver_Mode)
+        || !mCurrentMatrix->rectStaysRect()) {
+        return IntRect();
+    }
+
     SkRect translated;
     mCurrentMatrix->mapRect(&translated, bounds);
     FloatRect ftrect = translated;
@@ -1029,11 +1039,7 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         operation->~Operation();
         return;
     }
-    if (operation->isOpaque()
-        && !untranslatedBounds.isEmpty()
-        && operation->m_state->alpha == 1.0f
-        && mCurrentMatrix->rectStaysRect()
-        && !state.mHasComplexClip) {
+    if (operation->isOpaque() && !untranslatedBounds.isEmpty()) {
         // if the operation maps to an opaque rect, record the area it will cover
         operation->setOpaqueRect(calculateCoveredBounds(untranslatedBounds));
     }
