@@ -116,7 +116,6 @@ GraphicsLayerAndroid::GraphicsLayerAndroid(GraphicsLayerClient* client) :
                 static_cast<HTMLCanvasElement*>(renderLayer->renderer()->node()));
     } else
         m_contentLayer = new LayerAndroid(renderLayer);
-    m_dirtyRegion.setEmpty();
     gDebugGraphicsLayerAndroidInstances++;
 }
 
@@ -695,7 +694,7 @@ bool GraphicsLayerAndroid::repaint()
             PaintingPhase phase(this);
             // Paint the background into a separate context.
             phase.set(GraphicsLayerPaintBackground);
-            if (!paintContext(m_contentLayer, layerBounds))
+            if (!paintContext(m_contentLayer, m_contentLayerContent))
                 return false;
 
             // Construct the foreground layer and draw.
@@ -712,11 +711,17 @@ bool GraphicsLayerAndroid::repaint()
             // Paint everything else into the main recording canvas.
             phase.clear(GraphicsLayerPaintBackground);
 
+            // Invalidate the entire layer for now, as webkit will only send the
+            // setNeedsDisplayInRect() for the visible (clipped) scrollable area,
+            // offsetting the invals by the scroll position would not be enough.
+            // TODO: have webkit send us invals even for non visible area
+            m_foregroundLayerContent.invalidate(IntRect(0, 0, contentsRect.width(), contentsRect.height()));
+
             // Paint at 0,0.
             IntSize scroll = layer->scrolledContentOffset();
             layer->scrollToOffset(0, 0);
             // At this point, it doesn't matter if painting failed.
-            (void) paintContext(m_foregroundLayer, contentsRect);
+            (void) paintContext(m_foregroundLayer, m_foregroundLayerContent);
             layer->scrollToOffset(scroll.width(), scroll.height());
 
             // Construct the clip layer for masking the contents.
@@ -741,13 +746,8 @@ bool GraphicsLayerAndroid::repaint()
             // Set the scrollable bounds of the layer.
             setScrollLimits(static_cast<ScrollableLayerAndroid*>(m_foregroundLayer), layer);
 
-            // Invalidate the entire layer for now, as webkit will only send the
-            // setNeedsDisplayInRect() for the visible (clipped) scrollable area,
-            // offsetting the invals by the scroll position would not be enough.
-            // TODO: have webkit send us invals even for non visible area
-            SkRegion region;
-            region.setRect(0, 0, contentsRect.width(), contentsRect.height());
-            m_foregroundLayer->markAsDirty(region);
+            m_foregroundLayer->markAsDirty(m_foregroundLayerContent.dirtyRegion());
+            m_foregroundLayerContent.dirtyRegion().setEmpty();
         } else if (m_contentLayer->isFixedBackground()) {
             SkPicture* picture = new SkPicture();
             SkCanvas* canvas = picture->beginRecording(layerBounds.width(),
@@ -784,13 +784,13 @@ bool GraphicsLayerAndroid::repaint()
                 GraphicsLayerAndroid* replicatedLayer = static_cast<GraphicsLayerAndroid*>(replicaLayer());
                 if (replicatedLayer->maskLayer()) {
                      GraphicsLayerAndroid* mask = static_cast<GraphicsLayerAndroid*>(replicatedLayer->maskLayer());
-                     mask->paintContext(mask->m_contentLayer, layerBounds, false);
+                     mask->paintContext(mask->m_contentLayer, m_contentLayerContent);
                 }
             }
 
             // If there is no contents clip, we can draw everything into one
             // picture.
-            bool painting = paintContext(m_contentLayer, layerBounds);
+            bool painting = paintContext(m_contentLayer, m_contentLayerContent);
             if (!painting)
                 return false;
             // Check for a scrollable iframe and report the scrolling
@@ -811,8 +811,8 @@ bool GraphicsLayerAndroid::repaint()
               m_contentLayer->getSize().width(),
               m_contentLayer->getSize().height());
 
-        m_contentLayer->markAsDirty(m_dirtyRegion);
-        m_dirtyRegion.setEmpty();
+        m_contentLayer->markAsDirty(m_contentLayerContent.dirtyRegion());
+        m_contentLayerContent.dirtyRegion().setEmpty();
         m_needsRepaint = false;
 
         return true;
@@ -820,8 +820,8 @@ bool GraphicsLayerAndroid::repaint()
     if (m_needsRepaint && m_image && m_newImage) {
         // We need to tell the GL thread that we will need to repaint the
         // texture. Only do so if we effectively have a new image!
-        m_contentLayer->markAsDirty(m_dirtyRegion);
-        m_dirtyRegion.setEmpty();
+        m_contentLayer->markAsDirty(m_contentLayerContent.dirtyRegion());
+        m_contentLayerContent.dirtyRegion().setEmpty();
         m_newImage = false;
         m_needsRepaint = false;
         return true;
@@ -835,19 +835,14 @@ void GraphicsLayerAndroid::paintContents(GraphicsContext* gc, IntRect& dirty)
 }
 
 bool GraphicsLayerAndroid::paintContext(LayerAndroid* layer,
-                                        const IntRect& rect,
-                                        bool checkOptimisations)
+                                        PicturePile& picture)
 {
     if (!layer)
         return false;
 
     TRACE_METHOD();
 
-    // TODO: we might be able to reuse an existing picture instead of recreating it.
-    //       we can't do that because of transparency -- for now, we just create
-    //       a new picture every time.
-    WebCore::PicturePile picture;
-    picture.setSize(IntSize(rect.width(), rect.height()));
+    picture.setSize(IntSize(layer->getWidth(), layer->getHeight()));
 
     // TODO: add content checks (text, opacity, etc.)
     picture.updatePicturesIfNeeded(this);
@@ -870,11 +865,9 @@ void GraphicsLayerAndroid::setNeedsDisplayInRect(const FloatRect& rect)
         return;
     }
 
-    SkRegion region;
-    region.setRect(rect.x(), rect.y(),
-                   rect.x() + rect.width(),
-                   rect.y() + rect.height());
-    m_dirtyRegion.op(region, SkRegion::kUnion_Op);
+    m_contentLayerContent.invalidate(enclosingIntRect(rect));
+    if (m_foregroundLayer)
+        m_foregroundLayerContent.invalidate(enclosingIntRect(rect));
 
     m_needsRepaint = true;
     askForSync();
