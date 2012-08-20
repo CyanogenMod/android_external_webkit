@@ -168,22 +168,23 @@ private:
     Recording* mRecording;
     class RecordingState {
     public:
-        RecordingState(CanvasState* state)
+        RecordingState(CanvasState* state, const RecordingState* parent)
             : mCanvasState(state)
             , mHasDrawing(false)
-            , mHasClip(false)
-            , mHasComplexClip(false)
+            , mHasClip(parent ? parent->mHasClip : false)
+            , mOpaqueTrackingDisabled(parent ? parent->mOpaqueTrackingDisabled : false)
+            , mBounds(parent ? parent->mBounds : FloatRect())
         {}
 
         RecordingState(const RecordingState& other)
             : mCanvasState(other.mCanvasState)
             , mHasDrawing(other.mHasDrawing)
             , mHasClip(other.mHasClip)
-            , mHasComplexClip(false)
+            , mOpaqueTrackingDisabled(other.mOpaqueTrackingDisabled)
             , mBounds(other.mBounds)
         {}
 
-        void setHasComplexClip() { mHasComplexClip = true; }
+        void disableOpaqueTracking() { mOpaqueTrackingDisabled = true; }
 
         void clip(const FloatRect& rect)
         {
@@ -198,7 +199,7 @@ private:
         CanvasState* mCanvasState;
         bool mHasDrawing;
         bool mHasClip;
-        bool mHasComplexClip;
+        bool mOpaqueTrackingDisabled;
         FloatRect mBounds;
     };
     Vector<RecordingState> mRecordingStateStack;
