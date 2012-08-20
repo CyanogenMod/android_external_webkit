@@ -258,6 +258,7 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
         if (!TilesManager::instance()->useDoubleBuffering() || m_paintingCollection->isReady()) {
             ALOGV("have painting collection %p ready, swapping!", m_paintingCollection);
             didCollectionSwap = true;
+            m_fastSwapMode = false;
             TilesManager::instance()->incContentUpdates();
             if (collectionsSwappedPtr)
                 *collectionsSwappedPtr = true;
