@@ -80,7 +80,6 @@ LOCAL_C_INCLUDES := \
 	external/libxslt \
 	external/hyphenation \
 	external/skia/emoji \
-	external/skia/gpu/include \
 	external/skia/include/core \
 	external/skia/include/effects \
 	external/skia/include/gpu \
