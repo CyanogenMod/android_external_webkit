@@ -80,13 +80,13 @@ LOCAL_C_INCLUDES := \
 	external/libxslt \
 	external/hyphenation \
 	external/skia/emoji \
-	external/skia/gpu/include \
 	external/skia/include/core \
 	external/skia/include/effects \
 	external/skia/include/gpu \
 	external/skia/include/images \
 	external/skia/include/ports \
 	external/skia/include/utils \
+	external/skia/src/gpu \
 	external/skia/src/ports \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
