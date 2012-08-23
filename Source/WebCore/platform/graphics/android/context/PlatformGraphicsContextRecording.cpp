@@ -38,6 +38,7 @@
 #include "LinearAllocator.h"
 #include "PlatformGraphicsContextSkia.h"
 #include "RTree.h"
+#include "SkDevice.h"
 
 #include "wtf/NonCopyingSort.h"
 #include "wtf/HashSet.h"
@@ -443,25 +444,28 @@ void Recording::draw(SkCanvas* canvas)
         nonCopyingSort(nodes.begin(), nodes.end(), CompareRecordingDataOrder);
         PlatformGraphicsContextSkia context(canvas);
 #if USE_CLIPPING_PAINTER
-        ClippingPainter painter(recording(), context, canvas->getTotalMatrix(), nodes);
-        painter.draw(canvas->getTotalClip().getBounds());
-#else
-        CanvasState* currState = 0;
-        size_t lastOperationId = 0;
-        for (size_t i = 0; i < count; i++) {
-            GraphicsOperation::Operation* op = nodes[i]->m_operation;
-            m_recording->applyState(&context, currState, lastOperationId,
-                    op->m_canvasState, nodes[i]->m_orderBy);
-            currState = op->m_canvasState;
-            lastOperationId = nodes[i]->m_orderBy;
-            ALOGV("apply: %p->%s()", op, op->name());
-            op->apply(&context);
-        }
-        while (currState) {
-            currState->exitState(&context);
-            currState = currState->parent();
-        }
+        if (canvas->getDevice() && canvas->getDevice()->config() != SkBitmap::kNo_Config) {
+            ClippingPainter painter(recording(), context, canvas->getTotalMatrix(), nodes);
+            painter.draw(canvas->getTotalClip().getBounds());
+        } else
 #endif
+        {
+            CanvasState* currState = 0;
+            size_t lastOperationId = 0;
+            for (size_t i = 0; i < count; i++) {
+                GraphicsOperation::Operation* op = nodes[i]->m_operation;
+                m_recording->applyState(&context, currState, lastOperationId,
+                                        op->m_canvasState, nodes[i]->m_orderBy);
+                currState = op->m_canvasState;
+                lastOperationId = nodes[i]->m_orderBy;
+                ALOGV("apply: %p->%s()", op, op->name());
+                op->apply(&context);
+            }
+            while (currState) {
+                currState->exitState(&context);
+                currState = currState->parent();
+            }
+        }
         if (saveCount != canvas->getSaveCount()) {
             ALOGW("Save/restore mismatch! %d vs. %d", saveCount, canvas->getSaveCount());
         }
@@ -1039,10 +1043,12 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         operation->~Operation();
         return;
     }
+#if USE_CLIPPING_PAINTER
     if (operation->isOpaque() && !untranslatedBounds.isEmpty()) {
         // if the operation maps to an opaque rect, record the area it will cover
         operation->setOpaqueRect(calculateCoveredBounds(untranslatedBounds));
     }
+#endif
     ALOGV("RECORDING: appendOperation %p->%s() bounds " INT_RECT_FORMAT, operation, operation->name(),
             INT_RECT_ARGS(ibounds));
     RecordingData* data = new (heap()) RecordingData(operation, mRecording->recording()->m_nodeCount++);
