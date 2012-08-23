@@ -278,6 +278,8 @@ ifeq ($(ENABLE_WTF_USE_ACCELERATED_COMPOSITING),true)
 LOCAL_CFLAGS += -DWTF_USE_ACCELERATED_COMPOSITING=1
 endif
 
+LOCAL_CFLAGS += -DENABLE_REQUEST_ANIMATION_FRAME=1
+
 # LOCAL_LDLIBS is used in simulator builds only and simulator builds are only
 # valid on Linux
 LOCAL_LDLIBS += -lpthread -ldl

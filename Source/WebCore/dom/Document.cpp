@@ -5026,15 +5026,15 @@ void Document::loadEventDelayTimerFired(Timer<Document>*)
 }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-int Document::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback, Element* animationElement)
+int Document::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback)
 {
     if (!m_scriptedAnimationController)
         m_scriptedAnimationController = ScriptedAnimationController::create(this);
 
-    return m_scriptedAnimationController->registerCallback(callback, animationElement);
+    return m_scriptedAnimationController->registerCallback(callback);
 }
 
-void Document::webkitCancelRequestAnimationFrame(int id)
+void Document::webkitCancelAnimationFrame(int id)
 {
     if (!m_scriptedAnimationController)
         return;

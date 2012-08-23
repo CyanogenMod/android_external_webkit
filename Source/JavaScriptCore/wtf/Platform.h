@@ -1304,4 +1304,8 @@
 #define WTF_USE_UNIX_DOMAIN_SOCKETS 1
 #endif
 
+#if PLATFORM(MAC) || PLATFORM(ANDROID)
+#define WTF_USE_REQUEST_ANIMATION_FRAME_TIMER 1
+#endif
+
 #endif /* WTF_Platform_h */

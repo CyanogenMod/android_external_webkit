@@ -1085,8 +1085,8 @@ public:
     const DocumentTiming* timing() const { return &m_documentTiming; }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-    int webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback>, Element*);
-    void webkitCancelRequestAnimationFrame(int id);
+    int webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback>);
+    void webkitCancelAnimationFrame(int id);
     void serviceScriptedAnimations(DOMTimeStamp);
 #endif
 
