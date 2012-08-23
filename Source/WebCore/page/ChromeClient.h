@@ -153,7 +153,7 @@ namespace WebCore {
         virtual PlatformPageClient platformPageClient() const = 0;
         virtual void scrollbarsModeDidChange() const = 0;
         virtual void setCursor(const Cursor&) = 0;
-#if ENABLE(REQUEST_ANIMATION_FRAME)
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
         virtual void scheduleAnimation() = 0;
 #endif
         // End methods used by HostWindow.
