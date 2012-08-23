@@ -1517,17 +1517,17 @@ void DOMWindow::clearInterval(int timeoutId)
 }
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
-int DOMWindow::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback, Element* e)
+int DOMWindow::webkitRequestAnimationFrame(PassRefPtr<RequestAnimationFrameCallback> callback)
 {
     if (Document* d = document())
-        return d->webkitRequestAnimationFrame(callback, e);
+        return d->webkitRequestAnimationFrame(callback);
     return 0;
 }
 
-void DOMWindow::webkitCancelRequestAnimationFrame(int id)
+void DOMWindow::webkitCancelAnimationFrame(int id)
 {
     if (Document* d = document())
-        d->webkitCancelRequestAnimationFrame(id);
+        d->webkitCancelAnimationFrame(id);
 }
 #endif
 

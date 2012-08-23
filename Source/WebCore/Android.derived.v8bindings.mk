@@ -39,6 +39,8 @@ ifeq ($(ENABLE_SVG), true)
     FEATURE_DEFINES += ENABLE_SVG=1
 endif
 
+FEATURE_DEFINES += ENABLE_REQUEST_ANIMATION_FRAME
+
 # CSS
 GEN := \
     $(intermediates)/bindings/V8CSSCharsetRule.h \
@@ -125,6 +127,7 @@ GEN := \
     $(intermediates)/bindings/V8ProgressEvent.h \
     $(intermediates)/bindings/V8Range.h \
     $(intermediates)/bindings/V8RangeException.h \
+    $(intermediates)/bindings/V8RequestAnimationFrameCallback.h \
     $(intermediates)/bindings/V8Text.h \
     $(intermediates)/bindings/V8TextEvent.h \
     $(intermediates)/bindings/V8Touch.h \

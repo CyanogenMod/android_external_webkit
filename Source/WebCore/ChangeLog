@@ -1,5 +1,99 @@
-2011-05-11  Antoine Labour  <piman@chromium.org>
+2012-04-09  James Robinson  <jamesr@chromium.org>
 
+        Remove partially implemented per-Element visibility checks from requestAnimationFrame logic
+        https://bugs.webkit.org/show_bug.cgi?id=74232
+
+        Reviewed by Dean Jackson.
+
+        The initial requestAnimationFrame implementation had an Element parameter as the second argument to the
+        function. This element was intended to convey the element associated with the animation so that when the element
+        was not visible the animation callback would not be run. The checked in implementation does a very limited check
+        - testing for display:none and being detached from the tree - but does it in a way that does not work correctly
+        if an element's visibility is manipulated by a callback running from a different document. It also adds
+        significant complexity to the code, making it less hackable and easy to introduce subtle security bugs or
+        infinite loops.
+
+        This patch removes the parameter. Since it has always been marked optional, there is no web compat risk.
+
+        If this functionality is added back in the future it needs to be implemented in a way that considers all
+        callbacks within a Page and not only those within a single Document.
+
+        * dom/Document.cpp:
+        (WebCore::Document::webkitRequestAnimationFrame):
+        * dom/Document.h:
+        * dom/RequestAnimationFrameCallback.h:
+        * dom/ScriptedAnimationController.cpp:
+        (WebCore::ScriptedAnimationController::registerCallback):
+        (WebCore::ScriptedAnimationController::serviceScriptedAnimations):
+        * dom/ScriptedAnimationController.h:
+        * page/DOMWindow.cpp:
+        (WebCore::DOMWindow::webkitRequestAnimationFrame):
+        * page/DOMWindow.h:
+        * page/DOMWindow.idl:
+
+2011-12-12  James Robinson  <jamesr@chromium.org>
+
+        Rename webkitCancelRequestAnimationFrame to webkitCancelAnimationFrame to match spec change
+        https://bugs.webkit.org/show_bug.cgi?id=74231
+
+        Reviewed by Simon Fraser.
+
+        The RequestAnimationFrame spec has renamed cancelRequestAnimationFrame to cancelAnimationFrame in response to
+        feedback from Mozilla and Microsoft that the old name was too long and didn't parallel setTimeout/clearTimeout
+        and setInterval/clearInterval very well. This updates our IDL to match, while preserving the old name as an
+        alias to be compatible with current content.
+
+        * dom/Document.cpp:
+        (WebCore::Document::webkitCancelAnimationFrame):
+        * dom/Document.h:
+        * page/DOMWindow.cpp:
+        (WebCore::DOMWindow::webkitCancelAnimationFrame):
+        * page/DOMWindow.h:
+        (WebCore::DOMWindow::webkitCancelRequestAnimationFrame):
+        * page/DOMWindow.idl:
+
+2011-09-26  James Robinson  <jamesr@chromium.org>
+
+        [mac] Timestamp parameter to requestAnimationFrame is busted in USE(REQUEST_ANIMATION_FRAME_TIMER) path
+        https://bugs.webkit.org/show_bug.cgi?id=68769
+
+        Reviewed by Simon Fraser.
+
+        Convert the time parameter from double to DOMTimeStamp using convertSecondsToDOMTimeStamp rather than relying on
+        implicit double->long conversion, which ignores the units of the value.
+
+        Test: fast/animation/request-animation-frame-timestamps-advance.html
+
+        * dom/ScriptedAnimationController.cpp:
+        (WebCore::ScriptedAnimationController::animationTimerFired):
+
+2011-09-09  Chris Marrin  <cmarrin@apple.com>
+
+        requestAnimationFrame doesn't throttle on Mac
+        https://bugs.webkit.org/show_bug.cgi?id=67171
+
+        Reviewed by Simon Fraser.
+
+        Changed requestAnimationFrame to use a Timer in ScriptedAnimationController
+        on Mac, rather than runLoopObservers. The Timer is throttled to fire no
+        faster than every 15ms. It is behind a WTF_USE_REQUEST_ANIMATION_FRAME_TIMER
+        flag and can be used by any implementation, but currently it is only enabled
+        by PLATFORM(MAC).
+
+        * dom/ScriptedAnimationController.cpp:
+        (WebCore::ScriptedAnimationController::ScriptedAnimationController):
+        (WebCore::ScriptedAnimationController::resume):
+        (WebCore::ScriptedAnimationController::registerCallback):
+        (WebCore::ScriptedAnimationController::serviceScriptedAnimations):
+        (WebCore::ScriptedAnimationController::scheduleAnimation):
+        (WebCore::ScriptedAnimationController::animationTimerFired):
+        * dom/ScriptedAnimationController.h:
+        * loader/EmptyClients.h:
+        * page/Chrome.cpp:
+        (WebCore::Chrome::scheduleAnimation):
+        * page/ChromeClient.h:
+
+2011-05-11  Antoine Labour  <piman@chromium.org>
         Reviewed by David Levin.
 
         Expose shouldBufferData to ThreadableLoaderOptions to be able to disable buffering of the
