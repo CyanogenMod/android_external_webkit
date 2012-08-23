@@ -192,6 +192,10 @@ namespace android {
 
         virtual void* webView() const { return 0; }
 
+#if ENABLE(REQUEST_ANIMATION_FRAME) && !USE(REQUEST_ANIMATION_FRAME_TIMER)
+        virtual void scheduleAnimation() { }
+#endif
+
     private:
         android::WebFrame* m_webFrame;
 #if USE(ACCELERATED_COMPOSITING)
