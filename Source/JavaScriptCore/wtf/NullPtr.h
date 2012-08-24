@@ -35,10 +35,13 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     #define __has_feature(feature) 0
 #endif
 
-#if __has_feature(cxx_nullptr) || (defined(_MSC_VER) && _MSC_VER >= 1600)
+#if __has_feature(cxx_nullptr) || (defined(_MSC_VER) && _MSC_VER >= 1600) || defined(__GXX_EXPERIMENTAL_CXX0X__) || __cplusplus >= 201103L
 
 #define HAVE_NULLPTR 1
 
+namespace std {
+	typedef decltype(nullptr) nullptr_t; // nullptr_t seems to be missing in gcc 4.7
+}
 #else
 
 namespace std {

@@ -17,6 +17,10 @@
 #ifndef LayerAndroid_h
 #define LayerAndroid_h
 
+#if __cplusplus < 201103L && !defined(__GXX_EXPERIMENTAL_CXX0X__) && !defined(char16_t)
+#define constexpr const
+#endif
+
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "FloatPoint.h"
@@ -379,7 +383,7 @@ private:
     float m_scale;
 
     // We try to not always compute the texture size, as this is quite heavy
-    static const double s_computeTextureDelay = 0.2; // 200 ms
+    static constexpr double s_computeTextureDelay = 0.2; // 200 ms
     double m_lastComputeTextureSize;
 
     RenderLayer* m_owningLayer;
