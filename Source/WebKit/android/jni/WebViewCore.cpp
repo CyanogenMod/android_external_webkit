@@ -1576,7 +1576,7 @@ void WebViewCore::setSelectionCaretInfo(SelectText* selectTextContainer,
     selectTextContainer->setCaretRect(handleId, caretRect);
     selectTextContainer->setHandleType(handleId, handleType);
     selectTextContainer->setTextRect(handleId,
-            positionToTextRect(pos, affinity, offset));
+            positionToTextRect(pos, affinity, offset, caretRect));
 }
 
 bool WebViewCore::isLtr(const Position& position)
@@ -1684,9 +1684,9 @@ SelectText* WebViewCore::createSelectText(const VisibleSelection& selection)
 }
 
 IntRect WebViewCore::positionToTextRect(const Position& position,
-        EAffinity affinity, const WebCore::IntPoint& offset)
+        EAffinity affinity, const WebCore::IntPoint& offset, const IntRect& caretRect)
 {
-    IntRect textRect;
+    IntRect textRect = caretRect;
     InlineBox* inlineBox;
     int offsetIndex;
     position.getInlineBoxAndOffset(affinity, inlineBox, offsetIndex);
