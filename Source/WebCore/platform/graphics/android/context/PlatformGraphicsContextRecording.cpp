@@ -47,6 +47,7 @@
 #define NEW_OP(X) new (heap()) GraphicsOperation::X
 
 #define USE_CLIPPING_PAINTER true
+#define MIN_TRACKED_OPAQUE_AREA 750
 
 namespace WebCore {
 
@@ -1044,7 +1045,9 @@ void PlatformGraphicsContextRecording::appendDrawingOperation(
         return;
     }
 #if USE_CLIPPING_PAINTER
-    if (operation->isOpaque() && !untranslatedBounds.isEmpty()) {
+    if (operation->isOpaque()
+        && !untranslatedBounds.isEmpty()
+        && (untranslatedBounds.width() * untranslatedBounds.height() > MIN_TRACKED_OPAQUE_AREA)) {
         // if the operation maps to an opaque rect, record the area it will cover
         operation->setOpaqueRect(calculateCoveredBounds(untranslatedBounds));
     }
