@@ -43,6 +43,7 @@
 #include "WebViewCore.h"
 #include "npruntime.h"
 
+#include <gui/ISurfaceComposer.h>
 #include <gui/SurfaceComposerClient.h>
 #include <ui/DisplayInfo.h>
 #include <ui/PixelFormat.h>
@@ -124,15 +125,21 @@ String PlatformBridge::resolveFilePathForContentUri(const String& contentUri)
 
 int PlatformBridge::PlatformBridge::screenDepth()
 {
+    android::sp<android::IBinder> display(
+            android::SurfaceComposerClient::getBuiltInDisplay(
+            android::ISurfaceComposer::eDisplayIdMain));
     android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
+    android::SurfaceComposerClient::getDisplayInfo(display, &info);
     return info.pixelFormatInfo.bitsPerPixel;
 }
 
 FloatRect PlatformBridge::screenRect()
 {
+    android::sp<android::IBinder> display(
+            android::SurfaceComposerClient::getBuiltInDisplay(
+            android::ISurfaceComposer::eDisplayIdMain));
     android::DisplayInfo info;
-    android::SurfaceComposerClient::getDisplayInfo(android::DisplayID(0), &info);
+    android::SurfaceComposerClient::getDisplayInfo(display, &info);
     return FloatRect(0.0, 0.0, info.w, info.h);
 }
 
