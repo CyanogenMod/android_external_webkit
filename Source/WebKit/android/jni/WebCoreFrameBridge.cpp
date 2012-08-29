@@ -273,7 +273,7 @@ WebFrame::WebFrame(JNIEnv* env, jobject obj, jobject historyList, WebCore::Page*
     mJavaFrame->mReportSslCertError = env->GetMethodID(clazz, "reportSslCertError", "(II[BLjava/lang/String;)V");
     mJavaFrame->mRequestClientCert = env->GetMethodID(clazz, "requestClientCert", "(ILjava/lang/String;)V");
     mJavaFrame->mDownloadStart = env->GetMethodID(clazz, "downloadStart",
-            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
+            "(Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;Ljava/lang/String;J)V");
     mJavaFrame->mDidReceiveData = env->GetMethodID(clazz, "didReceiveData", "([BI)V");
     mJavaFrame->mDidFinishLoading = env->GetMethodID(clazz, "didFinishLoading", "()V");
     mJavaFrame->mSetCertificate = env->GetMethodID(clazz, "setCertificate", "([B)V");
@@ -836,7 +836,7 @@ WebFrame::requestClientCert(WebUrlLoaderClient* client, const std::string& hostA
 }
 
 void
-WebFrame::downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, long long contentLength)
+WebFrame::downloadStart(const std::string& url, const std::string& userAgent, const std::string& contentDisposition, const std::string& mimetype, const std::string& referer, long long contentLength)
 {
     JNIEnv* env = getJNIEnv();
     AutoJObject javaFrame = mJavaFrame->frame(env);
@@ -846,13 +846,15 @@ WebFrame::downloadStart(const std::string& url, const std::string& userAgent, co
     jstring jUserAgent = stdStringToJstring(env, userAgent, true);
     jstring jContentDisposition = stdStringToJstring(env, contentDisposition, true);
     jstring jMimetype = stdStringToJstring(env, mimetype, true);
+    jstring jReferer = stdStringToJstring(env, referer, true);
 
-    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDownloadStart, jUrl, jUserAgent, jContentDisposition, jMimetype, contentLength);
+    env->CallVoidMethod(javaFrame.get(), mJavaFrame->mDownloadStart, jUrl, jUserAgent, jContentDisposition, jMimetype, jReferer, contentLength);
 
     env->DeleteLocalRef(jUrl);
     env->DeleteLocalRef(jUserAgent);
     env->DeleteLocalRef(jContentDisposition);
     env->DeleteLocalRef(jMimetype);
+    env->DeleteLocalRef(jReferer);
     checkException(env);
 }
 
