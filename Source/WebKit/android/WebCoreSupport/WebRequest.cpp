@@ -83,6 +83,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     : m_urlLoader(loader)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
+    , m_referer(webResourceRequest.referrer())
     , m_loadState(Created)
     , m_authRequestCount(0)
     , m_cacheMode(0)
@@ -109,6 +110,7 @@ WebRequest::WebRequest(WebUrlLoaderClient* loader, const WebResourceRequest& web
     , m_interceptResponse(intercept)
     , m_url(webResourceRequest.url())
     , m_userAgent(webResourceRequest.userAgent())
+    , m_referer(webResourceRequest.referrer())
     , m_loadState(Created)
     , m_authRequestCount(0)
     , m_cacheMode(0)
@@ -134,6 +136,11 @@ const std::string& WebRequest::getUrl() const
 const std::string& WebRequest::getUserAgent() const
 {
     return m_userAgent;
+}
+
+const std::string& WebRequest::getReferer() const
+{
+    return m_referer;
 }
 
 #ifdef LOG_REQUESTS
