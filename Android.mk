@@ -252,6 +252,10 @@ LOCAL_CFLAGS += -Darm
 LOCAL_CFLAGS += -Wno-psabi
 endif
 
+ifeq ($(TARGET_ARCH_VARIANT),x86-atom)
+LOCAL_CFLAGS += -fno-pic
+endif
+
 # need a flag to tell the C side when we're on devices with large memory
 # budgets (i.e. larger than the low-end devices that initially shipped)
 ifeq ($(ARCH_ARM_HAVE_VFP),true)
