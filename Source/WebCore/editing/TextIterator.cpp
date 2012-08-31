@@ -298,6 +298,7 @@ TextIterator::TextIterator(const Range* r, TextIteratorBehavior behavior)
 #if OS(ANDROID)
     , m_stopsOnFormControls(behavior & TextIteratorStopsOnFormControls)
     , m_shouldStop(false)
+    , m_needsAnotherNewline(false)
 #endif
 {
     if (!r)
