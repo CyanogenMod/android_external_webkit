@@ -189,7 +189,7 @@ int WebCookieJar::getNumCookiesInDatabase()
     return cookieStore()->GetCookieMonster()->GetAllCookies().size();
 }
 
-class FlushSemaphore : public base::RefCounted<FlushSemaphore>
+class FlushSemaphore : public base::RefCountedThreadSafe<FlushSemaphore>
 {
 public:
     FlushSemaphore()
