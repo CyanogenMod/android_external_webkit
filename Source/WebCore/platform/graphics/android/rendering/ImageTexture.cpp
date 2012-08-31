@@ -101,6 +101,7 @@ ImageTexture::~ImageTexture()
     delete m_image;
     delete m_tileGrid;
     SkSafeUnref(m_picture);
+    ImagesManager::instance()->onImageTextureDestroy(m_crc);
 }
 
 SkBitmap* ImageTexture::convertBitmap(SkBitmap* bitmap)
