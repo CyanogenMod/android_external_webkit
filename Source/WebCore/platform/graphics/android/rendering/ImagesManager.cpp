@@ -102,10 +102,18 @@ void ImagesManager::releaseImage(unsigned imgCRC)
     android::Mutex::Autolock lock(m_imagesLock);
     if (m_images.contains(imgCRC)) {
         ImageTexture* image = m_images.get(imgCRC);
-        if (image->getRefCnt() == 1)
-            m_images.remove(imgCRC);
+        // don't need to remove image from the HashMap, it will unregister
+        // itself by calling onImageTextureDestroy().
+
         SkSafeUnref(image);
     }
+}
+
+void ImagesManager::onImageTextureDestroy(unsigned imgCRC)
+{
+    // NOTE: all unrefs must go through releaseImage, to ensure that
+    // onImageTextureDestroy is called under the m_imagesLock
+    m_images.remove(imgCRC);
 }
 
 int ImagesManager::nbTextures()

@@ -47,6 +47,9 @@ public:
     ImageTexture* retainImage(unsigned imgCRC);
     void releaseImage(unsigned imgCRC);
 
+    // should be called only by ~ImageTexture()
+    void onImageTextureDestroy(unsigned imgCRC);
+
     bool prepareTextures(GLWebViewState*);
     int nbTextures();
 
