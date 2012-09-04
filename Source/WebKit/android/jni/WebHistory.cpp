@@ -472,10 +472,13 @@ static void writeItem(WTF::Vector<char>& vector, WebCore::HistoryItem* item)
     // Form data
     const WebCore::FormData* formData = item->formData();
     if (formData) {
-        writeString(vector, formData->flattenToString());
-        // save the identifier as it is not included in the flatten data
-        int64_t id = formData->identifier();
-        vector.append((char*)&id, sizeof(int64_t));
+        WTF::String flattenedFormData = formData->flattenToString();
+        writeString(vector, flattenedFormData);
+        if (!flattenedFormData.isEmpty()) {
+            // save the identifier as it is not included in the flatten data
+            int64_t id = formData->identifier();
+            vector.append((char*)&id, sizeof(int64_t));
+        }
     } else
         writeString(vector, WTF::String()); // Empty constructor does not allocate a buffer.
 
