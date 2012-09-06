@@ -37,6 +37,7 @@
 #if ENABLE(VIDEO)
 #include "RenderMediaControls.h"
 #endif
+#include "RenderObject.h"
 #include "RenderSkinAndroid.h"
 #include "RenderSkinMediaButton.h"
 #include "RenderSlider.h"
@@ -68,13 +69,16 @@ const RGBA32 defaultBgBright = makeRGBA(213, 213, 213, 221);
 const RGBA32 defaultBgDark = makeRGBA(92, 92, 92, 160);
 const RGBA32 defaultBgMedium = makeRGBA(132, 132, 132, 111);
 const RGBA32 defaultFgColor = makeRGBA(101, 101, 101, 225);
-const RGBA32 defaultCheckColor = makeRGBA(154, 204, 2, 255);
+const RGBA32 defaultCheckColor = makeRGBA(0, 153, 204, 255);
+const RGBA32 defaultCheckColorShadow = makeRGBA(29, 123, 154, 192);
 
 const RGBA32 disabledBgColor = makeRGBA(205, 205, 205, 107);
 const RGBA32 disabledBgBright = makeRGBA(213, 213, 213, 133);
 const RGBA32 disabledBgDark = makeRGBA(92, 92, 92, 96);
 const RGBA32 disabledBgMedium = makeRGBA(132, 132, 132, 111);
-const RGBA32 disabledFgColor = makeRGBA(148, 148, 148, 137);
+const RGBA32 disabledFgColor = makeRGBA(61, 61, 61, 68);
+const RGBA32 disabledCheckColor = makeRGBA(61, 61, 61, 128);
+const RGBA32 disabledCheckColorShadow = disabledCheckColor;
 
 const int paddingButton = 2;
 const int cornerButton = 2;
@@ -91,6 +95,54 @@ static android::WebFrame* getWebFrame(const Node* node)
     if (!node)
         return 0;
     return android::WebFrame::getWebFrame(node->document()->frame());
+}
+
+// Draws a nice, mitered line.
+// This is a partial copy from RenderObject::drawLineForBoxSide
+static void drawLineForBoxSide(GraphicsContext* graphicsContext, int x1, int y1,
+                               int x2, int y2, BoxSide side, Color color,
+                               int adjacentWidth1, int adjacentWidth2)
+{
+    static const bool antialias = false;
+    graphicsContext->setFillColor(color, graphicsContext->fillColorSpace());
+    if (!adjacentWidth1 && !adjacentWidth2) {
+        // Turn off antialiasing to match the behavior of drawConvexPolygon();
+        // this matters for rects in transformed contexts.
+        bool wasAntialiased = graphicsContext->shouldAntialias();
+        graphicsContext->setShouldAntialias(antialias);
+        graphicsContext->drawRect(IntRect(x1, y1, x2 - x1, y2 - y1));
+        graphicsContext->setShouldAntialias(wasAntialiased);
+        return;
+    }
+    FloatPoint quad[4];
+    switch (side) {
+        case BSTop:
+            quad[0] = FloatPoint(x1 + max(-adjacentWidth1, 0), y1);
+            quad[1] = FloatPoint(x1 + max(adjacentWidth1, 0), y2);
+            quad[2] = FloatPoint(x2 - max(adjacentWidth2, 0), y2);
+            quad[3] = FloatPoint(x2 - max(-adjacentWidth2, 0), y1);
+            break;
+        case BSBottom:
+            quad[0] = FloatPoint(x1 + max(adjacentWidth1, 0), y1);
+            quad[1] = FloatPoint(x1 + max(-adjacentWidth1, 0), y2);
+            quad[2] = FloatPoint(x2 - max(-adjacentWidth2, 0), y2);
+            quad[3] = FloatPoint(x2 - max(adjacentWidth2, 0), y1);
+            break;
+        case BSLeft:
+            quad[0] = FloatPoint(x1, y1 + max(-adjacentWidth1, 0));
+            quad[1] = FloatPoint(x1, y2 - max(-adjacentWidth2, 0));
+            quad[2] = FloatPoint(x2, y2 - max(adjacentWidth2, 0));
+            quad[3] = FloatPoint(x2, y1 + max(adjacentWidth1, 0));
+            break;
+        case BSRight:
+            quad[0] = FloatPoint(x1, y1 + max(adjacentWidth1, 0));
+            quad[1] = FloatPoint(x1, y2 - max(adjacentWidth2, 0));
+            quad[2] = FloatPoint(x2, y2 - max(-adjacentWidth2, 0));
+            quad[3] = FloatPoint(x2, y1 + max(-adjacentWidth1, 0));
+            break;
+    }
+
+    graphicsContext->drawConvexPolygon(4, quad, antialias);
 }
 
 RenderTheme* theme()
@@ -194,7 +246,7 @@ int RenderThemeAndroid::baselinePosition(const RenderObject* obj) const
     // controls that need to do this.
     //
     // Our checkboxes and radio buttons need to be offset to line up properly.
-    return RenderTheme::baselinePosition(obj) - 8;
+    return RenderTheme::baselinePosition(obj) - 6;
 }
 
 void RenderThemeAndroid::addIntrinsicMargins(RenderStyle* style) const
@@ -271,29 +323,19 @@ bool RenderThemeAndroid::paintButton(RenderObject* obj, const PaintInfo& info, c
                 medium = Color(disabledBgMedium);
             }
             context->save();
-            context->clip(
-                    IntRect(innerrect.x(), innerrect.y(), innerrect.width(), 1));
-            context->fillRoundedRect(innerrect, cornerrect, cornerrect,
-                    cornerrect, cornerrect, bright, context->fillColorSpace());
+            RoundedIntRect border(rect, cornerrect, cornerrect, cornerrect, cornerrect);
+            context->addRoundedRectClip(border);
+            context->setStrokeStyle(NoStroke);
+            drawLineForBoxSide(context, rect.x(), rect.y(), rect.maxX(), innerrect.y(),
+                               BSTop, bright, paddingButton, paddingButton);
+            drawLineForBoxSide(context, rect.x(), rect.y(), innerrect.x(), rect.maxY(),
+                               BSLeft, medium, paddingButton, paddingButton);
+            drawLineForBoxSide(context, innerrect.maxX(), rect.y(), rect.maxX(), rect.maxY(),
+                               BSRight, medium, paddingButton, paddingButton);
+            drawLineForBoxSide(context, rect.x(), innerrect.maxY(), rect.maxX(), rect.maxY(),
+                               BSBottom, dark, paddingButton, paddingButton);
+            context->fillRect(innerrect, bg, context->fillColorSpace());
             context->restore();
-            context->save();
-            context->clip(IntRect(innerrect.x(), innerrect.y() + innerrect.height() - 1,
-                    innerrect.width(), 1));
-            context->fillRoundedRect(innerrect, cornerrect, cornerrect,
-                    cornerrect, cornerrect, dark, context->fillColorSpace());
-            context->restore();
-            context->save();
-            context->clip(IntRect(innerrect.x(), innerrect.y() + 1, innerrect.width(),
-                    innerrect.height() - 2));
-            context->fillRoundedRect(innerrect, cornerrect, cornerrect,
-                    cornerrect, cornerrect, bg, context->fillColorSpace());
-            context->restore();
-            context->setStrokeColor(medium, context->strokeColorSpace());
-            context->setStrokeThickness(1.0f);
-            context->drawLine(IntPoint(innerrect.x(), innerrect.y() + cornerButton),
-                    IntPoint(innerrect.x(), innerrect.y() + innerrect.height() - cornerButton));
-            context->drawLine(IntPoint(innerrect.x() + innerrect.width(), innerrect.y() + cornerButton),
-                    IntPoint(innerrect.x() + innerrect.width(), innerrect.y() + innerrect.height() - cornerButton));
         }
     }
 
@@ -434,43 +476,59 @@ bool RenderThemeAndroid::paintRadio(RenderObject* obj, const PaintInfo& info, co
     if (element) {
         InputElement* input = element->toInputElement();
         GraphicsContext* context = info.context;
+        context->save();
+        Color borderColor = defaultFgColor;
+        Color checkColor = defaultCheckColor;
+        Color checkColorShadow = defaultCheckColorShadow;
         if (!element->isEnabledFormControl()) {
-            context->setAlpha(0.5f);
+            borderColor = disabledFgColor;
+            checkColor = disabledCheckColor;
+            checkColorShadow = disabledCheckColorShadow;
         }
-        const IntRect inner = IntRect(rect.x() - 2, rect.y() - 2, rect.width() - 4, rect.height() - 4);
-        context->setFillColor(Color(defaultBgBright), context->fillColorSpace());
-        context->setStrokeColor(Color(defaultBgBright), context->strokeColorSpace());
-        context->setStrokeThickness(1.0f);
+        IntRect borderRect = rect;
+        borderRect.inflate(-3);
+        const float cx = borderRect.center().x();
+        const float cy = borderRect.center().y() - 1;
+        context->setStrokeColor(borderColor, context->strokeColorSpace());
+        context->setStrokeThickness(1);
+        context->setFillColor(Color::transparent, context->fillColorSpace());
+        context->setShadow(FloatSize(), 1.0f, borderColor, context->fillColorSpace());
         if (input->isCheckbox()) {
-            context->drawRect(inner);
-        } else {
-            context->drawEllipse(inner);
-        }
-        context->setStrokeColor(Color(defaultFgColor), context->strokeColorSpace());
-        if (input->isCheckbox()) {
-            context->drawRect(IntRect(inner.x() + 2, inner.y() + 2, inner.width() -4, inner.height() - 4));
-        } else {
-            context->drawEllipse(IntRect(inner.x() + 2, inner.y() + 2, inner.width() -4, inner.height() - 4));
-        }
-        if (input->isChecked()) {
-            context->setFillColor(Color(defaultCheckColor), context->fillColorSpace());
-            context->setStrokeColor(Color(defaultCheckColor), context->strokeColorSpace());
-            if (input->isCheckbox()) {
-                const float w2 = ((float) rect.width() / 2);
-                const float cx = ((float) rect.x());
-                const float cy = ((float) rect.y());
+            if (input->isChecked()) {
+                Path clip;
+                clip.moveTo(FloatPoint(cx, cy - 1));
+                clip.addLineTo(FloatPoint(rect.maxX() - 3, rect.y() + 1));
+                clip.addLineTo(FloatPoint(rect.maxX(), rect.y() + 4));
+                clip.addLineTo(FloatPoint(cx, cy + 5));
+                clip.closeSubpath();
                 context->save();
-                // magic numbers due to weird scale in context
-                context->translate(cx + w2 / 2.2f, cy + w2 / 1.2f);
-                context->rotate(3.93f); // 225 degrees
-                context->drawRect(IntRect(0, 0, rect.width() / 4, 2));
-                context->rotate(1.57f); // 90 degrees
-                context->drawRect(IntRect(0, 0, rect.width() / 2, 2));
+                context->clipOut(clip);
+            }
+            context->drawRect(borderRect);
+            if (input->isChecked())
                 context->restore();
+        } else
+            context->drawEllipse(borderRect);
+        if (input->isChecked()) {
+            context->setFillColor(checkColor, context->fillColorSpace());
+            context->setStrokeColor(Color::transparent, context->strokeColorSpace());
+            context->setShadow(FloatSize(), 2, checkColorShadow, context->fillColorSpace());
+            if (input->isCheckbox()) {
+                Path checkmark;
+                checkmark.moveTo(FloatPoint(cx, cy));
+                checkmark.addLineTo(FloatPoint(rect.maxX() - 2, rect.y() + 1));
+                checkmark.addLineTo(FloatPoint(rect.maxX(), rect.y() + 3));
+                checkmark.addLineTo(FloatPoint(cx, cy + 4));
+                checkmark.addLineTo(FloatPoint(cx - 4, cy));
+                checkmark.addLineTo(FloatPoint(cx - 2, cy - 2));
+                checkmark.closeSubpath();
+                context->fillPath(checkmark);
             } else {
-                context->drawEllipse(IntRect(inner.x() + 5, inner.y() + 5, inner.width() - 10, inner.height() - 10));
+                borderRect.inflate(-3);
+                context->drawEllipse(borderRect);
             }
         }
+        context->restore();
     }
     return false;
 }
@@ -553,9 +611,9 @@ bool RenderThemeAndroid::paintCombo(RenderObject* obj, const PaintInfo& info,  c
     if (element) {
         InputElement* input = element->toInputElement();
         GraphicsContext* context = info.context;
-        if (!element->isEnabledFormControl()) {
+        context->save();
+        if (!element->isEnabledFormControl())
             context->setAlpha(0.5f);
-        }
         IntRect bounds = IntRect(rect.x(), rect.y(), rect.width(), rect.height());
         // paint bg color
         RenderStyle* style = obj->style();
@@ -591,6 +649,7 @@ bool RenderThemeAndroid::paintCombo(RenderObject* obj, const PaintInfo& info,  c
             tri.addLineTo(FloatPoint(br.x(), br.y() - aw));
             context->fillPath(tri);
         }
+        context->restore();
     }
     return false;
 }
