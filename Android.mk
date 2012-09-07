@@ -280,6 +280,14 @@ endif
 
 LOCAL_CFLAGS += -DENABLE_REQUEST_ANIMATION_FRAME=1
 
+# PLD based optimizations should be enabled only on Krait platforms
+KRAIT_BOARD_PLATFORM_LIST := msm8960
+KRAIT_BOARD_PLATFORM_LIST += msm8974
+
+ifeq ($(call is-board-platform-in-list,$(KRAIT_BOARD_PLATFORM_LIST)),true)
+  LOCAL_CFLAGS += -DENABLE_PLD_DOM_TRAVERSAL
+endif
+
 # LOCAL_LDLIBS is used in simulator builds only and simulator builds are only
 # valid on Linux
 LOCAL_LDLIBS += -lpthread -ldl
