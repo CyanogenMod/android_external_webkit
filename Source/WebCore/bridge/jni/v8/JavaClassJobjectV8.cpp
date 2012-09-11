@@ -33,7 +33,18 @@
 
 using namespace JSC::Bindings;
 
+#if PLATFORM(ANDROID)
+const char kJavaScriptInterfaceAnnotation[] = "android/webkit/JavascriptInterface";
+const char kIsAnnotationPresent[] = "isAnnotationPresent";
+const char kGetMethods[] = "getMethods";
+
+static jclass safeAnnotationClazz = NULL;
+
+JavaClassJobject::JavaClassJobject(jobject anInstance, bool requireAnnotation)
+    : m_requireAnnotation(requireAnnotation)
+#else
 JavaClassJobject::JavaClassJobject(jobject anInstance)
+#endif
 {
     jobject aClass = callJNIMethod<jobject>(anInstance, "getClass", "()Ljava/lang/Class;");
 
@@ -57,15 +68,28 @@ JavaClassJobject::JavaClassJobject(jobject anInstance)
     // Get the methods
     jarray methods = static_cast<jarray>(callJNIMethod<jobject>(aClass, "getMethods", "()[Ljava/lang/reflect/Method;"));
     int numMethods = env->GetArrayLength(methods);
+#if PLATFORM(ANDROID)
+    jmethodID isAnnotationPresentMethodID = getAnnotationMethodID(env);
+    if (!isAnnotationPresentMethodID) {
+        LOG_ERROR("unable to find method %s on instance %p", kIsAnnotationPresent, anInstance);
+        return;
+    }
+#endif
     for (int i = 0; i < numMethods; i++) {
         jobject aJMethod = env->GetObjectArrayElement(static_cast<jobjectArray>(methods), i);
-        JavaMethod* aMethod = new JavaMethodJobject(env, aJMethod); // deleted in the JavaClass destructor
-        MethodList* methodList = m_methods.get(aMethod->name());
-        if (!methodList) {
-            methodList = new MethodList();
-            m_methods.set(aMethod->name(), methodList);
+#if PLATFORM(ANDROID)
+        if (jsAccessAllowed(env, isAnnotationPresentMethodID, aJMethod)) {
+#endif
+            JavaMethod* aMethod = new JavaMethodJobject(env, aJMethod); // deleted in the JavaClass destructor
+            MethodList* methodList = m_methods.get(aMethod->name());
+            if (!methodList) {
+                methodList = new MethodList();
+                m_methods.set(aMethod->name(), methodList);
+            }
+            methodList->append(aMethod);
+#if PLATFORM(ANDROID)
         }
-        methodList->append(aMethod);
+#endif
         env->DeleteLocalRef(aJMethod);
     }
     env->DeleteLocalRef(fields);
@@ -86,6 +110,44 @@ JavaClassJobject::~JavaClassJobject()
     }
     m_methods.clear();
 }
+
+#if PLATFORM(ANDROID)
+bool JavaClassJobject::jsAccessAllowed(JNIEnv* env, jmethodID mid, jobject aJMethod)
+{
+    if (!m_requireAnnotation)
+        return true;
+    bool accessAllowed = env->CallBooleanMethod(aJMethod, mid, safeAnnotationClazz);
+    if (env->ExceptionCheck()) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+        return false;
+    }
+    return accessAllowed;
+}
+
+jmethodID JavaClassJobject::getAnnotationMethodID(JNIEnv* env)
+{
+    jclass methodClass = env->FindClass("java/lang/reflect/Method");
+    jmethodID mid = 0;
+    if (methodClass)
+        mid = env->GetMethodID(methodClass, kIsAnnotationPresent, "(Ljava/lang/Class;)Z");
+    if (!methodClass || !mid) {
+        env->ExceptionDescribe();
+        env->ExceptionClear();
+    }
+    env->DeleteLocalRef(methodClass);
+    return mid;
+}
+
+bool JavaClassJobject::RegisterJavaClassJobject(JNIEnv* env) {
+    safeAnnotationClazz = reinterpret_cast<jclass>(env->NewGlobalRef(env->FindClass(kJavaScriptInterfaceAnnotation)));
+    if (!safeAnnotationClazz) {
+        LOG_ERROR("failed to register %s", kJavaScriptInterfaceAnnotation);
+        return false;
+    }
+    return true;
+}
+#endif
 
 MethodList JavaClassJobject::methodsNamed(const char* name) const
 {

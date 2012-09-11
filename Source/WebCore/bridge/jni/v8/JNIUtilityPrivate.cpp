@@ -206,7 +206,7 @@ JavaValue convertNPVariantToJavaValue(NPVariant value, const String& javaClass)
                 break;
             }
 
-            result.m_objectValue = adoptRef(new JavaInstanceJobject(javaArray));
+            result.m_objectValue = adoptRef(new JavaInstanceJobject(javaArray, false));
             env->DeleteLocalRef(javaArray);
         }
         break;
@@ -421,7 +421,11 @@ void convertJavaValueToNPVariant(JavaValue value, NPVariant* result)
     }
 }
 
+#if PLATFORM(ANDROID)
+JavaValue jvalueToJavaValue(const jvalue& value, const JavaType& type, bool requireAnnotation)
+#else
 JavaValue jvalueToJavaValue(const jvalue& value, const JavaType& type)
+#endif
 {
     JavaValue result;
     result.m_type = type;
@@ -429,7 +433,11 @@ JavaValue jvalueToJavaValue(const jvalue& value, const JavaType& type)
     case JavaTypeVoid:
         break;
     case JavaTypeObject:
+#if PLATFORM(ANDROID)
+        result.m_objectValue = new JavaInstanceJobject(value.l, requireAnnotation);
+#else
         result.m_objectValue = new JavaInstanceJobject(value.l);
+#endif
         break;
     case JavaTypeString:
         {
