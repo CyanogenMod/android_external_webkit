@@ -37,17 +37,33 @@ namespace Bindings {
 
 class JavaClassJobject : public JavaClass {
 public:
+#if PLATFORM(ANDROID)
+    JavaClassJobject(jobject, bool);
+#else
     JavaClassJobject(jobject);
+#endif
     virtual ~JavaClassJobject();
 
     // JavaClass implementation
     virtual MethodList methodsNamed(const char* name) const;
     virtual JavaField* fieldNamed(const char* name) const;
 
+#if PLATFORM(ANDROID)
+    static bool RegisterJavaClassJobject(JNIEnv* env);
+#endif
+
 private:
+#if PLATFORM(ANDROID)
+    bool jsAccessAllowed(JNIEnv* env, jmethodID mid, jobject aJMethod);
+    jmethodID getAnnotationMethodID(JNIEnv* env);
+#endif
+
     typedef HashMap<WTF::String, MethodList*> MethodListMap;
     MethodListMap m_methods;
     FieldMap m_fields;
+#if PLATFORM(ANDROID)
+    bool m_requireAnnotation;
+#endif
 };
 
 } // namespace Bindings
