@@ -23,7 +23,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#define LOG_TAG "ImageSourceAndroid"
+
 #include "config.h"
+
+#include "AndroidLog.h"
 #include "BitmapAllocatorAndroid.h"
 #include "ImageSource.h"
 #include "IntSize.h"
@@ -46,18 +50,11 @@
 
 // TODO: We should make use of some of the common code in platform/graphics/ImageSource.cpp.
 
-SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
-
 //#define TRACE_SUBSAMPLE_BITMAPS
-//#define TRACE_RLE_BITMAPS
 
 
 // flag to tell us when we're on a large-ram device (e.g. >= 256M)
 #ifdef ANDROID_LARGE_MEMORY_DEVICE
-    // don't use RLE for images smaller than this, since they incur a drawing cost
-    // (and don't work as patterns yet) we only want to use RLE when we must
-    #define MIN_RLE_ALLOC_SIZE          (8*1024*1024)
-
     // see dox for computeMaxBitmapSizeForCache()
     #define MAX_SIZE_BEFORE_SUBSAMPLE   (32*1024*1024)
 
@@ -71,7 +68,6 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
         SkBitmap::kARGB_8888_Config,    // src: 32bit, alpha
     };
 #else
-    #define MIN_RLE_ALLOC_SIZE          (2*1024*1024)
     #define MAX_SIZE_BEFORE_SUBSAMPLE   (2*1024*1024)
 
     // tries to minimize memory usage (i.e. demote opaque 32bit -> 16bit)
@@ -98,22 +94,6 @@ SkPixelRef* SkCreateRLEPixelRef(const SkBitmap& src);
 size_t computeMaxBitmapSizeForCache() {
     return MAX_SIZE_BEFORE_SUBSAMPLE;
 }
-
-/* 8bit images larger than this should be recompressed in RLE, to reduce
-    on the imageref cache.
- 
-    Downside: performance, since we have to decode/encode
-    and then rle-decode when we draw.
-*/
-static bool shouldReencodeAsRLE(const SkBitmap& bm) {
-    const SkBitmap::Config c = bm.config();
-    return (SkBitmap::kIndex8_Config == c || SkBitmap::kA8_Config == c)
-            &&
-            bm.width() >= 64 // narrower than this won't compress well in RLE
-            &&
-            bm.getSize() > MIN_RLE_ALLOC_SIZE;
-}
-
 ///////////////////////////////////////////////////////////////////////////////
 
 class PrivateAndroidImageSourceRec : public SkBitmapRef {
@@ -167,37 +147,12 @@ static int computeSampleSize(const SkBitmap& bitmap) {
     
 #ifdef TRACE_SUBSAMPLE_BITMAPS
     if (sampleSize > 1) {
-        SkDebugf("------- bitmap [%d %d] config=%d origSize=%d predictSize=%d sampleSize=%d\n",
+        ALOGD("------- bitmap [%d %d] config=%d origSize=%d predictSize=%d sampleSize=%d\n",
                  bitmap.width(), bitmap.height(), bitmap.config(),
                  bitmap.getSize(), size, sampleSize);
     }
 #endif
     return sampleSize;
-}
-
-static SkPixelRef* convertToRLE(SkBitmap* bm, const void* data, size_t len) {    
-    if (!shouldReencodeAsRLE(*bm)) {
-        return NULL;
-    }
-    
-    SkBitmap tmp;
-    
-    if (!SkImageDecoder::DecodeMemory(data, len, &tmp) || !tmp.getPixels()) {
-        return NULL;
-    }
-    
-    SkPixelRef* ref = SkCreateRLEPixelRef(tmp);
-    if (NULL == ref) {
-        return NULL;
-    }
-    
-#ifdef TRACE_RLE_BITMAPS
-    SkDebugf("---- reencode bitmap as RLE: [%d %d] encodeSize=%d\n",
-             tmp.width(), tmp.height(), len);
-#endif
-
-    bm->setConfig(SkBitmap::kRLE_Index8_Config, tmp.width(), tmp.height());
-    return ref;
 }
 
 void ImageSource::clearURL() 
@@ -297,7 +252,7 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
         m_decoder.m_image = new PrivateAndroidImageSourceRec(tmp, origW, origH,
                                                      sampleSize);
         
-//        SkDebugf("----- started: [%d %d] %s\n", origW, origH, m_decoder.m_url.c_str());
+//        ALOGD("----- started: [%d %d] %s\n", origW, origH, m_decoder.m_url.c_str());
     }
 
     PrivateAndroidImageSourceRec* decoder = m_decoder.m_image;
@@ -305,17 +260,12 @@ void ImageSource::setData(SharedBuffer* data, bool allDataReceived)
         decoder->fAllDataReceived = true;
 
         SkBitmap* bm = &decoder->bitmap();
-        SkPixelRef* ref = convertToRLE(bm, data->data(), data->size());
 
-        if (ref) {
-            bm->setPixelRef(ref)->unref();
-        } else {
-            BitmapAllocatorAndroid alloc(data, decoder->fSampleSize);
-            if (!alloc.allocPixelRef(bm, NULL)) {
-                return;
-            }
-            ref = bm->pixelRef();
+        BitmapAllocatorAndroid alloc(data, decoder->fSampleSize);
+        if (!alloc.allocPixelRef(bm, NULL)) {
+            return;
         }
+        SkPixelRef* ref = bm->pixelRef();
 
         // we promise to never change the pixels (makes picture recording fast)
         ref->setImmutable();
