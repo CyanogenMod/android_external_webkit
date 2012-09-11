@@ -50,6 +50,9 @@ ResourceHandle::~ResourceHandle()
 
 bool ResourceHandle::start(NetworkingContext* context)
 {
+    if (!context || !context->isValid())
+        return false;
+
     MainResourceLoader* mainLoader = context->mainResourceLoader();
     bool isMainResource = static_cast<void*>(mainLoader) == static_cast<void*>(client());
     RefPtr<ResourceLoaderAndroid> loader = ResourceLoaderAndroid::start(this, d->m_firstRequest, context->frameLoaderClient(), isMainResource, false);
