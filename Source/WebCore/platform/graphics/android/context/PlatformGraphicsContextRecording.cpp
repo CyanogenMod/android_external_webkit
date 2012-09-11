@@ -47,7 +47,13 @@
 #define NEW_OP(X) new (heap()) GraphicsOperation::X
 
 #define USE_CLIPPING_PAINTER true
+
+// Operations smaller than this area aren't considered opaque, and thus don't
+// clip operations below. Chosen empirically.
 #define MIN_TRACKED_OPAQUE_AREA 750
+
+// Cap on ClippingPainter's recursive depth. Chosen empirically.
+#define MAX_CLIPPING_RECURSION_COUNT 400
 
 namespace WebCore {
 
@@ -445,7 +451,8 @@ void Recording::draw(SkCanvas* canvas)
         nonCopyingSort(nodes.begin(), nodes.end(), CompareRecordingDataOrder);
         PlatformGraphicsContextSkia context(canvas);
 #if USE_CLIPPING_PAINTER
-        if (canvas->getDevice() && canvas->getDevice()->config() != SkBitmap::kNo_Config) {
+        if (canvas->getDevice() && canvas->getDevice()->config() != SkBitmap::kNo_Config
+            && count < MAX_CLIPPING_RECURSION_COUNT) {
             ClippingPainter painter(recording(), context, canvas->getTotalMatrix(), nodes);
             painter.draw(canvas->getTotalClip().getBounds());
         } else
