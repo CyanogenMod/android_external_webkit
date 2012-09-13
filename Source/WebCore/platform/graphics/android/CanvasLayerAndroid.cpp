@@ -82,12 +82,13 @@ void CanvasLayerAndroid::markGLAssetsForRemoval(int id)
 
 bool CanvasLayerAndroid::isCanvasOOM(int id)
 {
-    MutexLocker locker(s_mutex);
+    //Following code is commented out. It is legacy implementation not used currently.
+    //MutexLocker locker(s_mutex);
     //return (std::find(s_canvas_oom.begin(), s_canvas_oom.end(), id) != s_canvas_oom.end());
-    if(std::find(s_canvas_oom.begin(), s_canvas_oom.end(), id) == s_canvas_oom.end())
-        return false;
-    else
-        return true;
+    //if(std::find(s_canvas_oom.begin(), s_canvas_oom.end(), id) == s_canvas_oom.end())
+    //    return false;
+    //else
+    return false;
 }
 
 void CanvasLayerAndroid::cleanupAssets()
@@ -236,8 +237,6 @@ void CanvasLayerAndroid::cleanupUnusedAssets(std::vector<uint32_t>& deleteIds)
 
 void CanvasLayerAndroid::setPicture(SkPicture& picture, IntSize& size)
 {
-    MutexLocker locker(s_mutex);
-
     std::map<int, SkPicture>::iterator pic_it = s_picture_map.find(m_canvas_id);
     std::map<int, SkBitmap>::iterator bmp_it = s_bitmap_map.find(m_canvas_id);
     std::map<int, IntSize>::iterator dim_it = s_canvas_dimensions.find(m_canvas_id);
@@ -307,10 +306,7 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled, TransformationMatrix& d
     std::vector<uint32_t> generationIDs;
     std::vector<uint32_t> generationIDsUsed;
 
-    //Need to lock since we track oom canvases here
-    //Also need to lock because we transfer skpictures directly through the map now
-    //instead of relying on the copying of the layers
-    MutexLocker locker(s_mutex);
+    //Will need to lock only if we use isCanvasOOM which we don't currently
     std::map<int, SkPicture>::iterator pic_it = s_picture_map.find(m_canvas_id);
     std::map<int, SkBitmap>::iterator bmp_it = s_bitmap_map.find(m_canvas_id);
     std::map<int, IntSize>::iterator dim_it = s_canvas_dimensions.find(m_canvas_id);

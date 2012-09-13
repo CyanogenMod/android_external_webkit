@@ -105,7 +105,6 @@ public:
     void paint(GraphicsContext*, const IntRect&);
 #if PLATFORM(ANDROID)
     void clearRecording(const FloatRect& rect);
-    CanvasLayerAndroid* gpuCanvasLayer();
     bool canUseGpuRendering();
     void enableGpuRendering();
     void disableGpuRendering();
@@ -114,6 +113,7 @@ public:
     bool isRecordingCanvasEnabled() {   return m_recordingCanvasEnabled;    }
     bool isGpuCanvasEnabled()       {   return m_gpuCanvasEnabled;  }
     static int& getRecordingCanvasThreshold()    {   return s_recordingCanvasThreshold;  }
+    void setCanvasId(int id)    {   m_canvasId = id;    }
 #endif
 
     GraphicsContext* drawingContext() const;
@@ -195,10 +195,9 @@ private:
     bool m_canUseGpuRendering;
     bool m_gpuRendering;
     bool m_supportedCompositing;
+    int m_canvasId;
 
-    static int s_canvas_id; //Canvas Ids TODO::recycle and overflow checks
     static int s_recordingCanvasThreshold;
-    CanvasLayerAndroid* m_canvasLayer;
 #endif
 };
 

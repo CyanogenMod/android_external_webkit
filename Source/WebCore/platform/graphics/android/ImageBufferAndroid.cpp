@@ -93,8 +93,8 @@ GraphicsContext* ImageBuffer::context() const
 void ImageBuffer::convertToRecording()
 {
     PlatformGraphicsContext* existing = context()->platformContext();
-    GraphicsContext* context = GraphicsContext::createOffscreenRecordingContext(m_size.width(), m_size.height(), existing);
-    m_context.set(context);
+    GraphicsContext* existingGrContext = m_context.get();
+    GraphicsContext::createOffscreenRecordingContext(m_size.width(), m_size.height(), existing, existingGrContext);
 }
 
 bool ImageBuffer::drawsUsingRecording() const
@@ -136,34 +136,6 @@ bool ImageBuffer::canUseGpuRendering()
         return canvasRecording->canUseGpuRendering();
     else
         return false;
-}
-
-void ImageBuffer::copyRecordingToLayer( GraphicsContext* paintContext, const IntRect& r,
-                                        CanvasLayerAndroid* canvasLayer) const
-{
-    SkPicture* canvasRecording = context()->platformContext()->getRecordingPicture();
-    SkPicture dstPicture(*canvasRecording);
-    IntSize size = r.size();
-    canvasLayer->setPicture(dstPicture, size);
-    clearRecording();
-}
-
-void ImageBuffer::copyRecordingToCanvas(GraphicsContext* paintContext, const IntRect& r) const
-{
-    SkCanvas* paintCanvas = paintContext->platformContext()->recordingCanvas();
-    SkPicture* canvasRecording = context()->platformContext()->getRecordingPicture();
-
-    SkPaint paint;
-    paint.setXfermodeMode(SkXfermode::kSrcOver_Mode);
-    int saveCount = paintCanvas->saveLayer(0, &paint);
-    paintCanvas->translate(r.location().x(), r.location().y());
-    // Resize to the now known viewport.
-    paintCanvas->scale(r.width() / width(), r.height() / height());
-    // Draw the canvas recording into the layer recording canvas.
-    canvasRecording->draw(paintCanvas);
-    context()->platformContext()->clearRecording();
-    paintCanvas->restoreToCount(saveCount);
-
 }
 
 bool ImageBuffer::drawsUsingCopy() const

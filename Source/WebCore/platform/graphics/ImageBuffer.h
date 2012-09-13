@@ -42,6 +42,10 @@
 #include <wtf/PassRefPtr.h>
 #include <wtf/Vector.h>
 
+#if PLATFORM(ANDROID)
+#include "SkPicture.h"
+#endif
+
 namespace WebCore {
 
     class GraphicsContext;
@@ -90,8 +94,6 @@ namespace WebCore {
         bool isAnimating() const;
         void setIsAnimating() const;
         void clearRecording() const;
-        void copyRecordingToCanvas(GraphicsContext*, const IntRect&) const; // Playback our recording into the layer recording canvas.
-        void copyRecordingToLayer(GraphicsContext*, const IntRect&, CanvasLayerAndroid* canvasLayer) const;
         bool canUseGpuRendering();
 #endif
         bool isAccelerated() const { return m_accelerateRendering; }
