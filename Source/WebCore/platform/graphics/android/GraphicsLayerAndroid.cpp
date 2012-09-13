@@ -784,7 +784,7 @@ bool GraphicsLayerAndroid::repaint()
                 GraphicsLayerAndroid* replicatedLayer = static_cast<GraphicsLayerAndroid*>(replicaLayer());
                 if (replicatedLayer->maskLayer()) {
                      GraphicsLayerAndroid* mask = static_cast<GraphicsLayerAndroid*>(replicatedLayer->maskLayer());
-                     mask->paintContext(mask->m_contentLayer, m_contentLayerContent);
+                     mask->paintContext(mask->m_contentLayer, mask->m_contentLayerContent);
                 }
             }
 
