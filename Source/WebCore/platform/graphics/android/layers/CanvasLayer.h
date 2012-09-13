@@ -57,6 +57,8 @@ public:
     virtual bool needsTexture();
     virtual bool needsIsolatedSurface() { return true; }
 
+    static void copyRecordingToLayer(GraphicsContext* ctx, IntRect& r, int canvas_id);
+    static void setGpuCanvasStatus(int canvas_id, bool val);
 protected:
     virtual InvalidateFlags onSetHwAccelerated(bool hwAccelerated);
 
@@ -80,6 +82,7 @@ private:
     /*******************************
      * Recording/GPU Canvas
      ******************************/
+    CanvasLayerAndroid* m_gpuCanvas;
 
     /*******************************
      * WebKit Thread
@@ -88,16 +91,19 @@ private:
     static SkCanvas* getRecordingCanvas(CanvasLayer* layer);
     static void setRecordingBitmap(SkBitmap* bitmap, CanvasLayer* layer);
     static void setRecordingCanvas(SkCanvas* canvas, CanvasLayer* layer);
-    static void setGpuCanvas(CanvasLayerAndroid* canvas, CanvasLayer* layer);
 
     /*******************************
-     * UI Thread
+     * UI Thread/WebKit thread (needs synchronization)
      ******************************/
+    static void setGpuCanvas(CanvasLayerAndroid* canvas, CanvasLayer* layer);
+    static void eraseGpuCanvas(CanvasLayer* layer);
     static CanvasLayerAndroid* getGpuCanvas(CanvasLayer* layer);
+    static CanvasLayerAndroid* getGpuCanvas(int layerId);
 
     static std::map<int, SkBitmap*> s_recording_bitmap;
     static std::map<int, SkCanvas*> s_recording_canvas;
     static std::map<int, CanvasLayerAndroid*> s_gpu_canvas;
+    static WTF::Mutex s_mutex;
 };
 
 } // namespace WebCore

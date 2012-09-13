@@ -308,10 +308,13 @@ namespace WebCore {
          */
         static GraphicsContext* createOffscreenContext(int width, int height);
 
-        static GraphicsContext* createOffscreenRecordingContext(int width, int height, PlatformGraphicsContext* existing);
+        static void createOffscreenRecordingContext(int width, int height, PlatformGraphicsContext* existing, GraphicsContext* existingGrContext);
 
         //Needed to keep track of transformation matrix for SkPicture based drawing
         void setCurrentTransform(AffineTransform& transform);
+
+        //Need to reinit platformgraphicscontext
+        void platformReInit(PlatformGraphicsContext* pgc);
 #endif
 
         void save();

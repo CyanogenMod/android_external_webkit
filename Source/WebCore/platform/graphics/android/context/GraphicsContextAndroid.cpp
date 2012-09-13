@@ -114,11 +114,22 @@ GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
     return ctx;
 }
 
-GraphicsContext* GraphicsContext::createOffscreenRecordingContext(int width, int height, PlatformGraphicsContext* existing)
+void GraphicsContext::createOffscreenRecordingContext(int width, int height, PlatformGraphicsContext* existing, GraphicsContext* existingGrContext)
 {
     PlatformGraphicsContextSkia* pgc = new PlatformGraphicsContextSkia(width, height, existing);
-    GraphicsContext* ctx = new GraphicsContext(pgc);
-    return ctx;
+    if(existingGrContext)
+        existingGrContext->platformReInit(pgc);
+}
+
+void GraphicsContext::platformReInit(PlatformGraphicsContext* pgc)
+{
+    if(m_data && pgc)
+    {
+        delete m_data;
+        pgc->setGraphicsContext(this);
+        m_data = new GraphicsContextPlatformPrivate(pgc);
+        setPaintingDisabled(pgc->isPaintingDisabled());
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////

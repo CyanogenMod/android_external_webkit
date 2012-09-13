@@ -60,8 +60,8 @@ public:
 
     void setCanvasID(int& id)   {   m_canvas_id = id;   }
     int getCanvasID()   {   return m_canvas_id; }
-    void setGpuCanvasStatus(bool val)  { MutexLocker locker(m_mutex);   m_gpuCanvasEnabled = val;   }
-    bool isGpuCanvasEnabled()          { MutexLocker locker(m_mutex);  bool val = m_gpuCanvasEnabled;  return val;}
+    void setGpuCanvasStatus(bool val)  {    m_gpuCanvasEnabled = val;   }
+    bool isGpuCanvasEnabled()          {    bool val = m_gpuCanvasEnabled;  return val;}
 
     static void markGLAssetsForRemoval(int id);
     static void cleanupAssets();

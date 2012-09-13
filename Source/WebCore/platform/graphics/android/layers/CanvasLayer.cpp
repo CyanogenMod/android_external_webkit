@@ -52,6 +52,7 @@ namespace WebCore {
 std::map<int, SkBitmap*> CanvasLayer::s_recording_bitmap;
 std::map<int, SkCanvas*> CanvasLayer::s_recording_canvas;
 std::map<int, CanvasLayerAndroid*> CanvasLayer::s_gpu_canvas;
+WTF::Mutex CanvasLayer::s_mutex;
 
 CanvasLayer::CanvasLayer(RenderLayer* owner, HTMLCanvasElement* canvas)
     : LayerAndroid(owner)
@@ -61,15 +62,22 @@ CanvasLayer::CanvasLayer(RenderLayer* owner, HTMLCanvasElement* canvas)
 {
     init();
     m_canvas->addObserver(this);
-    CanvasLayer::setGpuCanvas(m_canvas->gpuCanvasLayer(), this);
+    m_gpuCanvas = new CanvasLayerAndroid();
+    int canvasId = uniqueId();
+    m_gpuCanvas->setCanvasID(canvasId);
+    m_canvas->setCanvasId(canvasId);
     // Make sure we initialize in case the canvas has already been laid out
     canvasResized(m_canvas);
+
+    MutexLocker locker(s_mutex);
+    CanvasLayer::setGpuCanvas(m_gpuCanvas, this);
 }
 
 CanvasLayer::CanvasLayer(const CanvasLayer& layer)
     : LayerAndroid(layer)
     , m_canvas(0)
     , m_bitmap(0)
+    , m_gpuCanvas(0)
 {
     init();
     if (!layer.m_canvas) {
@@ -104,6 +112,7 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
             if(canUseGpuRendering && layer.m_canvas->canUseGpuRendering())
             {
                 layer.m_canvas->enableGpuRendering();
+                CanvasLayer::setGpuCanvasStatus(layer.uniqueId(), true);
             }
         }
 
@@ -114,6 +123,8 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
             SkPicture* canvasRecording = gc->platformContext()->getRecordingPicture();
 
             SkBitmap* bitmap = CanvasLayer::getRecordingBitmap(this);
+            SkCanvas* canvas = CanvasLayer::getRecordingCanvas(this);
+
             if(bitmap == NULL || bitmap->width() != canvasRecording->width()
                     || bitmap->height() != canvasRecording->height())
             {
@@ -123,13 +134,15 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
                 newBitmap->eraseColor(0);
                 CanvasLayer::setRecordingBitmap(newBitmap, this);
                 bitmap = newBitmap;
+                if(canvas != NULL)
+                    canvas->setBitmapDevice(*bitmap);
             }
 
-            SkCanvas* canvas = CanvasLayer::getRecordingCanvas(this);
             if(canvas == NULL)
             {
                 canvas = new SkCanvas();
                 canvas->setBitmapDevice(*bitmap);
+                CanvasLayer::setRecordingCanvas(canvas, this);
             }
 
             canvas->drawARGB(0, 0, 0, 0, SkXfermode::kClear_Mode);
@@ -179,7 +192,34 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
 CanvasLayer::~CanvasLayer()
 {
     if (m_canvas)
+    {
         m_canvas->removeObserver(this);
+        MutexLocker lock(s_mutex);
+        if(m_gpuCanvas)
+        {
+            CanvasLayer::eraseGpuCanvas(this);
+            int id = m_gpuCanvas->getCanvasID();
+            CanvasLayerAndroid::markGLAssetsForRemoval(id);
+            delete m_gpuCanvas;
+            m_gpuCanvas = NULL;
+        }
+
+        int canvas_id = this->uniqueId();
+        SkCanvas* canvas = CanvasLayer::getRecordingCanvas(this);
+        if(canvas != NULL)
+        {
+            delete canvas;
+            s_recording_canvas.erase(canvas_id);
+        }
+
+        SkBitmap* bitmap = CanvasLayer::getRecordingBitmap(this);
+        if(bitmap != NULL)
+        {
+            delete bitmap;
+            s_recording_bitmap.erase(canvas_id);
+        }
+
+    }
     SkSafeUnref(m_bitmap);
 }
 
@@ -250,6 +290,7 @@ IntSize CanvasLayer::offsetFromRenderer() const
 
 bool CanvasLayer::needsTexture()
 {
+    MutexLocker locker(s_mutex);
     CanvasLayerAndroid* gpuCanvas = CanvasLayer::getGpuCanvas(this);
     if(gpuCanvas && gpuCanvas->isGpuCanvasEnabled())
         return false;
@@ -271,6 +312,7 @@ void CanvasLayer::contentDraw(SkCanvas* canvas, PaintStyle style)
 
 bool CanvasLayer::drawGL(bool layerTilesDisabled)
 {
+    MutexLocker locker(s_mutex);
     CanvasLayerAndroid* gpuCanvas = CanvasLayer::getGpuCanvas(this);
     if(gpuCanvas && gpuCanvas->isGpuCanvasEnabled())
     {
@@ -325,16 +367,6 @@ SkCanvas* CanvasLayer::getRecordingCanvas(CanvasLayer* layer)
         return NULL;
 }
 
-CanvasLayerAndroid* CanvasLayer::getGpuCanvas(CanvasLayer* layer)
-{
-    int canvas_id = layer->uniqueId();
-    std::map<int, CanvasLayerAndroid*>::iterator can_it = s_gpu_canvas.find(canvas_id);
-    if(can_it != s_gpu_canvas.end())
-        return can_it->second;
-    else
-        return NULL;
-}
-
 void CanvasLayer::setRecordingBitmap(SkBitmap* bitmap, CanvasLayer* layer)
 {
     int canvas_id = layer->uniqueId();
@@ -372,6 +404,54 @@ void CanvasLayer::setRecordingCanvas(SkCanvas* canvas, CanvasLayer* layer)
     s_recording_canvas.insert(std::make_pair(canvas_id, canvas));
 }
 
+void CanvasLayer::setGpuCanvasStatus(int canvas_id, bool val)
+{
+    MutexLocker locker(s_mutex);
+    CanvasLayerAndroid* gpuCanvas = CanvasLayer::getGpuCanvas(canvas_id);
+    if(gpuCanvas != NULL)
+    {
+        gpuCanvas->setGpuCanvasStatus(val);
+    }
+}
+
+void CanvasLayer::copyRecordingToLayer(GraphicsContext* ctx, IntRect& r, int canvas_id)
+{
+    if(ctx)
+    {
+        SkPicture* canvasRecording = ctx->platformContext()->getRecordingPicture();
+        SkPicture dstPicture(*canvasRecording);
+        IntSize size = r.size();
+
+        MutexLocker locker(s_mutex);
+        CanvasLayerAndroid* gpuCanvas = CanvasLayer::getGpuCanvas(canvas_id);
+        if(gpuCanvas)
+        {
+            gpuCanvas->setPicture(dstPicture, size);
+        }
+    }
+}
+
+//NOTE::USE OF THE FOLLOWING FUNCTIONS WITHOUT LOCKING s_mutex is THREAD UNSAFE
+
+CanvasLayerAndroid* CanvasLayer::getGpuCanvas(int layerId)
+{
+    std::map<int, CanvasLayerAndroid*>::iterator can_it = s_gpu_canvas.find(layerId);
+    if(can_it != s_gpu_canvas.end())
+        return can_it->second;
+    else
+        return NULL;
+}
+
+CanvasLayerAndroid* CanvasLayer::getGpuCanvas(CanvasLayer* layer)
+{
+    int canvas_id = layer->uniqueId();
+    std::map<int, CanvasLayerAndroid*>::iterator can_it = s_gpu_canvas.find(canvas_id);
+    if(can_it != s_gpu_canvas.end())
+        return can_it->second;
+    else
+        return NULL;
+}
+
 void CanvasLayer::setGpuCanvas(CanvasLayerAndroid* canvas, CanvasLayer* layer)
 {
     int canvas_id = layer->uniqueId();
@@ -381,14 +461,23 @@ void CanvasLayer::setGpuCanvas(CanvasLayerAndroid* canvas, CanvasLayer* layer)
         CanvasLayerAndroid* oldCanvas = can_it->second;
         if(oldCanvas != NULL)
         {
-            delete oldCanvas;
             oldCanvas = NULL;
             s_gpu_canvas.erase(canvas_id);
         }
     }
-
     s_gpu_canvas.insert(std::make_pair(canvas_id, canvas));
+}
 
+void CanvasLayer::eraseGpuCanvas(CanvasLayer* layer)
+{
+    int canvas_id = layer->uniqueId();
+    std::map<int, CanvasLayerAndroid*>::iterator can_it = s_gpu_canvas.find(canvas_id);
+    if(can_it != s_gpu_canvas.end())
+    {
+        CanvasLayerAndroid* oldCanvas = can_it->second;
+        oldCanvas = NULL;
+        s_gpu_canvas.erase(canvas_id);
+    }
 }
 
 } // namespace WebCore
