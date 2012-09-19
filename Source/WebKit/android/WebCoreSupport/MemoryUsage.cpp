@@ -27,6 +27,8 @@
 #include "MemoryUsage.h"
 
 #include <malloc.h>
+#define USE_DL_PREFIX
+#include "../bionic/dlmalloc.h"
 #include <wtf/CurrentTime.h>
 
 #include <v8.h>
@@ -54,8 +56,7 @@ int MemoryUsageCache::getCachedMemoryUsage(bool forceFresh)
     if (!forceFresh && currentTimeMS() <= m_cacheTime + CACHE_VALIDITY_MS)
         return m_cachedMemoryUsage;
 
-    struct mallinfo minfo = mallinfo();
-    m_cachedMemoryUsage = (minfo.hblkhd + minfo.arena) >> 20;
+    m_cachedMemoryUsage = dlmalloc_footprint() >> 20;
 
     v8::HeapStatistics stat;
     v8::V8::GetHeapStatistics(&stat);
