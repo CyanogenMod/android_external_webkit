@@ -117,6 +117,8 @@ public:
 
     void initGLResources(int width, int height);
 
+    SkBitmap* getQueueBitmap();
+
     // insert the bitmap into the queue, mark the tile dirty if failing
     void updateQueueWithBitmap(const TileRenderInfo* renderInfo,
                                const SkBitmap& bitmap);

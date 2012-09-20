@@ -44,7 +44,7 @@
 // For simple webView usage, MINIMAL_SIZE is recommended for memory saving.
 // In browser case, EFFICIENT_SIZE is preferred.
 #define MINIMAL_SIZE 1
-#define EFFICIENT_SIZE 6
+#define EFFICIENT_SIZE 7
 
 // Set this to 1 if we would like to take the new GpuUpload approach which
 // relied on the glCopyTexSubImage2D instead of a glDraw call
@@ -493,10 +493,49 @@ void TransferQueue::addItemInTransferQueue(const TileRenderInfo* renderInfo,
             int h = bitmap->height();
             m_transferQueue[index].bitmap->setConfig(bitmap->config(), w, h);
         }
-        bitmap->copyTo(m_transferQueue[index].bitmap, bitmap->config());
+        bool copy = true;
+        bitmap->lockPixels();
+        m_transferQueue[index].bitmap->lockPixels();
+        void* srcPtr = bitmap->getPixels();
+        void* desPtr = m_transferQueue[index].bitmap->getPixels();
+        if (srcPtr == desPtr)
+            copy = false;
+        bitmap->unlockPixels();
+        m_transferQueue[index].bitmap->unlockPixels();
+        if (copy)
+            bitmap->copyTo(m_transferQueue[index].bitmap, bitmap->config());
     }
 
     m_emptyItemCount--;
+}
+
+SkBitmap* TransferQueue::getQueueBitmap()
+{
+    android::Mutex::Autolock lock(m_transferQueueItemLocks);
+    bool ready = readyForUpdate();
+    if (!ready) {
+        return 0;
+    }
+    if (m_currentUploadType == GpuUpload) {
+        return 0;
+    }
+
+    int index = (m_transferQueueIndex + 1) % m_transferQueueSize;
+
+    if (m_transferQueue[index].savedTilePtr
+        || m_transferQueue[index].status != emptyItem) {
+        ALOGV("ERROR update a tile which is dirty already @ index %d", index);
+    }
+
+    if (!m_transferQueue[index].bitmap) {
+        m_transferQueue[index].bitmap = new SkBitmap();
+        int w = TilesManager::instance()->tileWidth();
+        int h = TilesManager::instance()->tileHeight();
+        m_transferQueue[index].bitmap->setConfig(SkBitmap::kARGB_8888_Config, w, h);
+        m_transferQueue[index].bitmap->allocPixels();
+    }
+
+    return m_transferQueue[index].bitmap;
 }
 
 void TransferQueue::setTextureUploadType(TextureUploadType type)
