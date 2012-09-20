@@ -52,7 +52,6 @@ Tile::Tile(bool isLayerTile)
     , m_y(-1)
     , m_frontTexture(0)
     , m_backTexture(0)
-    , m_lastDrawnTexture(0)
     , m_scale(1)
     , m_dirty(true)
     , m_repaintsPending(0)
@@ -240,7 +239,6 @@ bool Tile::drawGL(float opacity, const SkRect& rect, float scale,
 
     m_frontTexture->drawGL(isLayerTile(), rect, opacity, transform,
                            forceBlending, usePointSampling, fillPortion);
-    m_lastDrawnTexture = m_frontTexture;
     return true;
 }
 

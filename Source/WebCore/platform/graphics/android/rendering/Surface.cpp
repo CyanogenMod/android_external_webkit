@@ -419,14 +419,6 @@ bool Surface::blitFromContents(Tile* tile)
     if (!singleLayer() || !tile || !getFirstLayer() || !getFirstLayer()->content())
         return false;
 
-    if (tile->frontTexture() != tile->lastDrawnTexture()) {
-        // the below works around an issue where glTexSubImage2d can't update a
-        // texture that hasn't drawn yet by drawing it off screen.
-        // glFlush() and glFinish() work also, but are likely more wasteful.
-        SkRect rect = SkRect::MakeXYWH(-100, -100, 0, 0);
-        FloatRect fillPortion(0, 0, 0, 0);
-        tile->frontTexture()->drawGL(false, rect, 1.0f, 0, false, true, fillPortion);
-    }
     LayerContent* content = getFirstLayer()->content();
     // Extract the dirty rect from the region. Note that this is *NOT* constrained
     // to this tile
