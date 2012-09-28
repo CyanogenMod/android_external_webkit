@@ -489,6 +489,7 @@ bool RenderThemeAndroid::paintRadio(RenderObject* obj, const PaintInfo& info, co
         borderRect.inflate(-3);
         const float cx = borderRect.center().x();
         const float cy = borderRect.center().y() - 1;
+        context->setStrokeStyle(SolidStroke);
         context->setStrokeColor(borderColor, context->strokeColorSpace());
         context->setStrokeThickness(1);
         context->setFillColor(Color::transparent, context->fillColorSpace());
@@ -635,6 +636,7 @@ bool RenderThemeAndroid::paintCombo(RenderObject* obj, const PaintInfo& info,  c
             context->fillRect(FloatRect(bounds.maxX() - arrowSize + 0.5f, bounds.y() + .5f,
                     arrowSize - 1, bounds.height() - 1));
             // outline
+            context->setStrokeStyle(SolidStroke);
             context->setStrokeThickness(1.0f);
             context->setStrokeColor(Color(defaultBgDark), context->strokeColorSpace());
             context->strokeRect(bounds, 1.0f);
