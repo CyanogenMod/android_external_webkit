@@ -211,9 +211,9 @@ LayerAndroid::~LayerAndroid()
 #endif
 }
 
-bool LayerAndroid::hasText()
+float LayerAndroid::maxZoomScale() const
 {
-    return m_content && m_content->hasText();
+    return m_content ? m_content->maxZoomScale() : 1.0f;
 }
 
 static int gDebugNbAnims = 0;

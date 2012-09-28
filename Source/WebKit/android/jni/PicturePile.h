@@ -71,13 +71,13 @@ public:
     IntRect area;
     bool dirty;
     RefPtr<PrerenderedInval> prerendered;
-    bool hasText;
+    float maxZoomScale;
 
     PictureContainer(const IntRect& area)
         : picture(0)
         , area(area)
         , dirty(true)
-        , hasText(false)
+        , maxZoomScale(1)
     {}
 
     PictureContainer(const PictureContainer& other);
@@ -105,7 +105,7 @@ public:
     PrerenderedInval* prerenderedInvalForArea(const IntRect& area);
 
     // UI-side methods used to check content, after construction/updates are complete
-    bool hasText() const;
+    float maxZoomScale() const;
     bool isEmpty() const;
 
 private:

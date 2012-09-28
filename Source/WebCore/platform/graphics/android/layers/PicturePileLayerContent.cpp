@@ -12,7 +12,7 @@ namespace WebCore {
 
 PicturePileLayerContent::PicturePileLayerContent(const PicturePile& picturePile)
     : m_picturePile(picturePile)
-    , m_hasText(picturePile.hasText())
+    , m_maxZoomScale(picturePile.maxZoomScale())
     , m_hasContent(!picturePile.isEmpty())
 {
 }

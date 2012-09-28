@@ -498,7 +498,7 @@ PlatformGraphicsContextRecording::PlatformGraphicsContextRecording(Recording* re
     , mPicture(0)
     , mRecording(recording)
     , mOperationState(0)
-    , m_hasText(false)
+    , m_maxZoomScale(1)
     , m_isEmpty(true)
     , m_canvasProxy(this)
 {
@@ -524,7 +524,7 @@ bool PlatformGraphicsContextRecording::isPaintingDisabled()
 
 SkCanvas* PlatformGraphicsContextRecording::recordingCanvas()
 {
-    m_hasText = true;
+    m_maxZoomScale = 1e6f;
     return &m_canvasProxy;
 }
 
@@ -779,6 +779,9 @@ void PlatformGraphicsContextRecording::drawBitmapRect(const SkBitmap& bitmap,
                                    const SkIRect* src, const SkRect& dst,
                                    CompositeOperator op)
 {
+    float widthScale = dst.width() == 0 ? 1 : bitmap.width() / dst.width();
+    float heightScale = dst.height() == 0 ? 1 : bitmap.height() / dst.height();
+    m_maxZoomScale = std::max(m_maxZoomScale, std::max(widthScale, heightScale));
     appendDrawingOperation(NEW_OP(DrawBitmapRect)(bitmap, *src, dst, op), dst);
 }
 

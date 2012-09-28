@@ -262,7 +262,7 @@ public:
     LayerType type() { return m_type; }
     virtual SubclassType subclassType() const { return LayerAndroid::StandardLayer; }
 
-    bool hasText();
+    float maxZoomScale() const;
 
     void copyAnimationStartTimesRecursive(LayerAndroid* oldTree);
 

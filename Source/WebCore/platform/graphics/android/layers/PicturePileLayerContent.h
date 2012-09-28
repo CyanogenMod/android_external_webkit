@@ -41,7 +41,7 @@ public:
 
     virtual void setCheckForOptimisations(bool check) {}
     virtual void checkForOptimisations() {} // already performed, stored in m_hasText/m_hasContent
-    virtual bool hasText() { return m_hasText; }
+    virtual float maxZoomScale() { return m_maxZoomScale; }
     virtual void draw(SkCanvas* canvas);
     virtual void serialize(SkWStream* stream);
     virtual PrerenderedInval* prerenderForRect(const IntRect& dirty);
@@ -50,7 +50,7 @@ public:
 
 private:
     PicturePile m_picturePile;
-    bool m_hasText;
+    float m_maxZoomScale;
     bool m_hasContent;
 };
 
