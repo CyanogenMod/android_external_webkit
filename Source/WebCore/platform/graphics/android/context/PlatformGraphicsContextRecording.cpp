@@ -1017,6 +1017,7 @@ IntRect PlatformGraphicsContextRecording::calculateCoveredBounds(FloatRect bound
 {
     if (mRecordingStateStack.last().mOpaqueTrackingDisabled
         || m_state->alpha != 1.0f
+        || (m_state->fillShader != 0 && !m_state->fillShader->isOpaque())
         || (m_state->mode != SkXfermode::kSrc_Mode && m_state->mode != SkXfermode::kSrcOver_Mode)
         || !mCurrentMatrix->rectStaysRect()) {
         return IntRect();
