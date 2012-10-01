@@ -61,7 +61,6 @@ public:
 
     LayerAndroid* getFirstLayer() const { return m_layers[0]; }
     bool needsTexture() { return m_needsTexture; }
-    bool hasText() { return m_hasText; }
     bool isBase();
 
     // don't allow transform fudging for merged layers - they need the transform
@@ -87,7 +86,7 @@ private:
 
     SurfaceBacking* m_surfaceBacking;
     bool m_needsTexture;
-    bool m_hasText;
+    float m_maxZoomScale;
     Vector<LayerAndroid*> m_layers;
 
     Color m_background;

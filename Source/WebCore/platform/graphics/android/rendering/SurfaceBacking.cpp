@@ -46,7 +46,7 @@ SurfaceBacking::SurfaceBacking(bool isBaseSurface)
     , m_scale(-1)
     , m_futureScale(-1)
     , m_zooming(false)
-    , m_hasAllowedZoom(false)
+    , m_maxZoomScale(1)
 
 {
 #ifdef DEBUG_COUNT
@@ -64,7 +64,7 @@ SurfaceBacking::~SurfaceBacking()
 #endif
 }
 
-void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
+void SurfaceBacking::prepareGL(GLWebViewState* state, float maxZoomScale,
                                const IntRect& prepareArea, const IntRect& fullContentArea,
                                TilePainter* painter, bool aggressiveRendering,
                                bool updateWithBlit)
@@ -72,11 +72,11 @@ void SurfaceBacking::prepareGL(GLWebViewState* state, bool allowZoom,
     // If the surface backing has ever zoomed beyond 1.0 scale, it's always
     // allowed to (so repaints aren't necessary when allowZoom toggles). If not,
     // and allowZoom is false, don't allow scale greater than 1.0
-    m_hasAllowedZoom |= allowZoom;
+    m_maxZoomScale = std::max(m_maxZoomScale, maxZoomScale);
     float scale = state->scale();
     bool scaleOverridden = false;
-    if (scale > 1 && !m_hasAllowedZoom) {
-        scale = 1;
+    if (scale > m_maxZoomScale) {
+        scale = m_maxZoomScale;
         scaleOverridden = true;
     }
 
