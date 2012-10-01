@@ -48,13 +48,13 @@ int PictureLayerContent::height()
 void PictureLayerContent::checkForOptimisations()
 {
     if (!m_checkedContent)
-        hasText(); // for now only check the presence of text
+        maxZoomScale(); // for now only check the maximum scale for painting
 }
 
-bool PictureLayerContent::hasText()
+float PictureLayerContent::maxZoomScale()
 {
     if (m_checkedContent)
-        return m_hasText;
+        return m_hasText ? 1e6 : 1.0;
 
     // Let's check if we have text or not. If we don't, we can limit
     // ourselves to scale 1!
@@ -76,7 +76,7 @@ bool PictureLayerContent::hasText()
 
     m_checkedContent = true;
 
-    return m_hasText;
+    return m_hasText ? 1e6 : 1.0;
 }
 
 void PictureLayerContent::draw(SkCanvas* canvas)

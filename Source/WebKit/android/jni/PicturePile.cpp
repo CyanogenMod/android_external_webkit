@@ -280,13 +280,13 @@ PrerenderedInval* PicturePile::prerenderedInvalForArea(const IntRect& area)
     return 0;
 }
 
-bool PicturePile::hasText() const
+float PicturePile::maxZoomScale() const
 {
+    float maxZoomScale = 1;
     for (size_t i = 0; i < m_pile.size(); i++) {
-        if (m_pile[i].hasText)
-            return true;
+        maxZoomScale = std::max(maxZoomScale, m_pile[i].maxZoomScale);
     }
-    return false;
+    return maxZoomScale;
 }
 
 bool PicturePile::isEmpty() const
@@ -313,7 +313,7 @@ Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& p
     WebCore::PlatformGraphicsContextRecording pgc(picture);
     WebCore::GraphicsContext gc(&pgc);
     painter->paintContents(&gc, pc.area);
-    pc.hasText = pgc.hasText();
+    pc.maxZoomScale = pgc.maxZoomScale();
     if (pgc.isEmpty()) {
         SkSafeUnref(picture);
         picture = 0;
@@ -365,7 +365,7 @@ Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& p
     painter->paintContents(&gc, drawArea);
 
     // TODO: consider paint-time checking for these with SkPicture painting?
-    pc.hasText = true;
+    pc.maxZoomScale = FLOAT_MAX;
 
     SkSafeUnref(canvas);
     picture->endRecording();

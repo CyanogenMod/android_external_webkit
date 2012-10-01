@@ -143,7 +143,7 @@ public:
                                  bool translucent = false, bool drawBackground = true,
                                  const IntRect& thumb = IntRect());
 
-    bool hasText() { return m_hasText; }
+    float maxZoomScale() { return m_maxZoomScale; }
     bool isEmpty() { return m_isEmpty; }
 private:
 
@@ -206,7 +206,7 @@ private:
     Vector<SkMatrix> mMatrixStack;
     State* mOperationState;
 
-    bool m_hasText;
+    float m_maxZoomScale;
     bool m_isEmpty;
     RecordingContextCanvasProxy m_canvasProxy;
 };
