@@ -218,8 +218,11 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         point.xy + [width, height, width, height, ...], so we have to convert
      */
 
-    if (font->platformData().orientation() == Vertical)
-        y += SkFloatToScalar(font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
+    if (font->platformData().orientation() == Vertical) {
+        float yOffset = SkFloatToScalar(font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
+        gc->platformContext()->setTextOffset(FloatSize(0.0f, -yOffset)); // compensate for offset in bounds calculation
+        y += yOffset;
+    }
 
     if (EmojiFont::IsAvailable()) {
         // set filtering, to make scaled images look nice(r)
@@ -272,6 +275,9 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         if (font->platformData().orientation() == Vertical)
             canvas->restore();
     }
+
+    if (font->platformData().orientation() == Vertical)
+        gc->platformContext()->setTextOffset(FloatSize()); // reset to undo above
 }
 
 void Font::drawEmphasisMarksForComplexText(WebCore::GraphicsContext*, WebCore::TextRun const&, WTF::AtomicString const&, WebCore::FloatPoint const&, int, int) const

@@ -64,6 +64,7 @@ public:
     virtual bool isPaintingDisabled();
 
     virtual SkCanvas* recordingCanvas();
+    virtual void setTextOffset(FloatSize offset) { m_textOffset = offset; }
 
     virtual ContextType type() { return RecordingContext; }
 
@@ -209,6 +210,7 @@ private:
     bool m_hasText;
     bool m_isEmpty;
     RecordingContextCanvasProxy m_canvasProxy;
+    FloatSize m_textOffset;
 };
 
 }

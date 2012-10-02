@@ -39,6 +39,7 @@ public:
 
     virtual ContextType type() { return PaintingContext; }
     virtual SkCanvas* recordingCanvas() { return mCanvas; }
+    virtual void setTextOffset(FloatSize offset) {}
 
     // FIXME: This is used by ImageBufferAndroid, which should really be
     //        managing the canvas lifecycle itself
