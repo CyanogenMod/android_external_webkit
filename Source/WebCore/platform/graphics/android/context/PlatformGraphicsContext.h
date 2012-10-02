@@ -148,6 +148,7 @@ public:
                                  const IntRect& thumb = IntRect()) = 0;
 
     virtual SkCanvas* recordingCanvas() = 0;
+    virtual void setTextOffset(FloatSize offset) = 0;
 
     void setRawState(State* state) { m_state = state; }
 
