@@ -917,6 +917,8 @@ void PlatformGraphicsContextRecording::drawPosText(const void* inText, size_t by
         return;
     }
     FloatRect bounds = approximateTextBounds(byteLength / sizeof(uint16_t), inPos, inPaint);
+    bounds.move(m_textOffset); // compensate font rendering-side translates
+
     const SkPaint* paint = mRecording->recording()->getSkPaint(inPaint);
     size_t posSize = sizeof(SkPoint) * paint->countText(inText, byteLength);
     void* text = heap()->alloc(byteLength);
