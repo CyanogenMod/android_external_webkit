@@ -591,6 +591,8 @@ void GraphicsLayerAndroid::updateFixedBackgroundLayers() {
         return;
     if (!view->style()->hasFixedBackgroundImage())
         return;
+    if (view->isRenderIFrame()) // not supported
+        return;
 
     Image* image = FixedBackgroundImageLayerAndroid::GetCachedImage(view->style());
     if (!image)
