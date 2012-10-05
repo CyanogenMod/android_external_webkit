@@ -613,6 +613,15 @@ void HTMLCanvasElement::clearRecording(const FloatRect& rect)
                 CanvasLayer::setGpuCanvasStatus(m_canvasId, false);
             }
         }
+        else if(m_imageBuffer->drawsUsingRecording())
+        {
+            IntRect r(rect.x(), rect.y(), rect.width(), rect.height());
+            GraphicsContext* ctx = drawingContext();
+            if(ctx)
+            {
+                CanvasLayer::copyRecording(ctx, r, m_canvasId);
+            }
+        }
         m_imageBuffer->clearRecording();
     }
 }

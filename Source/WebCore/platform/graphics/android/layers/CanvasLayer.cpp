@@ -51,6 +51,7 @@ namespace WebCore {
 
 std::map<int, SkBitmap*> CanvasLayer::s_recording_bitmap;
 std::map<int, SkCanvas*> CanvasLayer::s_recording_canvas;
+std::map<int, SkPicture*> CanvasLayer::s_recording_picture;
 std::map<int, CanvasLayerAndroid*> CanvasLayer::s_gpu_canvas;
 WTF::Mutex CanvasLayer::s_mutex;
 
@@ -120,10 +121,14 @@ CanvasLayer::CanvasLayer(const CanvasLayer& layer)
         if(imageBuffer && imageBuffer->drawsUsingRecording())
         {
             GraphicsContext* gc = imageBuffer->context();
-            SkPicture* canvasRecording = gc->platformContext()->getRecordingPicture();
+            //SkPicture* canvasRecording = gc->platformContext()->getRecordingPicture();
 
+            SkPicture* canvasRecording = CanvasLayer::getRecordingPicture(this);
             SkBitmap* bitmap = CanvasLayer::getRecordingBitmap(this);
             SkCanvas* canvas = CanvasLayer::getRecordingCanvas(this);
+
+            if(canvasRecording == NULL)
+                return;
 
             if(bitmap == NULL || bitmap->width() != canvasRecording->width()
                     || bitmap->height() != canvasRecording->height())
@@ -217,6 +222,13 @@ CanvasLayer::~CanvasLayer()
         {
             delete bitmap;
             s_recording_bitmap.erase(canvas_id);
+        }
+
+        SkPicture* picture = CanvasLayer::getRecordingPicture(this);
+        if(picture != NULL)
+        {
+            delete picture;
+            s_recording_picture.erase(canvas_id);
         }
 
     }
@@ -367,6 +379,16 @@ SkCanvas* CanvasLayer::getRecordingCanvas(CanvasLayer* layer)
         return NULL;
 }
 
+SkPicture* CanvasLayer::getRecordingPicture(CanvasLayer* layer)
+{
+    int canvas_id = layer->uniqueId();
+    std::map<int, SkPicture*>::iterator can_it = s_recording_picture.find(canvas_id);
+    if(can_it != s_recording_picture.end())
+        return can_it->second;
+    else
+        return NULL;
+}
+
 void CanvasLayer::setRecordingBitmap(SkBitmap* bitmap, CanvasLayer* layer)
 {
     int canvas_id = layer->uniqueId();
@@ -404,6 +426,24 @@ void CanvasLayer::setRecordingCanvas(SkCanvas* canvas, CanvasLayer* layer)
     s_recording_canvas.insert(std::make_pair(canvas_id, canvas));
 }
 
+void CanvasLayer::setRecordingPicture(SkPicture* picture, int layer_id)
+{
+    int canvas_id = layer_id;
+    std::map<int, SkPicture*>::iterator can_it = s_recording_picture.find(canvas_id);
+    if(can_it != s_recording_picture.end())
+    {
+        SkPicture* oldPicture = can_it->second;
+        if(oldPicture != NULL)
+        {
+            delete oldPicture;
+            oldPicture = NULL;
+            s_recording_picture.erase(canvas_id);
+        }
+    }
+
+    s_recording_picture.insert(std::make_pair(canvas_id, picture));
+}
+
 void CanvasLayer::setGpuCanvasStatus(int canvas_id, bool val)
 {
     MutexLocker locker(s_mutex);
@@ -431,6 +471,17 @@ void CanvasLayer::copyRecordingToLayer(GraphicsContext* ctx, IntRect& r, int can
     }
 }
 
+void CanvasLayer::copyRecording(GraphicsContext* ctx, IntRect& r, int canvas_id)
+{
+    if(ctx)
+    {
+        SkPicture* canvasRecording = ctx->platformContext()->getRecordingPicture();
+        SkPicture* dstPicture = new SkPicture(*canvasRecording);
+        IntSize size = r.size();
+
+        CanvasLayer::setRecordingPicture(dstPicture, canvas_id);
+    }
+}
 //NOTE::USE OF THE FOLLOWING FUNCTIONS WITHOUT LOCKING s_mutex is THREAD UNSAFE
 
 CanvasLayerAndroid* CanvasLayer::getGpuCanvas(int layerId)
