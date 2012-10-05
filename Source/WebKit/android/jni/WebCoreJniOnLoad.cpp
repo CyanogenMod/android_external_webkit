@@ -91,7 +91,6 @@ extern int registerMediaPlayerVideo(JNIEnv*);
 #endif
 extern int registerDeviceMotionAndOrientationManager(JNIEnv*);
 extern int registerCookieManager(JNIEnv*);
-extern int registerCacheManager(JNIEnv*);
 
 }
 
@@ -120,7 +119,6 @@ static RegistrationMethod gWebCoreRegMethods[] = {
 #endif
     { "DeviceMotionAndOrientationManager", android::registerDeviceMotionAndOrientationManager },
     { "CookieManager", android::registerCookieManager },
-    { "CacheManager", android::registerCacheManager },
 };
 
 EXPORT jint JNI_OnLoad(JavaVM* vm, void* reserved)

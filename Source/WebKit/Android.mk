@@ -58,7 +58,6 @@ LOCAL_SRC_FILES += \
 	android/content/PhoneEmailDetector.cpp \
 	\
 	android/jni/AndroidHitTestResult.cpp \
-	android/jni/CacheManager.cpp \
 	android/jni/CookieManager.cpp \
 	android/jni/DeviceMotionAndOrientationManager.cpp \
 	android/jni/DeviceMotionClientImpl.cpp \
