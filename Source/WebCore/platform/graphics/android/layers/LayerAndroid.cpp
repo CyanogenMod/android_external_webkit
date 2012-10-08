@@ -173,7 +173,9 @@ LayerAndroid::LayerAndroid(const LayerAndroid& layer) : Layer(layer),
 
     KeyframesMap::const_iterator end = layer.m_animations.end();
     for (KeyframesMap::const_iterator it = layer.m_animations.begin(); it != end; ++it) {
-        m_animations.add(it->first, it->second);
+        // Deep copy the key's string, to avoid cross-thread refptr use
+        pair<String, int> newKey(it->first.first.threadsafeCopy(), it->first.second);
+        m_animations.add(newKey, it->second);
     }
 
     if (layer.m_replicatedLayer) {
