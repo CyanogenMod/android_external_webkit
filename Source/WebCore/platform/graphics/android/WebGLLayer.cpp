@@ -37,23 +37,20 @@
 
 namespace WebCore {
 
-WebGLLayer::WebGLLayer(GraphicsContext3DProxy* proxy)
+WebGLLayer::WebGLLayer(PassRefPtr<GraphicsContext3DProxy> proxy)
     : LayerAndroid((RenderLayer*)0)
     , m_proxy(proxy)
 {
-    m_proxy->incr();
 }
 
 WebGLLayer::WebGLLayer(const WebGLLayer& layer)
     : LayerAndroid(layer)
     , m_proxy(layer.m_proxy)
 {
-    m_proxy->incr();
 }
 
 WebGLLayer::~WebGLLayer()
 {
-    m_proxy->decr();
 }
 
 bool WebGLLayer::drawGL(bool layerTilesDisabled)

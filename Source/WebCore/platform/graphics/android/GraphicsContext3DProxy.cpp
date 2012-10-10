@@ -34,6 +34,7 @@
 namespace WebCore {
 
 GraphicsContext3DProxy::GraphicsContext3DProxy()
+    : m_texture(0)
 {
     LOGWEBGL("GraphicsContext3DProxy::GraphicsContext3DProxy(), this = %p", this);
 }
@@ -47,22 +48,6 @@ void GraphicsContext3DProxy::setGraphicsContext(GraphicsContext3DInternal* conte
 {
     MutexLocker lock(m_mutex);
     m_context = context;
-}
-
-void GraphicsContext3DProxy::incr()
-{
-    MutexLocker lock(m_mutex);
-    m_refcount++;
-}
-
-void GraphicsContext3DProxy::decr()
-{
-    MutexLocker lock(m_mutex);
-    m_refcount--;
-    if (m_refcount == 0) {
-        glDeleteTextures(1, &m_texture);
-        m_texture = 0;
-    }
 }
 
 bool GraphicsContext3DProxy::lockFrontBuffer(GLuint& texture, SkRect& rect)
@@ -79,6 +64,7 @@ bool GraphicsContext3DProxy::lockFrontBuffer(GLuint& texture, SkRect& rect)
 
         glBindTexture(GL_TEXTURE_EXTERNAL_OES, m_texture);
         glEGLImageTargetTexture2DOES(GL_TEXTURE_EXTERNAL_OES, image);
+        glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
         texture = m_texture;
     }
 
@@ -88,10 +74,13 @@ bool GraphicsContext3DProxy::lockFrontBuffer(GLuint& texture, SkRect& rect)
 void GraphicsContext3DProxy::releaseFrontBuffer()
 {
     MutexLocker lock(m_mutex);
+    if (m_texture) {
+        glDeleteTextures(1, &m_texture);
+        m_texture = 0;
+    }
     if (!m_context) {
         return;
     }
-    glBindTexture(GL_TEXTURE_EXTERNAL_OES, 0);
     m_context->releaseFrontBuffer();
 }
 }

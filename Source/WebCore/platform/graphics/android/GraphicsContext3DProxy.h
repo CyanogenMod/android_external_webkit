@@ -47,8 +47,6 @@ public:
     ~GraphicsContext3DProxy();
 
     void setGraphicsContext(GraphicsContext3DInternal* context);
-    void incr();
-    void decr();
 
     bool lockFrontBuffer(GLuint& texture, SkRect& rect);
     void releaseFrontBuffer();
@@ -57,7 +55,6 @@ private:
     WTF::Mutex                 m_mutex;
     GraphicsContext3DInternal* m_context;
     GLuint m_texture;
-    int m_refcount;
 };
 
 }
