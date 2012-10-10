@@ -34,6 +34,7 @@
 #include "GLUtils.h"
 #include "GraphicsContext3DProxy.h"
 #include "LayerAndroid.h"
+#include "PassRefPtr.h"
 #include "RefPtr.h"
 #include <jni.h>
 
@@ -43,7 +44,7 @@ class GraphicsContext3DInternal;
 
 class WebGLLayer : public LayerAndroid {
 public:
-    WebGLLayer(GraphicsContext3DProxy* proxy);
+    WebGLLayer(PassRefPtr<GraphicsContext3DProxy> proxy);
     WebGLLayer(const WebGLLayer& layer);
     virtual ~WebGLLayer();
 

@@ -170,8 +170,8 @@ GLint GraphicsContext3DInternal::checkGLError(const char* s)
 GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
                                                      GraphicsContext3D::Attributes attrs,
                                                      HostWindow* hostWindow)
-    : m_proxy(new GraphicsContext3DProxy())
-    , m_compositingLayer(new WebGLLayer(m_proxy.get()))
+    : m_proxy(adoptRef(new GraphicsContext3DProxy()))
+    , m_compositingLayer(new WebGLLayer(m_proxy))
     , m_canvas(canvas)
     , m_attrs(attrs)
     , m_layerComposited(false)
@@ -200,7 +200,6 @@ GraphicsContext3DInternal::GraphicsContext3DInternal(HTMLCanvasElement* canvas,
     }
 
     LOGWEBGL("GraphicsContext3DInternal() = %p, m_compositingLayer = %p", this, m_compositingLayer);
-    m_compositingLayer->ref();
     m_proxy->setGraphicsContext(this);
 
     if (!m_canvas || !m_canvas->document() || !m_canvas->document()->view())
@@ -284,7 +283,7 @@ GraphicsContext3DInternal::~GraphicsContext3DInternal()
 
     m_proxy->setGraphicsContext(0);
     MutexLocker lock(m_fboMutex);
-    m_compositingLayer->unref();
+    SkSafeUnref(m_compositingLayer);
     m_compositingLayer = 0;
     deleteContext(true);
 
