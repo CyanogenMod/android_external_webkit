@@ -776,13 +776,15 @@ void PlatformGraphicsContextRecording::drawBitmapPattern(
 }
 
 void PlatformGraphicsContextRecording::drawBitmapRect(const SkBitmap& bitmap,
-                                   const SkIRect* src, const SkRect& dst,
+                                   const SkIRect* srcPtr, const SkRect& dst,
                                    CompositeOperator op)
 {
     float widthScale = dst.width() == 0 ? 1 : bitmap.width() / dst.width();
     float heightScale = dst.height() == 0 ? 1 : bitmap.height() / dst.height();
     m_maxZoomScale = std::max(m_maxZoomScale, std::max(widthScale, heightScale));
-    appendDrawingOperation(NEW_OP(DrawBitmapRect)(bitmap, *src, dst, op), dst);
+    // null src implies full bitmap as source rect
+    SkIRect src = srcPtr ? *srcPtr : SkIRect::MakeWH(bitmap.width(), bitmap.height());
+    appendDrawingOperation(NEW_OP(DrawBitmapRect)(bitmap, src, dst, op), dst);
 }
 
 void PlatformGraphicsContextRecording::drawConvexPolygon(size_t numPoints,

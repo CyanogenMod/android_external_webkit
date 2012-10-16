@@ -365,7 +365,7 @@ Picture* PicturePile::recordPicture(PicturePainter* painter, PictureContainer& p
     painter->paintContents(&gc, drawArea);
 
     // TODO: consider paint-time checking for these with SkPicture painting?
-    pc.maxZoomScale = FLOAT_MAX;
+    pc.maxZoomScale = 1e6;
 
     SkSafeUnref(canvas);
     picture->endRecording();
