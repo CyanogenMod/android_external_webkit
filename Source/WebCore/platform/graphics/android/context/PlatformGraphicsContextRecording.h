@@ -112,7 +112,7 @@ public:
     virtual void clearRect(const FloatRect& rect);
     virtual void drawBitmapPattern(const SkBitmap& bitmap, const SkMatrix& matrix,
                            CompositeOperator compositeOp, const FloatRect& destRect);
-    virtual void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
+    virtual void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* srcPtr,
                         const SkRect& dst, CompositeOperator op = CompositeSourceOver);
     virtual void drawConvexPolygon(size_t numPoints, const FloatPoint* points,
                            bool shouldAntialias);
