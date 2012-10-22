@@ -452,7 +452,7 @@ TransferQueue* TilesManager::transferQueue()
     // be accessed from the TexturesGenerator. However, that can only happen after
     // a previous transferQueue() call due to a prepare.
     if (!m_queue)
-        m_queue = new TransferQueue(m_useMinimalMemory);
+        m_queue = new TransferQueue(m_useMinimalMemory && !m_highEndGfx);
     return m_queue;
 }
 
