@@ -228,11 +228,20 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
         // set filtering, to make scaled images look nice(r)
         paint.setFilterBitmap(true);
 
+        SkMatrix rotator;
+        rotator.reset();
+        if (font->platformData().orientation() == Vertical) {
+            canvas->save();
+            canvas->rotate(-90);
+            rotator.setRotate(90);
+        }
+
         int localIndex = 0;
         int localCount = 0;
         for (int i = 0; i < numGlyphs; i++) {
             if (EmojiFont::IsEmojiGlyph(glyphs[i])) {
                 if (localCount) {
+                    rotator.mapPoints(&pos[localIndex], localCount);
                     canvas->drawPosText(&glyphs[localIndex],
                                      localCount * sizeof(uint16_t),
                                      &pos[localIndex], paint);
@@ -248,12 +257,18 @@ void Font::drawGlyphs(GraphicsContext* gc, const SimpleFontData* font,
             x += SkFloatToScalar(adv[i].width());
             y += SkFloatToScalar(adv[i].height());
         }
+
         // draw the last run of glyphs (if any)
         if (localCount) {
+            rotator.mapPoints(&pos[localIndex], localCount);
             canvas->drawPosText(&glyphs[localIndex],
                              localCount * sizeof(uint16_t),
                              &pos[localIndex], paint);
+
         }
+
+        if (font->platformData().orientation() == Vertical)
+            canvas->restore();
     } else {
         for (int i = 0; i < numGlyphs; i++) {
             pos[i].set(x, y);
