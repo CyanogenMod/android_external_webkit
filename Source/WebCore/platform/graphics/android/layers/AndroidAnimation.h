@@ -50,8 +50,14 @@ public:
     bool evaluate(LayerAndroid* layer, double time);
     virtual void applyForProgress(LayerAndroid* layer, float progress) = 0;
     static long instancesCount();
-    void setName(const String& name) { m_name = name; }
-    String name() { return m_name; }
+
+    // Since this class is shared between WebKit/UI thread, deep copy the name in the setter and
+    // don't share the value of m_name - this way this AndroidAnimation can be safely destroyed on
+    //any thread, since it is deref'd on both
+    void setName(const String& name) { m_name = name.threadsafeCopy(); }
+    bool isNamed(const String& name) { return m_name == name; }
+    String nameCopy() { return m_name.threadsafeCopy(); }
+
     AnimatedPropertyID type() { return m_type; }
     bool fillsBackwards() { return m_fillsBackwards; }
     bool fillsForwards() { return m_fillsForwards; }
@@ -65,7 +71,7 @@ protected:
     int m_iterationCount;
     int m_direction;
     RefPtr<TimingFunction> m_timingFunction;
-    String m_name;
+    String m_name; // Unique to this object, see comments for 'name' functions above
     AnimatedPropertyID m_type;
     KeyframeValueList* m_operations;
     int m_uniqueId;
