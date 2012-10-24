@@ -46,20 +46,35 @@
 #include "androidfw/AssetManager.h"
 #include "androidfw/Asset.h"
 
-extern android::AssetManager* globalAssetManager();
+static const char* kWebAudioAssets = "app/webaudiores.apk";
+
+android::AssetManager* webAudioAssetManager() {
+    static android::AssetManager* gWebAudioAssetMgr;
+    if (!gWebAudioAssetMgr) {
+        const char* root = getenv("ANDROID_ROOT");
+        LOG_ALWAYS_FATAL_IF(root == NULL, "ANDROID_ROOT not set");
+
+        android::String8 path(root);
+        path.appendPath(kWebAudioAssets);
+
+        gWebAudioAssetMgr = new android::AssetManager();
+        gWebAudioAssetMgr->addAssetPath(path,NULL);
+    }
+    return gWebAudioAssetMgr;
+}
 
 namespace WebCore {
 
 PassOwnPtr<AudioBus> AudioBus::loadPlatformResource(const char* name, float sampleRate)
 {
-    WEBAUDIO_LOGD("AudioBus::loadPlatformResource : name: %s, sampleRate: %f", name, sampleRate);
+    WEBAUDIO_LOGW("AudioBus::loadPlatformResource : name: %s, sampleRate: %f", name, sampleRate);
     const char * str = webaudio::webAudioAssetFileName(name);
     if (!str) {
         WEBAUDIO_LOGW("AudioBus::loadPlatformResource : error webaudio::webAudioAssetFileName() - name: %s", name);
         return 0;
     }
 
-    android::AssetManager* am = globalAssetManager();
+    android::AssetManager* am = webAudioAssetManager();
     android::Asset* asset = am->open(str, android::Asset::ACCESS_BUFFER);
     if (!asset) {
         asset = am->openNonAsset(str, android::Asset::ACCESS_BUFFER);
@@ -75,7 +90,7 @@ PassOwnPtr<AudioBus> AudioBus::loadPlatformResource(const char* name, float samp
         WEBAUDIO_LOGW("AudioBus::loadPlatformResource : audio file decode error - name: %s", str);
         return 0;
     }
-    WEBAUDIO_LOGD("AudioBus::loadPlatformResource : decoded AudioBus - channels: %d, length: %d, sampleRate: %f",
+    WEBAUDIO_LOGW("AudioBus::loadPlatformResource : decoded AudioBus - channels: %d, length: %d, sampleRate: %f",
         audioBus->numberOfChannels(), audioBus->length(), audioBus->sampleRate());
 
     // If the bus is already at the requested sample-rate then return as is.
