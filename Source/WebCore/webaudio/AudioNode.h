@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010, Google Inc. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +30,7 @@
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/ThreadingPrimitives.h>
 
 #define DEBUG_AUDIONODE_REFERENCES 0
 
@@ -168,6 +170,10 @@ private:
 #if DEBUG_AUDIONODE_REFERENCES
     static bool s_isNodeCountInitialized;
     static int s_nodeCount[NodeTypeEnd];
+#endif
+
+#if !USE(LOCKFREE_THREADSAFEREFCOUNTED)
+    WTF::Mutex m_mutex;
 #endif
 };
 
