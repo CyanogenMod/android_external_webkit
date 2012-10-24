@@ -495,3 +495,7 @@ endif
 
 # Build the webkit merge tool.
 include $(BASE_PATH)/Tools/android/webkitmerge/Android.mk
+
+ifeq ($(ENABLE_WEBAUDIO),true)
+include $(BASE_PATH)/Source/WebCore/platform/audio/resources/webaudiores/Android.mk
+endif

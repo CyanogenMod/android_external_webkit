@@ -95,7 +95,7 @@ inline int atomicIncrement(int volatile* addend) { return OSAtomicIncrement32Bar
 inline int atomicDecrement(int volatile* addend) { return OSAtomicDecrement32Barrier(const_cast<int*>(addend)); }
 
 #elif OS(ANDROID)
-#define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
+//#define WTF_USE_LOCKFREE_THREADSAFEREFCOUNTED 1
 
 inline int atomicIncrement(int volatile* addend) { return android_atomic_inc(addend); }
 inline int atomicDecrement(int volatile* addend) { return android_atomic_dec(addend); }
