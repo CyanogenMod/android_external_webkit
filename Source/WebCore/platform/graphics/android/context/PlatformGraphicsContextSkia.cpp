@@ -238,7 +238,7 @@ void PlatformGraphicsContextSkia::drawBitmapPattern(
     SkPaint paint;
     setupPaintCommon(&paint);
     paint.setAlpha(getNormalizedAlpha());
-    paint.setShader(shader);
+    paint.setShader(shader)->unref();
     paint.setXfermodeMode(WebCoreCompositeToSkiaComposite(compositeOp));
     fixPaintForBitmapsThatMaySeam(&paint);
     mCanvas->drawRect(destRect, paint);
