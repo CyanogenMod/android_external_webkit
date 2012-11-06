@@ -36,6 +36,7 @@ struct ANPAudioTrack {
     void*                mUser;
     ANPAudioCallbackProc mProc;
     android::AudioTrack* mTrack;
+    int                  mChannelCount;
 };
 
 static ANPSampleFormat toANPFormat(audio_format_t fm) {
@@ -70,8 +71,8 @@ static void callbackProc(int event, void* user, void* info) {
             
             src = reinterpret_cast<android::AudioTrack::Buffer*>(info);
             dst.bufferData      = src->raw;
-            dst.channelCount    = src->channelCount;
-            dst.format          = toANPFormat((audio_format_t) src->format);
+            dst.channelCount    = track->mChannelCount;
+            dst.format          = toANPFormat(AUDIO_FORMAT_PCM_16_BIT);
             dst.size            = src->size;
             track->mProc(kMoreData_ANPAudioEvent, track->mUser, &dst);
             // return the updated size field
@@ -106,6 +107,7 @@ static ANPAudioTrack* ANPCreateTrack(uint32_t sampleRate,
                                             callbackProc,
                                             track,
                                             0);
+    track->mChannelCount = channelCount;
     
     if (track->mTrack->initCheck() != 0) {  // failure
         delete track->mTrack;
