@@ -399,7 +399,7 @@ LOCAL_SRC_FILES := $(addprefix Source/ThirdParty/ANGLE/src/compiler/,$(LOCAL_SRC
 LOCAL_C_INCLUDES := $(WEBKIT_C_INCLUDES) \
 	$(ANGLE_PATH)/include \
 	$(ANGLE_PATH)/src
-LOCAL_CFLAGS += -Wno-error=non-virtual-dtor
+LOCAL_CFLAGS += -Wno-error=non-virtual-dtor -fno-strict-aliasing
 # Build libangle
 include $(BUILD_STATIC_LIBRARY)
 
