@@ -288,10 +288,13 @@ ifeq ($(ENABLE_WTF_USE_ACCELERATED_COMPOSITING),true)
 LOCAL_CFLAGS += -DWTF_USE_ACCELERATED_COMPOSITING=1
 endif
 
-ifeq ($(call is-chipset-prefix-in-board-platform,msm7627),true)
+ifeq ($(call is-board-platform,msm7x27),true)
   LOCAL_CFLAGS += -DVIDEO_PLATFORM_ID=2
 else
-  ifeq ($(call is-chipset-in-board-platform,msm7630),true)
+  ifeq ($(call is-board-platform,msm7x27a),true)
+    LOCAL_CFLAGS += -DVIDEO_PLATFORM_ID=2
+  else
+  ifeq ($(call is-board-platform,msm7x30),true)
     LOCAL_CFLAGS += -DVIDEO_PLATFORM_ID=3
   else
     ifeq ($(call is-board-platform,msm8660),true)
@@ -307,6 +310,7 @@ else
         endif
       endif
     endif
+  endif
   endif
 endif
 
