@@ -1,6 +1,5 @@
 /*
  * Copyright 2006, The Android Open Source Project
- * Copyright (c) 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -158,8 +157,6 @@ class WebFrame : public WebCoreRefObject {
     WTF::String mUserAgent;
     bool mBlockNetworkLoads;
     WebCore::RenderSkinAndroid* m_renderSkins;
-    bool mPageLoadStarted;
-    bool mCloseUnusedSocketsEnabled;
 };
 
 }   // namespace android

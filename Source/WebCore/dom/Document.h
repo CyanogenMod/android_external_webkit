@@ -6,7 +6,6 @@
  * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies)
- * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -1099,12 +1098,6 @@ public:
 
     ContentSecurityPolicy* contentSecurityPolicy() { return m_contentSecurityPolicy.get(); }
 
-    int getNumExternalJs() const { return m_externalJs; }
-    void incrementNumExternalJs() { m_externalJs++; }
-
-    bool doObjectPrefetch() const { return m_doObjPrfth; }
-    bool doJsCssPrefetch() const { return m_doJsCssPrfth; }
-
     NodeRareData* documentRareData() const { return m_documentRareData; };
     void setDocumentRareData(NodeRareData* rareData) { m_documentRareData = rareData; }
 
@@ -1405,10 +1398,6 @@ private:
     RefPtr<MediaQueryMatcher> m_mediaQueryMatcher;
     bool m_writeRecursionIsTooDeep;
     unsigned m_writeRecursionDepth;
-
-    int m_externalJs;
-    bool m_doObjPrfth;
-    bool m_doJsCssPrfth;
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     OwnPtr<ScriptedAnimationController> m_scriptedAnimationController;

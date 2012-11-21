@@ -1,6 +1,5 @@
 /*
  * Copyright 2010, The Android Open Source Project
- * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +27,6 @@
 #define WebRequest_h
 
 #include "ChromiumIncludes.h"
-#include "ResourceRequestBase.h"
 #include <wtf/Vector.h>
 
 class MessageLoop;
@@ -105,8 +103,6 @@ private:
     void handleInterceptedURL();
     void finish(bool success);
     void updateLoadFlags(int& loadFlags);
-
-    ResourceType::Type convertWebkitTargetTypeToChromiumTargetType(WebCore::ResourceRequestBase::TargetType webkitType);
 
     scoped_refptr<WebUrlLoaderClient> m_urlLoader;
     OwnPtr<net::URLRequest> m_request;
