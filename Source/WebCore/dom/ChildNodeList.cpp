@@ -27,14 +27,9 @@
 
 namespace WebCore {
 
-ChildNodeList::ChildNodeList(PassRefPtr<Node> rootNode)
-    : DynamicNodeList(rootNode)
+ChildNodeList::ChildNodeList(PassRefPtr<Node> rootNode, DynamicNodeList::Caches* info)
+    : DynamicNodeList(rootNode, info)
 {
-}
-
-ChildNodeList::~ChildNodeList()
-{
-    m_rootNode->removeCachedChildNodeList(this);
 }
 
 unsigned ChildNodeList::length() const
@@ -43,11 +38,8 @@ unsigned ChildNodeList::length() const
         return m_caches->cachedLength;
 
     unsigned len = 0;
-    Vector<Node* >& cachedNodes = m_caches->cachedNodes;
-    for (Node* n = m_rootNode->firstChild(); n; n = n->nextSibling()) {
-        cachedNodes.append(n);
+    for (Node* n = m_rootNode->firstChild(); n; n = n->nextSibling())
         len++;
-    }
 
     m_caches->cachedLength = len;
     m_caches->isLengthCacheValid = true;
@@ -57,9 +49,6 @@ unsigned ChildNodeList::length() const
 
 Node* ChildNodeList::item(unsigned index) const
 {
-    if (m_caches->isLengthCacheValid && index < m_caches->cachedLength)
-        return m_caches->cachedNodes[index];
-
     unsigned int pos = 0;
     Node* n = m_rootNode->firstChild();
 

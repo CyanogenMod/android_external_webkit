@@ -22,7 +22,6 @@
 #ifndef NodeRareData_h
 #define NodeRareData_h
 
-#include "ChildNodeList.h"
 #include "ClassNodeList.h"
 #include "DynamicNodeList.h"
 #include "NameNodeList.h"
@@ -43,7 +42,7 @@ public:
     typedef HashSet<DynamicNodeList*> NodeListSet;
     NodeListSet m_listsWithCaches;
     
-    RefPtr<ChildNodeList> m_childNodeListCache;
+    RefPtr<DynamicNodeList::Caches> m_childNodeListCaches;
     
     typedef HashMap<String, ClassNodeList*> ClassNodeListCache;
     ClassNodeListCache m_classNodeListCache;
@@ -70,8 +69,7 @@ public:
 
 private:
     NodeListsNodeData()
-        : m_childNodeListCache(0)
-        , m_labelsNodeListCache(0)
+        : m_childNodeListCaches(DynamicNodeList::Caches::create()), m_labelsNodeListCache(0)
     {
     }
 };
