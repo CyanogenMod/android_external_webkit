@@ -31,18 +31,16 @@ namespace WebCore {
 
     class ChildNodeList : public DynamicNodeList {
     public:
-        static PassRefPtr<ChildNodeList> create(PassRefPtr<Node> rootNode)
+        static PassRefPtr<ChildNodeList> create(PassRefPtr<Node> rootNode, Caches* caches)
         {
-            return adoptRef(new ChildNodeList(rootNode));
+            return adoptRef(new ChildNodeList(rootNode, caches));
         }
-
-        virtual ~ChildNodeList();
 
         virtual unsigned length() const;
         virtual Node* item(unsigned index) const;
 
     protected:
-        ChildNodeList(PassRefPtr<Node> rootNode);
+        ChildNodeList(PassRefPtr<Node> rootNode, Caches*);
 
         virtual bool nodeMatches(Element*) const;
     };
