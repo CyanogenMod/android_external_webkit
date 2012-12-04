@@ -304,10 +304,6 @@ int SurfaceCollectionManager::drawGL(double currentTime, IntRect& viewRect,
     if (m_drawingCollection) {
         bool drawingReady = didCollectionSwap || m_drawingCollection->isReady();
 
-        // call the page swap callback if registration happened without more collections enqueued
-        if (collectionsSwappedPtr && drawingReady && !m_paintingCollection)
-            *collectionsSwappedPtr = true;
-
         if (didCollectionSwap || m_fastSwapMode || (drawingReady && !m_paintingCollection))
             m_drawingCollection->swapTiles();
 
