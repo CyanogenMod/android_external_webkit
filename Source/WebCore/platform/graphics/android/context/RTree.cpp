@@ -31,11 +31,11 @@
 #include "RTree.h"
 
 #include "AndroidLog.h"
-#include "LinearAllocator.h"
+#include <utils/LinearAllocator.h>
 
 namespace WebCore {
 
-void* RecordingData::operator new(size_t size, LinearAllocator* allocator)
+void* RecordingData::operator new(size_t size, android::LinearAllocator* allocator)
 {
     return allocator->alloc(size);
 }
@@ -132,7 +132,7 @@ int computeDeltaArea(Node* node, int& minx, int& miny,
 //
 //////////////////////////////////////////////////////////////////////
 
-RTree::RTree(WebCore::LinearAllocator* allocator, int M)
+RTree::RTree(android::LinearAllocator* allocator, int M)
     : m_allocator(allocator)
 {
     m_maxChildren = M;

@@ -30,9 +30,11 @@
 #include "IntRect.h"
 #include "GraphicsOperation.h"
 
-namespace WebCore {
-
+namespace android {
 class LinearAllocator;
+}
+
+namespace WebCore {
 
 class RecordingData {
 public:
@@ -47,7 +49,7 @@ public:
     size_t m_orderBy;
     GraphicsOperation::Operation* m_operation;
 
-    void* operator new(size_t size, LinearAllocator* allocator);
+    void* operator new(size_t size, android::LinearAllocator* allocator);
 
     // Purposely not implemented - use a LinearAllocator please
     void* operator new(size_t size);
@@ -64,7 +66,7 @@ class Node;
 class RTree {
 public:
     // M -- max number of children per node
-    RTree(WebCore::LinearAllocator* allocator, int M = 10);
+    RTree(android::LinearAllocator* allocator, int M = 10);
     ~RTree();
 
     void insert(WebCore::IntRect& bounds, WebCore::RecordingData* payload);
@@ -84,7 +86,7 @@ private:
     unsigned m_maxChildren;
     ElementList* m_listA;
     ElementList* m_listB;
-    WebCore::LinearAllocator* m_allocator;
+    android::LinearAllocator* m_allocator;
 
     friend class Node;
 };

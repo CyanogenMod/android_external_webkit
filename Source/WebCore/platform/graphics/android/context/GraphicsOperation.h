@@ -50,10 +50,13 @@
 #define TYPE(x)
 #endif
 
+namespace android {
+class LinearAllocator;
+}
+
 namespace WebCore {
 
 class CanvasState;
-class LinearAllocator;
 
 namespace GraphicsOperation {
 
@@ -64,7 +67,7 @@ public:
         , m_canvasState(0)
     {}
 
-    void* operator new(size_t size, LinearAllocator* allocator);
+    void* operator new(size_t size, android::LinearAllocator* allocator);
 
     // Purposely not implemented - use a LinearAllocator please
     void* operator new(size_t size);

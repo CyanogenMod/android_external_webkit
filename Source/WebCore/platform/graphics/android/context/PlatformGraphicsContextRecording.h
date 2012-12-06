@@ -31,13 +31,16 @@
 #include "RecordingContextCanvasProxy.h"
 #include "SkRefCnt.h"
 
+namespace android {
+class LinearAllocator;
+}
+
 namespace WebCore {
 namespace GraphicsOperation {
 class Operation;
 }
 
 class CanvasState;
-class LinearAllocator;
 class RecordingImpl;
 class PlatformGraphicsContextSkia;
 class RecordingData;
@@ -161,7 +164,7 @@ private:
     void popMatrix();
     IntRect calculateFinalBounds(FloatRect bounds);
     IntRect calculateCoveredBounds(FloatRect bounds);
-    LinearAllocator* heap();
+    android::LinearAllocator* heap();
 
     SkPicture* mPicture;
     SkMatrix* mCurrentMatrix;

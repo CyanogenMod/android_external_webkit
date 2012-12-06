@@ -28,12 +28,12 @@
 #include "GraphicsOperation.h"
 
 #include "AndroidLog.h"
-#include "LinearAllocator.h"
+#include <utils/LinearAllocator.h>
 
 namespace WebCore {
 namespace GraphicsOperation {
 
-void* Operation::operator new(size_t size, LinearAllocator* allocator)
+void* Operation::operator new(size_t size, android::LinearAllocator* allocator)
 {
     return allocator->alloc(size);
 }
