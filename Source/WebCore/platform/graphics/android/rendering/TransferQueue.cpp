@@ -113,7 +113,7 @@ void TransferQueue::initGLResources(int width, int height)
                                         GL_TEXTURE_EXTERNAL_OES, true,
                                         bufferQueue);
 #endif
-        m_ANW = new android::SurfaceTextureClient(m_sharedSurfaceTexture);
+        m_ANW = new android::SurfaceTextureClient(bufferQueue);
         m_sharedSurfaceTexture->setSynchronousMode(true);
 
         int extraBuffersNeeded = 0;
