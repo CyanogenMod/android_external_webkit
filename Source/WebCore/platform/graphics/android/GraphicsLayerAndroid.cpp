@@ -1100,6 +1100,11 @@ void GraphicsLayerAndroid::setContentsToCanvas(PlatformLayer* canvasLayer)
         m_contentLayer->unref();
         m_contentLayer = canvasLayer;
 
+        // If the parent exists then notify it to re-sync it's children
+        if (m_parent) {
+            GraphicsLayerAndroid* parent = static_cast<GraphicsLayerAndroid*>(m_parent);
+            parent->m_needsSyncChildren = true;
+        }
         m_needsSyncChildren = true;
         m_is3DCanvas = true;
 
