@@ -188,7 +188,7 @@ private:
     bool m_hasGLContext;
 
     GLState m_GLStateBeforeBlit;
-    android::sp<android::SurfaceTexture> m_sharedSurfaceTexture;
+    android::sp<android::GLConsumer> m_sharedSurfaceTexture;
 
     int m_emptyItemCount;
 

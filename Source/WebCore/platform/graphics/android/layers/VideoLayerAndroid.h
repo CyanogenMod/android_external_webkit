@@ -33,7 +33,7 @@
 #include <jni.h>
 
 namespace android {
-class SurfaceTexture;
+class GLConsumer;
 }
 
 namespace WebCore {
@@ -57,7 +57,7 @@ public:
 
     // The following functions are called in UI thread only.
     virtual bool drawGL(bool layerTilesDisabled);
-    void setSurfaceTexture(sp<SurfaceTexture> texture, int textureName, PlayerState playerState);
+    void setSurfaceTexture(sp<GLConsumer> texture, int textureName, PlayerState playerState);
     virtual bool needsIsolatedSurface() { return true; }
 
 private:
@@ -67,7 +67,7 @@ private:
     SkRect calVideoRect(const SkRect& rect);
     // Surface texture for showing the video is actually allocated in Java side
     // and passed into this native code.
-    sp<android::SurfaceTexture> m_surfaceTexture;
+    sp<android::GLConsumer> m_surfaceTexture;
 
     PlayerState m_playerState;
 

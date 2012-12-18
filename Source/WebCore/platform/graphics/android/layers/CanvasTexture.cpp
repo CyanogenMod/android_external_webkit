@@ -41,7 +41,7 @@
 #include "SkPixelRef.h"
 
 #include <android/native_window.h>
-#include <gui/SurfaceTexture.h>
+#include <gui/GLConsumer.h>
 #include <gui/SurfaceTextureClient.h>
 
 namespace WebCore {
@@ -107,7 +107,7 @@ SurfaceTextureClient* CanvasTexture::nativeWindow()
         return 0;
     if (!useSurfaceTexture())
         return 0;
-    m_surfaceTexture = new android::SurfaceTexture(m_texture, false);
+    m_surfaceTexture = new android::GLConsumer(m_texture, false);
     m_ANW = new android::SurfaceTextureClient(m_surfaceTexture->getBufferQueue());
     int result = native_window_set_buffers_format(m_ANW.get(), HAL_PIXEL_FORMAT_RGBA_8888);
     GLUtils::checkSurfaceTextureError("native_window_set_buffers_format", result);

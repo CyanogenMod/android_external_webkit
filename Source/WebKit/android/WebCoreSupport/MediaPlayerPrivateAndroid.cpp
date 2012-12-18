@@ -40,12 +40,12 @@
 #include <JNIHelp.h>
 #include <JNIUtility.h>
 #include <SkBitmap.h>
-#include <gui/SurfaceTexture.h>
+#include <gui/GLConsumer.h>
 
 using namespace android;
 // Forward decl
 namespace android {
-sp<SurfaceTexture> SurfaceTexture_getSurfaceTexture(JNIEnv* env, jobject thiz);
+sp<GLConsumer> SurfaceTexture_getSurfaceTexture(JNIEnv* env, jobject thiz);
 };
 
 namespace WebCore {
@@ -644,7 +644,7 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
     if (!surfTex)
         return false;
 
-    sp<SurfaceTexture> texture = android::SurfaceTexture_getSurfaceTexture(env, surfTex);
+    sp<GLConsumer> texture = android::SurfaceTexture_getSurfaceTexture(env, surfTex);
     if (!texture.get())
         return false;
 
@@ -657,7 +657,7 @@ static bool SendSurfaceTexture(JNIEnv* env, jobject obj, jobject surfTex,
     if (!videoLayer)
         return false;
 
-    // Set the SurfaceTexture to the layer we found
+    // Set the GLConsumer to the layer we found
     videoLayer->setSurfaceTexture(texture, textureName, static_cast<PlayerState>(playerState));
     return true;
 }

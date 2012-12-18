@@ -39,7 +39,7 @@
 #include "TransferQueue.h"
 
 #include <android/native_window.h>
-#include <gui/SurfaceTexture.h>
+#include <gui/GLConsumer.h>
 #include <wtf/CurrentTime.h>
 
 // We will limit GL error logging for LOG_VOLUME_PER_CYCLE times every

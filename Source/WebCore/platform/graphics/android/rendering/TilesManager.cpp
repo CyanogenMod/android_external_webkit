@@ -42,7 +42,7 @@
 
 #include <android/native_window.h>
 #include <cutils/atomic.h>
-#include <gui/SurfaceTexture.h>
+#include <gui/GLConsumer.h>
 #include <gui/SurfaceTextureClient.h>
 #include <wtf/CurrentTime.h>
 

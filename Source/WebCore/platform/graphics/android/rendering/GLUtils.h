@@ -40,7 +40,7 @@
 
 namespace android {
 
-class SurfaceTexture;
+class GLConsumer;
 
 } // namespace android
 

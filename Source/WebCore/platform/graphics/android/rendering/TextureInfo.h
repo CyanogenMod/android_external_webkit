@@ -34,7 +34,7 @@
 using android::sp;
 
 namespace android {
-class SurfaceTexture;
+class GLConsumer;
 }
 
 namespace WebCore {

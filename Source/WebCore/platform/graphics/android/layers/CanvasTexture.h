@@ -34,7 +34,7 @@
 #include <utils/threads.h>
 
 namespace android {
-class SurfaceTexture;
+class GLConsumer;
 class SurfaceTextureClient;
 }
 
@@ -81,7 +81,7 @@ private:
     int m_layerId;
     GLuint m_texture;
     android::Mutex m_surfaceLock;
-    sp<android::SurfaceTexture> m_surfaceTexture;
+    sp<android::GLConsumer> m_surfaceTexture;
     sp<android::SurfaceTextureClient> m_ANW;
     bool m_hasValidTexture;
     bool m_useHwAcceleration;
