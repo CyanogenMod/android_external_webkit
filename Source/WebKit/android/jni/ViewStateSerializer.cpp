@@ -40,7 +40,8 @@
 #include "LayerContent.h"
 #include "PictureLayerContent.h"
 #include "ScrollableLayerAndroid.h"
-#include "SkFlattenable.h"
+#include "SkOrderedReadBuffer.h"
+#include "SkOrderedWriteBuffer.h"
 #include "SkPicture.h"
 #include "TilesManager.h"
 
@@ -381,7 +382,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
     bool hasContentsImage = layer->m_imageCRC != 0;
     stream->writeBool(hasContentsImage);
     if (hasContentsImage) {
-        SkFlattenableWriteBuffer buffer(1024);
+        SkOrderedWriteBuffer buffer(1024);
         buffer.setFlags(SkFlattenableWriteBuffer::kCrossProcess_Flag);
         ImageTexture* imagetexture =
                 ImagesManager::instance()->retainImage(layer->m_imageCRC);
@@ -500,7 +501,7 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
         int size = stream->readU32();
         SkAutoMalloc storage(size);
         stream->read(storage.get(), size);
-        SkFlattenableReadBuffer buffer(storage.get(), size);
+        SkOrderedReadBuffer buffer(storage.get(), size);
         SkBitmap contentsImage;
         contentsImage.unflatten(buffer);
         SkBitmapRef* imageRef = new SkBitmapRef(contentsImage);
