@@ -83,7 +83,6 @@
 #include "ANPSystem_npapi.h"
 #include "ANPVideo_npapi.h"
 #include "SkANP.h"
-#include "SkFlipPixelRef.h"
 
 ///////////////////////////////////////////////////////////////////////////////
 
