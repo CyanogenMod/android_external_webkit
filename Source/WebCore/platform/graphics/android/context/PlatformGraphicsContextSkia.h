@@ -46,7 +46,7 @@ public:
     // FIXME: This is used by ImageBufferAndroid, which should really be
     //        managing the canvas lifecycle itself
 
-    virtual bool deleteUs() const { return m_deleteCanvas; }
+    virtual bool deleteUs() const { return (m_deleteCanvas || (m_picture != NULL)); }
 
     // State management
     virtual void beginTransparencyLayer(float opacity);

@@ -124,12 +124,12 @@ HTMLCanvasElement::HTMLCanvasElement(const QualifiedName& tagName, Document* doc
 
 # if PLATFORM(ANDROID)
     char pval[PROPERTY_VALUE_MAX];
-    property_get("debug.recordingcanvas", pval, "0");
+    property_get("debug.recordingcanvas", pval, "1");
 
     m_recordingCanvasEnabled = atoi(pval) ? true : false;
 
     char pval2[PROPERTY_VALUE_MAX];
-    property_get("debug.gpucanvas", pval2, "0");
+    property_get("debug.gpucanvas", pval2, "1");
 
     m_gpuCanvasEnabled = atoi(pval2) ? true : false;
 
