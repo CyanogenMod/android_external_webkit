@@ -590,8 +590,8 @@ bool CanvasLayerAndroid::drawGL(bool layerTilesDisabled, TransformationMatrix& d
     }
 
     //Need to reset it back to the original shader
-    //CHECK: shouldn't need to set back to original shader as each draw call indexes into the array of programs
-    //glUseProgram(TilesManager::instance()->shader()->program());
+    //Reset cached states so that next draw call indexes into the array of programs
+    TilesManager::instance()->shader()->resetCachedStates();
 
     //Check generationIDs against list
     if(!generationIDs.empty())

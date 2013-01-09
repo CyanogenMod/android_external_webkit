@@ -173,6 +173,7 @@ public:
     TransformationMatrix& getSurfaceProjectionMatrix() { return m_surfaceProjectionMatrix; }
     TransformationMatrix& getClipProjectionMatrix()     { return m_clipProjectionMatrix;    }
     TransformationMatrix& getVisibleContentRectProjectionMatrix() { return m_visibleContentRectProjectionMatrix; }
+    void resetCachedStates()    { m_cachedProgramType = UndefinedShader ; m_cachedOpacity = -1; glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]); }
 
 private:
     GLuint loadShader(GLenum shaderType, const char* pSource);
