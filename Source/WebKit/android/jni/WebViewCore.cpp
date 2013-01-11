@@ -568,6 +568,7 @@ WebViewCore::~WebViewCore()
         m_javaGlue->m_obj = 0;
     }
     delete m_javaGlue;
+    delete m_textFieldInitDataGlue;
 }
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
