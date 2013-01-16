@@ -27,6 +27,7 @@
 #define PictureLayerContent_h
 
 #include "LayerContent.h"
+#include "SkStream.h"
 
 namespace WebCore {
 
@@ -48,6 +49,34 @@ private:
     SkPicture* m_picture;
     bool m_checkedContent;
     bool m_hasText;
+};
+
+class LegacyPictureLayerContent : public LayerContent {
+public:
+    LegacyPictureLayerContent(SkMemoryStream* pictureStream);
+    ~LegacyPictureLayerContent();
+
+    virtual int width() { return m_width; }
+    virtual int height() { return m_height; }
+    virtual void setCheckForOptimisations(bool check) {}
+    virtual void checkForOptimisations() {}
+    virtual float maxZoomScale() { return 1e6; }
+    virtual void draw(SkCanvas* canvas);
+    virtual void serialize(SkWStream* stream) { }
+
+private:
+    void* m_legacyLib;
+    void* m_legacyPicture;
+    int m_width;
+    int m_height;
+
+    typedef int  (*legacy_skia_create_picture_proc)(const void*, int, void**, int*, int*);
+    typedef void (*legacy_skia_delete_picture_proc)(void*);
+    typedef void (*legacy_skia_draw_picture_proc)(void*, void*, void*, int, int, int, int, void*);
+
+    legacy_skia_create_picture_proc m_createPictureProc;
+    legacy_skia_delete_picture_proc m_deletePictureProc;
+    legacy_skia_draw_picture_proc m_drawPictureProc;
 };
 
 } // WebCore
