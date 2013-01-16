@@ -2,7 +2,7 @@
  * Copyright (C) 2004, 2006, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
  * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
- * Copyright (c) 2012, Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2012, The Linux Foundation. All rights reserved.
  * Copyright (C) 2011, 2012 Sony Ericsson Mobile Communications AB
  * Copyright (C) 2012 Sony Mobile Communications AB
  *

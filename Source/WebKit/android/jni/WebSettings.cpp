@@ -1,6 +1,6 @@
 /*
  * Copyright 2007, The Android Open Source Project
- * Copyright (c) 2011, 2012 Code Aurora Forum. All rights reserved.
+ * Copyright (c) 2011, 2012 The Linux Foundation. All rights reserved.
  * Copyright (C) 2011, Sony Ericsson Mobile Communications AB
  *
  * Redistribution and use in source and binary forms, with or without
