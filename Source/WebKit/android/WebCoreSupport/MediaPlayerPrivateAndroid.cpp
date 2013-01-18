@@ -1,5 +1,6 @@
 /*
  * Copyright 2009, The Android Open Source Project
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,6 +42,7 @@
 #include <JNIUtility.h>
 #include <SkBitmap.h>
 #include <gui/GLConsumer.h>
+#include "SkBitmapRef.h"
 
 using namespace android;
 // Forward decl
@@ -67,6 +69,7 @@ struct MediaPlayerPrivate::JavaGlue {
     // Video
     jmethodID m_getInstance;
     jmethodID m_loadPoster;
+    jmethodID m_setVisibility;
 };
 
 MediaPlayerPrivate::~MediaPlayerPrivate()
@@ -111,34 +114,33 @@ void MediaPlayerPrivate::pause()
 void MediaPlayerPrivate::setVisible(bool visible)
 {
     m_isVisible = visible;
-    if (m_isVisible)
-        createJavaPlayerIfNeeded();
+
+    createJavaPlayerIfNeeded();
+
+    if (!m_glue->m_javaProxy)
+        return;
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_setVisibility, m_isVisible);
+    checkException(env);
 }
 
 void MediaPlayerPrivate::seek(float time)
 {
-    JNIEnv* env = JSC::Bindings::getJNIEnv();
-    if (!env || !m_url.length())
+    if (!m_url.length())
         return;
 
-    if (m_glue->m_javaProxy) {
-        env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_seek, static_cast<jint>(time * 1000.0f));
-        m_currentTime = time;
-    }
-    checkException(env);
-}
+    createJavaPlayerIfNeeded();
 
-void MediaPlayerPrivate::prepareToPlay()
-{
-    // We are about to start playing. Since our Java VideoView cannot
-    // buffer any data, we just simply transition to the HaveEnoughData
-    // state in here. This will allow the MediaPlayer to transition to
-    // the "play" state, at which point our VideoView will start downloading
-    // the content and start the playback.
-    m_networkState = MediaPlayer::Loaded;
-    m_player->networkStateChanged();
-    m_readyState = MediaPlayer::HaveEnoughData;
-    m_player->readyStateChanged();
+    if (!m_glue->m_javaProxy)
+        return;
+
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_seek, static_cast<jint>(time * 1000.0f));
+
+    m_currentTime = time;
+
+    checkException(env);
 }
 
 MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
@@ -214,20 +216,23 @@ public:
     void load(const String& url)
     {
         m_url = url;
-        // Cheat a bit here to make sure Window.onLoad event can be triggered
-        // at the right time instead of real video play time, since only full
-        // screen video play is supported in Java's VideoView.
-        // See also comments in prepareToPlay function.
+
         m_networkState = MediaPlayer::Loading;
         m_player->networkStateChanged();
-        m_readyState = MediaPlayer::HaveCurrentData;
+        // Cheat and set ready state to HaveMetadata so that the HTMLMediaElement
+        // displays the media controls properly even if video is not really loaded
+        m_readyState = MediaPlayer::HaveMetadata;
         m_player->readyStateChanged();
     }
 
     void play()
     {
-        JNIEnv* env = JSC::Bindings::getJNIEnv();
-        if (!env || !m_url.length() || !m_glue->m_javaProxy)
+        if (!m_url.length())
+            return;
+
+        createJavaPlayerIfNeeded();
+
+        if (!m_glue->m_javaProxy)
             return;
 
         m_paused = false;
@@ -236,12 +241,12 @@ public:
         if (m_currentTime == duration())
             m_currentTime = 0;
 
+        JNIEnv* env = JSC::Bindings::getJNIEnv();
         jstring jUrl = wtfStringToJstring(env, m_url);
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_play, jUrl,
                             static_cast<jint>(m_currentTime * 1000.0f),
                             m_videoLayer->uniqueId());
         env->DeleteLocalRef(jUrl);
-
         checkException(env);
     }
 
@@ -275,6 +280,20 @@ public:
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
         env->DeleteLocalRef(jUrl);
     }
+
+    bool hasSingleSecurityOrigin() const
+    {
+        String mimeType = m_player->getMimeType();
+        if (mimeType.isEmpty())
+            return false;
+
+        // Only playlist types may have multiple security origins (e.g. Apple
+        // HTTP Live Streaming). TODO: Ideally we'd want the MediaPlayer to
+        // tell us if all referenced resources within a media file have the
+        // same origin so that we don't have to blacklist all playlist files.
+        return !WebViewCore::isPlayListMimeType(mimeType);
+    }
+
     void paint(GraphicsContext* ctxt, const IntRect& r)
     {
         if (ctxt->paintingDisabled())
@@ -299,6 +318,31 @@ public:
         ctxt->platformContext()->drawBitmapRect(*m_poster, 0, targetRect);
     }
 
+    // Paint the video frame
+    //
+    // This function triggers the a repaint of the video frame on the main/UI thread during
+    // which the video frame will be drawn out to a bitmap.  The draw has to occur in the
+    // main/UI thread since the GL context is only valid on the UI thread.
+    //
+    // Note: This can potentially lock the calling thread for up to DRAW_VIDEO_FRAME_TIMEOUT duration.
+    void paintCurrentFrameInContext(GraphicsContext* ctxt, const IntRect& r) {
+        // This function should only be called when ready state is not HaveNothing or HaveMetadata
+        if (m_readyState == MediaPlayer::HaveNothing || m_readyState == MediaPlayer::HaveMetadata) {
+            ALOGE("Attempting to paintCurrentFrameInContext when video is not ready");
+            return;
+        }
+        // Call repaint() to trigger a drawGL in the UI thread
+        m_player->repaint();
+
+        SkBitmapRef* bitmapRef = NULL;
+        if (m_videoLayer->copyToBitmap(bitmapRef)) {
+            ASSERT(bitmapRef != NULL);
+            ctxt->platformContext()->drawBitmapRect(bitmapRef->bitmap(), 0, r);
+            // This should free the bitmap
+            bitmapRef->unref();
+        }
+    }
+
     void onPosterFetched(SkBitmap* poster)
     {
         m_poster = poster;
@@ -312,13 +356,6 @@ public:
             m_naturalSize = IntSize(poster->width(), poster->height());
             m_player->sizeChanged();
         }
-        // At this time, we know that the proxy has been setup. And it is the
-        // right time to trigger autoplay through the HTMLMediaElement state
-        // change. Since we are using the java MediaPlayer, so we have to
-        // pretend that the MediaPlayer has enough data.
-        m_readyState = MediaPlayer::HaveEnoughData;
-        m_player->readyStateChanged();
-
     }
 
     void onPrepared(int duration, int width, int height)
@@ -329,8 +366,7 @@ public:
         m_player->durationChanged();
         m_player->sizeChanged();
         TilesManager::instance()->videoLayerManager()->updateVideoLayerSize(
-            m_player->platformLayer()->uniqueId(), width * height,
-            width / (float)height);
+            m_player->platformLayer()->uniqueId(), width, height);
     }
 
     virtual bool hasAudio() const { return false; } // do not display the audio UI
@@ -356,6 +392,7 @@ public:
         m_glue->m_play = env->GetMethodID(clazz, "play", "(Ljava/lang/String;II)V");
         m_glue->m_enterFullscreenForVideoLayer =
             env->GetMethodID(clazz, "enterFullscreenForVideoLayer", "(Ljava/lang/String;I)V");
+        m_glue->m_setVisibility = env->GetMethodID(clazz, "setVisibility", "(Z)V");
 
         m_glue->m_teardown = env->GetMethodID(clazz, "teardown", "()V");
         m_glue->m_seek = env->GetMethodID(clazz, "seek", "(I)V");
@@ -399,6 +436,7 @@ public:
             jUrl = wtfStringToJstring(env, m_posterUrl);
         // Sending a NULL jUrl allows the Java side to try to load the default poster.
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_loadPoster, jUrl);
+
         if (jUrl)
             env->DeleteLocalRef(jUrl);
 
@@ -411,6 +449,11 @@ public:
     float maxTimeSeekable() const
     {
         return m_duration;
+    }
+
+    void onAvailableVideoFrame() {
+        m_readyState = MediaPlayer::HaveEnoughData;
+        m_player->readyStateChanged();
     }
 };
 
@@ -428,11 +471,29 @@ public:
         if (!m_glue->m_javaProxy)
             return;
 
+        // Cheat and set ready state to HaveMetadata so that the HTMLMediaElement
+        // displays the media controls properly even if audio is not really loaded
+        m_readyState = MediaPlayer::HaveMetadata;
+        m_player->readyStateChanged();
+
         jstring jUrl = wtfStringToJstring(env, m_url);
         // start loading the data asynchronously
         env->CallVoidMethod(m_glue->m_javaProxy, m_glue->m_setDataSource, jUrl);
         env->DeleteLocalRef(jUrl);
         checkException(env);
+    }
+
+    void prepareToPlay()
+    {
+        // We are about to start playing. Since our Java proxy player cannot
+        // buffer any data, we just simply transition to the HaveEnoughData
+        // state in here. This will allow the MediaPlayer to transition to
+        // the "play" state, at which point our MediaPlayer will start downloading
+        // the content and start the playback.
+        m_networkState = MediaPlayer::Loaded;
+        m_player->networkStateChanged();
+        m_readyState = MediaPlayer::HaveEnoughData;
+        m_player->readyStateChanged();
     }
 
     void play()
@@ -591,6 +652,14 @@ static void OnPaused(JNIEnv* env, jobject obj, int pointer)
     }
 }
 
+static void OnAvailableVideoFrame(JNIEnv* env, jobject obj, int pointer)
+{
+    if (pointer) {
+        WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
+        player->onAvailableVideoFrame();
+    }
+}
+
 static void OnPosterFetched(JNIEnv* env, jobject obj, jobject poster, int pointer)
 {
     if (!pointer || !poster)
@@ -627,6 +696,15 @@ static void OnRestoreState(JNIEnv* env, jobject obj, int pointer)
     }
 }
 
+// This is called on the UI thread only.
+static void SetVideoLayerPlayerState(JNIEnv* env, jobject obj, int videoLayerId, int textureName,
+        int playerState) {
+    if (TilesManager::instance()->videoLayerManager()->getTextureId(videoLayerId) == textureName) {
+        // If VideoLayer has been registered, update player state
+        TilesManager::instance()->videoLayerManager()->updatePlayerState(videoLayerId,
+                static_cast<PlayerState>(playerState));
+    }
+}
 
 // This is called on the UI thread only.
 // The video layers are composited on the webkit thread and then copied over
@@ -689,8 +767,12 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) OnRestoreState },
     { "nativeSendSurfaceTexture", "(Landroid/graphics/SurfaceTexture;IIII)Z",
         (void*) SendSurfaceTexture },
+    { "nativeSetVideoLayerPlayerState", "(III)V",
+        (void*) SetVideoLayerPlayerState},
     { "nativeOnTimeupdate", "(II)V",
         (void*) OnTimeupdate },
+    { "nativeOnAvailableVideoFrame", "(I)V",
+        (void*) OnAvailableVideoFrame }
 };
 
 static JNINativeMethod g_MediaAudioPlayerMethods[] = {

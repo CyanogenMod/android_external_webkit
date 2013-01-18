@@ -109,6 +109,16 @@ IntSize RenderVideo::calculateIntrinsicSize()
     // of the video resource, if that is available; otherwise it is the intrinsic 
     // height of the poster frame, if that is available; otherwise it is 150 CSS pixels.
     MediaPlayer* player = mediaElement()->player();
+
+#if PLATFORM(ANDROID)
+    // If video style is display none, configure it to show the smallest video possible
+    // This is due to HTMLVideoElement requiring a renderer even if display is "none"
+    // so that canvas or WebGL can capture video frames even when the video is not
+    // displayed.
+    if (player && style() && style()->display() == NONE)
+        return IntSize(1, 1);
+#endif
+
     if (player && video->readyState() >= HTMLVideoElement::HAVE_METADATA)
         return player->naturalSize();
 

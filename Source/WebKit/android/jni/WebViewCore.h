@@ -1,5 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -562,6 +563,7 @@ namespace android {
         static jobject getApplicationContext();
         // Check whether a media mimeType is supported in Android media framework.
         static bool isSupportedMediaMimeType(const WTF::String& mimeType);
+        static bool isPlayListMimeType(const WTF::String& mimeType);
 
         /**
          * Returns all text ranges consumed by the cursor points referred

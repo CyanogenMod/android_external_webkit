@@ -1,5 +1,6 @@
 /*
  * Copyright 2009,2010 The Android Open Source Project
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -85,7 +86,7 @@ public:
 
     virtual bool canLoadPoster() const { return false; }
     virtual void setPoster(const String&) { }
-    virtual void prepareToPlay();
+    virtual void prepareToPlay() { }
 
     virtual void paint(GraphicsContext*, const IntRect&) { }
 
@@ -94,6 +95,7 @@ public:
     void onRequestPlay();
     void onPaused();
     virtual void onPosterFetched(SkBitmap*) { }
+    virtual void onAvailableVideoFrame() { }
     void onBuffering(int percent);
     void onTimeupdate(int position);
     void onRestoreState();

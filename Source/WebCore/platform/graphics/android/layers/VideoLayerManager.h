@@ -1,5 +1,6 @@
 /*
  * Copyright 2011 The Android Open Source Project
+ * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,10 +29,12 @@
 
 #include "GLUtils.h"
 #include "IntRect.h"
+#include "IntSize.h"
 #include "RenderSkinMediaButton.h"
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 #include <utils/threads.h>
+#include "SkBitmapRef.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -48,15 +51,25 @@ enum IconType {
     PauseIcon
 };
 
+// state get from UI thread to decide which image to draw.
+// PREPARING should be the progressing image
+// PLAYING will be the Video (Surface Texture).
+// Otherwise will draw a static image.
+// NOTE: These values are matching the ones in HTML5VideoView.java
+// Please keep them in sync when changed here.
+typedef enum {INITIALIZED, PREPARING, PREPARED, PLAYING, RESETTED, RELEASED} PlayerState;
+
 // Every video layer can use its uniqueId to query VideoLayerManager about such
 // info globally.
 struct VideoLayerInfo {
     GLuint textureId; // GL texture bound with the surface texture.
-    int videoSize; // The size of the video.
+    IntSize videoSize; // The size of the video.
     float aspectRatio; // The aspect ratio of the video.
     int timeStamp; // Used to decide which VideoLayerInfo is the oldest one.
     GLfloat surfaceMatrix[16];
-
+    bool frameCapture;
+    SkRefPtr<SkBitmapRef> bitmapRef;
+    PlayerState playerState;
     double lastIconShownTime;
     IconState iconState;
 };
@@ -72,7 +85,9 @@ public:
     // Register the texture when we got setSurfaceTexture call.
     void registerTexture(const int layerId, const GLuint textureId);
     // Update the size when the video is prepared.
-    void updateVideoLayerSize(const int layerId, const int size, const float ratio);
+    void updateVideoLayerSize(const int layerId, const int width, const int height);
+    // Set the player state
+    void updatePlayerState(const int layerId, const PlayerState playerState);
     // At draw time, update the matrix for every video frame update.
     void updateMatrix(const int layerId, const GLfloat* matrix);
     // Remove the layer info from the mapping.
@@ -84,6 +99,13 @@ public:
     GLfloat* getMatrix(const int layerId);
     // Return the aspect ratio for the video corresponding to the layerId
     float getAspectRatio(const int layerId);
+    // Return the player state
+    PlayerState getPlayerState(const int layerId);
+    IntSize getVideoNaturalSize(const int layerId);
+    void requestFrameCapture(const int layerId);
+    bool serviceFrameCapture(const int layerId);
+    void pushBitmap(const int layerId, SkBitmapRef* bitmap);
+    SkBitmapRef* popBitmap(const int layerId);
 
     // Delete the GL textures
     void deleteUnusedTextures();

@@ -1,5 +1,6 @@
 /*
  * Copyright 2010, The Android Open Source Project
+ * Copyright (c) 2012-2013 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -888,6 +889,105 @@ void ShaderProgram::drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
 
     setBlendingState(false);
     glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+}
+
+// Sets up for drawing video layer to bitmap
+void ShaderProgram::drawToBitmapSetup(SkBitmap& bitmap) {
+    glGetIntegerv(GL_VIEWPORT, m_frameCaptureState.viewport);
+
+    // Save previous FBO
+    glGetIntegerv(GL_FRAMEBUFFER_BINDING, (GLint*) &m_frameCaptureState.previousFbo);
+
+    // Allocate and bind FBO
+    glGenFramebuffers(1, &m_frameCaptureState.frameFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_frameCaptureState.frameFbo);
+
+    // Gen and bind texture for FBO
+    glGenTextures(1, &m_frameCaptureState.frameTexture);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, m_frameCaptureState.frameTexture);
+
+    // Configure GL_TEXTURE_2D
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+    // Configure to bitmap width and height, always use GL_RGBA
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, bitmap.width(), bitmap.height(),
+            0, GL_RGBA, GL_UNSIGNED_BYTE, NULL);
+
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+            GL_TEXTURE_2D, m_frameCaptureState.frameTexture, 0);
+
+    GLenum glstatus = glCheckFramebufferStatus(GL_FRAMEBUFFER);
+    if (glstatus != GL_FRAMEBUFFER_COMPLETE) {
+        ALOGW("glCheckFramebufferStatus returned glstatus=%d", glstatus);
+    }
+    glDisable(GL_SCISSOR_TEST);
+}
+
+// clean up and restore previous settings after drawing video layer to bitmap
+void ShaderProgram::drawToBitmapRestore() {
+    glEnable(GL_SCISSOR_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER, m_frameCaptureState.previousFbo);
+    glDeleteFramebuffers(1, &m_frameCaptureState.frameFbo);
+    glDeleteTextures(1, &m_frameCaptureState.frameTexture);
+    glViewport(m_frameCaptureState.viewport[0], m_frameCaptureState.viewport[1],
+                m_frameCaptureState.viewport[2], m_frameCaptureState.viewport[3]);
+}
+
+void ShaderProgram::drawVideoLayerToBitmap(float* textureMatrix,
+                                           const SkRect& geometry,
+                                           int textureId,
+                                           SkBitmap& bitmap)
+{
+    GLint maxTextureSize = 0;
+    glGetIntegerv(GL_MAX_TEXTURE_SIZE, &maxTextureSize);
+    if (bitmap.width() > maxTextureSize || bitmap.height() > maxTextureSize ||
+        bitmap.config() != SkBitmap::kARGB_8888_Config) {
+        ALOGE("drawVideoLayerToBitmap bitmap configuration not supported");
+        return; // not supported
+    }
+
+    drawToBitmapSetup(bitmap);
+    SkAutoLockPixels alp(bitmap);
+
+    // switch to our custom yuv video rendering program
+    glUseProgram(m_handleArray[Video].programHandle);
+    TransformationMatrix orthographicMatrix;
+    GLUtils::setOrthographicMatrix(orthographicMatrix, 0, geometry.height(),
+                                   geometry.width(), 0, -1000, 1000);
+
+    glViewport(0, 0, geometry.width(), geometry.height());
+
+    TransformationMatrix modifiedDrawMatrix;
+    modifiedDrawMatrix.scale3d(geometry.width(), geometry.height(), 1);
+    TransformationMatrix renderMatrix =
+            orthographicMatrix * modifiedDrawMatrix;
+
+    GLfloat projectionMatrix[16];
+    GLUtils::toGLMatrix(projectionMatrix, renderMatrix);
+    glUniformMatrix4fv(m_handleArray[Video].projMtxHandle, 1, GL_FALSE,
+                       projectionMatrix);
+    glUniformMatrix4fv(m_handleArray[Video].videoMtxHandle, 1, GL_FALSE,
+                       textureMatrix);
+    glUniform1i(m_handleArray[Video].texSamplerHandle, 0);
+    glBindTexture(GL_TEXTURE_EXTERNAL_OES, textureId);
+
+    GLint videoPosition = m_handleArray[Video].positionHandle;
+    glBindBuffer(GL_ARRAY_BUFFER, m_textureBuffer[0]);
+    glEnableVertexAttribArray(videoPosition);
+    glVertexAttribPointer(videoPosition, 2, GL_FLOAT, GL_FALSE, 0, 0);
+
+    setBlendingState(false);
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+    // Read back from texture
+    glReadPixels(0, 0, bitmap.width(), bitmap.height(), GL_RGBA,
+            GL_UNSIGNED_BYTE, bitmap.getPixels());
+
+    drawToBitmapRestore();
 }
 
 void ShaderProgram::setGLDrawInfo(const android::uirenderer::DrawGlInfo* info)

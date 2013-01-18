@@ -1,6 +1,6 @@
 /*
  * Copyright 2006, The Android Open Source Project
- * Copyright (C) 2011, 2012 The Linux Foundation All rights reserved.
+ * Copyright (C) 2011-2013 The Linux Foundation All rights reserved.
  * Copyright (C) 2012 Sony Ericsson Mobile Communications AB.
  * Copyright (C) 2012 Sony Mobile Communications AB
  *
@@ -289,6 +289,7 @@ jobject WebViewCore::getApplicationContext() {
 
 struct WebViewCoreStaticMethods {
     jmethodID    m_isSupportedMediaMimeType;
+    jmethodID    m_isPlayListMimeType;
 } gWebViewCoreStaticMethods;
 
 // Check whether a media mimeType is supported in Android media framework.
@@ -298,6 +299,19 @@ bool WebViewCore::isSupportedMediaMimeType(const WTF::String& mimeType) {
     jclass webViewCore = env->FindClass("android/webkit/WebViewCore");
     bool val = env->CallStaticBooleanMethod(webViewCore,
           gWebViewCoreStaticMethods.m_isSupportedMediaMimeType, jMimeType);
+    checkException(env);
+    env->DeleteLocalRef(webViewCore);
+    env->DeleteLocalRef(jMimeType);
+
+    return val;
+}
+
+bool WebViewCore::isPlayListMimeType(const WTF::String& mimeType) {
+    JNIEnv* env = JSC::Bindings::getJNIEnv();
+    jstring jMimeType = wtfStringToJstring(env, mimeType);
+    jclass webViewCore = env->FindClass("android/webkit/WebViewCore");
+    bool val = env->CallStaticBooleanMethod(webViewCore,
+          gWebViewCoreStaticMethods.m_isPlayListMimeType, jMimeType);
     checkException(env);
     env->DeleteLocalRef(webViewCore);
     env->DeleteLocalRef(jMimeType);
@@ -5237,6 +5251,11 @@ int registerWebViewCore(JNIEnv* env)
         env->GetStaticMethodID(widget, "isSupportedMediaMimeType", "(Ljava/lang/String;)Z");
     LOG_FATAL_IF(!gWebViewCoreStaticMethods.m_isSupportedMediaMimeType,
         "Could not find static method isSupportedMediaMimeType from WebViewCore");
+
+    gWebViewCoreStaticMethods.m_isPlayListMimeType =
+        env->GetStaticMethodID(widget, "isPlayListMimeType", "(Ljava/lang/String;)Z");
+    LOG_FATAL_IF(!gWebViewCoreStaticMethods.m_isPlayListMimeType,
+        "Could not find static method isPlayListMimeType from WebViewCore");
 
     env->DeleteLocalRef(widget);
 
