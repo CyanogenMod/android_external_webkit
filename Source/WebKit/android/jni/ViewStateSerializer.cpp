@@ -153,12 +153,40 @@ static bool nativeSerializeViewState(JNIEnv* env, jobject, jint jbaseLayer,
 static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jint version,
                                                     jobject jstream, jbyteArray jstorage)
 {
-    SkStream* stream = CreateJavaInputStreamAdaptor(env, jstream, jstorage);
-    if (!stream)
+    SkStream* javaStream = CreateJavaInputStreamAdaptor(env, jstream, jstorage);
+    if (!javaStream)
         return 0;
-    Color color = stream->readU32();
-    SkPicture* picture = new SkPicture(stream);
-    PictureLayerContent* content = new PictureLayerContent(picture);
+
+    // read everything into memory so that we can get the offset into the stream
+    // when necessary. This is needed for the LegacyPictureLayerContent.
+    SkDynamicMemoryWStream tempStream;
+    const int bufferSize = 256*1024; // 256KB
+    uint8_t buffer[bufferSize];
+    int bytesRead = 0;
+
+    do {
+      bytesRead = javaStream->read(buffer, bufferSize);
+      tempStream.write(buffer, bytesRead);
+    } while (bytesRead != 0);
+
+    SkMemoryStream stream;
+    stream.setData(tempStream.copyToData())->unref();
+
+    // clean up the javaStream now that we have everything in memory
+    delete javaStream;
+
+    Color color = stream.readU32();
+
+
+
+    LayerContent* content;
+    if (version == 1) {
+        content = new LegacyPictureLayerContent(&stream);
+    } else {
+        SkPicture* picture = new SkPicture(&stream);
+        content = new PictureLayerContent(picture);
+        SkSafeUnref(picture);
+    }
 
     BaseLayerAndroid* layer = new BaseLayerAndroid(content);
     layer->setBackgroundColor(color);
@@ -168,14 +196,12 @@ static BaseLayerAndroid* nativeDeserializeViewState(JNIEnv* env, jobject, jint v
     layer->markAsDirty(dirtyRegion);
 
     SkSafeUnref(content);
-    SkSafeUnref(picture);
-    int childCount = stream->readS32();
+    int childCount = stream.readS32();
     for (int i = 0; i < childCount; i++) {
-        LayerAndroid* childLayer = deserializeLayer(version, stream);
+        LayerAndroid* childLayer = deserializeLayer(version, &stream);
         if (childLayer)
             layer->addChild(childLayer);
     }
-    delete stream;
     return layer;
 }
 
@@ -414,7 +440,7 @@ void serializeLayer(LayerAndroid* layer, SkWStream* stream)
         serializeLayer(layer->getChild(i), stream);
 }
 
-LayerAndroid* deserializeLayer(int version, SkStream* stream)
+LayerAndroid* deserializeLayer(int version, SkMemoryStream* stream)
 {
     int type = stream->readU8();
     if (type == LTNone)
@@ -510,11 +536,16 @@ LayerAndroid* deserializeLayer(int version, SkStream* stream)
     }
     bool hasRecordingPicture = stream->readBool();
     if (hasRecordingPicture) {
-        SkPicture* picture = new SkPicture(stream);
-        PictureLayerContent* content = new PictureLayerContent(picture);
+      LayerContent* content;
+        if (version == 1) {
+            content = new LegacyPictureLayerContent(stream);
+        } else {
+            SkPicture* picture = new SkPicture(stream);
+            content = new PictureLayerContent(picture);
+            SkSafeUnref(picture);
+        }
         layer->setContent(content);
         SkSafeUnref(content);
-        SkSafeUnref(picture);
     }
     int animationCount = stream->readU32(); // TODO: Support (maybe?)
     readTransformationMatrix(stream, layer->m_transform);

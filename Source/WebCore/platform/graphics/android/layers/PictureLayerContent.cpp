@@ -8,6 +8,9 @@
 #include "InspectorCanvas.h"
 #include "SkPicture.h"
 
+#include <dlfcn.h>
+#include "SkDevice.h"
+
 namespace WebCore {
 
 PictureLayerContent::PictureLayerContent(SkPicture* picture)
@@ -95,6 +98,73 @@ void PictureLayerContent::serialize(SkWStream* stream)
     if (!m_picture)
         return;
     m_picture->serialize(stream);
+}
+
+
+LegacyPictureLayerContent::LegacyPictureLayerContent(SkMemoryStream* pictureStream) {
+    m_legacyPicture = NULL;
+    m_width = 0;
+    m_height = 0;
+
+    // load legacy skia lib (all functions hidden except ones defined below)
+    m_legacyLib = dlopen("libskia_legacy.so", RTLD_LAZY);
+    *reinterpret_cast<void**>(&m_createPictureProc) = dlsym(m_legacyLib, "legacy_skia_create_picture");
+    *reinterpret_cast<void**>(&m_deletePictureProc) = dlsym(m_legacyLib, "legacy_skia_delete_picture");
+    *reinterpret_cast<void**>(&m_drawPictureProc) = dlsym(m_legacyLib, "legacy_skia_draw_picture");
+
+    const char* error = dlerror();
+    if (error) {
+      SkDebugf("Unable to load legacy lib: %s", error);
+      sk_throw();
+    }
+
+    // call into library to create picture and set width and height
+    const int streamLength = pictureStream->getLength() - pictureStream->peek();
+    int bytesRead = m_createPictureProc(pictureStream->getAtPos(), streamLength,
+                                        &m_legacyPicture, &m_width, &m_height);
+    pictureStream->skip(bytesRead);
+}
+
+LegacyPictureLayerContent::~LegacyPictureLayerContent() {
+    if (m_legacyLib) {
+        if (m_legacyPicture) {
+          m_deletePictureProc(m_legacyPicture);
+        }
+        dlclose(m_legacyLib);
+    }
+}
+
+void LegacyPictureLayerContent::draw(SkCanvas* canvas) {
+    if (!m_legacyPicture) {
+      return;
+    }
+
+    // if this is an InspectorCanvas we need to at least draw something to
+    // ensure that the canvas is not discarded. (We perform a no-op text
+    // draw in order to trigger the InspectorCanvas into performing high
+    // fidelity rendering while zooming.
+    SkPaint paint;
+    canvas->drawText(NULL, 0, 0, 0, paint);
+
+    // decompose the canvas into basics
+    void* matrixStorage = malloc(canvas->getTotalMatrix().flatten(NULL));
+    void* clipStorage = malloc(canvas->getTotalClip().flatten(NULL));
+
+    canvas->getTotalMatrix().flatten(matrixStorage);
+    canvas->getTotalClip().flatten(clipStorage);
+
+    const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(true);
+    bitmap.lockPixels();
+
+    // pass picture, matrix, clip, and bitmap
+    m_drawPictureProc(m_legacyPicture, matrixStorage, clipStorage,
+                      bitmap.width(), bitmap.height(), bitmap.getConfig(),
+                      bitmap.rowBytes(), bitmap.getPixels());
+
+
+    bitmap.unlockPixels();
+    free(matrixStorage);
+    free(clipStorage);
 }
 
 } // namespace WebCore
