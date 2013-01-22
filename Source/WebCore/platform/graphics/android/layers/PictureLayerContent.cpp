@@ -147,11 +147,11 @@ void LegacyPictureLayerContent::draw(SkCanvas* canvas) {
     canvas->drawText(NULL, 0, 0, 0, paint);
 
     // decompose the canvas into basics
-    void* matrixStorage = malloc(canvas->getTotalMatrix().flatten(NULL));
-    void* clipStorage = malloc(canvas->getTotalClip().flatten(NULL));
+    void* matrixStorage = malloc(canvas->getTotalMatrix().writeToMemory(NULL));
+    void* clipStorage = malloc(canvas->getTotalClip().writeToMemory(NULL));
 
-    canvas->getTotalMatrix().flatten(matrixStorage);
-    canvas->getTotalClip().flatten(clipStorage);
+    canvas->getTotalMatrix().writeToMemory(matrixStorage);
+    canvas->getTotalClip().writeToMemory(clipStorage);
 
     const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(true);
     bitmap.lockPixels();
