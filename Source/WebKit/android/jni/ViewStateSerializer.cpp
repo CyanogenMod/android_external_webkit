@@ -40,6 +40,7 @@
 #include "LayerContent.h"
 #include "PictureLayerContent.h"
 #include "ScrollableLayerAndroid.h"
+#include "SkData.h"
 #include "SkOrderedReadBuffer.h"
 #include "SkOrderedWriteBuffer.h"
 #include "SkPicture.h"
