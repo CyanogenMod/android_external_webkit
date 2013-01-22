@@ -40,6 +40,7 @@
 #include "LayerContent.h"
 #include "PictureLayerContent.h"
 #include "ScrollableLayerAndroid.h"
+#include "SkData.h"
 #include "SkFlattenable.h"
 #include "SkPicture.h"
 #include "TilesManager.h"
