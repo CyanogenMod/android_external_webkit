@@ -4,7 +4,7 @@
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
     Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
-    Copyright (c) 2011, 2012 The Linux Foundation. All rights reserved
+    Copyright (c) 2011-2013 The Linux Foundation. All rights reserved
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -416,8 +416,10 @@ CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type,
                 return resource;
             }
             else {
-                delete resource;
-                resource = NULL;
+                if (resource->canDelete()) {
+                    delete resource;
+                    resource = NULL;
+                }
             }
         }
 
