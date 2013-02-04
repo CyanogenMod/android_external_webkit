@@ -88,6 +88,7 @@ LOCAL_C_INCLUDES := \
 	external/skia/include/ports \
 	external/skia/include/utils \
 	external/skia/src/core \
+	external/skia/src/images \
 	external/skia/src/ports \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
