@@ -290,6 +290,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	fileapi/FileList.cpp \
 	fileapi/FileReader.cpp \
 	fileapi/FileReaderLoader.cpp \
+	fileapi/FileReaderSync.cpp \
 	fileapi/FileStreamProxy.cpp \
 	fileapi/FileThread.cpp \
 	fileapi/ThreadableBlobRegistry.cpp \

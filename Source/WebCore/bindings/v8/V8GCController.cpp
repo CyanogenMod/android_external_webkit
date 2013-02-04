@@ -81,19 +81,18 @@ namespace WebCore {
 //    V8GCController::unregisterGlobalHandle(type, host, handle);
 // #endif
 //
-typedef HashMap<v8::Value*, GlobalHandleInfo*> GlobalHandleMap;
 
 static GlobalHandleMap& globalHandleMap()
 {
-    DEFINE_STATIC_LOCAL(GlobalHandleMap, staticGlobalHandleMap, ());
-    return staticGlobalHandleMap;
+    return V8BindingPerIsolateData::current()->globalHandleMap();
 }
 
 // The function is the place to set the break point to inspect
 // live global handles. Leaks are often come from leaked global handles.
 static void enumerateGlobalHandles()
 {
-    for (GlobalHandleMap::iterator it = globalHandleMap().begin(), end = globalHandleMap().end(); it != end; ++it) {
+	GlobalHandleMap& globalHandleMap = currentGlobalHandleMap();
+	for (GlobalHandleMap::iterator it = globalHandleMap.begin(), end = globalHandleMap().end(); it != end; ++it) {
         GlobalHandleInfo* info = it->second;
         UNUSED_PARAM(info);
         v8::Value* handle = it->first;
@@ -103,15 +102,17 @@ static void enumerateGlobalHandles()
 
 void V8GCController::registerGlobalHandle(GlobalHandleType type, void* host, v8::Persistent<v8::Value> handle)
 {
-    ASSERT(!globalHandleMap().contains(*handle));
-    globalHandleMap().set(*handle, new GlobalHandleInfo(host, type));
+	GlobalHandleMap& globalHandleMap = currentGlobalHandleMap();
+	ASSERT(!globalHandleMap.contains(*handle));
+	globalHandleMap.set(*handle, new GlobalHandleInfo(host, type));
 }
 
 void V8GCController::unregisterGlobalHandle(void* host, v8::Persistent<v8::Value> handle)
 {
-    ASSERT(globalHandleMap().contains(*handle));
-    GlobalHandleInfo* info = globalHandleMap().take(*handle);
-    ASSERT(info->m_host == host);
+	GlobalHandleMap& globalHandleMap = currentGlobalHandleMap();
+	ASSERT(globalHandleMap.contains(*handle));
+	GlobalHandleInfo* info = globalHandleMap.take(*handle);
+	ASSERT(info->m_host == host);
     delete info;
 }
 #endif // ifndef NDEBUG
@@ -447,8 +448,8 @@ void V8GCController::gcPrologue()
     grouperVisitor.applyGrouping();
 
     // Clean single element cache for string conversions.
-    lastStringImpl = 0;
-    lastV8String.Clear();
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+    data->stringCache()->clearOnGC();
 }
 
 class GCEpilogueVisitor : public DOMWrapperMap<void>::Visitor {

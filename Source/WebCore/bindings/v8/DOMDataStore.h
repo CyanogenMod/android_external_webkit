@@ -72,15 +72,11 @@ namespace WebCore {
 #endif
         };
 
-        DOMDataStore(DOMData*);
+        DOMDataStore();
         virtual ~DOMDataStore();
 
         // A list of all DOMDataStore objects in the current V8 instance (thread). Normally, each World has a DOMDataStore.
         static DOMDataList& allStores();
-        // Mutex to protect against concurrent access of DOMDataList.
-        static WTF::Mutex& allStoresMutex();
-
-        DOMData* domData() const { return m_domData; }
 
         void* getDOMWrapperMap(DOMWrapperMapType);
 
@@ -107,10 +103,6 @@ namespace WebCore {
 #if ENABLE(SVG)
         DOMWrapperMap<SVGElementInstance>* m_domSvgElementInstanceMap;
 #endif
-
-    private:
-        // A back-pointer to the DOMData to which we belong.
-        DOMData* m_domData;
     };
 
 } // namespace WebCore

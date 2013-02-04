@@ -263,6 +263,11 @@ WEBKIT_SRC_FILES += $(addprefix $d/,$(LOCAL_SRC_FILES))
 LOCAL_PATH := $(BASE_PATH)
 
 # Define our compiler flags
+ifeq ($(DYNAMIC_SHARED_LIBV8SO), true)
+LOCAL_CFLAGS += -DENABLE_WORKERS=1
+LOCAL_CFLAGS += -DENABLE_SHARED_WORKERS=1
+endif
+LOCAL_CFLAGS += -DENABLE_CHANNEL_MESSAGING=1
 LOCAL_CFLAGS += -Wno-endif-labels -Wno-import -Wno-format
 LOCAL_CFLAGS += -fno-strict-aliasing
 LOCAL_CFLAGS += -include "WebCorePrefix.h"

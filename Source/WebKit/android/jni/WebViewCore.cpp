@@ -129,6 +129,7 @@
 #include "TextIterator.h"
 #include "TilesManager.h"
 #include "TypingCommand.h"
+#include "V8Binding.h"
 #include "WebCache.h"
 #include "WebCoreFrameBridge.h"
 #include "WebCoreJni.h"
@@ -562,7 +563,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     // libwebcore gets loaded. We now need to associate the WebCore thread with V8 to complete
     // initialisation.
     v8::V8::Initialize();
-
+    WebCore::V8BindingPerIsolateData::ensureInitialized(v8::Isolate::GetCurrent());
     // Configure any RuntimeEnabled features that we need to change from their default now.
     // See WebCore/bindings/generic/RuntimeEnabledFeatures.h
 

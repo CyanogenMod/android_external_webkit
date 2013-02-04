@@ -47,6 +47,39 @@
 
 namespace WebCore {
 
+V8BindingPerIsolateData::V8BindingPerIsolateData(v8::Isolate* isolate)
+    : m_domDataStore(0)
+    , m_currentAllocationsAllowed(false)
+{
+}
+
+V8BindingPerIsolateData::~V8BindingPerIsolateData()
+{
+}
+
+V8BindingPerIsolateData* V8BindingPerIsolateData::create(v8::Isolate* isolate)
+{
+    ASSERT(isolate);
+    ASSERT(!isolate->GetData());
+    V8BindingPerIsolateData* data = new V8BindingPerIsolateData(isolate);
+    isolate->SetData(data);
+    return data;
+}
+
+void V8BindingPerIsolateData::ensureInitialized(v8::Isolate* isolate)
+{
+    ASSERT(isolate);
+    if (!isolate->GetData())
+        create(isolate);
+}
+
+void V8BindingPerIsolateData::dispose(v8::Isolate* isolate)
+{
+    void* data = isolate->GetData();
+    delete static_cast<V8BindingPerIsolateData*>(data);
+    isolate->SetData(0);
+}
+
 // WebCoreStringResource is a helper class for v8ExternalString. It is used
 // to manage the life-cycle of the underlying buffer of the external string.
 class WebCoreStringResource : public v8::String::ExternalStringResource {
@@ -446,43 +479,31 @@ static v8::Local<v8::String> makeExternalString(const String& string)
     return newString;
 }
 
-typedef HashMap<StringImpl*, v8::String*> StringCache;
-
-static StringCache& getStringCache()
-{
-    ASSERT(WTF::isMainThread());
-    DEFINE_STATIC_LOCAL(StringCache, mainThreadStringCache, ());
-    return mainThreadStringCache;
-}
-
 static void cachedStringCallback(v8::Persistent<v8::Value> wrapper, void* parameter)
 {
-    ASSERT(WTF::isMainThread());
     StringImpl* stringImpl = static_cast<StringImpl*>(parameter);
-    ASSERT(getStringCache().contains(stringImpl));
-    getStringCache().remove(stringImpl);
+    V8BindingPerIsolateData::current()->stringCache()->remove(stringImpl);
     wrapper.Dispose();
     stringImpl->deref();
 }
 
-RefPtr<StringImpl> lastStringImpl = 0;
-v8::Persistent<v8::String> lastV8String;
+void StringCache::remove(StringImpl* stringImpl)
+{
+    ASSERT(m_stringCache.contains(stringImpl));
+    m_stringCache.remove(stringImpl);
+}
 
-v8::Local<v8::String> v8ExternalStringSlow(StringImpl* stringImpl)
+v8::Local<v8::String> StringCache::v8ExternalStringSlow(StringImpl* stringImpl)
 {
     if (!stringImpl->length())
         return v8::String::Empty();
 
-    if (!stringImplCacheEnabled)
-        return makeExternalString(String(stringImpl));
-
-    StringCache& stringCache = getStringCache();
-    v8::String* cachedV8String = stringCache.get(stringImpl);
+    v8::String* cachedV8String = m_stringCache.get(stringImpl);
     if (cachedV8String) {
         v8::Persistent<v8::String> handle(cachedV8String);
         if (!handle.IsNearDeath() && !handle.IsEmpty()) {
-            lastStringImpl = stringImpl;
-            lastV8String = handle;
+            m_lastStringImpl = stringImpl;
+            m_lastV8String = handle;
             return v8::Local<v8::String>::New(handle);
         }
     }
@@ -497,10 +518,10 @@ v8::Local<v8::String> v8ExternalStringSlow(StringImpl* stringImpl)
 
     stringImpl->ref();
     wrapper.MakeWeak(stringImpl, cachedStringCallback);
-    stringCache.set(stringImpl, *wrapper);
+    m_stringCache.set(stringImpl, *wrapper);
 
-    lastStringImpl = stringImpl;
-    lastV8String = wrapper;
+    m_lastStringImpl = stringImpl;
+    m_lastV8String = wrapper;
 
     return newString;
 }
@@ -540,10 +561,11 @@ v8::Local<v8::Signature> configureTemplate(v8::Persistent<v8::FunctionTemplate> 
 
 v8::Persistent<v8::String> getToStringName()
 {
-    DEFINE_STATIC_LOCAL(v8::Persistent<v8::String>, value, ());
-    if (value.IsEmpty())
-        value = v8::Persistent<v8::String>::New(v8::String::New("toString"));
-    return value;
+    v8::Persistent<v8::String>& toStringName = V8BindingPerIsolateData::current()->toStringName();
+    if (toStringName.IsEmpty())
+        toStringName = v8::Persistent<v8::String>::New(v8::String::New("toString"));
+    return *toStringName;
+
 }
 
 static v8::Handle<v8::Value> constructorToString(const v8::Arguments& args)
@@ -564,7 +586,7 @@ static v8::Handle<v8::Value> constructorToString(const v8::Arguments& args)
 
 v8::Persistent<v8::FunctionTemplate> getToStringTemplate()
 {
-    DEFINE_STATIC_LOCAL(v8::Persistent<v8::FunctionTemplate>, toStringTemplate, ());
+    v8::Persistent<v8::FunctionTemplate>& toStringTemplate = V8BindingPerIsolateData::current()->toStringTemplate();
     if (toStringTemplate.IsEmpty())
         toStringTemplate = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New(constructorToString));
     return toStringTemplate;

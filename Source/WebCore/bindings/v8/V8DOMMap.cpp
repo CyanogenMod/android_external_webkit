@@ -33,35 +33,29 @@
 
 #include "DOMData.h"
 #include "DOMDataStore.h"
-#include "MainThreadDOMData.h"
 #include "ScopedDOMDataStore.h"
+#include "V8Binding.h"
 
 namespace WebCore {
 
 DOMDataStoreHandle::DOMDataStoreHandle()
-    : m_store(new ScopedDOMDataStore(DOMData::getCurrent()))
+    : m_store(adoptPtr(new ScopedDOMDataStore()))
 {
+    V8BindingPerIsolateData::current()->registerDOMDataStore(m_store.get());
 }
 
 DOMDataStoreHandle::~DOMDataStoreHandle()
 {
+    V8BindingPerIsolateData::current()->unregisterDOMDataStore(m_store.get());
 }
-
-static bool fasterDOMStoreAccess = false;
 
 static inline DOMDataStore& getDOMDataStore()
 {
-    if (LIKELY(fasterDOMStoreAccess)) {
-        ASSERT(WTF::isMainThread());
-        return MainThreadDOMData::getCurrentMainThreadStore();
-    }
-
-    return DOMData::getCurrent()->getStore();
+    return DOMData::getCurrentStore();
 }
 
 void enableFasterDOMStoreAccess()
 {
-    fasterDOMStoreAccess = true;
 }
 
 DOMNodeMapping& getDOMNodeMap()
@@ -116,13 +110,9 @@ void visitDOMNodesInCurrentThread(DOMWrapperMap<Node>::Visitor* visitor)
 {
     v8::HandleScope scope;
 
-    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
     DOMDataList& list = DOMDataStore::allStores();
     for (size_t i = 0; i < list.size(); ++i) {
         DOMDataStore* store = list[i];
-        if (!store->domData()->owningThread() == WTF::currentThread())
-            continue;
-
         store->domNodeMap().visit(store, visitor);
     }
 }
@@ -131,13 +121,9 @@ void visitDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor* visitor)
 {
     v8::HandleScope scope;
 
-    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
     DOMDataList& list = DOMDataStore::allStores();
     for (size_t i = 0; i < list.size(); ++i) {
         DOMDataStore* store = list[i];
-        if (!store->domData()->owningThread() == WTF::currentThread())
-            continue;
-
         store->domObjectMap().visit(store, visitor);
     }
 }
@@ -146,13 +132,9 @@ void visitActiveDOMObjectsInCurrentThread(DOMWrapperMap<void>::Visitor* visitor)
 {
     v8::HandleScope scope;
 
-    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
     DOMDataList& list = DOMDataStore::allStores();
     for (size_t i = 0; i < list.size(); ++i) {
         DOMDataStore* store = list[i];
-        if (!store->domData()->owningThread() == WTF::currentThread())
-            continue;
-
         store->activeDomObjectMap().visit(store, visitor);
     }
 }
@@ -163,13 +145,9 @@ void visitDOMSVGElementInstancesInCurrentThread(DOMWrapperMap<SVGElementInstance
 {
     v8::HandleScope scope;
 
-    WTF::MutexLocker locker(DOMDataStore::allStoresMutex());
     DOMDataList& list = DOMDataStore::allStores();
     for (size_t i = 0; i < list.size(); ++i) {
         DOMDataStore* store = list[i];
-        if (!store->domData()->owningThread() == WTF::currentThread())
-            continue;
-
         store->domSvgElementInstanceMap().visit(store, visitor);
     }
 }

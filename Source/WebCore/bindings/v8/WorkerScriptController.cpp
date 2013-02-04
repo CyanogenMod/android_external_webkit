@@ -34,10 +34,13 @@
 
 #include "WorkerScriptController.h"
 
-#include "DOMTimer.h"
+#include <v8.h>
+
 #include "ScriptCallStack.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
+#include "DOMTimer.h"
+#include "DOMData.h"
 #include "V8DOMMap.h"
 #include "V8Proxy.h"
 #include "V8WorkerContext.h"
@@ -45,20 +48,28 @@
 #include "WorkerContextExecutionProxy.h"
 #include "WorkerObjectProxy.h"
 #include "WorkerThread.h"
-#include <v8.h>
 
 namespace WebCore {
 
 WorkerScriptController::WorkerScriptController(WorkerContext* workerContext)
     : m_workerContext(workerContext)
-    , m_proxy(new WorkerContextExecutionProxy(workerContext))
+    , m_isolate(v8::Isolate::New())
     , m_executionForbidden(false)
 {
+    V8BindingPerIsolateData* data = V8BindingPerIsolateData::create(m_isolate);
+    data->allStores().append(&m_DOMDataStore);
+    data->setDOMDataStore(&m_DOMDataStore);
+    m_isolate->Enter();
+    m_proxy = adoptPtr(new WorkerContextExecutionProxy(workerContext));
 }
 
 WorkerScriptController::~WorkerScriptController()
 {
     removeAllDOMObjectsInCurrentThread();
+    m_proxy.clear();
+    m_isolate->Exit();
+    V8BindingPerIsolateData::dispose(m_isolate);
+    m_isolate->Dispose();
 }
 
 ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode)
@@ -85,7 +96,7 @@ ScriptValue WorkerScriptController::evaluate(const ScriptSourceCode& sourceCode,
 
 void WorkerScriptController::scheduleExecutionTermination()
 {
-    v8::V8::TerminateExecution();
+    v8::V8::TerminateExecution(m_isolate);
 }
 
 void WorkerScriptController::forbidExecution()

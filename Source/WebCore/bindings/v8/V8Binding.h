@@ -32,18 +32,190 @@
 #define V8Binding_h
 
 #include "BindingSecurity.h"
+#include "DOMDataStore.h"
 #include "MathExtras.h"
 #include "PlatformString.h"
 #include "V8DOMWrapper.h"
+#include "V8HiddenPropertyName.h"
 #include <wtf/text/AtomicString.h>
-
-#include <v8.h>
 
 namespace WebCore {
 
     class DOMStringList;
     class EventListener;
     class EventTarget;
+
+    class StringCache {
+    public:
+        StringCache() { }
+
+        v8::Local<v8::String> v8ExternalString(StringImpl* stringImpl)
+        {
+            if (m_lastStringImpl.get() == stringImpl) {
+                ASSERT(!m_lastV8String.IsNearDeath());
+                ASSERT(!m_lastV8String.IsEmpty());
+                return v8::Local<v8::String>::New(m_lastV8String);
+            }
+
+            return v8ExternalStringSlow(stringImpl);
+        }
+
+        void clearOnGC()
+        {
+            m_lastStringImpl = 0;
+            m_lastV8String.Clear();
+        }
+
+        void remove(StringImpl*);
+
+    private:
+        v8::Local<v8::String> v8ExternalStringSlow(StringImpl*);
+
+        HashMap<StringImpl*, v8::String*> m_stringCache;
+        v8::Persistent<v8::String> m_lastV8String;
+        // Note: RefPtr is a must as we cache by StringImpl* equality, not identity
+        // hence lastStringImpl might be not a key of the cache (in sense of identity)
+        // and hence it's not refed on addition.
+        RefPtr<StringImpl> m_lastStringImpl;
+    };
+
+    class AllowAllocation;
+
+#ifndef NDEBUG
+    typedef HashMap<v8::Value*, GlobalHandleInfo*> GlobalHandleMap;
+#endif
+
+    class V8BindingPerIsolateData {
+    public:
+        static V8BindingPerIsolateData* create(v8::Isolate*);
+        static void ensureInitialized(v8::Isolate*);
+        static V8BindingPerIsolateData* get(v8::Isolate* isolate)
+        {
+            ASSERT(isolate->GetData());
+            return static_cast<V8BindingPerIsolateData*>(isolate->GetData());
+        }
+
+        static V8BindingPerIsolateData* current()
+        {
+            return get(v8::Isolate::GetCurrent());
+        }
+        static void dispose(v8::Isolate*);
+
+        typedef HashMap<WrapperTypeInfo*, v8::Persistent<v8::FunctionTemplate> > TemplateMap;
+
+        TemplateMap& rawTemplateMap() { return m_rawTemplates; }
+        TemplateMap& templateMap() { return m_templates; }
+        v8::Persistent<v8::String>& toStringName() { return m_toStringName; }
+        v8::Persistent<v8::FunctionTemplate>& toStringTemplate() { return m_toStringTemplate; }
+
+        v8::Persistent<v8::FunctionTemplate>& lazyEventListenerToStringTemplate()
+        {
+            return m_lazyEventListenerToStringTemplate;
+        }
+
+        StringCache* stringCache() { return &m_stringCache; }
+
+        DOMDataList& allStores() { return m_domDataList; }
+
+        V8HiddenPropertyName* hiddenPropertyName() { return &m_hiddenPropertyName; }
+
+        void registerDOMDataStore(DOMDataStore* domDataStore)
+        {
+            m_domDataList.append(domDataStore);
+        }
+
+        void unregisterDOMDataStore(DOMDataStore* domDataStore)
+        {
+            ASSERT(m_domDataList.find(domDataStore));
+            m_domDataList.remove(m_domDataList.find(domDataStore));
+        }
+
+
+        DOMDataStore* domDataStore() { return m_domDataStore; }
+        // DOMDataStore is owned outside V8BindingPerIsolateData.
+        void setDOMDataStore(DOMDataStore* store) { m_domDataStore = store; }
+
+#ifndef NDEBUG
+        GlobalHandleMap& globalHandleMap() { return m_globalHandleMap; }
+#endif
+
+    private:
+        explicit V8BindingPerIsolateData(v8::Isolate*);
+        ~V8BindingPerIsolateData();
+
+        TemplateMap m_rawTemplates;
+        TemplateMap m_templates;
+        v8::Persistent<v8::String> m_toStringName;
+        v8::Persistent<v8::FunctionTemplate> m_toStringTemplate;
+        v8::Persistent<v8::FunctionTemplate> m_lazyEventListenerToStringTemplate;
+        StringCache m_stringCache;
+
+        DOMDataList m_domDataList;
+        DOMDataStore* m_domDataStore;
+
+        V8HiddenPropertyName m_hiddenPropertyName;
+
+        bool m_currentAllocationsAllowed;
+        friend class AllowAllocation;
+
+#ifndef NDEBUG
+        GlobalHandleMap m_globalHandleMap;
+#endif
+    };
+
+    class AllowAllocation {
+    public:
+        AllowAllocation()
+        {
+            V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+            m_previous = data->m_currentAllocationsAllowed;
+            data->m_currentAllocationsAllowed = true;
+        }
+
+        ~AllowAllocation()
+        {
+            V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+            data->m_currentAllocationsAllowed = m_previous;
+        }
+
+        static bool current() {
+            return V8BindingPerIsolateData::current()->m_currentAllocationsAllowed;
+        }
+
+    private:
+        bool m_previous;
+    };
+
+    class SafeAllocation {
+    public:
+        static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::Function>);
+        static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::ObjectTemplate>);
+        static inline v8::Local<v8::Object> newInstance(v8::Handle<v8::Function>, int argc, v8::Handle<v8::Value> argv[]);
+    };
+
+    v8::Local<v8::Object> SafeAllocation::newInstance(v8::Handle<v8::Function> function)
+    {
+        if (function.IsEmpty())
+            return v8::Local<v8::Object>();
+        AllowAllocation allow;
+        return function->NewInstance();
+    }
+
+    v8::Local<v8::Object> SafeAllocation::newInstance(v8::Handle<v8::ObjectTemplate> objectTemplate)
+    {
+        if (objectTemplate.IsEmpty())
+            return v8::Local<v8::Object>();
+        AllowAllocation allow;
+        return objectTemplate->NewInstance();
+    }
+
+    v8::Local<v8::Object> SafeAllocation::newInstance(v8::Handle<v8::Function> function, int argc, v8::Handle<v8::Value> argv[])
+    {
+        if (function.IsEmpty())
+            return v8::Local<v8::Object>();
+        AllowAllocation allow;
+        return function->NewInstance(argc, argv);
+    }
 
     // FIXME: Remove V8Binding.
     class V8Binding {
@@ -76,13 +248,6 @@ namespace WebCore {
     AtomicString v8NonStringValueToAtomicWebCoreString(v8::Handle<v8::Value>);
     AtomicString v8ValueToAtomicWebCoreString(v8::Handle<v8::Value> value);
 
-    // Note: RefPtr is a must as we cache by StringImpl* equality, not identity
-    // hence lastStringImpl might be not a key of the cache (in sense of identity)
-    // and hence it's not refed on addition.
-    extern RefPtr<StringImpl> lastStringImpl;
-    extern v8::Persistent<v8::String> lastV8String;
-    v8::Local<v8::String> v8ExternalStringSlow(StringImpl* stringImpl);
-
     // Return a V8 external string that shares the underlying buffer with the given
     // WebCore string. The reference counting mechanism is used to keep the
     // underlying buffer alive while the string is still live in the V8 engine.
@@ -92,13 +257,8 @@ namespace WebCore {
         if (!stringImpl)
             return v8::String::Empty();
 
-        if (lastStringImpl.get() == stringImpl) {
-            ASSERT(!lastV8String.IsNearDeath());
-            ASSERT(!lastV8String.IsEmpty());
-            return v8::Local<v8::String>::New(lastV8String);
-        }
-
-        return v8ExternalStringSlow(stringImpl);
+        V8BindingPerIsolateData* data = V8BindingPerIsolateData::current();
+        return data->stringCache()->v8ExternalString(stringImpl);
     }
 
     // Convert a string to a V8 string.
