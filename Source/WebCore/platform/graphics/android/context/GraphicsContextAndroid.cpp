@@ -102,15 +102,13 @@ static void syncPlatformContext(GraphicsContext* gc)
 
 GraphicsContext* GraphicsContext::createOffscreenContext(int width, int height)
 {
-    PlatformGraphicsContextSkia* pgc = new PlatformGraphicsContextSkia(new SkCanvas, true);
-
     SkBitmap bitmap;
-
     bitmap.setConfig(SkBitmap::kARGB_8888_Config, width, height);
     bitmap.allocPixels();
     bitmap.eraseColor(0);
-    pgc->canvas()->setBitmapDevice(bitmap);
 
+    PlatformGraphicsContextSkia* pgc =
+        new PlatformGraphicsContextSkia(new SkCanvas(bitmap), true);
     GraphicsContext* ctx = new GraphicsContext(pgc);
     return ctx;
 }

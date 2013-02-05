@@ -113,10 +113,7 @@ SkBitmap* ImageTexture::convertBitmap(SkBitmap* bitmap)
     // Create a copy of the image
     img->setConfig(SkBitmap::kARGB_8888_Config, w, h);
     img->allocPixels();
-    SkDevice* device = new SkDevice(*img);
-    SkCanvas canvas;
-    canvas.setDevice(device);
-    device->unref();
+    SkCanvas canvas(*img);
     SkRect dest;
     dest.set(0, 0, w, h);
     img->setIsOpaque(false);
