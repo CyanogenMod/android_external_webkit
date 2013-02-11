@@ -1095,6 +1095,18 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	storage/StorageSyncManager.cpp \
 	storage/StorageTracker.cpp
 
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	websockets/WebSocket.cpp \
+	websockets/WebSocketChannel.cpp \
+	websockets/WebSocketHandshake.cpp \
+	websockets/ThreadableWebSocketChannel.cpp \
+	websockets/WorkerThreadableWebSocketChannel.cpp \
+	websockets/WebSocketHandshakeRequest.cpp \
+	websockets/WebSocketHandshakeResponse.cpp \
+	platform/network/SocketStreamHandleBase.cpp \
+	platform/network/SocketStreamErrorBase.cpp \
+	platform/network/android/SocketStreamHandleAndroid.cpp
+
 ifeq ($(ENABLE_SVG), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/ColorDistance.cpp \
