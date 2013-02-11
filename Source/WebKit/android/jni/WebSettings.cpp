@@ -53,6 +53,7 @@
 #include "WebCoreJni.h"
 #include "WorkerContextExecutionProxy.h"
 #include "WebRequestContext.h"
+#include "WebSocket.h"
 #include "WebViewCore.h"
 
 #include <JNIHelp.h>
@@ -101,6 +102,9 @@ struct FieldIds {
                 "Landroid/webkit/WebSettings$PluginState;");
 #if ENABLE(DATABASE)
         mDatabaseEnabled = env->GetFieldID(clazz, "mDatabaseEnabled", "Z");
+#endif
+#if ENABLE(WEB_SOCKETS)
+        mWebSocketsEnabled = env->GetFieldID(clazz, "mWebSocketsEnabled", "Z");
 #endif
 #if ENABLE(DOM_STORAGE)
         mDomStorageEnabled = env->GetFieldID(clazz, "mDomStorageEnabled", "Z");
@@ -264,6 +268,9 @@ struct FieldIds {
 
 #if ENABLE(DATABASE)
     jfieldID mDatabaseEnabled;
+#endif
+#if ENABLE(WEB_SOCKETS)
+    jfieldID mWebSocketsEnabled;
 #endif
 #if ENABLE(DOM_STORAGE)
     jfieldID mDomStorageEnabled;
@@ -545,6 +552,10 @@ public:
                     close(fd);
             }
         }
+#endif
+#if ENABLE(WEB_SOCKETS)
+        flag = env->GetBooleanField(obj, gFieldIds->mWebSocketsEnabled);
+        WebCore::WebSocket::setIsAvailable(flag);
 #endif
 #if ENABLE(DOM_STORAGE)
         flag = env->GetBooleanField(obj, gFieldIds->mDomStorageEnabled);
