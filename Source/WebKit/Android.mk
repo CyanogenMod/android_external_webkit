@@ -44,7 +44,8 @@ LOCAL_SRC_FILES := \
 	android/WebCoreSupport/WebRequestContext.cpp \
 	android/WebCoreSupport/WebResourceRequest.cpp \
 	android/WebCoreSupport/WebResponse.cpp \
-	android/WebCoreSupport/WebViewClientError.cpp
+	android/WebCoreSupport/WebViewClientError.cpp \
+	android/WebCoreSupport/WebSocketBridge.cpp
 
 LOCAL_SRC_FILES += \
 	android/RenderSkinAndroid.cpp \
