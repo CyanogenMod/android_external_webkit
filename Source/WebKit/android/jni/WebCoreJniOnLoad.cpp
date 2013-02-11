@@ -94,7 +94,7 @@ extern int registerMediaPlayerVideo(JNIEnv*);
 #endif
 extern int registerDeviceMotionAndOrientationManager(JNIEnv*);
 extern int registerCookieManager(JNIEnv*);
-
+extern int registerCacheManager(JNIEnv*);
 }
 
 struct RegistrationMethod {
