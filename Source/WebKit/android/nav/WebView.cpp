@@ -1180,7 +1180,7 @@ static void nativeOnTrimMemory(JNIEnv *env, jobject obj, jint level)
 
 static void nativeDumpDisplayTree(JNIEnv* env, jobject jwebview, jstring jurl)
 {
-#if defined(ANDROID_DUMP_DISPLAY_TREE) && defined(SK_DEVELOPER)
+#ifdef ANDROID_DUMP_DISPLAY_TREE
     WebView* view = GET_NATIVE_VIEW(env, jwebview);
     ALOG_ASSERT(view, "view not set in %s", __FUNCTION__);
 

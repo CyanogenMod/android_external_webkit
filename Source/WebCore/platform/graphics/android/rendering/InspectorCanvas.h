@@ -40,9 +40,8 @@ class InspectorBounder : public SkBounder {
 
 class InspectorCanvas : public SkCanvas {
 public:
-    InspectorCanvas(SkBounder* bounder, SkPicture* picture, SkBitmap& bitmap)
-        : SkCanvas(bitmap)
-        , m_picture(picture)
+    InspectorCanvas(SkBounder* bounder, SkPicture* picture)
+        : m_picture(picture)
         , m_hasText(false)
         , m_hasContent(false)
     {

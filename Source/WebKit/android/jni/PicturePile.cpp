@@ -84,7 +84,8 @@ void PicturePile::draw(SkCanvas* canvas)
      * the rect bounds of the SkRegion for the clip, so this still can't be
      * used for translucent surfaces
      */
-    if (canvas->quickReject(SkRect::MakeWH(m_size.width(), m_size.height())))
+    if (canvas->quickReject(SkRect::MakeWH(m_size.width(), m_size.height()),
+            SkCanvas::kBW_EdgeType))
         return;
     drawWithClipRecursive(canvas, m_pile.size() - 1);
 }
@@ -101,7 +102,7 @@ void PicturePile::drawWithClipRecursive(SkCanvas* canvas, int index)
     if (index < 0)
         return;
     PictureContainer& pc = m_pile[index];
-    if (pc.picture && !canvas->quickReject(pc.area)) {
+    if (pc.picture && !canvas->quickReject(pc.area, SkCanvas::kBW_EdgeType)) {
         int saved = canvas->save(SkCanvas::kClip_SaveFlag);
         if (canvas->clipRect(pc.area, SkRegion::kDifference_Op))
             drawWithClipRecursive(canvas, index - 1);
