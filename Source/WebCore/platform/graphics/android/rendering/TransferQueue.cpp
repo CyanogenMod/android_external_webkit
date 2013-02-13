@@ -117,13 +117,9 @@ void TransferQueue::initGLResources(int width, int height)
         m_sharedSurfaceTexture->setSynchronousMode(true);
 
         int extraBuffersNeeded = 0;
-        int extraHackyBuffersNeeded = 0;
-        if (m_transferQueueSize == EFFICIENT_SIZE)
-            extraHackyBuffersNeeded = 13;
         m_ANW->query(m_ANW.get(), NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS,
                      &extraBuffersNeeded);
-        bufferQueue->setBufferCount(m_transferQueueSize + extraBuffersNeeded +
-                extraHackyBuffersNeeded);
+        bufferQueue->setBufferCount(m_transferQueueSize + extraBuffersNeeded);
 
         int result = native_window_set_buffers_geometry(m_ANW.get(),
                 width, height, HAL_PIXEL_FORMAT_RGBA_8888);
