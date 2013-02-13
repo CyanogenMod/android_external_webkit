@@ -47,10 +47,9 @@ static int gUniqueId;
 class OpacityDrawFilter : public SkDrawFilter {
 public:
     OpacityDrawFilter(int opacity) : m_opacity(opacity) { }
-    virtual bool filter(SkPaint* paint, Type)
+    virtual void filter(SkPaint* paint, Type)
     {
         paint->setAlpha(m_opacity);
-        return true;
     }
 private:
     int m_opacity;

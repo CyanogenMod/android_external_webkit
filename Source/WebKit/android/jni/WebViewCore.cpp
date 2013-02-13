@@ -560,7 +560,7 @@ WebViewCore::~WebViewCore()
     WebViewCore::removeInstance(this);
 
     // Release the focused view
-    ::Release(m_popupReply);
+    Release(m_popupReply);
 
     if (m_javaGlue->m_obj) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -3501,7 +3501,7 @@ void WebViewCore::popupReply(int index)
 {
     if (m_popupReply) {
         m_popupReply->replyInt(index);
-        ::Release(m_popupReply);
+        Release(m_popupReply);
         m_popupReply = 0;
     }
 }
@@ -3510,7 +3510,7 @@ void WebViewCore::popupReply(const int* array, int count)
 {
     if (m_popupReply) {
         m_popupReply->replyIntArray(array, count);
-        ::Release(m_popupReply);
+        Release(m_popupReply);
         m_popupReply = 0;
     }
 }
