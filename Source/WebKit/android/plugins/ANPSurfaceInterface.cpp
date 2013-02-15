@@ -35,6 +35,7 @@
 #include <ui/Rect.h>
 #include <ui/Region.h>
 #include <utils/RefBase.h>
+#include <android_runtime/android_view_Surface.h>
 
 using namespace android;
 
@@ -43,7 +44,6 @@ static struct ANPSurfaceInterfaceJavaGlue {
     bool        initialized;
     jmethodID   getSurfaceHolder;
     jmethodID   getSurface;
-    jfieldID    surfacePointer;
 } gSurfaceJavaGlue;
 
 static inline sp<android::Surface> getSurface(JNIEnv* env, jobject view) {
@@ -61,11 +61,6 @@ static inline sp<android::Surface> getSurface(JNIEnv* env, jobject view) {
         gSurfaceJavaGlue.getSurface = env->GetMethodID(surfaceHolderClass, "getSurface",
                                                        "()Landroid/view/Surface;");
 
-        jclass surfaceClass = env->FindClass("android/view/Surface");
-        gSurfaceJavaGlue.surfacePointer = env->GetFieldID(surfaceClass,
-                ANDROID_VIEW_SURFACE_JNI_ID, "I");
-
-        env->DeleteLocalRef(surfaceClass);
         env->DeleteLocalRef(surfaceViewClass);
         env->DeleteLocalRef(surfaceHolderClass);
 
@@ -74,12 +69,13 @@ static inline sp<android::Surface> getSurface(JNIEnv* env, jobject view) {
 
     jobject holder = env->CallObjectMethod(view, gSurfaceJavaGlue.getSurfaceHolder);
     jobject surface = env->CallObjectMethod(holder, gSurfaceJavaGlue.getSurface);
-    jint surfacePointer = env->GetIntField(surface, gSurfaceJavaGlue.surfacePointer);
+
+    sp<android::Surface> sur = android_view_Surface_getSurface(env, surface);
 
     env->DeleteLocalRef(holder);
     env->DeleteLocalRef(surface);
 
-    return sp<android::Surface>((android::Surface*) surfacePointer);
+    return sur;
 }
 
 static inline ANPBitmapFormat convertPixelFormat(PixelFormat format) {
