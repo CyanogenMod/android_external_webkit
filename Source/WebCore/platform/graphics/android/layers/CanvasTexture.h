@@ -53,7 +53,7 @@ public:
      * Called by WebKit thread
      ********************************************/
     void setSize(const IntSize& size);
-    Surface* nativeWindow();
+    android::Surface* nativeWindow();
     bool uploadImageBuffer(ImageBuffer* imageBuffer);
     bool hasValidTexture() { return m_hasValidTexture; }
 
