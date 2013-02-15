@@ -30,7 +30,7 @@
 
 #include <android/native_window.h>
 #include <gui/GLConsumer.h>
-#include <gui/SurfaceTextureClient.h>
+#include <gui/Surface.h>
 #include <JNIUtility.h>
 #include "WebCoreJni.h"
 
@@ -281,7 +281,7 @@ MediaTexture::TextureWrapper* MediaTexture::createTexture()
     // populate the wrapper
     glGenTextures(1, &wrapper->textureId);
     wrapper->surfaceTexture = new android::GLConsumer(wrapper->textureId);
-    wrapper->nativeWindow = new android::SurfaceTextureClient(
+    wrapper->nativeWindow = new android::Surface(
             wrapper->surfaceTexture->getBufferQueue());
     wrapper->dimensions.setEmpty();
 

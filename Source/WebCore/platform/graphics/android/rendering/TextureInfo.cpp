@@ -31,7 +31,7 @@
 #include <JNIUtility.h>
 #include <android/native_window.h>
 #include <gui/GLConsumer.h>
-#include <gui/SurfaceTextureClient.h>
+#include <gui/Surface.h>
 
 namespace WebCore {
 
