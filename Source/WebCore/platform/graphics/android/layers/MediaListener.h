@@ -20,7 +20,7 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include <gui/GLConsumer.h>
-#include <gui/SurfaceTextureClient.h>
+#include <gui/Surface.h>
 #include <jni.h>
 #include <JNIUtility.h>
 #include "MediaTexture.h"

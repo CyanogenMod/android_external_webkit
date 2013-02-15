@@ -47,7 +47,7 @@ public:
     void invertContents(bool invert) { m_mediaTexture->invertContents(invert); }
     void setOutlineSize(int size) { m_outlineSize = size; }
 
-    // function to setup the primary SurfaceTextureClient in the renderer's context
+    // function to setup the primary Surface in the renderer's context
     ANativeWindow* acquireNativeWindowForContent();
 
     // functions to manipulate secondary layers for video playback
@@ -60,7 +60,7 @@ private:
     bool m_isCopy;
     int m_outlineSize;
 
-    // SurfaceTextureClient member variables
+    // Surface member variables
     MediaTexture* m_mediaTexture;
 };
 
