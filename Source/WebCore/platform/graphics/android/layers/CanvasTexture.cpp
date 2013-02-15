@@ -98,7 +98,7 @@ void CanvasTexture::setSize(const IntSize& size)
     }
 }
 
-Surface* CanvasTexture::nativeWindow()
+android::Surface* CanvasTexture::nativeWindow()
 {
     android::Mutex::Autolock lock(m_surfaceLock);
     if (m_ANW.get())
@@ -127,7 +127,7 @@ Surface* CanvasTexture::nativeWindow()
 bool CanvasTexture::uploadImageBuffer(ImageBuffer* imageBuffer)
 {
     m_hasValidTexture = false;
-    Surface* anw = nativeWindow();
+    android::Surface* anw = nativeWindow();
     if (!anw)
         return false;
     // Size mismatch, early abort (will fall back to software)
