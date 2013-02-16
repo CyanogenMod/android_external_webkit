@@ -107,14 +107,17 @@ static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRec
         dirtyRegion.set(Rect(0x3FFF, 0x3FFF));
     }
 
-    android::Surface::SurfaceInfo info;
-    status_t err = surface->lock(&info, &dirtyRegion);
+
+    ANativeWindow_Buffer outBuffer;
+    Rect dirtyBounds(dirtyRegion.getBounds());
+    status_t err = surface->lock(&outBuffer, &dirtyBounds);
     if (err < 0) {
         return false;
     }
 
     // the surface may have expanded the dirty region so we must to pass that
     // information back to the plugin.
+    dirtyRegion.set(dirtyBounds);
     if (dirtyRect) {
         Rect dirtyBounds = dirtyRegion.getBounds();
         dirtyRect->left = dirtyBounds.left;
@@ -123,15 +126,15 @@ static bool anp_lock(JNIEnv* env, jobject surfaceView, ANPBitmap* bitmap, ANPRec
         dirtyRect->bottom = dirtyBounds.bottom;
     }
 
-    ssize_t bpr = info.s * bytesPerPixel(info.format);
+    ssize_t bpr = outBuffer.stride * bytesPerPixel(outBuffer.format);
 
-    bitmap->format = convertPixelFormat(info.format);
-    bitmap->width = info.w;
-    bitmap->height = info.h;
+    bitmap->format = convertPixelFormat(outBuffer.format);
+    bitmap->width = outBuffer.width;
+    bitmap->height = outBuffer.height;
     bitmap->rowBytes = bpr;
 
-    if (info.w > 0 && info.h > 0) {
-        bitmap->baseAddr = info.bits;
+    if (outBuffer.width > 0 && outBuffer.height > 0) {
+        bitmap->baseAddr = outBuffer.bits;
     } else {
         bitmap->baseAddr = NULL;
         return false;
