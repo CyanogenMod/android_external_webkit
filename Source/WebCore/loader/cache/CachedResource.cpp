@@ -4,6 +4,7 @@
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2006 Samuel Weinig (sam.weinig@gmail.com)
     Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+    Copyright (c) 2011, 2012 The Linux Foundation. All rights reserved
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -44,6 +45,9 @@
 #include <wtf/RefCountedLeakCounter.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
+#include <wtf/text/CString.h>
+
+#include <StatHubCmdApi.h>
 
 using namespace WTF;
 
@@ -113,6 +117,7 @@ CachedResource::CachedResource(const ResourceRequest& request, Type type)
 #ifndef NDEBUG
     cachedResourceLeakCounter.increment();
 #endif
+    m_statHubHash = StatHubHash(url().string().latin1().data());
 }
 
 CachedResource::~CachedResource()
@@ -171,6 +176,31 @@ void CachedResource::error(CachedResource::Status status)
 void CachedResource::finish()
 {
     m_status = Cached;
+    if (m_statHubHash) {
+        StatHubCmd* cmd = StatHubCmdCreate(SH_CMD_WK_RESOURCE, SH_ACTION_DID_FINISH_LOAD);
+        if (NULL!=cmd) {
+            StatHubCmdAddParamAsUint32(cmd, m_statHubHash);
+            StatHubCmdAddParamAsBool(cmd, canUseCacheValidator());
+            StatHubCmdAddParamAsUint32(cmd, (unsigned int) type());
+            StatHubCmdCommit(cmd);
+        }
+    }
+}
+
+void CachedResource::setInCache(bool inCache) {
+    m_inCache = inCache;
+    if (m_statHubHash) {
+        StatHubCmd* cmd = StatHubCmdCreate(SH_CMD_WK_MEMORY_CACHE, SH_ACTION_STATUS);
+        if (NULL!=cmd) {
+            StatHubCmdAddParamAsUint32(cmd, m_statHubHash);
+            StatHubCmdAddParamAsBool(cmd, m_inCache);
+            if (StatHubIsPerfEnabled()) {
+                StatHubCmdAddParamAsUint32(cmd, memoryCache()->getDeadSize());
+                StatHubCmdAddParamAsUint32(cmd, memoryCache()->getLiveSize());
+            }
+            StatHubCmdCommit(cmd);
+        }
+    }
 }
 
 bool CachedResource::passesAccessControlCheck(SecurityOrigin* securityOrigin)

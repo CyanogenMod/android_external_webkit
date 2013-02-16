@@ -1,5 +1,6 @@
 /*
  * Copyright 2010, The Android Open Source Project
+ * Copyright (c) 2012 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -74,6 +75,27 @@ WebResponse::WebResponse(const string &url, const string &mimeType, long long ex
     , m_mime(mimeType)
     , m_url(url)
 {
+}
+
+WebResponse::WebResponse(const string &url, const string &headers, int actualSize)
+    : m_error(net::OK)
+    , m_url(url)
+{
+    scoped_refptr<net::HttpResponseHeaders> responseHeaders;
+    responseHeaders = new net::HttpResponseHeaders(headers);
+
+    responseHeaders->GetMimeType(&m_mime);
+    responseHeaders->GetCharset(&m_encoding);
+
+    m_expectedSize = actualSize;
+    m_httpStatusCode = responseHeaders->response_code();
+    m_httpStatusText = responseHeaders->GetStatusText();
+
+    string value;
+    string name;
+    void* iter = 0;
+    while (responseHeaders->EnumerateHeaderLines(&iter, &name, &value))
+        m_headerFields[name] = value;
 }
 
 WebCore::ResourceResponse WebResponse::createResourceResponse()

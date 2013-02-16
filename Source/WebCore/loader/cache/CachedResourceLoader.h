@@ -3,6 +3,7 @@
     Copyright (C) 2001 Dirk Mueller <mueller@kde.org>
     Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
     Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
+    Copyright (c) 2012 The Linux Foundation. All rights reserved
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -115,9 +116,9 @@ public:
     void printPreloadStats();
     
 private:
-    CachedResource* requestResource(CachedResource::Type, ResourceRequest&, const String& charset, ResourceLoadPriority = ResourceLoadPriorityUnresolved, bool isPreload = false);
-    CachedResource* revalidateResource(CachedResource*, ResourceLoadPriority priority);
-    CachedResource* loadResource(CachedResource::Type, ResourceRequest&, const String& charset, ResourceLoadPriority);
+    CachedResource* requestResource(CachedResource::Type, ResourceRequest&, const String& charset, ResourceLoadPriority priority = ResourceLoadPriorityUnresolved, bool forPreload = false);
+    CachedResource* revalidateResource(CachedResource*, ResourceLoadPriority priority, bool forPreload);
+    CachedResource* loadResource(CachedResource::Type, ResourceRequest&, const String& charset, ResourceLoadPriority priority, bool forPreload);
     void requestPreload(CachedResource::Type, ResourceRequest& url, const String& charset);
 
     enum RevalidationPolicy { Use, Revalidate, Reload, Load };

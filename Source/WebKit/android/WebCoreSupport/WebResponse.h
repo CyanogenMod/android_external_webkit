@@ -1,5 +1,6 @@
 /*
  * Copyright 2010, The Android Open Source Project
+ * Copyright (c) 2012 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,6 +47,7 @@ public:
     WebResponse() {}
     WebResponse(net::URLRequest*);
     WebResponse(const std::string &url, const std::string &mimeType, long long expectedSize, const std::string &encoding, int httpStatusCode);
+    WebResponse(const std::string &url, const std::string &headers, int actualSize);
 
     const std::string& getUrl() const;
     void setUrl(const std::string&);

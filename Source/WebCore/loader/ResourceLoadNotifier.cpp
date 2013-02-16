@@ -2,6 +2,7 @@
  * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nokia Corporation and/or its subsidiary(-ies)
  * Copyright (C) 2008, 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+ * Copyright (c) 2012 The Linux Foundation. All rights reserved
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -39,6 +40,10 @@
 #include "Page.h"
 #include "ProgressTracker.h"
 #include "ResourceLoader.h"
+
+#include <string>
+#include <wtf/text/CString.h>
+#include <StatHubCmdApi.h>
 
 namespace WebCore {
 
@@ -117,6 +122,26 @@ void ResourceLoadNotifier::dispatchWillSendRequest(DocumentLoader* loader, unsig
         m_frame->loader()->documentLoader()->didTellClientAboutLoad(request.url());
 
     InspectorInstrumentation::willSendRequest(m_frame, identifier, loader, request, redirectResponse);
+
+    StatHubCmd* cmd = StatHubCmdCreate(SH_CMD_WK_RESOURCE, SH_ACTION_WILL_SEND_REQUEST);
+    if (NULL!=cmd) {
+        Vector<UChar> stringBuilder;
+        String separator(": ");
+        String eol("\r\n");
+
+        HTTPHeaderMap::const_iterator end = request.httpHeaderFields().end();
+        for (HTTPHeaderMap::const_iterator it = request.httpHeaderFields().begin(); it != end; ++it) {
+            stringBuilder.append(it->first.characters(), it->first.length());
+            stringBuilder.append(separator.characters(), separator.length());
+            stringBuilder.append(it->second.characters(), it->second.length());
+            stringBuilder.append(eol.characters(), eol.length());
+        }
+
+        StatHubCmdAddParamAsString(cmd, request.url().string().latin1().data());
+        StatHubCmdAddParamAsString(cmd, request.httpMethod().latin1().data());
+        StatHubCmdAddParamAsString(cmd, String::adopt(stringBuilder).latin1().data());
+        StatHubCmdCommit(cmd);
+    }
 
     // Report WebTiming for all frames.
     if (loader && !request.isNull() && request.url() == loader->requestURL())

@@ -1112,6 +1112,11 @@ public:
 
     NodeRareData* documentRareData() const { return m_documentRareData; };
     void setDocumentRareData(NodeRareData* rareData) { m_documentRareData = rareData; }
+    unsigned int getNumExternalJs() const { return m_externalJs; }
+    void incrementNumExternalJs() { m_externalJs++; }
+
+    bool doObjectPrefetch() const { return m_doObjPrfth; }
+    bool doJsCssPrefetch() const { return m_doJsCssPrfth; }
 
 protected:
     Document(Frame*, const KURL&, bool isXHTML, bool isHTML);
@@ -1415,6 +1420,10 @@ private:
     RefPtr<MediaQueryMatcher> m_mediaQueryMatcher;
     bool m_writeRecursionIsTooDeep;
     unsigned m_writeRecursionDepth;
+
+    unsigned int m_externalJs;
+    bool m_doObjPrfth;
+    bool m_doJsCssPrfth;
 
 #if ENABLE(REQUEST_ANIMATION_FRAME)
     OwnPtr<ScriptedAnimationController> m_scriptedAnimationController;

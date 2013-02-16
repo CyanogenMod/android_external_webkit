@@ -4,6 +4,7 @@
     Copyright (C) 2002 Waldo Bastian (bastian@kde.org)
     Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
     Copyright (C) 2009 Torch Mobile Inc. http://www.torchmobile.com/
+    Copyright (c) 2011, 2012 The Linux Foundation. All rights reserved
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -51,9 +52,40 @@
 #include <wtf/text/CString.h>
 #include <wtf/text/StringConcatenate.h>
 
+#include "SharedBuffer.h"
+#include "ResourceResponse.h"
+#include "WebResponse.h"
+
 #define PRELOAD_DEBUG 0
 
+#include <StatHubCmdApi.h>
+
 namespace WebCore {
+
+static void StatHubStartLoadResource(CachedResourceLoader* cachedResourceLoader,
+        const String& url, ResourceLoadPriority priority, bool forPreload, bool fromNetwork,
+        int delay=0) {
+    if (NULL!=cachedResourceLoader) {
+        unsigned short main_url_len = cachedResourceLoader->document()->url().string().length();
+        unsigned short sub_url_len = url.length();
+        if (sub_url_len && main_url_len && cachedResourceLoader->document()->url().protocolInHTTPFamily() && KURL(ParsedURLString, url).protocolInHTTPFamily()) {
+            StatHubCmd* cmd = StatHubCmdCreate(SH_CMD_WK_RESOURCE, SH_ACTION_WILL_START_LOAD);
+            if (NULL!=cmd) {
+                StatHubCmdAddParamAsString(cmd, cachedResourceLoader->document()->url().string().latin1().data());
+                StatHubCmdAddParamAsString(cmd, url.latin1().data());
+                StatHubCmdAddParamAsBool(cmd, fromNetwork);
+                StatHubCmdAddParamAsUint32(cmd, priority);
+                StatHubCmdAddParamAsBool(cmd, forPreload);
+                if(!delay) {
+                    StatHubCmdCommit(cmd);
+                }
+                else {
+                    StatHubCmdCommitDelayed(cmd, delay);
+                }
+            }
+        }
+    }
+}
 
 static CachedResource* createResource(CachedResource::Type type, ResourceRequest& request, const String& charset)
 {
@@ -351,18 +383,58 @@ CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type,
     if (request.url() != url)
         request.setURL(url);
 
+    if (NULL==resource && !memoryCache()->disabled()) {
+        //Look in StatHub
+        char* data;
+        int size;
+        std::string headers;
+        if (StatHubIsPreloaded(url.string().latin1().data(), headers, data, size)) {
+            android::WebResponse web_response(url.string().latin1().data(), headers, size);
+
+            resource = createResource(type, request, charset);
+            bool inCache = memoryCache()->add(resource);
+
+            //simulate CachedResourceRequest::didReceiveResponse
+            ResourceResponse response = web_response.createResourceResponse();
+
+            resource->setResponse(response);
+            String encoding = response.textEncodingName();
+            if (!encoding.isNull()) {
+                resource->setEncoding(encoding);
+            }
+
+            //simulate CachedResourceRequest::didReceiveData
+            RefPtr<SharedBuffer> copiedData = SharedBuffer::create(data, size);
+            resource->data(copiedData.release(), true);
+            if (resource->inCache()) {
+                StatHubReleasePreloaded(url.string().latin1().data());
+                StatHubStartLoadResource(this, resource->url(), priority, forPreload, false);
+                resource->finish();
+                memoryCache()->resourceAccessed(resource);
+                notifyLoadedFromMemoryCache(resource);
+                m_documentResources.set(resource->url(), resource);
+                return resource;
+            }
+            else {
+                delete resource;
+                resource = NULL;
+            }
+        }
+
+    }
     switch (determineRevalidationPolicy(type, forPreload, resource)) {
     case Load:
-        resource = loadResource(type, request, charset, priority);
+        resource = loadResource(type, request, charset, priority, forPreload);
         break;
     case Reload:
         memoryCache()->remove(resource);
-        resource = loadResource(type, request, charset, priority);
+        resource = loadResource(type, request, charset, priority, forPreload);
         break;
     case Revalidate:
-        resource = revalidateResource(resource, priority);
+        resource = revalidateResource(resource, priority, forPreload);
         break;
     case Use:
+        StatHubStartLoadResource(this, resource->url(), priority, forPreload, false);
         memoryCache()->resourceAccessed(resource);
         notifyLoadedFromMemoryCache(resource);
         break;
@@ -377,7 +449,7 @@ CachedResource* CachedResourceLoader::requestResource(CachedResource::Type type,
     return resource;
 }
 
-CachedResource* CachedResourceLoader::revalidateResource(CachedResource* resource, ResourceLoadPriority priority)
+CachedResource* CachedResourceLoader::revalidateResource(CachedResource* resource, ResourceLoadPriority priority, bool forPreload)
 {
     ASSERT(resource);
     ASSERT(resource->inCache());
@@ -395,6 +467,8 @@ CachedResource* CachedResourceLoader::revalidateResource(CachedResource* resourc
     memoryCache()->remove(resource);
     memoryCache()->add(newResource);
 
+    StatHubStartLoadResource(this, newResource->url(), priority, forPreload, true);
+
     newResource->setLoadPriority(priority);
     newResource->load(this);
 
@@ -402,13 +476,15 @@ CachedResource* CachedResourceLoader::revalidateResource(CachedResource* resourc
     return newResource;
 }
 
-CachedResource* CachedResourceLoader::loadResource(CachedResource::Type type, ResourceRequest& request, const String& charset, ResourceLoadPriority priority)
+CachedResource* CachedResourceLoader::loadResource(CachedResource::Type type, ResourceRequest& request, const String& charset, ResourceLoadPriority priority, bool forPreload)
 {
     ASSERT(!memoryCache()->resourceForURL(request.url()));
 
     LOG(ResourceLoading, "Loading CachedResource for '%s'.", request.url().string().latin1().data());
 
     CachedResource* resource = createResource(type, request, charset);
+
+    StatHubStartLoadResource(this, resource->url(), priority, forPreload, true);
 
     bool inCache = memoryCache()->add(resource);
 
@@ -695,15 +771,29 @@ void CachedResourceLoader::preload(CachedResource::Type type, ResourceRequest& r
 {
     // FIXME: Rip this out when we are sure it is no longer necessary (even for mobile).
     UNUSED_PARAM(referencedFromBody);
-
+    // Only preload immediately if we are doing JS/CSS prefetch
     bool hasRendering = m_document->body() && m_document->body()->renderer();
     bool canBlockParser = type == CachedResource::Script || type == CachedResource::CSSStyleSheet;
-    if (!hasRendering && !canBlockParser) {
-        // Don't preload subresources that can't block the parser before we have something to draw.
-        // This helps prevent preloads from delaying first display when bandwidth is limited.
-        PendingPreload pendingPreload = { type, request, charset };
-        m_pendingPreloads.append(pendingPreload);
-        return;
+    if (StatHubIsPreloaderEnabled()) {
+        char* data;
+        int size;
+        std::string headers;
+        if (!StatHubIsPreloaded(request.url().string().latin1().data(), headers, data, size)) {
+            //Indicate pending preload request by setting priority to ResourceLoadPriorityVeryLow instead of
+            //ResourceLoadPriorityUnresolved in regular preload request.
+            StatHubStartLoadResource(this, request.url(), ResourceLoadPriorityVeryLow, true, false);
+        }
+    }
+    else {
+        if (!hasRendering && !canBlockParser && !document()->doJsCssPrefetch()) {
+            // Don't preload subresources that can't block the parser before we have something to draw.
+            // This helps prevent preloads from delaying first display when bandwidth is limited.
+            PendingPreload pendingPreload = { type, request, charset };
+            m_pendingPreloads.append(pendingPreload);
+
+            StatHubStartLoadResource(this, request.url(), ResourceLoadPriorityVeryLow, true, false, 100);
+            return;
+        }
     }
     requestPreload(type, request, charset);
 }
