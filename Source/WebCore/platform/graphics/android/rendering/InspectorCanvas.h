@@ -60,6 +60,10 @@ public:
                                   const SkIRect* rect,
                                   const SkMatrix&,
                                   const SkPaint&);
+    virtual void drawBitmapRectToRect(const SkBitmap& bitmap,
+                                      const SkRect* src,
+                                      const SkRect& dst,
+                                      const SkPaint* paint);
 
     virtual void drawPaint(const SkPaint& paint);
     virtual void drawPath(const SkPath&, const SkPaint& paint);
