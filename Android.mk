@@ -87,6 +87,8 @@ LOCAL_C_INCLUDES := \
 	external/skia/include/images \
 	external/skia/include/ports \
 	external/skia/include/utils \
+	external/skia/src/core \
+	external/skia/src/images \
 	external/skia/src/ports \
 	external/sqlite/dist \
 	frameworks/base/core/jni/android/graphics \
@@ -322,7 +324,7 @@ LOCAL_CFLAGS += -DSUPPORT_COMPLEX_SCRIPTS=1
 endif
 
 # Build the list of static libraries
-LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libskiagpu libv8
+LOCAL_STATIC_LIBRARIES := libxml2 libxslt libhyphenation libv8
 
 ifeq ($(ENABLE_AUTOFILL),true)
 LOCAL_SHARED_LIBRARIES += libexpat

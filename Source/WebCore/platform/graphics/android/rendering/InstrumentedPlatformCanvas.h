@@ -195,12 +195,12 @@ public:
         SkCanvas::drawBitmap(bitmap, left, top, paint);
     }
 
-    virtual void drawBitmapRect(const SkBitmap& bitmap, const SkIRect* src,
+    virtual void drawBitmapRectToRect(const SkBitmap& bitmap, const SkRect* src,
             const SkRect& dst, const SkPaint* paint)
     {
         WRAPCANVAS_LOG_ENTRY("");
         m_isSolidColor = false;
-        SkCanvas::drawBitmapRect(bitmap, src, dst, paint);
+        SkCanvas::drawBitmapRectToRect(bitmap, src, dst, paint);
     }
 
     virtual void drawBitmapMatrix(const SkBitmap& bitmap,

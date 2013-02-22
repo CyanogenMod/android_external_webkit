@@ -61,13 +61,12 @@ float PictureLayerContent::maxZoomScale()
 
     // Let's check if we have text or not. If we don't, we can limit
     // ourselves to scale 1!
-    InspectorBounder inspectorBounder;
-    InspectorCanvas checker(&inspectorBounder, m_picture);
     SkBitmap bitmap;
     bitmap.setConfig(SkBitmap::kARGB_8888_Config,
                      m_picture->width(),
                      m_picture->height());
-    checker.setBitmapDevice(bitmap);
+    InspectorBounder inspectorBounder;
+    InspectorCanvas checker(&inspectorBounder, m_picture, bitmap);
     checker.drawPicture(*m_picture);
     m_hasText = checker.hasText();
     if (!checker.hasContent()) {
@@ -148,11 +147,11 @@ void LegacyPictureLayerContent::draw(SkCanvas* canvas) {
     canvas->drawText(NULL, 0, 0, 0, paint);
 
     // decompose the canvas into basics
-    void* matrixStorage = malloc(canvas->getTotalMatrix().flatten(NULL));
-    void* clipStorage = malloc(canvas->getTotalClip().flatten(NULL));
+    void* matrixStorage = malloc(canvas->getTotalMatrix().writeToMemory(NULL));
+    void* clipStorage = malloc(canvas->getTotalClip().writeToMemory(NULL));
 
-    canvas->getTotalMatrix().flatten(matrixStorage);
-    canvas->getTotalClip().flatten(clipStorage);
+    canvas->getTotalMatrix().writeToMemory(matrixStorage);
+    canvas->getTotalClip().writeToMemory(clipStorage);
 
     const SkBitmap& bitmap = canvas->getDevice()->accessBitmap(true);
     bitmap.lockPixels();

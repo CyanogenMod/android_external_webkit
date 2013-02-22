@@ -50,7 +50,7 @@ WebFrameView::WebFrameView(WebCore::FrameView* frameView, WebViewCore* webViewCo
 }
 
 WebFrameView::~WebFrameView() {
-    Release(mWebViewCore);
+    ::Release(mWebViewCore);
 }
 
 void WebFrameView::draw(WebCore::GraphicsContext* gc, const WebCore::IntRect& rect) {
