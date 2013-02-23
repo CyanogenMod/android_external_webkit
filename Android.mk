@@ -26,7 +26,7 @@
 # Control SVG compiling in webkit.
 # Default is true unless explictly disabled.
 ifneq ($(ENABLE_SVG),false)
-    ENABLE_SVG = true
+    ENABLE_SVG := true
 endif
 
 # Control complex scripts support compiling in webkit.
