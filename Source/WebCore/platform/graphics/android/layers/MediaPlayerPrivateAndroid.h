@@ -95,7 +95,7 @@ public:
     void onRequestPlay();
     void onPaused();
     virtual void onPosterFetched(SkBitmap*) { }
-    virtual void onAvailableVideoFrame() { }
+    virtual void onVideoFrameAvailable() { }
     void onBuffering(int percent);
     void onTimeupdate(int position);
     void onRestoreState();

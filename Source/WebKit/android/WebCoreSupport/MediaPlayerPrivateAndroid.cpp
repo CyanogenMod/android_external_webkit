@@ -451,7 +451,9 @@ public:
         return m_duration;
     }
 
-    void onAvailableVideoFrame() {
+    void onVideoFrameAvailable() {
+        m_networkState = MediaPlayer::Loaded;
+        m_player->networkStateChanged();
         m_readyState = MediaPlayer::HaveEnoughData;
         m_player->readyStateChanged();
     }
@@ -652,11 +654,11 @@ static void OnPaused(JNIEnv* env, jobject obj, int pointer)
     }
 }
 
-static void OnAvailableVideoFrame(JNIEnv* env, jobject obj, int pointer)
+static void OnVideoFrameAvailable(JNIEnv* env, jobject obj, int pointer)
 {
     if (pointer) {
         WebCore::MediaPlayerPrivate* player = reinterpret_cast<WebCore::MediaPlayerPrivate*>(pointer);
-        player->onAvailableVideoFrame();
+        player->onVideoFrameAvailable();
     }
 }
 
@@ -699,11 +701,8 @@ static void OnRestoreState(JNIEnv* env, jobject obj, int pointer)
 // This is called on the UI thread only.
 static void SetVideoLayerPlayerState(JNIEnv* env, jobject obj, int videoLayerId, int textureName,
         int playerState) {
-    if (TilesManager::instance()->videoLayerManager()->getTextureId(videoLayerId) == textureName) {
-        // If VideoLayer has been registered, update player state
-        TilesManager::instance()->videoLayerManager()->updatePlayerState(videoLayerId,
-                static_cast<PlayerState>(playerState));
-    }
+    TilesManager::instance()->videoLayerManager()->updatePlayerState(videoLayerId,
+            static_cast<PlayerState>(playerState));
 }
 
 // This is called on the UI thread only.
@@ -771,8 +770,8 @@ static JNINativeMethod g_MediaPlayerMethods[] = {
         (void*) SetVideoLayerPlayerState},
     { "nativeOnTimeupdate", "(II)V",
         (void*) OnTimeupdate },
-    { "nativeOnAvailableVideoFrame", "(I)V",
-        (void*) OnAvailableVideoFrame }
+    { "nativeOnVideoFrameAvailable", "(I)V",
+        (void*) OnVideoFrameAvailable }
 };
 
 static JNINativeMethod g_MediaAudioPlayerMethods[] = {
