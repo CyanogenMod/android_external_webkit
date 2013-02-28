@@ -1904,7 +1904,7 @@ static void SslClientCertPKCS8(JNIEnv *env, jobject obj, int handle, jbyteArray 
     client->sslClientCert(privateKey.release(), certificate);
 }
 
-static void SslClientCertCtx(JNIEnv *env, jobject obj, int handle, jint ctx, jobjectArray chain)
+static void SslClientCertCtx(JNIEnv *env, jobject obj, int handle, jlong ctx, jobjectArray chain)
 {
     WebUrlLoaderClient* client = reinterpret_cast<WebUrlLoaderClient*>(handle);
     EVP_PKEY* pkey = reinterpret_cast<EVP_PKEY*>(static_cast<uintptr_t>(ctx));
@@ -1979,7 +1979,7 @@ static JNINativeMethod gBrowserFrameNativeMethods[] = {
         (void*) SslCertErrorProceed },
     { "nativeSslCertErrorCancel", "(II)V",
         (void*) SslCertErrorCancel },
-    { "nativeSslClientCert", "(II[[B)V",
+    { "nativeSslClientCert", "(IJ[[B)V",
         (void*) SslClientCertCtx },
     { "nativeSslClientCert", "(I[B[[B)V",
         (void*) SslClientCertPKCS8 },
