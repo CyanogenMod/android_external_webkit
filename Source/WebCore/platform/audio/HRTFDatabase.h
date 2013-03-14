@@ -46,7 +46,7 @@ class HRTFKernel;
 class HRTFDatabase {
     WTF_MAKE_NONCOPYABLE(HRTFDatabase);
 public:
-    static PassOwnPtr<HRTFDatabase> create(double sampleRate);
+    static PassOwnPtr<HRTFDatabase> create(float sampleRate);
 
     // getKernelsFromAzimuthElevation() returns a left and right ear kernel, and an interpolated left and right frame delay for the given azimuth and elevation.
     // azimuthBlend must be in the range 0 -> 1.
@@ -57,30 +57,30 @@ public:
     // Returns the number of different azimuth angles.
     static unsigned numberOfAzimuths() { return HRTFElevation::NumberOfTotalAzimuths; }
 
-    double sampleRate() const { return m_sampleRate; }
-    
+    float sampleRate() const { return m_sampleRate; }
+
+    // Number of elevations loaded from resource.
+    static const unsigned NumberOfRawElevations;
+
 private:
-    explicit HRTFDatabase(double sampleRate);
+    explicit HRTFDatabase(float sampleRate);
 
     // Minimum and maximum elevation angles (inclusive) for a HRTFDatabase.
     static const int MinElevation;
     static const int MaxElevation;
     static const unsigned RawElevationAngleSpacing;
-    
-    // Number of elevations loaded from resource.
-    static const unsigned NumberOfRawElevations;
 
     // Interpolates by this factor to get the total number of elevations from every elevation loaded from resource.
     static const unsigned InterpolationFactor;
-    
+
     // Total number of elevations after interpolation.
     static const unsigned NumberOfTotalElevations;
 
     // Returns the index for the correct HRTFElevation given the elevation angle.
     static unsigned indexFromElevationAngle(double);
 
-    Vector<OwnPtr<HRTFElevation> > m_elevations;                                            
-    double m_sampleRate;
+    Vector<OwnPtr<HRTFElevation> > m_elevations;
+    float m_sampleRate;
 };
 
 } // namespace WebCore

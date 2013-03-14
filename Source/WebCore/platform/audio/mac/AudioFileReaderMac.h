@@ -36,7 +36,7 @@
 namespace WebCore {
 
 class AudioBus;
-    
+
 // Wrapper class for AudioFile and ExtAudioFile CoreAudio APIs for reading files and in-memory versions of them...
 
 class AudioFileReader {
@@ -46,7 +46,7 @@ public:
     ~AudioFileReader();
 
     // Returns 0 if error
-    PassOwnPtr<AudioBus> createBus(double sampleRate, bool mixToMono);
+    PassOwnPtr<AudioBus> createBus(float sampleRate, bool mixToMono);
 
     const void* data() const { return m_data; }
     size_t dataSize() const { return m_dataSize; }
@@ -67,5 +67,5 @@ private:
 };
 
 } // namespace WebCore
- 
+
 #endif // AudioFileReaderMac_h

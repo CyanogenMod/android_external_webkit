@@ -33,14 +33,14 @@
 
 namespace WebCore {
 
-RealtimeAnalyserNode::RealtimeAnalyserNode(AudioContext* context, double sampleRate)
+RealtimeAnalyserNode::RealtimeAnalyserNode(AudioContext* context, float sampleRate)
     : AudioNode(context, sampleRate)
 {
     addInput(adoptPtr(new AudioNodeInput(this)));
     addOutput(adoptPtr(new AudioNodeOutput(this, 2)));
-    
-    setType(NodeTypeAnalyser);
-    
+
+    setNodeType(NodeTypeAnalyser);
+
     initialize();
 }
 
@@ -59,7 +59,7 @@ void RealtimeAnalyserNode::process(size_t framesToProcess)
     }
 
     AudioBus* inputBus = input(0)->bus();
-    
+
     // Give the analyser the audio which is passing through this AudioNode.
     m_analyser.writeInput(inputBus, framesToProcess);
 

@@ -32,16 +32,17 @@
 
 #include "AudioChannelMerger.h"
 
+#include "AudioContext.h"
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
 
 namespace WebCore {
-    
+
 // This is considering that 5.1 (6 channels) is the largest we'll ever deal with.
 // It can easily be increased to support more if the web audio specification is updated.
 const unsigned NumberOfInputs = 6;
 
-AudioChannelMerger::AudioChannelMerger(AudioContext* context, double sampleRate)
+AudioChannelMerger::AudioChannelMerger(AudioContext* context, float sampleRate)
     : AudioNode(context, sampleRate)
 {
     // Create a fixed number of inputs (able to handle the maximum number of channels we deal with).
@@ -49,9 +50,9 @@ AudioChannelMerger::AudioChannelMerger(AudioContext* context, double sampleRate)
         addInput(adoptPtr(new AudioNodeInput(this)));
 
     addOutput(adoptPtr(new AudioNodeOutput(this, 1)));
-    
-    setType(NodeTypeChannelMerger);
-    
+
+    setNodeType(NodeTypeChannelMerger);
+
     initialize();
 }
 
@@ -59,8 +60,39 @@ void AudioChannelMerger::process(size_t framesToProcess)
 {
     AudioNodeOutput* output = this->output(0);
     ASSERT(output);
-    ASSERT_UNUSED(framesToProcess, framesToProcess == output->bus()->length());    
-    
+    ASSERT_UNUSED(framesToProcess, framesToProcess == output->bus()->length());
+
+    // Merge all the channels from all the inputs into one output.
+    unsigned outputChannelIndex = 0;
+    for (unsigned i = 0; i < numberOfInputs(); ++i) {
+        AudioNodeInput* input = this->input(i);
+        if (input->isConnected()) {
+            unsigned numberOfInputChannels = input->bus()->numberOfChannels();
+
+            // Merge channels from this particular input.
+            for (unsigned j = 0; j < numberOfInputChannels; ++j) {
+                AudioChannel* inputChannel = input->bus()->channel(j);
+                AudioChannel* outputChannel = output->bus()->channel(outputChannelIndex);
+                outputChannel->copyFrom(inputChannel);
+
+                ++outputChannelIndex;
+            }
+        }
+    }
+
+    ASSERT(outputChannelIndex == output->numberOfChannels());
+}
+
+void AudioChannelMerger::reset()
+{
+}
+
+// Any time a connection or disconnection happens on any of our inputs, we potentially need to change the
+// number of channels of our output.
+void AudioChannelMerger::checkNumberOfChannelsForInput(AudioNodeInput* input)
+{
+    ASSERT(context()->isAudioThread() && context()->isGraphOwner());
+
     // Count how many channels we have all together from all of the inputs.
     unsigned numberOfOutputChannels = 0;
     for (unsigned i = 0; i < numberOfInputs(); ++i) {
@@ -70,31 +102,11 @@ void AudioChannelMerger::process(size_t framesToProcess)
     }
 
     // Set the correct number of channels on the output
+    AudioNodeOutput* output = this->output(0);
+    ASSERT(output);
     output->setNumberOfChannels(numberOfOutputChannels);
-    
-    // Now merge the channels back into one output.
-    unsigned outputChannelIndex = 0;
-    for (unsigned i = 0; i < numberOfInputs(); ++i) {
-        AudioNodeInput* input = this->input(i);
-        if (input->isConnected()) {
-            unsigned numberOfInputChannels = input->bus()->numberOfChannels();
-            
-            // Merge channels from this particular input.
-            for (unsigned j = 0; j < numberOfInputChannels; ++j) {
-                AudioChannel* inputChannel = input->bus()->channel(j);
-                AudioChannel* outputChannel = output->bus()->channel(outputChannelIndex);
-                outputChannel->copyFrom(inputChannel);
-                
-                ++outputChannelIndex;
-            }
-        }
-    }
-    
-    ASSERT(outputChannelIndex == numberOfOutputChannels);
-}
 
-void AudioChannelMerger::reset()
-{
+    AudioNode::checkNumberOfChannelsForInput(input);
 }
 
 } // namespace WebCore

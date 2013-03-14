@@ -29,47 +29,109 @@
 #include "BiquadDSPKernel.h"
 
 #include "BiquadProcessor.h"
+#include "FloatConversion.h"
+#include <wtf/Vector.h>
 
 namespace WebCore {
+
+void BiquadDSPKernel::updateCoefficientsIfNecessary(bool useSmoothing, bool forceUpdate)
+{
+    if (forceUpdate || biquadProcessor()->filterCoefficientsDirty()) {
+        double value1;
+        double value2;
+        double gain;
+
+        if (useSmoothing) {
+            value1 = biquadProcessor()->parameter1()->smoothedValue();
+            value2 = biquadProcessor()->parameter2()->smoothedValue();
+            gain = biquadProcessor()->parameter3()->smoothedValue();
+        } else {
+            value1 = biquadProcessor()->parameter1()->value();
+            value2 = biquadProcessor()->parameter2()->value();
+            gain = biquadProcessor()->parameter3()->value();
+        }
+
+        // Convert from Hertz to normalized frequency 0 -> 1.
+        double nyquist = this->nyquist();
+        double normalizedFrequency = value1 / nyquist;
+
+        // Configure the biquad with the new filter parameters for the appropriate type of filter.
+        switch (biquadProcessor()->type()) {
+        case BiquadProcessor::LowPass:
+            m_biquad.setLowpassParams(normalizedFrequency, value2);
+            break;
+
+        case BiquadProcessor::HighPass:
+            m_biquad.setHighpassParams(normalizedFrequency, value2);
+            break;
+
+        case BiquadProcessor::BandPass:
+            m_biquad.setBandpassParams(normalizedFrequency, value2);
+            break;
+
+        case BiquadProcessor::LowShelf:
+            m_biquad.setLowShelfParams(normalizedFrequency, gain);
+            break;
+
+        case BiquadProcessor::HighShelf:
+            m_biquad.setHighShelfParams(normalizedFrequency, gain);
+            break;
+
+        case BiquadProcessor::Peaking:
+            m_biquad.setPeakingParams(normalizedFrequency, value2, gain);
+            break;
+
+        case BiquadProcessor::Notch:
+            m_biquad.setNotchParams(normalizedFrequency, value2);
+            break;
+
+        case BiquadProcessor::Allpass:
+            m_biquad.setAllpassParams(normalizedFrequency, value2);
+            break;
+        }
+    }
+}
 
 void BiquadDSPKernel::process(const float* source, float* destination, size_t framesToProcess)
 {
     ASSERT(source && destination && biquadProcessor());
-    
+
     // Recompute filter coefficients if any of the parameters have changed.
     // FIXME: as an optimization, implement a way that a Biquad object can simply copy its internal filter coefficients from another Biquad object.
     // Then re-factor this code to only run for the first BiquadDSPKernel of each BiquadProcessor.
-    if (biquadProcessor()->filterCoefficientsDirty()) {
-        double value1 = biquadProcessor()->parameter1()->smoothedValue();
-        double value2 = biquadProcessor()->parameter2()->smoothedValue();
-        
-        // Convert from Hertz to normalized frequency 0 -> 1.
-        double nyquist = this->nyquist();
-        double normalizedValue1 = value1 / nyquist;
 
-        // Configure the biquad with the new filter parameters for the appropriate type of filter.
-        switch (biquadProcessor()->type()) {
-        case BiquadProcessor::LowPass2:
-            m_biquad.setLowpassParams(normalizedValue1, value2);
-            break;
-
-        case BiquadProcessor::HighPass2:
-            m_biquad.setHighpassParams(normalizedValue1, value2);
-            break;
-
-        case BiquadProcessor::LowShelf:
-            m_biquad.setLowShelfParams(normalizedValue1, value2);
-            break;
-
-        // FIXME: add other biquad filter types...
-        case BiquadProcessor::Peaking:
-        case BiquadProcessor::Allpass:
-        case BiquadProcessor::HighShelf:
-            break;
-        }
-    }
+    updateCoefficientsIfNecessary(true, false);
 
     m_biquad.process(source, destination, framesToProcess);
+}
+
+void BiquadDSPKernel::getFrequencyResponse(int nFrequencies,
+                                           const float* frequencyHz,
+                                           float* magResponse,
+                                           float* phaseResponse)
+{
+    bool isGood = nFrequencies > 0 && frequencyHz && magResponse && phaseResponse;
+    ASSERT(isGood);
+    if (!isGood)
+        return;
+
+    Vector<float> frequency(nFrequencies);
+
+    double nyquist = this->nyquist();
+
+    // Convert from frequency in Hz to normalized frequency (0 -> 1),
+    // with 1 equal to the Nyquist frequency.
+    for (int k = 0; k < nFrequencies; ++k)
+        frequency[k] = narrowPrecisionToFloat(frequencyHz[k] / nyquist);
+
+    // We want to get the final values of the coefficients and compute
+    // the response from that instead of some intermediate smoothed
+    // set. Forcefully update the coefficients even if they are not
+    // dirty.
+
+    updateCoefficientsIfNecessary(false, true);
+
+    m_biquad.getFrequencyResponse(nFrequencies, frequency.data(), magResponse, phaseResponse);
 }
 
 } // namespace WebCore

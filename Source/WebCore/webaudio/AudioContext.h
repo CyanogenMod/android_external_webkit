@@ -26,53 +26,61 @@
 #define AudioContext_h
 
 #include "ActiveDOMObject.h"
+#include "AsyncAudioDecoder.h"
 #include "AudioBus.h"
 #include "AudioDestinationNode.h"
 #include "EventListener.h"
 #include "EventTarget.h"
 #include "HRTFDatabaseLoader.h"
 #include <wtf/HashSet.h>
+#include <wtf/MainThread.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/ThreadSafeRefCounted.h>
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
 #include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
 
-class ArrayBuffer;
 class AudioBuffer;
+class AudioBufferCallback;
 class AudioBufferSourceNode;
+class MediaElementAudioSourceNode;
+class HTMLMediaElement;
 class AudioChannelMerger;
 class AudioChannelSplitter;
 class AudioGainNode;
 class AudioPannerNode;
 class AudioListener;
+class BiquadFilterNode;
 class DelayNode;
 class Document;
 class LowPass2FilterNode;
 class HighPass2FilterNode;
 class ConvolverNode;
+class DynamicsCompressorNode;
 class RealtimeAnalyserNode;
+class WaveShaperNode;
 class JavaScriptAudioNode;
 
 // AudioContext is the cornerstone of the web audio API and all AudioNodes are created from it.
-// For thread safety between the audio thread and the main thread, it has a rendering graph locking mechanism. 
+// For thread safety between the audio thread and the main thread, it has a rendering graph locking mechanism.
 
-class AudioContext : public ActiveDOMObject, public RefCounted<AudioContext>, public EventTarget {
+class AudioContext : public ActiveDOMObject, public ThreadSafeRefCounted<AudioContext>, public EventTarget {
 public:
     // Create an AudioContext for rendering to the audio hardware.
     static PassRefPtr<AudioContext> create(Document*);
 
     // Create an AudioContext for offline (non-realtime) rendering.
-    static PassRefPtr<AudioContext> createOfflineContext(Document*, unsigned numberOfChannels, size_t numberOfFrames, double sampleRate);
+    static PassRefPtr<AudioContext> createOfflineContext(Document*, unsigned numberOfChannels, size_t numberOfFrames, float sampleRate, ExceptionCode&);
 
     virtual ~AudioContext();
 
     bool isInitialized() const;
-    
+
     bool isOfflineContext() { return m_isOfflineContext; }
 
     // Returns true when initialize() was called AND all asynchronous initialization has completed.
@@ -85,32 +93,36 @@ public:
     bool hasDocument();
 
     AudioDestinationNode* destination() { return m_destinationNode.get(); }
+    size_t currentSampleFrame() { return m_destinationNode->currentSampleFrame(); }
     double currentTime() { return m_destinationNode->currentTime(); }
-    double sampleRate() { return m_destinationNode->sampleRate(); }
+    float sampleRate() { return m_destinationNode->sampleRate(); }
 
-    PassRefPtr<AudioBuffer> createBuffer(unsigned numberOfChannels, size_t numberOfFrames, double sampleRate);
-    PassRefPtr<AudioBuffer> createBuffer(ArrayBuffer* arrayBuffer, bool mixToMono);
+    PassRefPtr<AudioBuffer> createBuffer(unsigned numberOfChannels, size_t numberOfFrames, float sampleRate, ExceptionCode&);
+    PassRefPtr<AudioBuffer> createBuffer(ArrayBuffer*, bool mixToMono, ExceptionCode&);
 
-    // Keep track of this buffer so we can release memory after the context is shut down...
-    void refBuffer(PassRefPtr<AudioBuffer> buffer);
+    // Asynchronous audio file data decoding.
+    void decodeAudioData(ArrayBuffer*, PassRefPtr<AudioBufferCallback>, PassRefPtr<AudioBufferCallback>, ExceptionCode& ec);
 
     AudioListener* listener() { return m_listener.get(); }
 
     // The AudioNode create methods are called on the main thread (from JavaScript).
     PassRefPtr<AudioBufferSourceNode> createBufferSource();
+#if ENABLE(VIDEO)
+    PassRefPtr<MediaElementAudioSourceNode> createMediaElementSource(HTMLMediaElement*, ExceptionCode&);
+#endif
     PassRefPtr<AudioGainNode> createGainNode();
+    PassRefPtr<BiquadFilterNode> createBiquadFilter();
+    PassRefPtr<WaveShaperNode> createWaveShaper();
     PassRefPtr<DelayNode> createDelayNode();
     PassRefPtr<LowPass2FilterNode> createLowPass2Filter();
     PassRefPtr<HighPass2FilterNode> createHighPass2Filter();
     PassRefPtr<AudioPannerNode> createPanner();
     PassRefPtr<ConvolverNode> createConvolver();
+    PassRefPtr<DynamicsCompressorNode> createDynamicsCompressor();
     PassRefPtr<RealtimeAnalyserNode> createAnalyser();
     PassRefPtr<JavaScriptAudioNode> createJavaScriptNode(size_t bufferSize);
     PassRefPtr<AudioChannelSplitter> createChannelSplitter();
     PassRefPtr<AudioChannelMerger> createChannelMerger();
-
-    AudioBus* temporaryMonoBus() { return m_temporaryMonoBus.get(); }
-    AudioBus* temporaryStereoBus() { return m_temporaryStereoBus.get(); }
 
     // When a source node has no more processing to do (has finished playing), then it tells the context to dereference it.
     void notifyNodeFinishedProcessing(AudioNode*);
@@ -124,7 +136,7 @@ public:
     // Called periodically at the end of each render quantum to dereference finished source nodes.
     void derefFinishedSourceNodes();
 
-    // We reap all marked nodes at the end of each realtime render quantum in deleteMarkedNodes().
+    // We schedule deletion of all marked nodes at the end of each realtime render quantum.
     void markForDeletion(AudioNode*);
     void deleteMarkedNodes();
 
@@ -140,14 +152,14 @@ public:
     //
     // Thread Safety and Graph Locking:
     //
-    
+
     void setAudioThread(ThreadIdentifier thread) { m_audioThread = thread; } // FIXME: check either not initialized or the same
     ThreadIdentifier audioThread() const { return m_audioThread; }
     bool isAudioThread() const;
 
     // Returns true only after the audio thread has been started and then shutdown.
     bool isAudioThreadFinished() { return m_isAudioThreadFinished; }
-    
+
     // mustReleaseLock is set to true if we acquired the lock in this method call and caller must unlock(), false if it was previously acquired.
     void lock(bool& mustReleaseLock);
 
@@ -168,7 +180,7 @@ public:
             ASSERT(context);
             context->lock(m_mustReleaseLock);
         }
-        
+
         ~AutoLocker()
         {
             if (m_mustReleaseLock)
@@ -178,7 +190,7 @@ public:
         AudioContext* m_context;
         bool m_mustReleaseLock;
     };
-    
+
     // In AudioNode::deref() a tryLock() is used for calling finishDeref(), but if it fails keep track here.
     void addDeferredFinishDeref(AudioNode*, AudioNode::RefType);
 
@@ -190,28 +202,34 @@ public:
     void markAudioNodeOutputDirty(AudioNodeOutput*);
 
     // EventTarget
+    virtual const AtomicString& interfaceName() const;
     virtual ScriptExecutionContext* scriptExecutionContext() const;
-    virtual AudioContext* toAudioContext();
     virtual EventTargetData* eventTargetData() { return &m_eventTargetData; }
     virtual EventTargetData* ensureEventTargetData() { return &m_eventTargetData; }
 
     DEFINE_ATTRIBUTE_EVENT_LISTENER(complete);
 
-    // Reconcile ref/deref which are defined both in AudioNode and EventTarget.
-    using RefCounted<AudioContext>::ref;
-    using RefCounted<AudioContext>::deref;
+    // Reconcile ref/deref which are defined both in ThreadSafeRefCounted and EventTarget.
+    using ThreadSafeRefCounted<AudioContext>::ref;
+    using ThreadSafeRefCounted<AudioContext>::deref;
 
     void startRendering();
     void fireCompletionEvent();
-    
+
+    static unsigned s_hardwareContextCount;
+
 private:
     AudioContext(Document*);
-    AudioContext(Document*, unsigned numberOfChannels, size_t numberOfFrames, double sampleRate);
+    AudioContext(Document*, unsigned numberOfChannels, size_t numberOfFrames, float sampleRate);
     void constructCommon();
 
     void lazyInitialize();
     void uninitialize();
-    
+    static void uninitializeDispatch(void* userData);
+
+    void scheduleNodeDeletion();
+    static void deleteMarkedNodesDispatch(void* userData);
+
     bool m_isInitialized;
     bool m_isAudioThreadFinished;
     bool m_isAudioThreadShutdown;
@@ -232,9 +250,6 @@ private:
     RefPtr<AudioDestinationNode> m_destinationNode;
     RefPtr<AudioListener> m_listener;
 
-    // Only accessed in the main thread.
-    Vector<RefPtr<AudioBuffer> > m_allocatedBuffers;
-
     // Only accessed in the audio thread.
     Vector<AudioNode*> m_finishedNodes;
 
@@ -243,8 +258,10 @@ private:
     // Either accessed when the graph lock is held, or on the main thread when the audio thread has finished.
     Vector<AudioNode*> m_referencedNodes;
 
-    // Accumulate nodes which need to be deleted at the end of a render cycle (in realtime thread) here.
+    // Accumulate nodes which need to be deleted here.
+    // They will be scheduled for deletion (on the main thread) at the end of a render cycle (in realtime thread).
     Vector<AudioNode*> m_nodesToDelete;
+    bool m_isDeletionScheduled;
 
     // Only accessed when the graph lock is held.
     HashSet<AudioNodeInput*> m_dirtyAudioNodeInputs;
@@ -252,16 +269,13 @@ private:
     void handleDirtyAudioNodeInputs();
     void handleDirtyAudioNodeOutputs();
 
-    OwnPtr<AudioBus> m_temporaryMonoBus;
-    OwnPtr<AudioBus> m_temporaryStereoBus;
-
     unsigned m_connectionCount;
 
     // Graph locking.
     Mutex m_contextGraphMutex;
     volatile ThreadIdentifier m_audioThread;
     volatile ThreadIdentifier m_graphOwnerThread; // if the lock is held then this is the thread which owns it, otherwise == UndefinedThreadIdentifier
-    
+
     // Deferred de-referencing.
     struct RefInfo {
         RefInfo(AudioNode* node, AudioNode::RefType refType)
@@ -271,11 +285,11 @@ private:
         }
         AudioNode* m_node;
         AudioNode::RefType m_refType;
-    };    
+    };
 
     // Only accessed in the audio thread.
     Vector<RefInfo> m_deferredFinishDerefList;
-    
+
     // HRTF Database loader
     RefPtr<HRTFDatabaseLoader> m_hrtfDatabaseLoader;
 
@@ -285,8 +299,10 @@ private:
     EventTargetData m_eventTargetData;
 
     RefPtr<AudioBuffer> m_renderTarget;
-    
+
     bool m_isOfflineContext;
+
+    AsyncAudioDecoder m_audioDecoder;
 };
 
 } // WebCore

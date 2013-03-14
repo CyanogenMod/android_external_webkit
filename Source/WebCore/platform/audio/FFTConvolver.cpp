@@ -37,7 +37,7 @@
 namespace WebCore {
 
 using namespace VectorMath;
-    
+
 FFTConvolver::FFTConvolver(size_t fftSize)
     : m_frame(fftSize)
     , m_readWriteIndex(0)
@@ -47,7 +47,7 @@ FFTConvolver::FFTConvolver(size_t fftSize)
 {
 }
 
-void FFTConvolver::process(FFTFrame* fftKernel, float* sourceP, float* destP, size_t framesToProcess)
+void FFTConvolver::process(FFTFrame* fftKernel, const float* sourceP, float* destP, size_t framesToProcess)
 {
     // FIXME: make so framesToProcess is not required to fit evenly into fftSize/2
 
@@ -59,7 +59,7 @@ void FFTConvolver::process(FFTFrame* fftKernel, float* sourceP, float* destP, si
     ASSERT(isCopyGood1);
     if (!isCopyGood1)
         return;
-    
+
     memcpy(inputP + m_readWriteIndex, sourceP, sizeof(float) * framesToProcess);
 
     // Copy samples from output buffer
@@ -91,7 +91,7 @@ void FFTConvolver::process(FFTFrame* fftKernel, float* sourceP, float* destP, si
         ASSERT(isCopyGood3);
         if (!isCopyGood3)
             return;
-        
+
         memcpy(m_lastOverlapBuffer.data(), m_outputBuffer.data() + halfSize, sizeof(float) * halfSize);
 
         // Reset index back to start for next time
