@@ -68,7 +68,7 @@
 #include <stdio.h>
 #endif
 
-#include <wtf/ArrayBuffer.h>
+#include "ArrayBuffer.h"
 #include <wtf/MainThread.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
@@ -389,7 +389,7 @@ PassRefPtr<LowPass2FilterNode> AudioContext::createLowPass2Filter()
     ASSERT(isMainThread());
     lazyInitialize();
     if (document())
-        document()->addConsoleMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "createLowPass2Filter() is deprecated.  Use createBiquadFilter() instead.");
+        document()->addMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "createLowPass2Filter() is deprecated.  Use createBiquadFilter() instead.", 1, String(), 0);
 
     return LowPass2FilterNode::create(this, m_destinationNode->sampleRate());
 }
@@ -399,7 +399,7 @@ PassRefPtr<HighPass2FilterNode> AudioContext::createHighPass2Filter()
     ASSERT(isMainThread());
     lazyInitialize();
     if (document())
-        document()->addConsoleMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "createHighPass2Filter() is deprecated.  Use createBiquadFilter() instead.");
+        document()->addMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "createHighPass2Filter() is deprecated.  Use createBiquadFilter() instead.", 1, String(), 0);
 
     return HighPass2FilterNode::create(this, m_destinationNode->sampleRate());
 }
@@ -735,14 +735,14 @@ void AudioContext::handleDirtyAudioNodeOutputs()
     m_dirtyAudioNodeOutputs.clear();
 }
 
-const AtomicString& AudioContext::interfaceName() const
-{
-    return eventNames().interfaceForAudioContext;
-}
-
 ScriptExecutionContext* AudioContext::scriptExecutionContext() const
 {
     return document();
+}
+
+AudioContext* AudioContext::toAudioContext()
+{
+    return this;
 }
 
 void AudioContext::startRendering()

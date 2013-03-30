@@ -47,6 +47,10 @@ endif
 
 FEATURE_DEFINES += ENABLE_REQUEST_ANIMATION_FRAME
 
+ifeq ($(ENABLE_WEBAUDIO), true)
+    FEATURE_DEFINES += ENABLE_WEBAUDIO=1
+endif
+
 # CSS
 GEN := \
     $(intermediates)/bindings/V8CSSCharsetRule.h \
@@ -298,6 +302,43 @@ LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
 # We also need the .cpp files, which are generated as side effects of the
 # above rules.  Specifying this explicitly makes -j2 work.
 $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
+
+# Webaudio
+ifeq ($(ENABLE_WEBAUDIO), true)
+GEN := \
+	$(intermediates)/bindings/V8AudioBufferCallback.h \
+	$(intermediates)/bindings/V8AudioBuffer.h \
+	$(intermediates)/bindings/V8AudioBufferSourceNode.h \
+	$(intermediates)/bindings/V8AudioChannelMerger.h \
+	$(intermediates)/bindings/V8AudioChannelSplitter.h \
+	$(intermediates)/bindings/V8AudioDestinationNode.h \
+	$(intermediates)/bindings/V8AudioGain.h \
+	$(intermediates)/bindings/V8AudioGainNode.h \
+	$(intermediates)/bindings/V8AudioListener.h \
+	$(intermediates)/bindings/V8AudioNode.h \
+	$(intermediates)/bindings/V8AudioParam.h \
+	$(intermediates)/bindings/V8AudioSourceNode.h \
+	$(intermediates)/bindings/V8BiquadFilterNode.h \
+	$(intermediates)/bindings/V8ConvolverNode.h \
+	$(intermediates)/bindings/V8DelayNode.h \
+	$(intermediates)/bindings/V8DynamicsCompressorNode.h \
+	$(intermediates)/bindings/V8HighPass2FilterNode.h \
+	$(intermediates)/bindings/V8JavaScriptAudioNode.h \
+	$(intermediates)/bindings/V8LowPass2FilterNode.h \
+	$(intermediates)/bindings/V8MediaElementAudioSourceNode.h \
+	$(intermediates)/bindings/V8RealtimeAnalyserNode.h \
+	$(intermediates)/bindings/V8WaveShaperNode.h
+
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include webaudio --outputdir $(dir $@) $<
+$(GEN): $(intermediates)/bindings/V8%.h : $(LOCAL_PATH)/webaudio/%.idl $(js_binding_scripts)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN) $(GEN:%.h=%.cpp)
+
+# We also need the .cpp files, which are generated as side effects of the
+# above rules.  Specifying this explicitly makes -j2 work.
+$(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)/bindings/%.h
+endif
 
 # Canvas
 GEN := \
@@ -745,7 +786,9 @@ $(patsubst %.h,%.cpp,$(GEN)): $(intermediates)/bindings/%.cpp : $(intermediates)
 # These headers are required by the V8 bindings even when Web Audio is disabled
 GEN := \
     $(intermediates)/bindings/V8AudioContext.h \
-    $(intermediates)/bindings/V8AudioPannerNode.h
+    $(intermediates)/bindings/V8AudioPannerNode.h \
+    $(intermediates)/bindings/V8AudioProcessingEvent.h \
+    $(intermediates)/bindings/V8OfflineAudioCompletionEvent.h
 
 $(GEN): PRIVATE_PATH := $(LOCAL_PATH)
 $(GEN): PRIVATE_CUSTOM_TOOL = SOURCE_ROOT=$(PRIVATE_PATH) perl -I$(PRIVATE_PATH)/bindings/scripts $(PRIVATE_PATH)/bindings/scripts/generate-bindings.pl --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator V8 --include dom --include html --include webaudio --outputdir $(dir $@) $<

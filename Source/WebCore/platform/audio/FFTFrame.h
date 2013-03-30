@@ -51,6 +51,9 @@
 struct RDFTContext;
 #endif // USE(WEBAUDIO_FFMPEG)
 
+#if USE(WEBAUDIO_KISSFFT)
+#include <kiss_fft.h>
+#endif
 #endif // !USE_ACCELERATE_FFT
 
 #include <wtf/PassOwnPtr.h>
@@ -146,6 +149,17 @@ private:
     AudioFloatArray m_imagData;
 #endif // USE(WEBAUDIO_FFMPEG)
 
+#if USE(WEBAUDIO_KISSFFT)
+    static kiss_fft_cfg contextForSize(unsigned fftSize, int trans);
+
+    kiss_fft_cfg m_forwardContext;
+    kiss_fft_cfg m_inverseContext;
+
+    kiss_fft_cpx* m_cpxInputData;
+    kiss_fft_cpx* m_cpxOutputData;
+    AudioFloatArray m_realData;
+    AudioFloatArray m_imagData;
+#endif
 #endif // !USE_ACCELERATE_FFT
 };
 

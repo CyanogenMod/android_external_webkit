@@ -164,12 +164,12 @@ void ReverbConvolver::backgroundThreadEntry()
         // we do this in case we want to run in more than one background thread.
         int readIndex;
 
-        while ((readIndex = m_backgroundStages[0]->inputReadIndex()) != writeIndex) { // FIXME: do better to detect buffer overrun...
+        while ((readIndex = m_backgroundStages[0]->inputReadIndex()) != writeIndex && !m_wantsToExit) { // FIXME: do better to detect buffer overrun...
             // The ReverbConvolverStages need to process in amounts which evenly divide half the FFT size
             const int SliceSize = MinFFTSize / 2;
 
             // Accumulate contributions from each stage
-            for (size_t i = 0; i < m_backgroundStages.size(); ++i)
+            for (size_t i = 0; i < m_backgroundStages.size() && !m_wantsToExit; ++i)
                 m_backgroundStages[i]->processInBackground(this, SliceSize);
         }
     }

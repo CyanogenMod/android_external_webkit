@@ -61,7 +61,7 @@ private:
     MediaElementAudioSourceNode(AudioContext*, HTMLMediaElement*);
 
     RefPtr<HTMLMediaElement> m_mediaElement;
-    Mutex m_processLock;
+    WTF::Mutex m_processLock;
 
     unsigned m_sourceNumberOfChannels;
     double m_sourceSampleRate;

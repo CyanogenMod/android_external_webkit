@@ -114,7 +114,17 @@ void DynamicsCompressor::setEmphasisParameters(float gain, float anchorFreq, flo
     setEmphasisStageParameters(2, gain, anchorFreq / (filterStageRatio * filterStageRatio));
     setEmphasisStageParameters(3, gain, anchorFreq / (filterStageRatio * filterStageRatio * filterStageRatio));
 }
+#if 1
+//FIXME: Temporary fix for noise introduced by DynamicsCompressor on Android
+void DynamicsCompressor::process(const AudioBus* sourceBus, AudioBus* destinationBus, unsigned framesToProcess)
+{
+    ASSERT(destinationBus->numberOfChannels() == 2);
 
+    destinationBus->channel(0)->copyFromRange(sourceBus->channel(0), 0, framesToProcess);
+    if (sourceBus->numberOfChannels() > 1)
+        destinationBus->channel(1)->copyFromRange(sourceBus->channel(1), 0, framesToProcess);
+}
+#else
 void DynamicsCompressor::process(const AudioBus* sourceBus, AudioBus* destinationBus, unsigned framesToProcess)
 {
     const float* sourceL = sourceBus->channel(0)->data();
@@ -210,6 +220,7 @@ void DynamicsCompressor::process(const AudioBus* sourceBus, AudioBus* destinatio
         m_postFilterR[3].process(destinationR, destinationR, framesToProcess);
     }
 }
+#endif
 
 void DynamicsCompressor::reset()
 {

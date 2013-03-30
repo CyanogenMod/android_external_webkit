@@ -35,6 +35,7 @@
 namespace WebCore {
 
 class AudioSourceProvider;
+class AudioContext;
 
 // Abstraction for an audio output to the audio hardware
 // An AudioSourceProvider is called back periodically to provide the rendered audio stream.
@@ -51,6 +52,12 @@ public:
 
     // Sample-rate conversion may happen in AudioDestination to the hardware sample-rate
     virtual float sampleRate() const = 0;
+
+    // Android needs these hooks to control the playback of AudioDestination thread
+    virtual void setAudioContext(AudioContext*) {}
+    virtual void pause() {}
+    virtual void resume() {}
+
     static float hardwareSampleRate();
 };
 

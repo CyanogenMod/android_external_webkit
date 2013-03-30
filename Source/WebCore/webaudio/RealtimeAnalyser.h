@@ -34,6 +34,8 @@ namespace WebCore {
 
 class AudioBus;
 class FFTFrame;
+class Float32Array;
+class Uint8Array;
 
 class RealtimeAnalyser {
     WTF_MAKE_NONCOPYABLE(RealtimeAnalyser);

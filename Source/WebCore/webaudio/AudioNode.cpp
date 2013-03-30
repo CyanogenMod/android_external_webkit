@@ -114,30 +114,31 @@ AudioNodeOutput* AudioNode::output(unsigned i)
     return 0;
 }
 
-void AudioNode::connect(AudioNode* destination, unsigned outputIndex, unsigned inputIndex, ExceptionCode& ec)
+bool AudioNode::connect(AudioNode* destination, unsigned outputIndex, unsigned inputIndex)
 {
     ASSERT(isMainThread());
+    ExceptionCode ec;
     AudioContext::AutoLocker locker(context());
 
     if (!destination) {
         ec = SYNTAX_ERR;
-        return;
+        return false;
     }
 
     // Sanity check input and output indices.
     if (outputIndex >= numberOfOutputs()) {
         ec = INDEX_SIZE_ERR;
-        return;
+        return false;
     }
 
     if (destination && inputIndex >= destination->numberOfInputs()) {
         ec = INDEX_SIZE_ERR;
-        return;
+        return false;
     }
 
     if (context() != destination->context()) {
         ec = SYNTAX_ERR;
-        return;
+        return false;
     }
 
     AudioNodeInput* input = destination->input(inputIndex);
@@ -146,21 +147,24 @@ void AudioNode::connect(AudioNode* destination, unsigned outputIndex, unsigned i
 
     // Let context know that a connection has been made.
     context()->incrementConnectionCount();
+    return true;
 }
 
-void AudioNode::disconnect(unsigned outputIndex, ExceptionCode& ec)
+bool AudioNode::disconnect(unsigned outputIndex)
 {
     ASSERT(isMainThread());
+    ExceptionCode ec;
     AudioContext::AutoLocker locker(context());
 
     // Sanity check input and output indices.
     if (outputIndex >= numberOfOutputs()) {
         ec = INDEX_SIZE_ERR;
-        return;
+        return  false;
     }
 
     AudioNodeOutput* output = this->output(outputIndex);
     output->disconnectAllInputs();
+    return true;
 }
 
 void AudioNode::processIfNecessary(size_t framesToProcess)
