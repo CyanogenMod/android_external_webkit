@@ -527,15 +527,19 @@ bool FBO::init(int width, int height, GraphicsContext3D::Attributes attributes)
     // 4. Create the Framebuffer Object from the texture
     glGenFramebuffers(1, &m_fbo);
 
-    if (attributes.depth) {
+    if (attributes.depth && attributes.stencil) {
+        glGenRenderbuffers(1, &m_stencilBuffer);
+        glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBuffer);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8_OES, width, height);
+        if (GraphicsContext3DInternal::checkGLError("glRenderbufferStorage") != GL_NO_ERROR)
+            return false;
+    } else if (attributes.depth) {
         glGenRenderbuffers(1, &m_depthBuffer);
         glBindRenderbuffer(GL_RENDERBUFFER, m_depthBuffer);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
         if (GraphicsContext3DInternal::checkGLError("glRenderbufferStorage") != GL_NO_ERROR)
             return false;
-    }
-
-    if (attributes.stencil) {
+    } else if (attributes.stencil) {
         glGenRenderbuffers(1, &m_stencilBuffer);
         glBindRenderbuffer(GL_RENDERBUFFER, m_stencilBuffer);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_STENCIL_INDEX8, width, height);
@@ -550,13 +554,16 @@ bool FBO::init(int width, int height, GraphicsContext3D::Attributes attributes)
     if (GraphicsContext3DInternal::checkGLError("glFramebufferTexture2D") != GL_NO_ERROR)
         return false;
 
-    if (attributes.depth) {
+    if (attributes.depth && attributes.stencil) {
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
+        if (GraphicsContext3DInternal::checkGLError("glFramebufferRenderbuffer") != GL_NO_ERROR)
+            return false;
+    } else if (attributes.depth) {
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, m_depthBuffer);
         if (GraphicsContext3DInternal::checkGLError("glFramebufferRenderbuffer") != GL_NO_ERROR)
             return false;
-    }
-
-    if (attributes.stencil) {
+    } else if (attributes.stencil) {
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_STENCIL_ATTACHMENT, GL_RENDERBUFFER, m_stencilBuffer);
         if (GraphicsContext3DInternal::checkGLError("glFramebufferRenderbuffer") != GL_NO_ERROR)
             return false;
