@@ -52,7 +52,7 @@ bool logMessageHandler(int severity, const char* file, int line, size_t message_
         androidSeverity = ANDROID_LOG_VERBOSE;
         break;
     }
-    android_printLog(androidSeverity, "chromium", "%s:%d: %s", file, line, str.c_str());
+    android_printLog(androidSeverity, "chromium_net", "%s:%d: %s", file, line, str.c_str());
     return false;
 }
 
