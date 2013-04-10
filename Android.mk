@@ -310,6 +310,7 @@ LOCAL_SHARED_LIBRARIES := \
 	libgui \
 	libicuuc \
 	libicui18n \
+	liblog \
 	libmedia \
 	libnativehelper \
 	libskia \
