@@ -202,8 +202,8 @@ public:
     void markAudioNodeOutputDirty(AudioNodeOutput*);
 
     // EventTarget
-    virtual const AtomicString& interfaceName() const;
     virtual ScriptExecutionContext* scriptExecutionContext() const;
+    virtual AudioContext* toAudioContext();
     virtual EventTargetData* eventTargetData() { return &m_eventTargetData; }
     virtual EventTargetData* ensureEventTargetData() { return &m_eventTargetData; }
 

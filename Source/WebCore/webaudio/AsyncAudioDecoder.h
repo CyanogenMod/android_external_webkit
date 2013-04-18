@@ -34,6 +34,7 @@
 
 namespace WebCore {
 
+class ArrayBuffer;
 class AudioBuffer;
 class AudioBufferCallback;
 

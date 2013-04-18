@@ -82,6 +82,7 @@ namespace WebCore {
 #endif
 
 namespace WebCore {
+    class AudioDestination;
     class BaseLayerAndroid;
 }
 
@@ -418,6 +419,17 @@ namespace android {
         void dumpDomTree(bool);
         void dumpRenderTree(bool);
 
+#if ENABLE(WEB_AUDIO)
+        /*  We maintain a list of active audio tracks. The list is edited by the
+            AudioDestination. The list is used to pause/resume audio playback
+            when WebViewCore thread is paused/resumed.
+         */
+        void addAudioDestination(WebCore::AudioDestination*);
+        void removeAudioDestination(WebCore::AudioDestination*);
+        void pauseAudioDestinations();
+        void resumeAudioDestinations();
+#endif
+
         /*  We maintain a list of active plugins. The list is edited by the
             pluginview itself. The list is used to service invals to the plugin
             pageflipping bitmap.
@@ -545,6 +557,7 @@ namespace android {
         void listBoxRequest(WebCoreReply* reply, const uint16_t** labels,
                 size_t count, const int enabled[], size_t enabledCount,
                 bool multiple, const int selected[], size_t selectedCountOrSelection);
+        void setIsPaused(bool isPaused) { m_isPaused = isPaused; }
         bool drawIsPaused() const;
         // The actual content (without title bar) size in doc coordinate
         int  screenWidth() const { return m_screenWidth; }
@@ -777,6 +790,7 @@ namespace android {
         int m_textWrapWidth;
         float m_scale;
         WebCore::PageGroup* m_groupForVisitedLinks;
+        bool m_isPaused;
         int m_cacheMode;
         bool m_fullscreenVideoMode;
 
@@ -786,6 +800,9 @@ namespace android {
         int m_activeMatchIndex;
         RefPtr<WebCore::Range> m_activeMatch;
 
+#if ENABLE(WEB_AUDIO)
+        SkTDArray<AudioDestination*> m_audioDestinations;
+#endif
         SkTDArray<PluginWidgetAndroid*> m_plugins;
         WebCore::Timer<WebViewCore> m_pluginInvalTimer;
         void pluginInvalTimerFired(WebCore::Timer<WebViewCore>*) {

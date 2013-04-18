@@ -189,6 +189,14 @@ inline double wtf_pow(double x, double y) { return y == 0 ? 1 : pow(x, y); }
 
 #endif // COMPILER(MSVC)
 
+#if OS(ANDROID)
+inline double log2(double num)
+{
+    return log(num) / 0.693147180559945309417232121458176568;
+}
+#endif
+
+
 inline double deg2rad(double d)  { return d * piDouble / 180.0; }
 inline double rad2deg(double r)  { return r * 180.0 / piDouble; }
 inline double deg2grad(double d) { return d * 400.0 / 360.0; }

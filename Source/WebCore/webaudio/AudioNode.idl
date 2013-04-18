@@ -30,10 +30,12 @@ module audio {
         readonly attribute unsigned long numberOfInputs;
         readonly attribute unsigned long numberOfOutputs;
 
-        void connect(in AudioNode destination, in [Optional=CallWithDefaultValue] unsigned long output, in [Optional=CallWithDefaultValue] unsigned long input)
+        // FIXME: Why does this method need to be Custom?
+        [Custom] void connect(in AudioNode destination, in [Optional] unsigned long output, in [Optional] unsigned long input)
             raises(DOMException);
 
-        void disconnect(in [Optional=CallWithDefaultValue] unsigned long output)
+        // FIXME: Why does this method need to be Custom?
+        [Custom] void disconnect(in [Optional] unsigned long output)
             raises(DOMException);
     };
 }
