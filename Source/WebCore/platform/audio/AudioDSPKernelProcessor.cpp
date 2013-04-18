@@ -39,7 +39,7 @@
 namespace WebCore {
 
 // setNumberOfChannels() may later be called if the object is not yet in an "initialized" state.
-AudioDSPKernelProcessor::AudioDSPKernelProcessor(double sampleRate, unsigned numberOfChannels)
+AudioDSPKernelProcessor::AudioDSPKernelProcessor(float sampleRate, unsigned numberOfChannels)
     : AudioProcessor(sampleRate)
     , m_numberOfChannels(numberOfChannels)
     , m_hasJustReset(true)
@@ -58,24 +58,25 @@ void AudioDSPKernelProcessor::initialize()
         m_kernels.append(createKernel());
 
     m_initialized = true;
+    m_hasJustReset = true;
 }
 
 void AudioDSPKernelProcessor::uninitialize()
 {
     if (!isInitialized())
         return;
-        
+
     m_kernels.clear();
 
     m_initialized = false;
 }
 
-void AudioDSPKernelProcessor::process(AudioBus* source, AudioBus* destination, size_t framesToProcess)
+void AudioDSPKernelProcessor::process(const AudioBus* source, AudioBus* destination, size_t framesToProcess)
 {
     ASSERT(source && destination);
     if (!source || !destination)
         return;
-        
+
     if (!isInitialized()) {
         destination->zero();
         return;
@@ -85,9 +86,9 @@ void AudioDSPKernelProcessor::process(AudioBus* source, AudioBus* destination, s
     ASSERT(channelCountMatches);
     if (!channelCountMatches)
         return;
-        
+
     for (unsigned i = 0; i < m_kernels.size(); ++i)
-        m_kernels[i]->process(source->channel(i)->data(), destination->channel(i)->data(), framesToProcess);
+        m_kernels[i]->process(source->channel(i)->data(), destination->channel(i)->mutableData(), framesToProcess);
 }
 
 // Resets filter state
@@ -106,6 +107,9 @@ void AudioDSPKernelProcessor::reset()
 
 void AudioDSPKernelProcessor::setNumberOfChannels(unsigned numberOfChannels)
 {
+    if (numberOfChannels == m_numberOfChannels)
+        return;
+
     ASSERT(!isInitialized());
     if (!isInitialized())
         m_numberOfChannels = numberOfChannels;

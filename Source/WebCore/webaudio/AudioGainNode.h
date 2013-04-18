@@ -33,17 +33,17 @@
 namespace WebCore {
 
 class AudioContext;
-    
+
 // AudioGainNode is an AudioNode with one input and one output which applies a gain (volume) change to the audio signal.
 // De-zippering (smoothing) is applied when the gain value is changed dynamically.
 
 class AudioGainNode : public AudioNode {
 public:
-    static PassRefPtr<AudioGainNode> create(AudioContext* context, double sampleRate)
+    static PassRefPtr<AudioGainNode> create(AudioContext* context, float sampleRate)
     {
-        return adoptRef(new AudioGainNode(context, sampleRate));      
+        return adoptRef(new AudioGainNode(context, sampleRate));
     }
-    
+
     // AudioNode
     virtual void process(size_t framesToProcess);
     virtual void reset();
@@ -52,17 +52,15 @@ public:
     virtual void checkNumberOfChannelsForInput(AudioNodeInput*);
 
     // JavaScript interface
-    AudioGain* gain() { return m_gain.get(); }                                   
-    
-private:
-    AudioGainNode(AudioContext*, double sampleRate);
+    AudioGain* gain() { return m_gain.get(); }
 
-    double m_lastGain; // for de-zippering
+private:
+    AudioGainNode(AudioContext*, float sampleRate);
+
+    float m_lastGain; // for de-zippering
     RefPtr<AudioGain> m_gain;
 
-    // This synchronizes live channel count changes which require an uninitialization / re-initialization.
-    // FIXME: this can go away when we implement optimization for mixing with gain directly in summing junction of AudioNodeInput.
-    mutable Mutex m_processLock;
+    AudioFloatArray m_sampleAccurateGainValues;
 };
 
 } // namespace WebCore

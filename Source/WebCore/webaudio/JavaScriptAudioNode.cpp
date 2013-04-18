@@ -35,19 +35,19 @@
 #include "AudioNodeOutput.h"
 #include "AudioProcessingEvent.h"
 #include "Document.h"
-#include "Float32Array.h"
+#include <wtf/Float32Array.h>
 #include <wtf/MainThread.h>
 
 namespace WebCore {
 
 const size_t DefaultBufferSize = 4096;
 
-PassRefPtr<JavaScriptAudioNode> JavaScriptAudioNode::create(AudioContext* context, double sampleRate, size_t bufferSize, unsigned numberOfInputs, unsigned numberOfOutputs)
+PassRefPtr<JavaScriptAudioNode> JavaScriptAudioNode::create(AudioContext* context, float sampleRate, size_t bufferSize, unsigned numberOfInputs, unsigned numberOfOutputs)
 {
     return adoptRef(new JavaScriptAudioNode(context, sampleRate, bufferSize, numberOfInputs, numberOfOutputs));
 }
 
-JavaScriptAudioNode::JavaScriptAudioNode(AudioContext* context, double sampleRate, size_t bufferSize, unsigned numberOfInputs, unsigned numberOfOutputs)
+JavaScriptAudioNode::JavaScriptAudioNode(AudioContext* context, float sampleRate, size_t bufferSize, unsigned numberOfInputs, unsigned numberOfOutputs)
     : AudioNode(context, sampleRate)
     , m_doubleBufferIndex(0)
     , m_doubleBufferIndexForEvent(0)
@@ -69,7 +69,7 @@ JavaScriptAudioNode::JavaScriptAudioNode(AudioContext* context, double sampleRat
     default:
         m_bufferSize = DefaultBufferSize;
     }
-        
+
     // Regardless of the allowed buffer sizes above, we still need to process at the granularity of the AudioNode.
     if (m_bufferSize < AudioNode::ProcessingSizeInFrames)
         m_bufferSize = AudioNode::ProcessingSizeInFrames;
@@ -81,7 +81,7 @@ JavaScriptAudioNode::JavaScriptAudioNode(AudioContext* context, double sampleRat
     addInput(adoptPtr(new AudioNodeInput(this)));
     addOutput(adoptPtr(new AudioNodeOutput(this, 2)));
 
-    setType(NodeTypeJavaScript);
+    setNodeType(NodeTypeJavaScript);
 
     initialize();
 }
@@ -96,7 +96,7 @@ void JavaScriptAudioNode::initialize()
     if (isInitialized())
         return;
 
-    double sampleRate = context()->sampleRate();
+    float sampleRate = context()->sampleRate();
 
     // Create double buffers on both the input and output sides.
     // These AudioBuffers will be directly accessed in the main thread by JavaScript.
@@ -119,11 +119,6 @@ void JavaScriptAudioNode::uninitialize()
     AudioNode::uninitialize();
 }
 
-JavaScriptAudioNode* JavaScriptAudioNode::toJavaScriptAudioNode()
-{
-    return this;
-}
-
 void JavaScriptAudioNode::process(size_t framesToProcess)
 {
     // Discussion about inputs and outputs:
@@ -131,7 +126,7 @@ void JavaScriptAudioNode::process(size_t framesToProcess)
     // Additionally, there is a double-buffering for input and output which is exposed directly to JavaScript (see inputBuffer and outputBuffer below).
     // This node is the producer for inputBuffer and the consumer for outputBuffer.
     // The JavaScript code is the consumer of inputBuffer and the producer for outputBuffer.
-    
+
     // Get input and output busses.
     AudioBus* inputBus = this->input(0)->bus();
     AudioBus* outputBus = this->output(0)->bus();
@@ -142,7 +137,7 @@ void JavaScriptAudioNode::process(size_t framesToProcess)
     ASSERT(isDoubleBufferIndexGood);
     if (!isDoubleBufferIndexGood)
         return;
-    
+
     AudioBuffer* inputBuffer = m_inputBuffers[doubleBufferIndex].get();
     AudioBuffer* outputBuffer = m_outputBuffers[doubleBufferIndex].get();
 
@@ -158,23 +153,23 @@ void JavaScriptAudioNode::process(size_t framesToProcess)
     ASSERT(isFramesToProcessGood);
     if (!isFramesToProcessGood)
         return;
-        
+
     unsigned numberOfInputChannels = inputBus->numberOfChannels();
-    
+
     bool channelsAreGood = (numberOfInputChannels == 1 || numberOfInputChannels == 2) && outputBus->numberOfChannels() == 2;
     ASSERT(channelsAreGood);
     if (!channelsAreGood)
         return;
 
-    float* sourceL = inputBus->channel(0)->data();
-    float* sourceR = numberOfInputChannels > 1 ? inputBus->channel(1)->data() : 0;
-    float* destinationL = outputBus->channel(0)->data();
-    float* destinationR = outputBus->channel(1)->data();
+    const float* sourceL = inputBus->channel(0)->data();
+    const float* sourceR = numberOfInputChannels > 1 ? inputBus->channel(1)->data() : 0;
+    float* destinationL = outputBus->channel(0)->mutableData();
+    float* destinationR = outputBus->channel(1)->mutableData();
 
     // Copy from the input to the input buffer.  See "buffersAreGood" check above for safety.
     size_t bytesToCopy = sizeof(float) * framesToProcess;
     memcpy(inputBuffer->getChannelData(0)->data() + m_bufferReadWriteIndex, sourceL, bytesToCopy);
-    
+
     if (numberOfInputChannels == 2)
         memcpy(inputBuffer->getChannelData(1)->data() + m_bufferReadWriteIndex, sourceR, bytesToCopy);
     else if (numberOfInputChannels == 1) {
@@ -182,7 +177,7 @@ void JavaScriptAudioNode::process(size_t framesToProcess)
         // FIXME: it is likely the audio API will evolve to present an AudioBuffer with the same number of channels as our input.
         memcpy(inputBuffer->getChannelData(1)->data() + m_bufferReadWriteIndex, sourceL, bytesToCopy);
     }
-    
+
     // Copy from the output buffer to the output.  See "buffersAreGood" check above for safety.
     memcpy(destinationL, outputBuffer->getChannelData(0)->data() + m_bufferReadWriteIndex, bytesToCopy);
     memcpy(destinationR, outputBuffer->getChannelData(1)->data() + m_bufferReadWriteIndex, bytesToCopy);
@@ -198,11 +193,11 @@ void JavaScriptAudioNode::process(size_t framesToProcess)
         if (m_isRequestOutstanding) {
             // We're late in handling the previous request.  The main thread must be very busy.
             // The best we can do is clear out the buffer ourself here.
-            outputBuffer->zero();            
+            outputBuffer->zero();
         } else {
             // Reference ourself so we don't accidentally get deleted before fireProcessEvent() gets called.
             ref();
-            
+
             // Fire the event on the main thread, not this one (which is the realtime audio thread).
             m_doubleBufferIndexForEvent = m_doubleBufferIndex;
             m_isRequestOutstanding = true;
@@ -229,12 +224,12 @@ void JavaScriptAudioNode::fireProcessEventDispatch(void* userData)
 void JavaScriptAudioNode::fireProcessEvent()
 {
     ASSERT(isMainThread() && m_isRequestOutstanding);
-    
+
     bool isIndexGood = m_doubleBufferIndexForEvent < 2;
     ASSERT(isIndexGood);
     if (!isIndexGood)
         return;
-        
+
     AudioBuffer* inputBuffer = m_inputBuffers[m_doubleBufferIndexForEvent].get();
     AudioBuffer* outputBuffer = m_outputBuffers[m_doubleBufferIndexForEvent].get();
     ASSERT(inputBuffer && outputBuffer);
@@ -245,7 +240,7 @@ void JavaScriptAudioNode::fireProcessEvent()
     if (context()->hasDocument()) {
         // Let the audio thread know we've gotten to the point where it's OK for it to make another request.
         m_isRequestOutstanding = false;
-        
+
         // Call the JavaScript event handler which will do the audio processing.
         dispatchEvent(AudioProcessingEvent::create(inputBuffer, outputBuffer));
     }
@@ -260,6 +255,11 @@ void JavaScriptAudioNode::reset()
         m_inputBuffers[i]->zero();
         m_outputBuffers[i]->zero();
     }
+}
+
+const AtomicString& JavaScriptAudioNode::interfaceName() const
+{
+    return eventNames().interfaceForJavaScriptAudioNode;
 }
 
 ScriptExecutionContext* JavaScriptAudioNode::scriptExecutionContext() const

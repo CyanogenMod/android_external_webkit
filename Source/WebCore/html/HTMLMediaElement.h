@@ -20,7 +20,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef HTMLMediaElement_h
@@ -39,6 +39,10 @@
 
 namespace WebCore {
 
+#if ENABLE(WEB_AUDIO)
+class AudioSourceProvider;
+class MediaElementAudioSourceNode;
+#endif
 class Event;
 class HTMLSourceElement;
 class MediaControls;
@@ -56,7 +60,7 @@ class Widget;
 class HTMLMediaElement : public HTMLElement, public MediaPlayerClient, private MediaCanStartListener, private ActiveDOMObject {
 public:
     MediaPlayer* player() const { return m_player.get(); }
-    
+
     virtual bool isVideo() const = 0;
     virtual bool hasVideo() const { return false; }
     virtual bool hasAudio() const;
@@ -68,18 +72,18 @@ public:
     virtual bool supportsFullscreen() const { return false; };
 
     virtual bool supportsSave() const;
-    
+
     PlatformMedia platformMedia() const;
 #if USE(ACCELERATED_COMPOSITING)
     PlatformLayer* platformLayer() const;
 #endif
 
     void scheduleLoad();
-    
+
     MediaPlayer::MovieLoadType movieLoadType() const;
-    
+
     bool inActiveDocument() const { return m_inActiveDocument; }
-    
+
 // DOM API
 // error state
     PassRefPtr<MediaError> error() const;
@@ -90,8 +94,8 @@ public:
 
     enum NetworkState { NETWORK_EMPTY, NETWORK_IDLE, NETWORK_LOADING, NETWORK_NO_SOURCE };
     NetworkState networkState() const;
-    
-    String preload() const;    
+
+    String preload() const;
     void setPreload(const String&);
 
     PassRefPtr<TimeRanges> buffered() const;
@@ -118,9 +122,9 @@ public:
     PassRefPtr<TimeRanges> played();
     PassRefPtr<TimeRanges> seekable() const;
     bool ended() const;
-    bool autoplay() const;    
+    bool autoplay() const;
     void setAutoplay(bool b);
-    bool loop() const;    
+    bool loop() const;
     void setLoop(bool b);
     void play(bool isUserGesture);
     void pause(bool isUserGesture);
@@ -163,7 +167,7 @@ public:
 #endif
 
     bool hasSingleSecurityOrigin() const { return !m_player || m_player->hasSingleSecurityOrigin(); }
-    
+
     bool isFullscreen() const;
     void enterFullscreen();
     void exitFullscreen();
@@ -179,6 +183,13 @@ public:
     void sourceWillBeRemoved(HTMLSourceElement*);
     void sourceWasAdded(HTMLSourceElement*);
 
+#if ENABLE(WEB_AUDIO)
+    MediaElementAudioSourceNode* audioSourceNode() { return m_audioSourceNode; }
+    void setAudioSourceNode(MediaElementAudioSourceNode*);
+
+    AudioSourceProvider* audioSourceProvider();
+#endif
+
     void privateBrowsingStateDidChange();
 
     // Restrictions to change default behaviors.
@@ -189,7 +200,7 @@ public:
         RequireUserGestureForFullScreenRestriction = 1 << 2
     };
     typedef unsigned BehaviorRestrictions;
-    
+
     bool requireUserGestureForLoad() const { return m_restrictions & RequireUserGestureForLoadRestriction; }
     bool requireUserGestureForRateChange() const { return m_restrictions & RequireUserGestureForRateChangeRestriction; }
     bool requireUserGestureForFullScreen() const { return m_restrictions & RequireUserGestureForFullScreenRestriction; }
@@ -223,20 +234,20 @@ private:
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
     virtual void recalcStyle(StyleChange);
-    
+
     virtual void defaultEventHandler(Event*);
-    
+
     // ActiveDOMObject functions.
     virtual bool canSuspend() const;
     virtual void suspend(ReasonForSuspension);
     virtual void resume();
     virtual void stop();
     virtual bool hasPendingActivity() const;
-    
+
     virtual void mediaVolumeDidChange();
 
     virtual void updateDisplayState() { }
-    
+
     void setReadyState(MediaPlayer::ReadyState);
     void setNetworkState(MediaPlayer::NetworkState);
 
@@ -271,10 +282,10 @@ private:
     void finishSeek();
     void checkIfSeekNeeded();
     void addPlayedRange(float start, float end);
-    
+
     void scheduleTimeupdateEvent(bool periodicEvent);
     void scheduleEvent(const AtomicString& eventName);
-    
+
     // loading
     void selectMediaResource();
     void loadResource(const KURL&, ContentType&);
@@ -348,7 +359,7 @@ private:
 
     float m_volume;
     float m_lastSeekTime;
-    
+
     unsigned m_previousProgress;
     double m_previousProgressTime;
 
@@ -357,7 +368,7 @@ private:
 
     // the last time a timeupdate event was sent in movie time
     float m_lastTimeUpdateEventMovieTime;
-    
+
     // loading state
     enum LoadState { WaitingForSource, LoadingFromSrcAttr, LoadingFromSourceElement };
     LoadState m_loadState;
@@ -371,7 +382,7 @@ private:
 #endif
 
     BehaviorRestrictions m_restrictions;
-    
+
     MediaPlayer::Preload m_preload;
 
     DisplayMode m_displayMode;
@@ -403,7 +414,7 @@ private:
     bool m_pausedInternal : 1;
 
     // Not all media engines provide enough information about a file to be able to
-    // support progress events so setting m_sendProgressEvents disables them 
+    // support progress events so setting m_sendProgressEvents disables them
     bool m_sendProgressEvents : 1;
 
     bool m_isFullscreen : 1;
@@ -412,6 +423,13 @@ private:
 
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     bool m_needWidgetUpdate : 1;
+#endif
+
+#if ENABLE(WEB_AUDIO)
+    // This is a weak reference, since m_audioSourceNode holds a reference to us.
+    // The value is set just after the MediaElementAudioSourceNode is created.
+    // The value is cleared in MediaElementAudioSourceNode::~MediaElementAudioSourceNode().
+    MediaElementAudioSourceNode* m_audioSourceNode;
 #endif
 
     bool m_dispatchingCanPlayEvent : 1;

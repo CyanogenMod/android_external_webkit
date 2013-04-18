@@ -39,20 +39,35 @@ namespace WebCore {
 class BiquadProcessor : public AudioDSPKernelProcessor {
 public:
     enum FilterType {
-        LowPass2,
-        HighPass2,
-        Peaking,
-        Allpass,
-        LowShelf,
-        HighShelf
+        LowPass = 0,
+        HighPass = 1,
+        BandPass = 2,
+        LowShelf = 3,
+        HighShelf = 4,
+        Peaking = 5,
+        Notch = 6,
+        Allpass = 7
     };
-    
-    BiquadProcessor(FilterType, double sampleRate, size_t numberOfChannels, bool autoInitialize = true);
+
+    BiquadProcessor(float sampleRate, size_t numberOfChannels, bool autoInitialize);
+
+    // Old constructor used by deprecated LowPass2FilterNode and HighPass2FilterNode
+    BiquadProcessor(FilterType, float sampleRate, size_t numberOfChannels, bool autoInitialize = true);
+
     virtual ~BiquadProcessor();
-    
+
     virtual PassOwnPtr<AudioDSPKernel> createKernel();
-        
-    virtual void process(AudioBus* source, AudioBus* destination, size_t framesToProcess);
+
+    virtual void process(const AudioBus* source, AudioBus* destination, size_t framesToProcess);
+
+    // Get the magnitude and phase response of the filter at the given
+    // set of frequencies (in Hz). The phase response is in radians.
+    void getFrequencyResponse(int nFrequencies,
+                              const float* frequencyHz,
+                              float* magResponse,
+                              float* phaseResponse);
+
+    void checkForDirtyCoefficients();
 
     bool filterCoefficientsDirty() const { return m_filterCoefficientsDirty; }
 
@@ -61,6 +76,7 @@ public:
     AudioParam* parameter3() { return m_parameter3.get(); }
 
     FilterType type() const { return m_type; }
+    void setType(FilterType);
 
 private:
     FilterType m_type;

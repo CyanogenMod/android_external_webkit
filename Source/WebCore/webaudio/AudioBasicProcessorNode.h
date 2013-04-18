@@ -35,11 +35,11 @@ namespace WebCore {
 class AudioBus;
 class AudioNodeInput;
 class AudioProcessor;
-    
+
 // AudioBasicProcessorNode is an AudioNode with one input and one output where the input and output have the same number of channels.
 class AudioBasicProcessorNode : public AudioNode {
 public:
-    AudioBasicProcessorNode(AudioContext*, double sampleRate);
+    AudioBasicProcessorNode(AudioContext*, float sampleRate);
 
     // AudioNode
     virtual void process(size_t framesToProcess);
@@ -57,10 +57,6 @@ public:
 protected:
     AudioProcessor* processor() { return m_processor.get(); }
     OwnPtr<AudioProcessor> m_processor;
-
-private:
-    // This synchronizes live channel count changes which require an uninitialization / re-initialization.
-    mutable Mutex m_processLock;
 };
 
 } // namespace WebCore

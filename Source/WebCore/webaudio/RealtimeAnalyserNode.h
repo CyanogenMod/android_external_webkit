@@ -27,18 +27,19 @@
 
 #include "AudioNode.h"
 #include "RealtimeAnalyser.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
 class RealtimeAnalyserNode : public AudioNode {
 public:
-    static PassRefPtr<RealtimeAnalyserNode> create(AudioContext* context, double sampleRate)
+    static PassRefPtr<RealtimeAnalyserNode> create(AudioContext* context, float sampleRate)
     {
-        return adoptRef(new RealtimeAnalyserNode(context, sampleRate));      
+        return adoptRef(new RealtimeAnalyserNode(context, sampleRate));
     }
 
     virtual ~RealtimeAnalyserNode();
-    
+
     // AudioNode
     virtual void process(size_t framesToProcess);
     virtual void pullInputs(size_t framesToProcess);
@@ -59,14 +60,12 @@ public:
     void setSmoothingTimeConstant(float k) { m_analyser.setSmoothingTimeConstant(k); }
     float smoothingTimeConstant() const { return m_analyser.smoothingTimeConstant(); }
 
-#if ENABLE(WEBGL)
     void getFloatFrequencyData(Float32Array* array) { m_analyser.getFloatFrequencyData(array); }
     void getByteFrequencyData(Uint8Array* array) { m_analyser.getByteFrequencyData(array); }
     void getByteTimeDomainData(Uint8Array* array) { m_analyser.getByteTimeDomainData(array); }
-#endif
 
 private:
-    RealtimeAnalyserNode(AudioContext*, double sampleRate);
+    RealtimeAnalyserNode(AudioContext*, float sampleRate);
 
     RealtimeAnalyser m_analyser;
 };

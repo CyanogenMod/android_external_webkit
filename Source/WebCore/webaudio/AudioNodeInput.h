@@ -67,10 +67,14 @@ public:
     // bus() contains the rendered audio after pull() has been called for each time quantum.
     // Called from context's audio thread.
     AudioBus* bus();
-    
+
     // This copies m_outputs to m_renderingOutputs.  Please see comments for these lists below.
     // This must be called when we own the context's graph lock in the audio thread at the very start or end of the render quantum.
     void updateRenderingState();
+
+    // updateInternalBus() updates m_internalSummingBus appropriately for the number of channels.
+    // This must be called when we own the context's graph lock in the audio thread at the very start or end of the render quantum.
+    void updateInternalBus();
 
     // Rendering code accesses its version of the current connections here.
     unsigned numberOfRenderingConnections() const { return m_renderingOutputs.size(); }
@@ -79,8 +83,8 @@ public:
     bool isConnected() const { return numberOfRenderingConnections() > 0; }
 
     // The number of channels of the connection with the largest number of channels.
-    unsigned numberOfChannels() const;        
-    
+    unsigned numberOfChannels() const;
+
 private:
     AudioNode* m_node;
 
@@ -94,7 +98,7 @@ private:
 
     // This must be called whenever we modify m_outputs.
     void changedOutputs();
-    
+
     // m_renderingOutputs is a copy of m_outputs which will never be modified during the graph rendering on the audio thread.
     // This is the list which is used by the rendering code.
     // Whenever m_outputs is modified, the context is told so it can later update m_renderingOutputs from m_outputs at a safe time.
@@ -116,8 +120,7 @@ private:
     AudioBus* internalSummingBus();
     void sumAllConnections(AudioBus* summingBus, size_t framesToProcess);
 
-    OwnPtr<AudioBus> m_monoSummingBus;
-    OwnPtr<AudioBus> m_stereoSummingBus;
+    OwnPtr<AudioBus> m_internalSummingBus;
 };
 
 } // namespace WebCore

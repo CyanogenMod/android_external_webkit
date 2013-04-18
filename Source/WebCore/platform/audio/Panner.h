@@ -44,16 +44,16 @@ public:
         PanningModelHRTF = 1,
         PanningModelSoundField = 2
     };
-    
+
     typedef unsigned PanningModel;
 
-    static PassOwnPtr<Panner> create(PanningModel model, double sampleRate);
+    static PassOwnPtr<Panner> create(PanningModel, float sampleRate);
 
     virtual ~Panner() { };
 
     PanningModel panningModel() const { return m_panningModel; }
 
-    virtual void pan(double azimuth, double elevation, AudioBus* inputBus, AudioBus* outputBus, size_t framesToProcess) = 0;
+    virtual void pan(double azimuth, double elevation, const AudioBus* inputBus, AudioBus* outputBus, size_t framesToProcess) = 0;
 
     virtual void reset() = 0;
 

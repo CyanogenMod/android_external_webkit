@@ -29,9 +29,7 @@
 #include "AudioBus.h"
 #include "AudioGain.h"
 #include "AudioPannerNode.h"
-#include "AudioResampler.h"
 #include "AudioSourceNode.h"
-#include "AudioSourceProvider.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
@@ -43,45 +41,53 @@ class AudioContext;
 // AudioBufferSourceNode is an AudioNode representing an audio source from an in-memory audio asset represented by an AudioBuffer.
 // It generally will be used for short sounds which require a high degree of scheduling flexibility (can playback in rhythmically perfect ways).
 
-class AudioBufferSourceNode : public AudioSourceNode, public AudioSourceProvider {
+class AudioBufferSourceNode : public AudioSourceNode {
 public:
-    static PassRefPtr<AudioBufferSourceNode> create(AudioContext*, double sampleRate);
+    static PassRefPtr<AudioBufferSourceNode> create(AudioContext*, float sampleRate);
 
     virtual ~AudioBufferSourceNode();
-    
+
     // AudioNode
     virtual void process(size_t framesToProcess);
     virtual void reset();
 
-    // AudioSourceProvider
-    // When process() is called, the resampler calls provideInput (in the audio thread) to gets its input stream.
-    virtual void provideInput(AudioBus*, size_t numberOfFrames);
-    
     // setBuffer() is called on the main thread.  This is the buffer we use for playback.
-    void setBuffer(AudioBuffer*);
+    // returns true on success.
+    bool setBuffer(AudioBuffer*);
     AudioBuffer* buffer() { return m_buffer.get(); }
-                    
+
     // numberOfChannels() returns the number of output channels.  This value equals the number of channels from the buffer.
     // If a new buffer is set with a different number of channels, then this value will dynamically change.
     unsigned numberOfChannels();
-                    
+
     // Play-state
     // noteOn(), noteGrainOn(), and noteOff() must all be called from the main thread.
     void noteOn(double when);
     void noteGrainOn(double when, double grainOffset, double grainDuration);
     void noteOff(double when);
 
-    bool looping() const { return m_isLooping; }
-    void setLooping(bool looping) { m_isLooping = looping; }
-    
-    AudioGain* gain() { return m_gain.get(); }                                        
+    // Note: the attribute was originally exposed as .looping, but to be more consistent in naming with <audio>
+    // and with how it's described in the specification, the proper attribute name is .loop
+    // The old attribute is kept for backwards compatibility.
+    bool loop() const { return m_isLooping; }
+    void setLoop(bool looping) { m_isLooping = looping; }
+
+    // Deprecated.
+    bool looping();
+    void setLooping(bool);
+
+    AudioGain* gain() { return m_gain.get(); }
     AudioParam* playbackRate() { return m_playbackRate.get(); }
 
     // If a panner node is set, then we can incorporate doppler shift into the playback pitch rate.
     void setPannerNode(PassRefPtr<AudioPannerNode> pannerNode) { m_pannerNode = pannerNode; }
 
 private:
-    AudioBufferSourceNode(AudioContext*, double sampleRate);
+    AudioBufferSourceNode(AudioContext*, float sampleRate);
+
+    void renderFromBuffer(AudioBus*, unsigned destinationFrameOffset, size_t numberOfFrames);
+
+    inline bool renderSilenceAndFinishIfNotLooping(float* destinationL, float* destinationR, size_t framesToProcess);
 
     // m_buffer holds the sample data which this node outputs.
     RefPtr<AudioBuffer> m_buffer;
@@ -104,42 +110,35 @@ private:
     // m_startTime is the time to start playing based on the context's timeline (0.0 or a time less than the context's current time means "now").
     double m_startTime; // in seconds
 
-    // m_schedulingFrameDelay is the sample-accurate scheduling offset.
-    // It's used so that we start rendering audio samples at a very precise point in time.
-    // It will only be a non-zero value the very first render quantum that we render from the buffer.
-    int m_schedulingFrameDelay;
+    // m_endTime is the time to stop playing based on the context's timeline (0.0 or a time less than the context's current time means "now").
+    // If it hasn't been set explicitly, then the sound will not stop playing (if looping) or will stop when the end of the AudioBuffer
+    // has been reached.
+    double m_endTime; // in seconds
 
-    // m_readIndex is a sample-frame index into our buffer representing the current playback position.
-    unsigned m_readIndex;
+    // m_virtualReadIndex is a sample-frame index into our buffer representing the current playback position.
+    // Since it's floating-point, it has sub-sample accuracy.
+    double m_virtualReadIndex;
 
     // Granular playback
     bool m_isGrain;
     double m_grainOffset; // in seconds
     double m_grainDuration; // in seconds
-    int m_grainFrameCount; // keeps track of which frame in the grain we're currently rendering
 
     // totalPitchRate() returns the instantaneous pitch rate (non-time preserving).
     // It incorporates the base pitch rate, any sample-rate conversion factor from the buffer, and any doppler shift from an associated panner node.
     double totalPitchRate();
 
-    // m_resampler performs the pitch rate changes to the buffer playback.
-    AudioResampler m_resampler;
-
     // m_lastGain provides continuity when we dynamically adjust the gain.
-    double m_lastGain;
-    
+    float m_lastGain;
+
     // We optionally keep track of a panner node which has a doppler shift that is incorporated into the pitch rate.
     RefPtr<AudioPannerNode> m_pannerNode;
 
     // This synchronizes process() with setBuffer() which can cause dynamic channel count changes.
     mutable Mutex m_processLock;
 
-    // Reads the next framesToProcess sample-frames from the AudioBuffer into destinationBus.
-    // A grain envelope will be applied if m_isGrain is set to true.
-    void readFromBuffer(AudioBus* destinationBus, size_t framesToProcess);
-
-    // readFromBufferWithGrainEnvelope() is a low-level blitter which reads from the AudioBuffer and applies a grain envelope.
-    void readFromBufferWithGrainEnvelope(float* sourceL, float* sourceR, float* destinationL, float* destinationR, size_t framesToProcess);
+    // Handles the time when we reach the end of sample data (non-looping) or the noteOff() time has been reached.
+    void finish();
 };
 
 } // namespace WebCore

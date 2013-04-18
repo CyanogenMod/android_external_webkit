@@ -33,29 +33,61 @@ namespace WebCore {
 
 namespace AudioUtilities {
 
-double decibelsToLinear(double decibels)
+float decibelsToLinear(float decibels)
 {
-    return pow(10.0, 0.05 * decibels);
+    return powf(10, 0.05f * decibels);
 }
 
-double linearToDecibels(double linear)
+float linearToDecibels(float linear)
 {
     // It's not possible to calculate decibels for a zero linear value since it would be -Inf.
     // -1000.0 dB represents a very tiny linear value in case we ever reach this case.
     ASSERT(linear);
     if (!linear)
-        return -1000.0;
-        
-    return 20.0 * log10(linear);
+        return -1000;
+
+    return 20 * log10f(linear);
 }
 
-double discreteTimeConstantForSampleRate(double timeConstant, double sampleRate)
+float discreteTimeConstantForSampleRate(float timeConstant, float sampleRate)
 {
     // hardcoded value is temporary build fix for Windows.
     // FIXME: replace hardcode 2.718282 with M_E until the correct MathExtras.h solution is determined.
-    return 1.0 - pow(1.0 / 2.718282, 1.0 / (sampleRate * timeConstant));
+    return 1 - powf(1 / 2.718282f, 1 / (sampleRate * timeConstant));
 }
-    
+
+#if OS(WINDOWS) && COMPILER(MSVC) && !_M_IX86_FP
+// When compiling with MSVC with x87 FPU instructions using 80-bit
+// floats, we want very precise control over the arithmetic so that
+// rounding is done according to the IEEE 754 specification for
+// single- and double-precision floats. We want each operation to be
+// done with specified arithmetic precision and rounding consistent
+// with gcc, not extended to 80 bits automatically.
+//
+// These pragmas are equivalent to /fp:strict flag, but we only need
+// it for the function here.  (Using fp:strict everywhere can have
+// severe impact on floating point performance.)
+#pragma float_control(push)
+#pragma float_control(precise, on)
+#pragma fenv_access(on)
+#pragma float_control(except, on)
+#endif
+
+size_t timeToSampleFrame(double time, double sampleRate)
+{
+    // DO NOT CONSOLIDATE THESE ASSIGNMENTS INTO ONE! When compiling
+    // with Visual Studio, these assignments force the rounding of
+    // each operation according to IEEE 754, instead of leaving
+    // intermediate results in 80-bit precision which is not
+    // consistent with IEEE 754 double-precision rounding.
+    double r = time * sampleRate;
+    r += 0.5;
+    return static_cast<size_t>(r);
+}
+#if OS(WINDOWS) && COMPILER(MSVC) && !_M_IX86_FP
+// Restore normal floating-point semantics.
+#pragma float_control(pop)
+#endif
 } // AudioUtilites
 
 } // WebCore

@@ -37,11 +37,16 @@ using namespace JSC;
 
 namespace WebCore {
 
-const ClassInfo JSAudioConstructor::s_info = { "AudioConstructor", &DOMConstructorWithDocument::s_info, 0, 0 };
+const ClassInfo JSAudioConstructor::s_info = { "AudioConstructor", &DOMConstructorWithDocument::s_info, 0, 0, CREATE_METHOD_TABLE(JSAudioConstructor) };
 
-JSAudioConstructor::JSAudioConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
-    : DOMConstructorWithDocument(JSAudioConstructor::createStructure(globalObject->globalData(), globalObject->objectPrototype()), globalObject)
+JSAudioConstructor::JSAudioConstructor(Structure* structure, JSDOMGlobalObject* globalObject)
+    : DOMConstructorWithDocument(structure, globalObject)
 {
+}
+
+void JSAudioConstructor::finishCreation(ExecState* exec, JSDOMGlobalObject* globalObject)
+{
+    Base::finishCreation(globalObject);
     ASSERT(inherits(&s_info));
     putDirect(exec->globalData(), exec->propertyNames().prototype, JSHTMLAudioElementPrototype::self(exec, globalObject), None);
     putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontDelete | DontEnum);
@@ -56,7 +61,7 @@ static EncodedJSValue JSC_HOST_CALL constructAudio(ExecState* exec)
         return throwVMError(exec, createReferenceError(exec, "Audio constructor associated document is unavailable"));
 
     // Calling toJS on the document causes the JS document wrapper to be
-    // added to the window object. This is done to ensure that JSDocument::markChildren
+    // added to the window object. This is done to ensure that JSDocument::visitChildren
     // will be called, which will cause the audio element to be marked if necessary.
     toJS(exec, jsConstructor->globalObject(), document);
 
@@ -70,7 +75,7 @@ static EncodedJSValue JSC_HOST_CALL constructAudio(ExecState* exec)
         HTMLAudioElement::createForJSConstructor(document, src))));
 }
 
-ConstructType JSAudioConstructor::getConstructData(ConstructData& constructData)
+ConstructType JSAudioConstructor::getConstructData(JSCell*, ConstructData& constructData)
 {
     constructData.native.function = constructAudio;
     return ConstructTypeHost;

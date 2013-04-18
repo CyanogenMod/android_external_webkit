@@ -85,6 +85,11 @@
 #define TOUCH_DELAY 4
 #endif
 
+#if ENABLE(WEB_AUDIO)
+#include "AudioSourceProvider.h"
+#include "MediaElementAudioSourceNode.h"
+#endif
+
 using namespace std;
 
 namespace WebCore {
@@ -180,6 +185,9 @@ HTMLMediaElement::HTMLMediaElement(const QualifiedName& tagName, Document* docum
 #if PLATFORM(ANDROID)
     , m_lastTouch(0)
     , m_userGestureInitiated(false)
+#endif
+#if ENABLE(WEB_AUDIO)
+    , m_audioSourceNode(0)
 #endif
 {
     LOG(Media, "HTMLMediaElement::HTMLMediaElement");
@@ -2779,6 +2787,23 @@ void* HTMLMediaElement::preDispatchEventHandler(Event* event)
     return 0;
 }
 
+#if ENABLE(WEB_AUDIO)
+void HTMLMediaElement::setAudioSourceNode(MediaElementAudioSourceNode* sourceNode)
+{
+    m_audioSourceNode = sourceNode;
+
+    if (audioSourceProvider())
+        audioSourceProvider()->setClient(m_audioSourceNode);
+}
+
+AudioSourceProvider* HTMLMediaElement::audioSourceProvider()
+{
+    if (m_player)
+        return m_player->audioSourceProvider();
+
+    return 0;
+}
+#endif
 
 }
 

@@ -38,6 +38,8 @@ class AudioContext;
 class AudioNodeInput;
 class AudioNodeOutput;
 
+typedef int ExceptionCode;
+
 // An AudioNode is the basic building block for handling audio within an AudioContext.
 // It may be an audio source, an intermediate processing module, or an audio destination.
 // Each AudioNode can have inputs and/or outputs. An AudioSourceNode has no inputs and a single output.
@@ -48,7 +50,7 @@ class AudioNode {
 public:
     enum { ProcessingSizeInFrames = 128 };
 
-    AudioNode(AudioContext*, double sampleRate);
+    AudioNode(AudioContext*, float sampleRate);
     virtual ~AudioNode();
 
     AudioContext* context() { return m_context.get(); }
@@ -57,7 +59,9 @@ public:
         NodeTypeUnknown,
         NodeTypeDestination,
         NodeTypeAudioBufferSource,
+        NodeTypeMediaElementAudioSource,
         NodeTypeJavaScript,
+        NodeTypeBiquadFilter,
         NodeTypeLowPass2Filter,
         NodeTypeHighPass2Filter,
         NodeTypePanner,
@@ -67,11 +71,13 @@ public:
         NodeTypeChannelSplitter,
         NodeTypeChannelMerger,
         NodeTypeAnalyser,
+        NodeTypeDynamicsCompressor,
+        NodeTypeWaveShaper,
         NodeTypeEnd
     };
 
-    NodeType type() const { return m_type; }
-    void setType(NodeType);
+    NodeType nodeType() const { return m_nodeType; }
+    void setNodeType(NodeType);
 
     // We handle our own ref-counting because of the threading issues and subtle nature of
     // how AudioNodes can continue processing (playing one-shot sound) after there are no more
@@ -108,12 +114,11 @@ public:
     AudioNodeInput* input(unsigned);
     AudioNodeOutput* output(unsigned);
 
-    // connect() / disconnect() return true on success.
     // Called from main thread by corresponding JavaScript methods.
-    bool connect(AudioNode* destination, unsigned outputIndex = 0, unsigned inputIndex = 0);
-    bool disconnect(unsigned outputIndex = 0);
+    void connect(AudioNode*, unsigned outputIndex, unsigned inputIndex, ExceptionCode&);
+    void disconnect(unsigned outputIndex, ExceptionCode&);
 
-    double sampleRate() const { return m_sampleRate; }
+    float sampleRate() const { return m_sampleRate; }
 
     // processIfNecessary() is called by our output(s) when the rendering graph needs this AudioNode to process.
     // This method ensures that the AudioNode will only process once per rendering time quantum even if it's called repeatedly.
@@ -124,7 +129,7 @@ public:
     // Called when a new connection has been made to one of our inputs or the connection number of channels has changed.
     // This potentially gives us enough information to perform a lazy initialization or, if necessary, a re-initialization.
     // Called from main thread.
-    virtual void checkNumberOfChannelsForInput(AudioNodeInput*) { }
+    virtual void checkNumberOfChannelsForInput(AudioNodeInput*);
 
 #if DEBUG_AUDIONODE_REFERENCES
     static void printNodeCounts();
@@ -136,7 +141,7 @@ protected:
     // Inputs and outputs must be created before the AudioNode is initialized.
     void addInput(PassOwnPtr<AudioNodeInput>);
     void addOutput(PassOwnPtr<AudioNodeOutput>);
-    
+
     // Called by processIfNecessary() to cause all parts of the rendering graph connected to us to process.
     // Each rendering quantum, the audio data for each of the AudioNode's inputs will be available after this method is called.
     // Called from context's audio thread.
@@ -144,9 +149,9 @@ protected:
 
 private:
     volatile bool m_isInitialized;
-    NodeType m_type;
+    NodeType m_nodeType;
     RefPtr<AudioContext> m_context;
-    double m_sampleRate;
+    float m_sampleRate;
     Vector<OwnPtr<AudioNodeInput> > m_inputs;
     Vector<OwnPtr<AudioNodeOutput> > m_outputs;
 
@@ -156,10 +161,10 @@ private:
     volatile int m_normalRefCount;
     volatile int m_connectionRefCount;
     volatile int m_disabledRefCount;
-    
+
     bool m_isMarkedForDeletion;
     bool m_isDisabled;
-    
+
 #if DEBUG_AUDIONODE_REFERENCES
     static bool s_isNodeCountInitialized;
     static int s_nodeCount[NodeTypeEnd];
