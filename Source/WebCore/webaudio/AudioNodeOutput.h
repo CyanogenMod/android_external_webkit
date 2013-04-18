@@ -47,7 +47,7 @@ public:
     // Can be called from any thread.
     AudioNode* node() const { return m_node; }
     AudioContext* context() { return m_node->context(); }
-    
+
     // Causes our AudioNode to process if it hasn't already for this render quantum.
     // It returns the bus containing the processed audio for this output, returning inPlaceBus if in-place processing was possible.
     // Called from context's audio thread.
@@ -82,20 +82,20 @@ public:
     // updateRenderingState() is called in the audio thread at the start or end of the render quantum to handle any recent changes to the graph state.
     // It must be called with the context's graph lock.
     void updateRenderingState();
-    
+
 private:
     AudioNode* m_node;
 
     friend class AudioNodeInput;
-    
+
     // These are called from AudioNodeInput.
     // They must be called with the context's graph lock.
     void addInput(AudioNodeInput*);
     void removeInput(AudioNodeInput*);
 
-    // setInternalBus() sets m_internalOutputBus appropriately for the number of channels.
+    // updateInternalBus() updates m_internalBus appropriately for the number of channels.
     // It is called in the constructor or in the audio thread with the context's graph lock.
-    void setInternalBus();
+    void updateInternalBus();
 
     // Announce to any nodes we're connected to that we changed our channel count for its input.
     // It must be called in the audio thread with the context's graph lock.
@@ -109,12 +109,9 @@ private:
     // The main thread sets m_desiredNumberOfChannels which will later get picked up in the audio thread in updateNumberOfChannels().
     unsigned m_numberOfChannels;
     unsigned m_desiredNumberOfChannels;
-    
-    // m_internalOutputBus will point to either m_monoInternalBus or m_stereoInternalBus.
-    // It must only be changed in the audio thread (or constructor).
-    AudioBus* m_internalOutputBus;
-    OwnPtr<AudioBus> m_monoInternalBus;
-    OwnPtr<AudioBus> m_stereoInternalBus;
+
+    // m_internalBus must only be changed in the audio thread with the context's graph lock (or constructor).
+    OwnPtr<AudioBus> m_internalBus;
 
     // m_actualDestinationBus is set in pull() and will either point to one of our internal busses or to the in-place bus.
     // It must only be changed in the audio thread (or constructor).
@@ -123,7 +120,7 @@ private:
     HashSet<AudioNodeInput*> m_inputs;
     typedef HashSet<AudioNodeInput*>::iterator InputsIterator;
     bool m_isEnabled;
-    
+
     // For the purposes of rendering, keeps track of the number of inputs we're connected to.
     // This value should only be changed at the very start or end of the rendering quantum.
     unsigned m_renderingFanOutCount;

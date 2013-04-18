@@ -33,25 +33,27 @@
 #include "AudioNodeInput.h"
 #include "AudioNodeOutput.h"
 #include "Reverb.h"
+#include <wtf/MainThread.h>
 
 // Note about empirical tuning:
 // The maximum FFT size affects reverb performance and accuracy.
 // If the reverb is single-threaded and processes entirely in the real-time audio thread,
 // it's important not to make this too high.  In this case 8192 is a good value.
 // But, the Reverb object is multi-threaded, so we want this as high as possible without losing too much accuracy.
-// Very large FFTs will have worse phase errors.  Given these constraints 16384 is a good compromise.
-const size_t MaxFFTSize = 16384;
+// Very large FFTs will have worse phase errors. Given these constraints 32768 is a good compromise.
+const size_t MaxFFTSize = 32768;
 
 namespace WebCore {
 
-ConvolverNode::ConvolverNode(AudioContext* context, double sampleRate)
+ConvolverNode::ConvolverNode(AudioContext* context, float sampleRate)
     : AudioNode(context, sampleRate)
+    , m_normalize(true)
 {
     addInput(adoptPtr(new AudioNodeInput(this)));
     addOutput(adoptPtr(new AudioNodeOutput(this, 2)));
-    
-    setType(NodeTypeConvolver);
-    
+
+    setNodeType(NodeTypeConvolver);
+
     initialize();
 }
 
@@ -76,7 +78,7 @@ void ConvolverNode::process(size_t framesToProcess)
             // we keep getting fed silence.
             m_reverb->process(input(0)->bus(), outputBus, framesToProcess);
         }
-        
+
         m_processLock.unlock();
     } else {
         // Too bad - the tryLock() failed.  We must be in the middle of setting a new impulse response.
@@ -95,7 +97,7 @@ void ConvolverNode::initialize()
 {
     if (isInitialized())
         return;
-        
+
     AudioNode::initialize();
 }
 
@@ -111,7 +113,7 @@ void ConvolverNode::uninitialize()
 void ConvolverNode::setBuffer(AudioBuffer* buffer)
 {
     ASSERT(isMainThread());
-    
+
     ASSERT(buffer);
     if (!buffer)
         return;
@@ -130,10 +132,10 @@ void ConvolverNode::setBuffer(AudioBuffer* buffer)
     AudioBus bufferBus(numberOfChannels, bufferLength, false);
     for (unsigned i = 0; i < numberOfChannels; ++i)
         bufferBus.setChannelMemory(i, buffer->getChannelData(i)->data(), bufferLength);
-    
+
     // Create the reverb with the given impulse response.
     bool useBackgroundThreads = !context()->isOfflineContext();
-    OwnPtr<Reverb> reverb = adoptPtr(new Reverb(&bufferBus, AudioNode::ProcessingSizeInFrames, MaxFFTSize, 2, useBackgroundThreads));
+    OwnPtr<Reverb> reverb = adoptPtr(new Reverb(&bufferBus, AudioNode::ProcessingSizeInFrames, MaxFFTSize, 2, useBackgroundThreads, m_normalize));
 
     {
         // Synchronize with process().

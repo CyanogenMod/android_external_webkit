@@ -31,19 +31,19 @@
 namespace WebCore {
 
 class AudioParam;
-    
+
 class LowPass2FilterNode : public AudioBasicProcessorNode {
 public:
-    static PassRefPtr<LowPass2FilterNode> create(AudioContext* context, double sampleRate)
+    static PassRefPtr<LowPass2FilterNode> create(AudioContext* context, float sampleRate)
     {
-        return adoptRef(new LowPass2FilterNode(context, sampleRate));      
+        return adoptRef(new LowPass2FilterNode(context, sampleRate));
     }
 
     AudioParam* cutoff() { return biquadProcessor()->parameter1(); }
     AudioParam* resonance() { return biquadProcessor()->parameter2(); }
-    
+
 private:
-    LowPass2FilterNode(AudioContext*, double sampleRate);
+    LowPass2FilterNode(AudioContext*, float sampleRate);
 
     BiquadProcessor* biquadProcessor() { return static_cast<BiquadProcessor*>(processor()); }
 };

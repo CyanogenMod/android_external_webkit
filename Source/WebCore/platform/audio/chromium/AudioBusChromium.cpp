@@ -29,37 +29,37 @@
 #include "AudioBus.h"
 
 #include "AudioFileReader.h"
-#include "PlatformBridge.h"
+#include "PlatformSupport.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
-PassOwnPtr<AudioBus> AudioBus::loadPlatformResource(const char* name, double sampleRate)
+PassOwnPtr<AudioBus> AudioBus::loadPlatformResource(const char* name, float sampleRate)
 {
     // FIXME: the sampleRate parameter is ignored. It should be removed from the API.
-    OwnPtr<AudioBus> audioBus = PlatformBridge::loadPlatformAudioResource(name, sampleRate);
+    OwnPtr<AudioBus> audioBus = PlatformSupport::loadPlatformAudioResource(name, sampleRate);
     if (!audioBus.get())
-        return 0;
-    
+        return nullptr;
+
     // If the bus is already at the requested sample-rate then return as is.
     if (audioBus->sampleRate() == sampleRate)
         return audioBus.release();
-    
+
     return AudioBus::createBySampleRateConverting(audioBus.get(), false, sampleRate);
 }
 
-PassOwnPtr<AudioBus> createBusFromInMemoryAudioFile(const void* data, size_t dataSize, bool mixToMono, double sampleRate)
+PassOwnPtr<AudioBus> createBusFromInMemoryAudioFile(const void* data, size_t dataSize, bool mixToMono, float sampleRate)
 {
     // FIXME: the sampleRate parameter is ignored. It should be removed from the API.
-    OwnPtr<AudioBus> audioBus = PlatformBridge::decodeAudioFileData(static_cast<const char*>(data), dataSize, sampleRate);
+    OwnPtr<AudioBus> audioBus = PlatformSupport::decodeAudioFileData(static_cast<const char*>(data), dataSize, sampleRate);
     if (!audioBus.get())
-      return 0;
-      
+        return nullptr;
+
     // If the bus needs no conversion then return as is.
     if ((!mixToMono || audioBus->numberOfChannels() == 1) && audioBus->sampleRate() == sampleRate)
         return audioBus.release();
-    
-    return AudioBus::createBySampleRateConverting(audioBus.get(), mixToMono, sampleRate);    
+
+    return AudioBus::createBySampleRateConverting(audioBus.get(), mixToMono, sampleRate);
 }
 
 } // namespace WebCore

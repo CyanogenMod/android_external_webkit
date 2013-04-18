@@ -32,12 +32,12 @@
 #include "AudioNodeOutput.h"
 
 namespace WebCore {
-    
+
 // This is considering that 5.1 (6 channels) is the largest we'll ever deal with.
 // It can easily be increased to support more if the web audio specification is updated.
 const unsigned NumberOfOutputs = 6;
 
-AudioChannelSplitter::AudioChannelSplitter(AudioContext* context, double sampleRate)
+AudioChannelSplitter::AudioChannelSplitter(AudioContext* context, float sampleRate)
     : AudioNode(context, sampleRate)
 {
     addInput(adoptPtr(new AudioNodeInput(this)));
@@ -45,9 +45,9 @@ AudioChannelSplitter::AudioChannelSplitter(AudioContext* context, double sampleR
     // Create a fixed number of outputs (able to handle the maximum number of channels fed to an input).
     for (unsigned i = 0; i < NumberOfOutputs; ++i)
         addOutput(adoptPtr(new AudioNodeOutput(this, 1)));
-    
-    setType(NodeTypeChannelSplitter);
-    
+
+    setNodeType(NodeTypeChannelSplitter);
+
     initialize();
 }
 
@@ -56,14 +56,14 @@ void AudioChannelSplitter::process(size_t framesToProcess)
     AudioBus* source = input(0)->bus();
     ASSERT(source);
     ASSERT_UNUSED(framesToProcess, framesToProcess == source->length());
-    
+
     unsigned numberOfSourceChannels = source->numberOfChannels();
-    
+
     ASSERT(numberOfOutputs() == NumberOfOutputs);
     for (unsigned i = 0; i < NumberOfOutputs; ++i) {
         AudioBus* destination = output(i)->bus();
         ASSERT(destination);
-        
+
         if (i < numberOfSourceChannels) {
             // Split the channel out if it exists in the source.
             // It would be nice to avoid the copy and simply pass along pointers, but this becomes extremely difficult with fanout and fanin.

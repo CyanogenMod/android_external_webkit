@@ -53,7 +53,7 @@ public:
         SOUNDFIELD = 2,
     };
 
-    static PassRefPtr<AudioPannerNode> create(AudioContext* context, double sampleRate)
+    static PassRefPtr<AudioPannerNode> create(AudioContext* context, float sampleRate)
     {
         return adoptRef(new AudioPannerNode(context, sampleRate));
     }
@@ -89,7 +89,7 @@ public:
     // Distance parameters
     unsigned short distanceModel() { return m_distanceEffect.model(); }
     void setDistanceModel(unsigned short model) { m_distanceEffect.setModel(static_cast<DistanceEffect::ModelType>(model), true); }
-    
+
     float refDistance() { return static_cast<float>(m_distanceEffect.refDistance()); }
     void setRefDistance(float refDistance) { m_distanceEffect.setRefDistance(refDistance); }
 
@@ -113,11 +113,11 @@ public:
     float dopplerRate();
 
     // Accessors for dynamically calculated gain values.
-    AudioGain* distanceGain() { return m_distanceGain.get(); }                                        
-    AudioGain* coneGain() { return m_coneGain.get(); }                                        
+    AudioGain* distanceGain() { return m_distanceGain.get(); }
+    AudioGain* coneGain() { return m_coneGain.get(); }
 
 private:
-    AudioPannerNode(AudioContext*, double sampleRate);
+    AudioPannerNode(AudioContext*, float sampleRate);
 
     // Returns the combined distance and cone gain attenuation.
     float distanceConeGain();
@@ -138,7 +138,7 @@ private:
     RefPtr<AudioGain> m_coneGain;
     DistanceEffect m_distanceEffect;
     ConeEffect m_coneEffect;
-    double m_lastGain;
+    float m_lastGain;
 
     unsigned m_connectionCount;
 };

@@ -34,16 +34,16 @@ namespace WebCore {
 
 class AudioBuffer;
 class Reverb;
-    
+
 class ConvolverNode : public AudioNode {
 public:
-    static PassRefPtr<ConvolverNode> create(AudioContext* context, double sampleRate)
+    static PassRefPtr<ConvolverNode> create(AudioContext* context, float sampleRate)
     {
-        return adoptRef(new ConvolverNode(context, sampleRate));      
+        return adoptRef(new ConvolverNode(context, sampleRate));
     }
-    
+
     virtual ~ConvolverNode();
-    
+
     // AudioNode
     virtual void process(size_t framesToProcess);
     virtual void reset();
@@ -54,14 +54,19 @@ public:
     void setBuffer(AudioBuffer*);
     AudioBuffer* buffer();
 
+    bool normalize() const { return m_normalize; }
+    void setNormalize(bool normalize) { m_normalize = normalize; }
 private:
-    ConvolverNode(AudioContext*, double sampleRate);
+    ConvolverNode(AudioContext*, float sampleRate);
 
     OwnPtr<Reverb> m_reverb;
     RefPtr<AudioBuffer> m_buffer;
 
     // This synchronizes dynamic changes to the convolution impulse response with process().
     mutable Mutex m_processLock;
+
+    // Normalize the impulse response or not. Must default to true.
+    bool m_normalize;
 };
 
 } // namespace WebCore

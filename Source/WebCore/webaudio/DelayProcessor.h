@@ -34,14 +34,14 @@
 namespace WebCore {
 
 class AudioDSPKernel;
-    
+
 class DelayProcessor : public AudioDSPKernelProcessor {
 public:
-    DelayProcessor(double sampleRate, unsigned numberOfChannels);
+    DelayProcessor(float sampleRate, unsigned numberOfChannels);
     virtual ~DelayProcessor();
-    
+
     virtual PassOwnPtr<AudioDSPKernel> createKernel();
-        
+
     AudioParam* delayTime() const { return m_delayTime.get(); }
 
 private:

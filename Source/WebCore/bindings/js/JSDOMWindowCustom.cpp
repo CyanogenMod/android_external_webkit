@@ -158,7 +158,7 @@ bool JSDOMWindow::getOwnPropertySlot(ExecState* exec, const Identifier& property
         }
 
         // FIXME: We should have a message here that explains why the property access/function call was
-        // not allowed. 
+        // not allowed.
         slot.setUndefined();
         return true;
     }
@@ -235,7 +235,7 @@ bool JSDOMWindow::getOwnPropertySlot(ExecState* exec, const Identifier& property
     }
 
     // Do prototype lookup early so that functions and attributes in the prototype can have
-    // precedence over the index and name getters.  
+    // precedence over the index and name getters.
     JSValue proto = prototype();
     if (proto.isObject()) {
         if (asObject(proto)->getPropertySlot(exec, propertyName, slot)) {
@@ -284,7 +284,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
         return false;
 
     const HashEntry* entry;
-    
+
     // We don't want any properties other than "close" and "closed" on a closed window.
     if (!impl()->frame()) {
         // The following code is safe for cross-domain and same domain use.
@@ -312,7 +312,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
         descriptor.setDescriptor(slot.getValue(exec, propertyName), entry->attributes());
         return true;
     }
-    
+
     // Check for child frames by name before built-in properties to
     // match Mozilla. This does not match IE, but some sites end up
     // naming frames things that conflict with window properties that
@@ -324,7 +324,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
         descriptor.setDescriptor(slot.getValue(exec, propertyName), ReadOnly | DontDelete | DontEnum);
         return true;
     }
-    
+
     bool ok;
     unsigned i = propertyName.toArrayIndex(ok);
     if (ok && i < impl()->frame()->tree()->childCount()) {
@@ -345,7 +345,7 @@ bool JSDOMWindow::getOwnPropertyDescriptor(ExecState* exec, const Identifier& pr
             return true;
         }
     }
-    
+
     return Base::getOwnPropertyDescriptor(exec, propertyName, descriptor);
 }
 
@@ -529,51 +529,51 @@ JSValue JSDOMWindow::webKitCSSMatrix(ExecState* exec) const
 {
     return getDOMConstructor<JSWebKitCSSMatrixConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::arrayBuffer(ExecState* exec) const
 {
     return getDOMConstructor<JSArrayBufferConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::int8Array(ExecState* exec) const
 {
     return getDOMConstructor<JSInt8ArrayConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::uint8Array(ExecState* exec) const
 {
     return getDOMConstructor<JSUint8ArrayConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::int32Array(ExecState* exec) const
 {
     return getDOMConstructor<JSInt32ArrayConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::uint32Array(ExecState* exec) const
 {
     return getDOMConstructor<JSUint32ArrayConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::int16Array(ExecState* exec) const
 {
     return getDOMConstructor<JSInt16ArrayConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::uint16Array(ExecState* exec) const
 {
     return getDOMConstructor<JSUint16ArrayConstructor>(exec, this);
 }
- 
+
 JSValue JSDOMWindow::float32Array(ExecState* exec) const
 {
     return getDOMConstructor<JSFloat32ArrayConstructor>(exec, this);
 }
 
-JSValue JSDOMWindow::float64Array(ExecState* exec) const 
-{ 
-    return getDOMConstructor<JSFloat64ArrayConstructor>(exec, this); 
-} 
+JSValue JSDOMWindow::float64Array(ExecState* exec) const
+{
+    return getDOMConstructor<JSFloat64ArrayConstructor>(exec, this);
+}
 
 JSValue JSDOMWindow::dataView(ExecState* exec) const
 {
@@ -615,21 +615,30 @@ JSValue JSDOMWindow::sharedWorker(ExecState* exec) const
 }
 #endif
 
+#if ENABLE(WEB_AUDIO) || ENABLE(WEB_SOCKETS)
+static Settings* settingsForWindow(const JSDOMWindow* window)
+{
+    ASSERT(window);
+    if (Frame* frame = window->impl()->frame())
+        return frame->settings();
+    return 0;
+}
+#endif
+
 #if ENABLE(WEB_AUDIO)
 JSValue JSDOMWindow::webkitAudioContext(ExecState* exec) const
 {
-    return getDOMConstructor<JSAudioContextConstructor>(exec, this);
+    Settings* settings = settingsForWindow(this);
+    if (settings && settings->webAudioEnabled())
+        return getDOMConstructor<JSAudioContextConstructor>(exec, this);
+    return jsUndefined();
 }
 #endif
 
 #if ENABLE(WEB_SOCKETS)
 JSValue JSDOMWindow::webSocket(ExecState* exec) const
 {
-    Frame* frame = impl()->frame();
-    if (!frame)
-        return jsUndefined();
-    Settings* settings = frame->settings();
-    if (!settings)
+    if (!settingsForWindow(this))
         return jsUndefined();
     return getDOMConstructor<JSWebSocketConstructor>(exec, this);
 }

@@ -37,14 +37,17 @@
 namespace WebCore {
 
 v8::Handle<v8::Value> V8AudioNode::connectCallback(const v8::Arguments& args)
-{    
+{
     if (args.Length() < 1)
         return throwError("Not enough arguments", V8Proxy::SyntaxError);
 
-    AudioNode* destinationNode = toNative(args[0]->ToObject());
+    AudioNode* destinationNode = 0;
+    if (V8AudioNode::HasInstance(args[0]))
+        destinationNode = toNative(args[0]->ToObject());
+
     if (!destinationNode)
         return throwError("Invalid destination node", V8Proxy::SyntaxError);
-    
+
     unsigned output = 0;
     unsigned input = 0;
     bool ok = false;
@@ -59,7 +62,7 @@ v8::Handle<v8::Value> V8AudioNode::connectCallback(const v8::Arguments& args)
         if (!ok)
             return throwError("Invalid index parameters", V8Proxy::SyntaxError);
     }
-        
+
     AudioNode* audioNode = toNative(args.Holder());
     bool success = audioNode->connect(destinationNode, output, input);
     if (!success)
@@ -69,7 +72,7 @@ v8::Handle<v8::Value> V8AudioNode::connectCallback(const v8::Arguments& args)
 }
 
 v8::Handle<v8::Value> V8AudioNode::disconnectCallback(const v8::Arguments& args)
-{    
+{
     unsigned output = 0;
     bool ok = false;
     if (args.Length() > 0) {
