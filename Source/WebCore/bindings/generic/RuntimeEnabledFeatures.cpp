@@ -49,7 +49,11 @@ bool RuntimeEnabledFeatures::isApplicationCacheEnabled = true;
 bool RuntimeEnabledFeatures::isDataTransferItemsEnabled = true;
 bool RuntimeEnabledFeatures::isGeolocationEnabled = true;
 bool RuntimeEnabledFeatures::isIndexedDBEnabled = false;
+#if ENABLE(WEB_AUDIO)
+bool RuntimeEnabledFeatures::isWebAudioEnabled = true;
+#else
 bool RuntimeEnabledFeatures::isWebAudioEnabled = false;
+#endif
 bool RuntimeEnabledFeatures::isPushStateEnabled = false;
 bool RuntimeEnabledFeatures::isTouchEnabled = true;
 bool RuntimeEnabledFeatures::isDeviceMotionEnabled = true;

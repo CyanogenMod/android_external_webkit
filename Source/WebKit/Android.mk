@@ -121,3 +121,11 @@ LOCAL_SRC_FILES += \
 	android/WebCoreSupport/autofill/FormManagerAndroid.cpp \
 	android/WebCoreSupport/autofill/WebAutofill.cpp
 endif # ENABLE_AUTOFILL == true
+
+ifeq ($(ENABLE_WEBAUDIO),true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	android/webaudio/InMemoryDataSource.cpp \
+	android/webaudio/WebAudioAssetsAndroid.cpp \
+	android/webaudio/WebAudioDestinationAndroid.cpp \
+	android/webaudio/WebAudioDecoderAndroid.cpp
+endif

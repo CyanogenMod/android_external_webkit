@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010, Google Inc. All rights reserved.
+ * Copyright (C) 2012 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +31,9 @@
 
 #if OS(DARWIN)
 #include <Accelerate/Accelerate.h>
+#endif
+#if defined (__USE_ARM_NEON__)
+#include "VectorMathNEON.h"
 #endif
 
 #ifdef __SSE2__
@@ -166,6 +170,12 @@ void vsma(const float* sourceP, int sourceStride, const float* scale, float* des
 
 void vsmul(const float* sourceP, int sourceStride, const float* scale, float* destP, int destStride, size_t framesToProcess)
 {
+#if defined (__USE_ARM_NEON__)
+    if (sourceStride == 1 && destStride == 1) {
+        vsmul_neon(sourceP, scale, destP, framesToProcess);
+        return;
+    }
+#endif
 #ifdef __SSE2__
     if ((sourceStride == 1) && (destStride == 1)) {
 
@@ -232,6 +242,13 @@ void vsmul(const float* sourceP, int sourceStride, const float* scale, float* de
 
 void vadd(const float* source1P, int sourceStride1, const float* source2P, int sourceStride2, float* destP, int destStride, size_t framesToProcess)
 {
+#if defined (__USE_ARM_NEON__)
+    if (sourceStride1 == 1 && sourceStride2 == 1 && destStride == 1){
+        vadd_neon(source1P, source2P, destP, framesToProcess);
+        return;
+    }
+#endif
+
 #ifdef __SSE2__
     if ((sourceStride1 ==1) && (sourceStride2 == 1) && (destStride == 1)) {
 
@@ -330,7 +347,12 @@ void vadd(const float* source1P, int sourceStride1, const float* source2P, int s
 
 void vmul(const float* source1P, int sourceStride1, const float* source2P, int sourceStride2, float* destP, int destStride, size_t framesToProcess)
 {
-
+#if defined (__USE_ARM_NEON__)
+    if (sourceStride1 == 1 && sourceStride2 == 1 && destStride == 1){
+        vmul_neon(source1P, source2P, destP, framesToProcess);
+        return;
+    }
+#endif
     int n = framesToProcess;
 
 #ifdef __SSE2__
@@ -390,6 +412,9 @@ void vmul(const float* source1P, int sourceStride1, const float* source2P, int s
 
 void zvmul(const float* real1P, const float* imag1P, const float* real2P, const float* imag2P, float* realDestP, float* imagDestP, size_t framesToProcess)
 {
+#if defined (__USE_ARM_NEON__)
+    zvmul_neon(real1P, imag1P, real2P, imag2P, realDestP, imagDestP, framesToProcess);
+#else
     unsigned i = 0;
 #ifdef __SSE2__
     // Only use the SSE optimization in the very common case that all addresses are 16-byte aligned.
@@ -416,11 +441,12 @@ void zvmul(const float* real1P, const float* imag1P, const float* real2P, const 
             i += 4;
         }
     }
-#endif
+#endif //__SSE2__
     for (; i < framesToProcess; ++i) {
         realDestP[i] = real1P[i] * real2P[i] - imag1P[i] * imag2P[i];
         imagDestP[i] = real1P[i] * imag2P[i] + imag1P[i] * real2P[i];
     }
+#endif
 }
 
 void vsvesq(const float* sourceP, int sourceStride, float* sumP, size_t framesToProcess)
@@ -452,6 +478,35 @@ void vmaxmgv(const float* sourceP, int sourceStride, float* maxP, size_t framesT
     *maxP = max;
 }
 #endif // OS(DARWIN)
+
+void vintlve(const float* realSrcP, const float* imagSrcP, float* destP, size_t framesToProcess)
+{
+#if defined (__USE_ARM_NEON__)
+    vintlve_neon(realSrcP, imagSrcP, destP, framesToProcess);
+#else
+    int len = framesToProcess / 2;
+    for (int i = 0; i < len; ++i) {
+        int baseIndex = 2 * i;
+        destP[baseIndex] = realSrcP[i];
+        destP[baseIndex + 1] = imagSrcP[i];
+    }
+#endif
+}
+
+
+void vdeintlve(const float* sourceP, float* realDestP, float* imagDestP, size_t framesToProcess)
+{
+#if defined (__USE_ARM_NEON__)
+    vdeintlve_neon(sourceP, realDestP, imagDestP, framesToProcess);
+#else
+    int len = framesToProcess / 2;
+    for (int i = 0; i < len; ++i) {
+        int baseIndex = 2 * i;
+        realDestP[i] = sourceP[baseIndex];
+        imagDestP[i] = sourceP[baseIndex + 1];
+    }
+#endif
+}
 
 } // namespace VectorMath
 

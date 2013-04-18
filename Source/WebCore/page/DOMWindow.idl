@@ -518,6 +518,8 @@ module window {
 
         attribute [JSCCustomGetter,Conditional=WEB_AUDIO,EnabledAtRuntime] AudioContextConstructor webkitAudioContext; // Usable with new operator
         attribute [Conditional=WEB_AUDIO] AudioPannerNodeConstructor webkitAudioPannerNode; // Needed for panning model constants
+        attribute [Conditional=WEB_AUDIO] AudioProcessingEventConstructor AudioProcessingEvent;
+        attribute [Conditional=WEB_AUDIO] OfflineAudioCompletionEventConstructor OfflineAudioCompletionEvent;
 
         attribute EventConstructor Event;
         attribute BeforeLoadEventConstructor BeforeLoadEvent;

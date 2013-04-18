@@ -618,9 +618,44 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	\
 	platform/animation/Animation.cpp \
 	platform/animation/AnimationList.cpp \
-	\
-	platform/audio/mkl/FFTFrameMKL.cpp \
-	\
+
+
+ifeq ($(ENABLE_WEBAUDIO), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	platform/audio/AudioBus.cpp \
+	platform/audio/AudioChannel.cpp \
+	platform/audio/AudioDSPKernelProcessor.cpp \
+	platform/audio/AudioResampler.cpp \
+	platform/audio/AudioResamplerKernel.cpp \
+	platform/audio/AudioUtilities.cpp \
+	platform/audio/Biquad.cpp \
+	platform/audio/Cone.cpp \
+	platform/audio/Distance.cpp \
+	platform/audio/DynamicsCompressor.cpp \
+	platform/audio/DynamicsCompressorKernel.cpp \
+	platform/audio/EqualPowerPanner.cpp \
+	platform/audio/FFTConvolver.cpp \
+	platform/audio/FFTFrame.cpp \
+	platform/audio/HRTFDatabase.cpp \
+	platform/audio/HRTFDatabaseLoader.cpp \
+	platform/audio/HRTFElevation.cpp \
+	platform/audio/HRTFKernel.cpp \
+	platform/audio/HRTFPanner.cpp \
+	platform/audio/MultiChannelResampler.cpp \
+	platform/audio/Panner.cpp \
+	platform/audio/Reverb.cpp \
+	platform/audio/ReverbAccumulationBuffer.cpp \
+	platform/audio/ReverbConvolver.cpp \
+	platform/audio/ReverbConvolverStage.cpp \
+	platform/audio/ReverbInputBuffer.cpp \
+	platform/audio/SincResampler.cpp \
+	platform/audio/VectorMath.cpp \
+	platform/audio/ZeroPole.cpp \
+	platform/audio/android/AudioBusAndroid.cpp \
+	platform/audio/kissfft/FFTFrameKissFFT.cpp
+endif
+
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/BitmapImage.cpp \
 	platform/graphics/Color.cpp \
 	platform/graphics/FloatPoint.cpp \
@@ -1251,12 +1286,52 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	svg/graphics/filters/SVGFilter.cpp \
 	svg/graphics/filters/SVGFilterBuilder.cpp \
 	\
-	svg/properties/SVGPathSegListPropertyTearOff.cpp
+	svg/properties/SVGPathSegListPropertyTearOff.cpp \
+	\
+	webaudio/AudioParam.cpp
+endif
+
+ifeq ($(ENABLE_WEBAUDIO), true)
+LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
+	webaudio/AsyncAudioDecoder.cpp \
+	webaudio/AudioBasicProcessorNode.cpp \
+	webaudio/AudioBuffer.cpp \
+	webaudio/AudioBufferSourceNode.cpp \
+	webaudio/AudioChannelMerger.cpp \
+	webaudio/AudioChannelSplitter.cpp \
+	webaudio/AudioContext.cpp \
+	webaudio/AudioDestinationNode.cpp \
+	webaudio/AudioGainNode.cpp \
+	webaudio/AudioListener.cpp \
+	webaudio/AudioNode.cpp \
+	webaudio/AudioNodeInput.cpp \
+	webaudio/AudioNodeOutput.cpp \
+	webaudio/AudioPannerNode.cpp \
+	webaudio/AudioParamTimeline.cpp \
+	webaudio/AudioProcessingEvent.cpp \
+	webaudio/BiquadDSPKernel.cpp \
+	webaudio/BiquadFilterNode.cpp \
+	webaudio/BiquadProcessor.cpp \
+	webaudio/ConvolverNode.cpp \
+	webaudio/DefaultAudioDestinationNode.cpp \
+	webaudio/DelayDSPKernel.cpp \
+	webaudio/DelayNode.cpp \
+	webaudio/DelayProcessor.cpp \
+	webaudio/DynamicsCompressorNode.cpp \
+	webaudio/HighPass2FilterNode.cpp \
+	webaudio/JavaScriptAudioNode.cpp \
+	webaudio/LowPass2FilterNode.cpp \
+	webaudio/MediaElementAudioSourceNode.cpp \
+	webaudio/OfflineAudioCompletionEvent.cpp \
+	webaudio/OfflineAudioDestinationNode.cpp \
+	webaudio/RealtimeAnalyser.cpp \
+	webaudio/RealtimeAnalyserNode.cpp \
+	webaudio/WaveShaperDSPKernel.cpp \
+	webaudio/WaveShaperNode.cpp \
+	webaudio/WaveShaperProcessor.cpp
 endif
 
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
-	webaudio/AudioParam.cpp \
-	\
 	workers/AbstractWorker.cpp \
 	workers/DedicatedWorkerContext.cpp \
 	workers/DedicatedWorkerThread.cpp \

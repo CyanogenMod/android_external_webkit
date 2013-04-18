@@ -489,7 +489,7 @@ bool AudioBufferSourceNode::looping()
 {
     static bool firstTime = true;
     if (firstTime && context() && context()->document()) {
-        context()->document()->addConsoleMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "AudioBufferSourceNode 'looping' attribute is deprecated.  Use 'loop' instead.");
+        context()->document()->addMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "AudioBufferSourceNode 'looping' attribute is deprecated.  Use 'loop' instead.", 1, String(), 0);
         firstTime = false;
     }
 
@@ -500,7 +500,7 @@ void AudioBufferSourceNode::setLooping(bool looping)
 {
     static bool firstTime = true;
     if (firstTime && context() && context()->document()) {
-        context()->document()->addConsoleMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "AudioBufferSourceNode 'looping' attribute is deprecated.  Use 'loop' instead.");
+        context()->document()->addMessage(JSMessageSource, LogMessageType, WarningMessageLevel, "AudioBufferSourceNode 'looping' attribute is deprecated.  Use 'loop' instead.", 1, String(), 0);
         firstTime = false;
     }
 

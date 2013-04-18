@@ -1,0 +1,112 @@
+/*
+* Copyright (C) 2012, The Linux Foundation. All rights reserved.
+*
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are
+* met:
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*     * Neither the name of The Linux Foundation nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+*
+* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+* ARE DISCLAIMED.  IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*/
+
+@void vdeintlve_neon(float* sourceP, const float* realDestP, const float* imagDestP, size_t framesToProcess)
+    .text
+    .fpu neon
+    .align 4
+    .global     vdeintlve_neon
+    .func       vdeintlve_neon
+vdeintlve_neon:
+    stmdb            sp!, {r4, r5, sl, fp, lr}
+@    vstmdb           sp!, {d8-d15}
+                                        @ r0 = sourceP
+                                        @ r1 = realDestP
+                                        @ r2 = imagDestP
+                                        @ r3 = framesToProcess
+    pld             [r0, #0]
+                                        @ *sourceP - q0, q1 - {d0-d3}
+                                        @ *realDestP
+                                        @ *imagDestP
+    asrs            r4, r3, #5          @ n = framesToProcess/32
+    beq             ._vdeintlve_process4
+
+._vdeintlve_do16:                   @ de-interleave 32 samples
+    pld             [r0, #128]
+    vld2.32         {d0-d3}, [r0]!      @ load *sourceP; sourceP += 8;
+    vst1.32         {d0,d1}, [r1]!      @ store *realDestP; realDestP += 4;
+    vst1.32         {d2,d3}, [r2]!      @ store *imagDestP; imagDestP += 4;
+
+    vld2.32         {d4-d7}, [r0]!      @ load *sourceP; sourceP += 8;
+    vst1.32         {d4,d5}, [r1]!      @ store *realDestP; realDestP += 4;
+    vst1.32         {d6,d7}, [r2]!      @ store *imagDestP; imagDestP += 4;
+
+    vld2.32         {d0-d3}, [r0]!      @ load *sourceP; sourceP += 8;
+    vst1.32         {d0,d1}, [r1]!      @ store *realDestP; realDestP += 4;
+    vst1.32         {d2,d3}, [r2]!      @ store *imagDestP; imagDestP += 4;
+
+    vld2.32         {d4-d7}, [r0]!      @ load *sourceP; sourceP += 8;
+    vst1.32         {d4,d5}, [r1]!      @ store *realDestP; realDestP += 4;
+    vst1.32         {d6,d7}, [r2]!      @ store *imagDestP; imagDestP += 4;
+
+    subs            r4, r4, #1          @ }while(--n);
+    bne             ._vdeintlve_do16
+
+._vdeintlve_process4:
+    asr             r5, r3, #31
+    lsr             r4, r5, #27
+    add             r4, r4, r3
+    ands            r4, r4, #31         @ if (framesToProcess % 32 == 0)
+    beq             ._vdeintlve_done
+
+    asrs            r4, r4, #2          @ n = (framesToProcess % 32)/4
+    beq             ._vdeintlve_process1
+
+._vdeintlve_do4:
+    vld2.32         {d0-d3}, [r0]!      @ load *sourceP; sourceP += 8;
+    vst1.32         {d0,d1}, [r1]!      @ store *realDestP; realDestP += 4;
+    vst1.32         {d2,d3}, [r2]!      @ store *imagDestP; imagDestP += 4;
+
+    subs            r4, r4, #1          @ }while(--n);
+    bne             ._vdeintlve_do4
+
+._vdeintlve_process1:
+    lsr             r4, r5, #30
+    add             r4, r4, r3
+    ands            r4, r4, #3          @ if (framesToProcess % 4 == 0)
+    beq             ._vdeintlve_done
+
+._vdeintlve_do1:
+    vldr            d0, [r0]            @ load *sourceP; sourceP += 2;
+    add             r0, r0, #8
+    vstr            s0, [r1]            @ store *realDestP; realDestP += 1;
+    add             r1, r1, #4
+    vstr            s1, [r2]            @ store *imagDestP; imagDestP += 1;
+    add             r2, r2, #4
+
+    subs            r4, r4, #1          @ }while(--n);
+    bne             ._vdeintlve_do1
+
+._vdeintlve_done:
+@    vldmia          sp!, {d8-d15}
+    ldmia           sp!, {r4, r5, sl, fp, pc}
+    nop
+
+    .endfunc
+    .end

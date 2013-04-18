@@ -54,6 +54,8 @@ void DefaultAudioDestinationNode::initialize()
     m_destination = AudioDestination::create(*this, hardwareSampleRate);
 
     AudioNode::initialize();
+
+    m_destination->setAudioContext(context());
 }
 
 void DefaultAudioDestinationNode::uninitialize()
