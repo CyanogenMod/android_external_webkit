@@ -68,6 +68,7 @@ public:
     /** Creates evaluator which evaluates full media queries
      */
     MediaQueryEvaluator(const String& acceptedMediaType, Frame*, RenderStyle*);
+    MediaQueryEvaluator(const String& acceptedMediaType, Frame*, RefPtr<RenderStyle>&);
 
     ~MediaQueryEvaluator();
 
@@ -84,6 +85,7 @@ private:
     String m_mediaType;
     Frame* m_frame; // not owned
     RenderStyle* m_style; // not owned
+    RefPtr<RenderStyle> m_ownedStyle;
     bool m_expResult;
 };
 
