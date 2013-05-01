@@ -4223,6 +4223,14 @@ Vector<VisibleSelection> WebViewCore::getTextRanges(
     VisiblePosition endSelect =  visiblePositionForContentPoint(endX, endY);
     Position start = startSelect.deepEquivalent();
     Position end = endSelect.deepEquivalent();
+    if (isLtr(end)) {
+        // The end caret could be just to the right of the text.
+        endSelect =  visiblePositionForContentPoint(endX - 1, endY);
+        Position newEnd = endSelect.deepEquivalent();
+        if (!newEnd.isNull()) {
+            end = newEnd;
+        }
+    }
     Vector<VisibleSelection> ranges;
     if (!start.isNull() && !end.isNull()) {
         if (comparePositions(start, end) > 0) {
