@@ -695,7 +695,15 @@ void GraphicsContext3DInternal::runSyncThread()
             break;
 
         if (fbo->sync() != EGL_NO_SYNC_KHR) {
-            eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, 0);
+            EGLint result = eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, EGL_FOREVER_KHR);
+            if(result == EGL_FALSE || result == EGL_TIMEOUT_EXPIRED_KHR)
+            {
+                android_printLog(ANDROID_LOG_ERROR,
+                                        "WebGL",
+                                        "error waiting for previous = %d", result);
+                return;
+            }
+
             eglDestroySyncKHR(m_dpy, fbo->sync());
             fbo->setSync(EGL_NO_SYNC_KHR);
             LOGWEBGL("SyncThread: returned after waiting for Sync");
@@ -810,7 +818,14 @@ FBO* GraphicsContext3DInternal::dequeueBuffer()
     FBO* fbo = m_freeBuffers.takeFirst();
 
     if (fbo->sync() != EGL_NO_SYNC_KHR) {
-        eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, 0);
+        EGLint result = eglClientWaitSyncKHR(m_dpy, fbo->sync(), 0, EGL_FOREVER_KHR);
+        if(result == EGL_FALSE || result == EGL_TIMEOUT_EXPIRED_KHR)
+        {
+            android_printLog(ANDROID_LOG_ERROR,
+                                    "WebGL",
+                                    "error waiting for previous = %d", result);
+            return fbo;
+        }
         eglDestroySyncKHR(m_dpy, fbo->sync());
         fbo->setSync(EGL_NO_SYNC_KHR);
     }
