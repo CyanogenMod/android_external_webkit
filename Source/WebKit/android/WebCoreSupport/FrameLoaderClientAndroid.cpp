@@ -798,6 +798,12 @@ bool FrameLoaderClientAndroid::canShowMIMEType(const String& mimeType) const {
     // FIXME: This looks like it has to do with whether or not a type can be
     // shown "internally" (i.e. inside the browser) regardless of whether
     // or not the browser is doing the rendering, e.g. a full page plugin.
+
+    // Porting from ics, add some exception, we need Clients to handle these types:
+    // oma download
+    if (mimeType == "application/vnd.oma.dd+xml")
+        return false;
+
     if (MIMETypeRegistry::isSupportedImageResourceMIMEType(mimeType) ||
             MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType) ||
             MIMETypeRegistry::isSupportedJavaScriptMIMEType(mimeType) ||
