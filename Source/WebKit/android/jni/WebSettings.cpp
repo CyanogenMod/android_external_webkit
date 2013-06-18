@@ -656,9 +656,11 @@ public:
 
 static JNINativeMethod gWebSettingsMethods[] = {
     { "nativeSync", "(I)V",
-        (void*) WebSettings::Sync },
-    { "nativeIsWebGLAvailable", "()Z",
+        (void*) WebSettings::Sync }
+#if ENABLE(WEBGL)
+    , { "nativeIsWebGLAvailable", "()Z",
         (void*) WebSettings::IsWebGLAvailable }
+#endif
 };
 
 int registerWebSettings(JNIEnv* env)
