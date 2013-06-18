@@ -30,8 +30,6 @@
 #define MAX_CONTRAST 5
 #define DEBUG_MATRIX 0
 
-class SkBitmap;
-
 namespace WebCore {
 
 class DrawQuadData;
@@ -116,13 +114,6 @@ struct ShaderResource {
     GLuint fragmentShader;
 };
 
-struct FrameCaptureState {
-    GLint viewport[4];
-    GLuint previousFbo;
-    GLuint frameFbo;
-    GLuint frameTexture;
-};
-
 class ShaderProgram {
 public:
     ShaderProgram();
@@ -144,8 +135,6 @@ public:
     void drawQuad(const DrawQuadData* data);
     void drawVideoLayerQuad(const TransformationMatrix& drawMatrix,
                      float* textureMatrix, SkRect& geometry, int textureId);
-    void drawVideoLayerToBitmap(float* textureMatrix, const SkRect& geometry,
-                     int textureId, SkBitmap& bitmap);
     FloatRect rectInInvViewCoord(const TransformationMatrix& drawMatrix,
                                 const IntSize& size);
     FloatRect rectInViewCoord(const TransformationMatrix& drawMatrix,
@@ -200,9 +189,6 @@ private:
     ShaderType getTextureShaderType(GLenum textureTarget, bool hasRepeatScale);
     void resetBlending();
     void setupSurfaceProjectionMatrix();
-    void drawToBitmapSetup(SkBitmap& bitmap);
-    void drawToBitmapRestore();
-
 #if DEBUG_MATRIX
     FloatRect debugMatrixTransform(const TransformationMatrix& matrix, const char* matrixName);
     void debugMatrixInfo(float currentScale,
@@ -261,7 +247,6 @@ private:
     GLfloat m_cachedOpacity;
     FloatRect m_cachedFillPortion;
     Color m_cachedPureColor;
-    FrameCaptureState m_frameCaptureState;
 };
 
 } // namespace WebCore

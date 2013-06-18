@@ -1,6 +1,5 @@
 /*
  * Copyright 2011 The Android Open Source Project
- * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,7 +35,6 @@
 #include "TilesManager.h"
 #include <GLES2/gl2.h>
 #include <gui/GLConsumer.h>
-#include "SkBitmapRef.h"
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -46,22 +44,21 @@ double VideoLayerAndroid::m_rotateDegree = 0;
 
 VideoLayerAndroid::VideoLayerAndroid()
     : LayerAndroid((RenderLayer*)0)
-    // Create mutex and condition variables in WebCoreLayer type instances only.
-    // Instances created with type UILayer will share the same mutex and
-    // condition variables as the source VideoLayerAndroid.
-    , m_frameCaptureMutex(new FrameCaptureMutex())
 {
-    // New FrameCaptureMutex with assignment during initialization results
-    // in double ref counting. Call unref to correct it.
-    m_frameCaptureMutex->unref();
+    init();
 }
 
 VideoLayerAndroid::VideoLayerAndroid(const VideoLayerAndroid& layer)
     : LayerAndroid(layer)
-    // Copy constructor sets the same mutex variables as the source
-    // VideoLayerAndroid. This will increment the ref count.
-    , m_frameCaptureMutex(layer.m_frameCaptureMutex)
 {
+    init();
+}
+
+void VideoLayerAndroid::init()
+{
+    // m_surfaceTexture is only useful on UI thread, no need to copy.
+    // And it will be set at setBaseLayer timeframe
+    m_playerState = INITIALIZED;
 }
 
 // We can use this function to set the Layer to point to surface texture.
@@ -69,7 +66,7 @@ void VideoLayerAndroid::setSurfaceTexture(sp<GLConsumer> texture,
                                           int textureName, PlayerState playerState)
 {
     m_surfaceTexture = texture;
-    TilesManager::instance()->videoLayerManager()->updatePlayerState(uniqueId(), playerState);
+    m_playerState = playerState;
     TilesManager::instance()->videoLayerManager()->registerTexture(uniqueId(), textureName);
 }
 
@@ -164,13 +161,11 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
                                  &m_drawTransform, &innerRect);
     // Draw the poster image, the progressing image or the Video depending
     // on the player's state.
-    PlayerState playerState = manager->getPlayerState(uniqueId());
-
-    if (playerState == PREPARING) {
+    if (m_playerState == PREPARING) {
         // Show the progressing animation, with two rotating circles
         showPreparingAnimation(videoRect, innerRect);
         needRedraw = true;
-    } else if (playerState == PLAYING && m_surfaceTexture.get()) {
+    } else if (m_playerState == PLAYING && m_surfaceTexture.get()) {
         // Show the real video.
         m_surfaceTexture->updateTexImage();
         m_surfaceTexture->getTransformMatrix(surfaceMatrix);
@@ -216,76 +211,9 @@ bool VideoLayerAndroid::drawGL(bool layerTilesDisabled)
             shader->drawQuad(&iconQuadData);
             needRedraw = true;
         }
-    }
-    // Check if there is a pending request to capture video frame
-    if (manager->serviceFrameCapture(uniqueId())) {
-        serviceFrameCapture();
+
     }
     return needRedraw;
-}
-
-void VideoLayerAndroid::serviceFrameCapture() {
-    // Should not arrive here without the mutex and condition variable already created
-    ASSERT(m_frameCaptureMutex != NULL);
-    VideoLayerManager* manager = TilesManager::instance()->videoLayerManager();
-    GLuint textureId = manager->getTextureId(uniqueId());
-    GLfloat* matrix = manager->getMatrix(uniqueId());
-    IntSize videoSize = manager->getVideoNaturalSize(uniqueId());
-    PlayerState playerState = manager->getPlayerState(uniqueId());
-    SkBitmap videoFrame;
-    // Use ARGB format for video frame capture bitmap
-    videoFrame.setConfig(SkBitmap::kARGB_8888_Config, videoSize.width(),
-            videoSize.height());
-    // Allocate SkBitmap pixels using the default allocator
-    videoFrame.allocPixels(NULL, 0);
-    videoFrame.eraseColor(SK_ColorBLACK);
-    SkRect rect = SkRect::MakeWH(SkIntToScalar(videoSize.width()),
-            SkIntToScalar(videoSize.height()));
-    ShaderProgram* shader = TilesManager::instance()->shader();
-    if ((playerState != PREPARED && playerState != PLAYING) ||
-            !m_surfaceTexture.get() || !textureId || !matrix)
-        ALOGE("serviceFrameCapture() called in bad state");
-    else
-        shader->drawVideoLayerToBitmap(matrix, rect, textureId, videoFrame);
-
-    SkBitmapRef* bitmapRef = new SkBitmapRef(videoFrame);
-    manager->pushBitmap(uniqueId(), bitmapRef);
-    SkSafeUnref(bitmapRef);
-    // Signal the frame capture client
-    android::AutoMutex lock(m_frameCaptureMutex->mutex());
-    m_frameCaptureMutex->condition().signal();
-}
-
-// This is called from the webcore thread
-bool VideoLayerAndroid::copyToBitmap(SkBitmapRef*& bitmapRef) {
-    VideoLayerManager* manager = TilesManager::instance()->videoLayerManager();
-    if (m_frameCaptureMutex == NULL) {
-        ALOGE("Video frame capture error bad state");
-        return false;
-    }
-
-    m_frameCaptureMutex->mutex().lock();
-    manager->requestFrameCapture(uniqueId());
-
-    // Timeout waiting for the video frame capture in the UI thread.
-    // Due to context switching, this could take up to a few hundred milliseconds.
-    // Set this to a value long enough that we won't get a premature timeout for
-    // a non-error situation.
-    static const nsecs_t DRAW_VIDEO_FRAME_TIMEOUT = 1LL*1000*1000*1000; // one second
-    status_t sts = m_frameCaptureMutex->condition().waitRelative(
-            m_frameCaptureMutex->mutex(), DRAW_VIDEO_FRAME_TIMEOUT);
-    m_frameCaptureMutex->mutex().unlock();
-
-    if (sts == android::TIMED_OUT) {
-        ALOGE("Video frame capture timed out");
-        return false;
-    }
-    if (sts != android::OK) {
-        ALOGE("Video frame capture wait condition error %d", sts);
-        return false;
-    }
-    bitmapRef = manager->popBitmap(uniqueId());
-    return true;
 }
 
 }

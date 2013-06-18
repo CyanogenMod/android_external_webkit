@@ -55,15 +55,9 @@ PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagNa
     return adoptRef(new HTMLVideoElement(tagName, document));
 }
 
-bool HTMLVideoElement::rendererIsNeeded(RenderStyle* style)
+bool HTMLVideoElement::rendererIsNeeded(RenderStyle* style) 
 {
-    return HTMLElement::rendererIsNeeded(style)
-#if PLATFORM(ANDROID)
-        // Create renderer even if display type is NONE
-        // This may be needed for canvas or GL rendering of video
-        || style->display() == NONE
-#endif
-    ;
+    return HTMLElement::rendererIsNeeded(style); 
 }
 
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
