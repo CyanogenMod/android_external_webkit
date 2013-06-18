@@ -69,8 +69,8 @@ void VideoLayerAndroid::setSurfaceTexture(sp<GLConsumer> texture,
                                           int textureName, PlayerState playerState)
 {
     m_surfaceTexture = texture;
-    TilesManager::instance()->videoLayerManager()->registerTexture(uniqueId(), textureName);
     TilesManager::instance()->videoLayerManager()->updatePlayerState(uniqueId(), playerState);
+    TilesManager::instance()->videoLayerManager()->registerTexture(uniqueId(), textureName);
 }
 
 void VideoLayerAndroid::showPreparingAnimation(const SkRect& rect,
