@@ -904,7 +904,13 @@ bool RenderLayerBacking::containsPaintedContent() const
     if (isAcceleratedCanvas(renderer()))
         return hasBoxDecorationsOrBackground(renderer());
 #endif
-
+    if (renderer()->isCanvas()) {
+        HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
+        CanvasRenderingContext* context = canvas->renderingContext();
+        if(!context) {
+            return false;
+        }
+    }
     return true;
 }
 
