@@ -41,6 +41,11 @@
 #include "StorageMap.h"
 #include <limits>
 
+#if PLATFORM(ANDROID)
+#include <cutils/properties.h>
+#endif
+
+
 using namespace std;
 
 namespace WebCore {
@@ -207,6 +212,15 @@ Settings::Settings(Page* page)
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
     AtomicString::init();
+
+#if PLATFORM(ANDROID)
+#if ENABLE(WEBGL)
+    char pval[PROPERTY_VALUE_MAX];
+    property_get("debug.enablewebgl", pval, "1");
+    m_webGLEnabled = atoi(pval) ? true : false ;
+#endif
+#endif
+
 #ifdef ANDROID_META_SUPPORT
     m_default_format_detection = true;
     resetMetadataSettings();
