@@ -58,7 +58,7 @@ class Surface;
 namespace android {
 class DrawExtra;
 void serializeLayer(WebCore::LayerAndroid* layer, SkWStream* stream);
-WebCore::LayerAndroid* deserializeLayer(int version, SkStream* stream);
+WebCore::LayerAndroid* deserializeLayer(int version, SkMemoryStream* stream);
 void cleanupImageRefs(WebCore::LayerAndroid* layer);
 }
 
@@ -257,7 +257,7 @@ public:
 
     // ViewStateSerializer friends
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
-    friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
+    friend LayerAndroid* android::deserializeLayer(int version, SkMemoryStream* stream);
     friend void android::cleanupImageRefs(LayerAndroid* layer);
 
     LayerType type() { return m_type; }

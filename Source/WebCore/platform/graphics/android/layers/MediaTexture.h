@@ -28,7 +28,7 @@
 #include <jni.h>
 
 namespace android {
-    class SurfaceTexture;
+    class GLConsumer;
 }
 
 namespace WebCore {
@@ -62,7 +62,7 @@ public:
 private:
     struct TextureWrapper {
         GLuint textureId;
-        sp<android::SurfaceTexture> surfaceTexture;
+        sp<android::GLConsumer> surfaceTexture;
         sp<ANativeWindow> nativeWindow;
         sp<MediaListener> mediaListener;
         SkRect dimensions; // only used by the video layer

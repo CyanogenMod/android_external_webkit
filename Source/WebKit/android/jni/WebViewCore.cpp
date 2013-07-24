@@ -430,6 +430,7 @@ WebViewCore::WebViewCore(JNIEnv* env, jobject javaWebViewCore, WebCore::Frame* m
     , m_maxYScroll(240/4)
     , m_scrollOffsetX(0)
     , m_scrollOffsetY(0)
+    , m_scrollSetTime(0)
     , m_mousePos(WebCore::IntPoint(0,0))
     , m_screenWidth(320)
     , m_screenHeight(240)
@@ -562,7 +563,7 @@ WebViewCore::~WebViewCore()
     WebViewCore::removeInstance(this);
 
     // Release the focused view
-    Release(m_popupReply);
+    ::Release(m_popupReply);
 
     if (m_javaGlue->m_obj) {
         JNIEnv* env = JSC::Bindings::getJNIEnv();
@@ -570,6 +571,7 @@ WebViewCore::~WebViewCore()
         m_javaGlue->m_obj = 0;
     }
     delete m_javaGlue;
+    delete m_textFieldInitDataGlue;
 }
 
 WebViewCore* WebViewCore::getWebViewCore(const WebCore::FrameView* view)
@@ -3502,7 +3504,7 @@ void WebViewCore::popupReply(int index)
 {
     if (m_popupReply) {
         m_popupReply->replyInt(index);
-        Release(m_popupReply);
+        ::Release(m_popupReply);
         m_popupReply = 0;
     }
 }
@@ -3511,7 +3513,7 @@ void WebViewCore::popupReply(const int* array, int count)
 {
     if (m_popupReply) {
         m_popupReply->replyIntArray(array, count);
-        Release(m_popupReply);
+        ::Release(m_popupReply);
         m_popupReply = 0;
     }
 }
@@ -4224,6 +4226,14 @@ Vector<VisibleSelection> WebViewCore::getTextRanges(
     VisiblePosition endSelect =  visiblePositionForContentPoint(endX, endY);
     Position start = startSelect.deepEquivalent();
     Position end = endSelect.deepEquivalent();
+    if (isLtr(end)) {
+        // The end caret could be just to the right of the text.
+        endSelect =  visiblePositionForContentPoint(endX - 1, endY);
+        Position newEnd = endSelect.deepEquivalent();
+        if (!newEnd.isNull()) {
+            end = newEnd;
+        }
+    }
     Vector<VisibleSelection> ranges;
     if (!start.isNull() && !end.isNull()) {
         if (comparePositions(start, end) > 0) {

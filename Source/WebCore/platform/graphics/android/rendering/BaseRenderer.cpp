@@ -32,7 +32,6 @@
 #if USE(ACCELERATED_COMPOSITING)
 
 #include "AndroidLog.h"
-#include "GaneshRenderer.h"
 #include "GLUtils.h"
 #include "InstrumentedPlatformCanvas.h"
 #include "RasterRenderer.h"
@@ -58,8 +57,6 @@ BaseRenderer* BaseRenderer::createRenderer()
 {
     if (g_currentType == Raster)
         return new RasterRenderer();
-    else if (g_currentType == Ganesh)
-        return new GaneshRenderer();
     return NULL;
 }
 

@@ -66,6 +66,14 @@ void InspectorCanvas::commonDrawBitmap(const SkBitmap& bitmap,
     setHasContent();
 }
 
+void InspectorCanvas::drawBitmapRectToRect(const SkBitmap& bitmap,
+                                           const SkRect* src,
+                                           const SkRect& dst,
+                                           const SkPaint* paint)
+{
+    setHasContent();
+}
+
 void InspectorCanvas::drawPaint(const SkPaint& paint)
 {
     setHasContent();

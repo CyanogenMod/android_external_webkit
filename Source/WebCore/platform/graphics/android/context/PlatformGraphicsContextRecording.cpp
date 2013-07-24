@@ -35,7 +35,6 @@
 #include "Font.h"
 #include "GraphicsContext.h"
 #include "GraphicsOperation.h"
-#include "LinearAllocator.h"
 #include "PlatformGraphicsContextSkia.h"
 #include "RTree.h"
 #include "SkDevice.h"
@@ -43,6 +42,8 @@
 #include "wtf/NonCopyingSort.h"
 #include "wtf/HashSet.h"
 #include "wtf/StringHasher.h"
+
+#include <utils/LinearAllocator.h>
 
 #define NEW_OP(X) new (heap()) GraphicsOperation::X
 
@@ -194,7 +195,7 @@ public:
         return m_isTransparencyLayer;
     }
 
-    void* operator new(size_t size, LinearAllocator* la) {
+    void* operator new(size_t size, android::LinearAllocator* la) {
         return la->alloc(size);
     }
 
@@ -210,7 +211,7 @@ private:
     // Careful, ordering matters here. Ordering is first constructed == last destroyed,
     // so we have to make sure our Heap is the first thing listed so that it is
     // the last thing destroyed.
-    LinearAllocator m_heap;
+    android::LinearAllocator m_heap;
 public:
     RecordingImpl()
         : m_tree(&m_heap)
@@ -287,7 +288,7 @@ public:
         toState->playback(context, fromId, toId);
     }
 
-    LinearAllocator* heap() { return &m_heap; }
+    android::LinearAllocator* heap() { return &m_heap; }
 
     RTree::RTree m_tree;
     int m_nodeCount;
@@ -1080,7 +1081,7 @@ void PlatformGraphicsContextRecording::appendStateOperation(GraphicsOperation::O
     mRecordingStateStack.last().mCanvasState->adoptAndAppend(data);
 }
 
-LinearAllocator* PlatformGraphicsContextRecording::heap()
+android::LinearAllocator* PlatformGraphicsContextRecording::heap()
 {
     return mRecording->recording()->heap();
 }

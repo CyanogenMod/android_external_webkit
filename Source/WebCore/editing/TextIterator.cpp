@@ -287,6 +287,9 @@ TextIterator::TextIterator(const Range* r, TextIteratorBehavior behavior)
     , m_positionNode(0)
     , m_textCharacters(0)
     , m_textLength(0)
+#if OS(ANDROID)
+    , m_needsAnotherNewline(false)
+#endif
     , m_remainingTextBox(0)
     , m_firstLetterText(0)
     , m_emitsCharactersBetweenAllVisiblePositions(behavior & TextIteratorEmitsCharactersBetweenAllVisiblePositions)
@@ -298,7 +301,6 @@ TextIterator::TextIterator(const Range* r, TextIteratorBehavior behavior)
 #if OS(ANDROID)
     , m_stopsOnFormControls(behavior & TextIteratorStopsOnFormControls)
     , m_shouldStop(false)
-    , m_needsAnotherNewline(false)
 #endif
 {
     if (!r)

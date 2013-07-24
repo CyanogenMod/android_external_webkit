@@ -39,8 +39,8 @@
 #include "TileTexture.h"
 #include "TilesManager.h"
 #include <android/native_window.h>
-#include <gui/SurfaceTexture.h>
-#include <gui/SurfaceTextureClient.h>
+#include <gui/GLConsumer.h>
+#include <gui/Surface.h>
 
 // For simple webView usage, MINIMAL_SIZE is recommended for memory saving.
 // In browser case, EFFICIENT_SIZE is preferred.
@@ -106,14 +106,14 @@ void TransferQueue::initGLResources(int width, int height)
         sp<BufferQueue> bufferQueue(new BufferQueue(true));
         m_sharedSurfaceTexture =
 #if GPU_UPLOAD_WITHOUT_DRAW
-            new android::SurfaceTexture(m_sharedSurfaceTextureId, true,
+            new android::GLConsumer(m_sharedSurfaceTextureId, true,
                                         GL_TEXTURE_2D, true, bufferQueue);
 #else
-            new android::SurfaceTexture(m_sharedSurfaceTextureId, true,
+            new android::GLConsumer(m_sharedSurfaceTextureId, true,
                                         GL_TEXTURE_EXTERNAL_OES, true,
                                         bufferQueue);
 #endif
-        m_ANW = new android::SurfaceTextureClient(m_sharedSurfaceTexture);
+        m_ANW = new android::Surface(bufferQueue);
         m_sharedSurfaceTexture->setSynchronousMode(true);
 
         int extraBuffersNeeded = 0;

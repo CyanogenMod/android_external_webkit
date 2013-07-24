@@ -34,8 +34,8 @@
 #include <utils/threads.h>
 
 namespace android {
-class SurfaceTexture;
-class SurfaceTextureClient;
+class GLConsumer;
+class Surface;
 }
 
 namespace WebCore {
@@ -53,7 +53,7 @@ public:
      * Called by WebKit thread
      ********************************************/
     void setSize(const IntSize& size);
-    SurfaceTextureClient* nativeWindow();
+    android::Surface* nativeWindow();
     bool uploadImageBuffer(ImageBuffer* imageBuffer);
     bool hasValidTexture() { return m_hasValidTexture; }
 
@@ -81,8 +81,8 @@ private:
     int m_layerId;
     GLuint m_texture;
     android::Mutex m_surfaceLock;
-    sp<android::SurfaceTexture> m_surfaceTexture;
-    sp<android::SurfaceTextureClient> m_ANW;
+    sp<android::GLConsumer> m_surfaceTexture;
+    sp<android::Surface> m_ANW;
     bool m_hasValidTexture;
     bool m_useHwAcceleration;
 

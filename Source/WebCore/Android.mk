@@ -722,8 +722,7 @@ LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \
 	platform/graphics/android/rendering/TilesProfiler.cpp \
 	platform/graphics/android/rendering/TransferQueue.cpp \
 	\
-	platform/graphics/android/utils/ClassTracker.cpp \
-	platform/graphics/android/utils/LinearAllocator.cpp
+	platform/graphics/android/utils/ClassTracker.cpp
 
 ifeq ($(ENABLE_WEBGL), true)
 LOCAL_SRC_FILES := $(LOCAL_SRC_FILES) \

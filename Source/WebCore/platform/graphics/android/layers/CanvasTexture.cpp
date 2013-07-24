@@ -41,8 +41,8 @@
 #include "SkPixelRef.h"
 
 #include <android/native_window.h>
-#include <gui/SurfaceTexture.h>
-#include <gui/SurfaceTextureClient.h>
+#include <gui/GLConsumer.h>
+#include <gui/Surface.h>
 
 namespace WebCore {
 
@@ -98,7 +98,7 @@ void CanvasTexture::setSize(const IntSize& size)
     }
 }
 
-SurfaceTextureClient* CanvasTexture::nativeWindow()
+android::Surface* CanvasTexture::nativeWindow()
 {
     android::Mutex::Autolock lock(m_surfaceLock);
     if (m_ANW.get())
@@ -107,8 +107,8 @@ SurfaceTextureClient* CanvasTexture::nativeWindow()
         return 0;
     if (!useSurfaceTexture())
         return 0;
-    m_surfaceTexture = new android::SurfaceTexture(m_texture, false);
-    m_ANW = new android::SurfaceTextureClient(m_surfaceTexture);
+    m_surfaceTexture = new android::GLConsumer(m_texture, false);
+    m_ANW = new android::Surface(m_surfaceTexture->getBufferQueue());
     int result = native_window_set_buffers_format(m_ANW.get(), HAL_PIXEL_FORMAT_RGBA_8888);
     GLUtils::checkSurfaceTextureError("native_window_set_buffers_format", result);
     if (result == NO_ERROR) {
@@ -127,7 +127,7 @@ SurfaceTextureClient* CanvasTexture::nativeWindow()
 bool CanvasTexture::uploadImageBuffer(ImageBuffer* imageBuffer)
 {
     m_hasValidTexture = false;
-    SurfaceTextureClient* anw = nativeWindow();
+    android::Surface* anw = nativeWindow();
     if (!anw)
         return false;
     // Size mismatch, early abort (will fall back to software)

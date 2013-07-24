@@ -91,7 +91,7 @@ void GaneshRenderer::renderingComplete(const TileRenderInfo& renderInfo, SkCanva
     GaneshContext::instance()->flush();
 
     // In SurfaceTextureMode we must call swapBuffers to unlock and post the
-    // tile's ANativeWindow (i.e. SurfaceTexture) buffer
+    // tile's ANativeWindow (i.e. Surface) buffer
     TransferQueue* tileQueue = TilesManager::instance()->transferQueue();
     eglSwapBuffers(eglGetCurrentDisplay(), tileQueue->m_eglSurface);
     SkBitmap dummyBitmap;

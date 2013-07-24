@@ -9,6 +9,7 @@
 #include "GraphicsContext.h"
 #include "SkCanvas.h"
 #include "SkCornerPathEffect.h"
+#include "SkMathPriv.h"
 #include "SkPaint.h"
 #include "SkShader.h"
 #include "SkiaUtils.h"
@@ -272,8 +273,7 @@ void PlatformGraphicsContextSkia::drawConvexPolygon(size_t numPoints,
     for (size_t i = 1; i < numPoints; i++)
         path.lineTo(SkFloatToScalar(points[i].x()), SkFloatToScalar(points[i].y()));
 
-    if (mCanvas->quickReject(path, shouldAntialias ?
-            SkCanvas::kAA_EdgeType : SkCanvas::kBW_EdgeType)) {
+    if (mCanvas->quickReject(path)) {
         return;
     }
 

@@ -128,8 +128,7 @@ $(intermediates)/css/CSSParser.o : $(GEN)
 GEN := $(intermediates)/CSSGrammar.cpp
 $(GEN) : PRIVATE_YACCFLAGS := -p cssyy
 $(GEN): $(LOCAL_PATH)/css/CSSGrammar.y
-	$(call local-transform-y-to-cpp,.cpp)
-$(GEN): $(LOCAL_BISON)
+	$(call webkit-transform-y-to-cpp,.cpp)
 
 LOCAL_GENERATED_SOURCES += $(GEN)
 
@@ -138,8 +137,7 @@ LOCAL_GENERATED_SOURCES += $(GEN)
 GEN := $(intermediates)/XPathGrammar.cpp
 $(GEN) : PRIVATE_YACCFLAGS := -p xpathyy
 $(GEN): $(LOCAL_PATH)/xml/XPathGrammar.y
-	$(call local-transform-y-to-cpp,.cpp)
-$(GEN): $(LOCAL_BISON)
+	$(call webkit-transform-y-to-cpp,.cpp)
 
 LOCAL_GENERATED_SOURCES += $(GEN)
 # user agent style sheets

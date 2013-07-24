@@ -134,7 +134,7 @@ public:
 
     // ViewStateSerializer friends
     friend void android::serializeLayer(LayerAndroid* layer, SkWStream* stream);
-    friend LayerAndroid* android::deserializeLayer(int version, SkStream* stream);
+    friend LayerAndroid* android::deserializeLayer(int version, SkMemoryStream* stream);
 
 protected:
     LayerAndroid* m_layer;

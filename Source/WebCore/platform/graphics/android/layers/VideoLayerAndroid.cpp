@@ -34,7 +34,7 @@
 #include "ShaderProgram.h"
 #include "TilesManager.h"
 #include <GLES2/gl2.h>
-#include <gui/SurfaceTexture.h>
+#include <gui/GLConsumer.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -62,7 +62,7 @@ void VideoLayerAndroid::init()
 }
 
 // We can use this function to set the Layer to point to surface texture.
-void VideoLayerAndroid::setSurfaceTexture(sp<SurfaceTexture> texture,
+void VideoLayerAndroid::setSurfaceTexture(sp<GLConsumer> texture,
                                           int textureName, PlayerState playerState)
 {
     m_surfaceTexture = texture;

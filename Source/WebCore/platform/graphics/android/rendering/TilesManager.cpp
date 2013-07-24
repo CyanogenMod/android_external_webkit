@@ -42,8 +42,8 @@
 
 #include <android/native_window.h>
 #include <cutils/atomic.h>
-#include <gui/SurfaceTexture.h>
-#include <gui/SurfaceTextureClient.h>
+#include <gui/GLConsumer.h>
+#include <gui/Surface.h>
 #include <wtf/CurrentTime.h>
 
 // Important: We need at least twice as many textures as is needed to cover

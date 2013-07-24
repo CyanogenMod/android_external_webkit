@@ -121,7 +121,7 @@ void CanvasLayer::init()
 void CanvasLayer::canvasChanged(HTMLCanvasElement*, const FloatRect& changedRect)
 {
     if (!m_texture->hasValidTexture()) {
-        // We only need to track invals if we aren't using a SurfaceTexture.
+        // We only need to track invals if we aren't using a GLConsumer.
         // If we drop out of hwa, we will do a full inval anyway
         SkIRect irect = SkIRect::MakeXYWH(changedRect.x(), changedRect.y(),
                                           changedRect.width(), changedRect.height());

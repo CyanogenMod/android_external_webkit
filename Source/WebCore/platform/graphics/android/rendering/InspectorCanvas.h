@@ -40,8 +40,9 @@ class InspectorBounder : public SkBounder {
 
 class InspectorCanvas : public SkCanvas {
 public:
-    InspectorCanvas(SkBounder* bounder, SkPicture* picture)
-        : m_picture(picture)
+    InspectorCanvas(SkBounder* bounder, SkPicture* picture, SkBitmap& bitmap)
+        : SkCanvas(bitmap)
+        , m_picture(picture)
         , m_hasText(false)
         , m_hasContent(false)
     {
@@ -59,6 +60,10 @@ public:
                                   const SkIRect* rect,
                                   const SkMatrix&,
                                   const SkPaint&);
+    virtual void drawBitmapRectToRect(const SkBitmap& bitmap,
+                                      const SkRect* src,
+                                      const SkRect& dst,
+                                      const SkPaint* paint);
 
     virtual void drawPaint(const SkPaint& paint);
     virtual void drawPath(const SkPath&, const SkPaint& paint);

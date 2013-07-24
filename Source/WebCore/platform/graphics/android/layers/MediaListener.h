@@ -19,8 +19,8 @@
 
 #if USE(ACCELERATED_COMPOSITING)
 
-#include <gui/SurfaceTexture.h>
-#include <gui/SurfaceTextureClient.h>
+#include <gui/GLConsumer.h>
+#include <gui/Surface.h>
 #include <jni.h>
 #include <JNIUtility.h>
 #include "MediaTexture.h"
@@ -28,11 +28,11 @@
 
 namespace WebCore {
 
-class MediaListener : public android::SurfaceTexture::FrameAvailableListener {
+class MediaListener : public android::GLConsumer::FrameAvailableListener {
 
 public:
     MediaListener(jobject weakWebViewRef,
-                  const sp<android::SurfaceTexture>& surfaceTexture,
+                  const sp<android::GLConsumer>& surfaceTexture,
                   const sp<ANativeWindow>& nativeWindow)
         : m_weakWebViewRef(weakWebViewRef)
         , m_postInvalMethod(0)
@@ -78,7 +78,7 @@ private:
     jobject m_weakWebViewRef;
     jmethodID m_postInvalMethod;
     bool m_frameAvailable;
-    sp<android::SurfaceTexture> m_surfaceTexture;
+    sp<android::GLConsumer> m_surfaceTexture;
     sp<ANativeWindow> m_nativeWindow;
     FramerateCallbackProc m_framerateCallback;
 };
