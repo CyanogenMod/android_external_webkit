@@ -37,10 +37,17 @@
 #define LOG_TAG "PhoneNumberDetector"
 #include <cutils/log.h>
 
+#define CHINA_PHONE_PATTERN "130 - 0000 - 0000"
 #define PHONE_PATTERN "(200) /-.\\ 100 -. 0000"
 
 static const char kTelSchemaPrefix[] = "tel:";
 static const char kEmailSchemaPrefix[] = "mailto:";
+
+void FindStateCopy(FindState* to, const FindState* from);
+void ChinaFindReset(FindState* state);
+void ChinaFindResetNumber(FindState* state);
+FoundState ChinaFindPhoneNum(const UChar* chars, unsigned length,
+                             FindState* s);
 
 void FindReset(FindState* state);
 void FindResetNumber(FindState* state);
@@ -67,15 +74,36 @@ bool PhoneEmailDetector::IsEnabled(const WebKit::WebHitTestInfo& hit_test)
     return m_isEmailDetectionEnabled || m_isPhoneDetectionEnabled;
 }
 
+
+
 bool PhoneEmailDetector::FindContent(const string16::const_iterator& begin,
                              const string16::const_iterator& end,
                              size_t* start_pos,
                              size_t* end_pos)
 {
+    #define HANDLE_FOUND_RESULTS() \
+            if (foundResult == FOUND_COMPLETE && \
+                (m_foundResult != FOUND_COMPLETE || \
+                findState.mStartResult < m_findState.mStartResult)) { \
+                FindStateCopy(&m_findState, &findState); \
+                m_foundResult = foundResult; \
+            }
+
     FindReset(&m_findState);
     m_foundResult = FOUND_NONE;
-    if (m_isPhoneDetectionEnabled)
-        m_foundResult = FindPartialNumber(begin, end - begin, &m_findState);
+    if (m_isPhoneDetectionEnabled) {
+        FoundState foundResult = FOUND_NONE;
+        FindState findState;
+
+        ChinaFindReset(&findState);
+        foundResult = ChinaFindPhoneNum(begin, end - begin, &findState);
+        HANDLE_FOUND_RESULTS();
+
+        FindReset(&findState);
+        foundResult = FindPartialNumber(begin, end - begin, &findState);
+        HANDLE_FOUND_RESULTS();
+    }
+
     if (m_foundResult == FOUND_COMPLETE)
         m_prefix = kTelSchemaPrefix;
     else {
@@ -106,6 +134,129 @@ GURL PhoneEmailDetector::GetIntentURL(const std::string& content_text)
             EscapeQueryParamValue(content_text, true));
 }
 
+void FindStateCopy(FindState* to, const FindState* from)
+{
+    if (to != NULL && from != NULL) {
+        memcpy(to, from, sizeof(FindState));
+        to->mStorePtr = to->mStore + (from->mStorePtr - from->mStore);
+    }
+}
+
+void ChinaFindReset(FindState* state)
+{
+    memset(state, 0, sizeof(FindState));
+    state->mCurrent = ' ';
+    ChinaFindResetNumber(state);
+}
+
+void ChinaFindResetNumber(FindState* state)
+{
+    state->mOpenParen = false;
+    state->mPattern = (char*) CHINA_PHONE_PATTERN;
+    state->mStorePtr = state->mStore;
+}
+
+FoundState ChinaFindPhoneNum(const UChar* chars, unsigned length,
+    FindState* s)
+{
+    #define PREPARE_GOTO_NEXT() \
+       *store++ = ch; \
+       pattern++; \
+       lastDigit = chars;
+
+    char* pattern = s->mPattern;
+    UChar* store = s->mStorePtr;
+    const UChar* start = chars;
+    const UChar* end = chars + length;
+    const UChar* lastDigit = 0;
+    string16 search16(chars, length);
+    std::string searchSpace = UTF16ToUTF8(search16);
+retry:
+    do {
+        bool initialized = s->mInitialized;
+        while (chars < end) {
+            if (initialized == false) {
+                s->mBackThree = s->mBackTwo;
+                s->mBackTwo = s->mBackOne;
+                s->mBackOne = s->mCurrent;
+            }
+            UChar ch = s->mCurrent = *chars;
+            do {
+                char patternChar = *pattern;
+                switch (patternChar) {
+                    case '1':
+                        if (initialized == false) {
+                            s->mStartResult = chars - start;
+                            initialized = true;
+                        }
+                        if (ch != patternChar) {
+                            goto resetPattern;
+                        }
+                        PREPARE_GOTO_NEXT();
+                        goto nextChar;
+                    case '3':
+                        if (ch != '3' && ch != '5' && ch != '8') {
+                            goto resetPattern;
+                        }
+                        PREPARE_GOTO_NEXT();
+                        goto nextChar;
+                    case '0':
+                        if (ch < patternChar || ch > '9')
+                            goto resetPattern;
+                        PREPARE_GOTO_NEXT();
+                        goto nextChar;
+                    case '\0':
+                        if (WTF::isASCIIDigit(ch) == false) {
+                            *store = '\0';
+                            goto checkMatch;
+                        }
+                        goto resetPattern;
+                    case ' ':
+                        if (ch == patternChar)
+                            goto nextChar;
+                        break;
+                    default:
+                    commonPunctuation:
+                        if (ch == patternChar) {
+                            pattern++;
+                            goto nextChar;
+                        }
+                }
+            } while (++pattern); // never false
+    nextChar:
+            chars++;
+        }
+        break;
+resetPattern:
+        if (s->mContinuationNode)
+            return FOUND_NONE;
+        ChinaFindResetNumber(s);
+        pattern = s->mPattern;
+        store = s->mStorePtr;
+    } while (++chars < end);
+checkMatch:
+    if (WTF::isASCIIDigit((s->mBackOne == '6' && s->mBackTwo == '8') ?
+            s->mBackThree : s->mBackOne) || s->mBackOne == '+') {
+        if(++chars < end) {
+            if (s->mContinuationNode) {
+                return FOUND_NONE;
+            }
+            ChinaFindResetNumber(s);
+            pattern = s->mPattern;
+            store = s->mStorePtr;
+            goto retry;
+        } else {
+            return FOUND_NONE;
+        }
+    }
+    *store = '\0';
+    s->mStorePtr = store;
+    s->mPattern = pattern;
+    s->mEndResult = lastDigit - start + 1;
+    char pState = pattern[0];
+    return pState == '\0' ? FOUND_COMPLETE : FOUND_NONE;
+}
+
 void FindReset(FindState* state)
 {
     memset(state, 0, sizeof(FindState));
@@ -130,6 +281,7 @@ FoundState FindPartialNumber(const UChar* chars, unsigned length,
     const UChar* lastDigit = 0;
     string16 search16(chars, length);
     std::string searchSpace = UTF16ToUTF8(search16);
+retry:
     do {
         bool initialized = s->mInitialized;
         while (chars < end) {
@@ -194,8 +346,29 @@ resetPattern:
         store = s->mStorePtr;
     } while (++chars < end);
 checkMatch:
+    /*
+     * A few interesting cases:
+     *  03122572251 3122572251     # two numbers, s->mBackOne = 0,                  return second
+     *  013122572251 3122572251    # two numbers, s->mBackOne = 1, s->mBackTwo = 0, return second
+     *  113122572251 3122572251    # two numbers, s->mBackOne = 1, s->mBackTwo = 1, return second
+     *
+     *  The prefix of above US phone number is "0" or "01" or "11".
+     *  Such as three cases mentioned above, the first group phone number
+     *  is invalid, but the detection blocks also have a telephone number,
+     *  the second valid phone number should be detected.
+     */
     if (WTF::isASCIIDigit(s->mBackOne != '1' ? s->mBackOne : s->mBackTwo)) {
-        return FOUND_NONE;
+        if(++chars < end) {
+            if (s->mContinuationNode) {
+                return FOUND_NONE;
+            }
+            FindResetNumber(s);
+            pattern = s->mPattern;
+            store = s->mStorePtr;
+            goto retry;
+        } else {
+            return FOUND_NONE;
+        }
     }
     *store = '\0';
     s->mStorePtr = store;

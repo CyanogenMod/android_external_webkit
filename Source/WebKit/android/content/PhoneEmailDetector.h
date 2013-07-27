@@ -36,6 +36,7 @@ struct FindState {
     UChar* mStorePtr;
     UChar mBackOne;
     UChar mBackTwo;
+    UChar mBackThree;
     UChar mCurrent;
     bool mOpenParen;
     bool mInitialized;
