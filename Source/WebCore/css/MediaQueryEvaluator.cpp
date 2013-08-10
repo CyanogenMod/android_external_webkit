@@ -105,6 +105,15 @@ MediaQueryEvaluator:: MediaQueryEvaluator(const String& acceptedMediaType, Frame
 {
 }
 
+MediaQueryEvaluator::MediaQueryEvaluator(const String& acceptedMediaType, Frame* frame, RefPtr<RenderStyle>& style)
+    : m_mediaType(acceptedMediaType)
+    , m_frame(frame)
+    , m_ownedStyle(style)
+    , m_expResult(false) // doesn't matter when we have m_frame and m_style
+{
+    m_style = m_ownedStyle.get();
+}
+
 MediaQueryEvaluator::~MediaQueryEvaluator()
 {
 }

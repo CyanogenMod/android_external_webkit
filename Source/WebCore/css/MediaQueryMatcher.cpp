@@ -89,7 +89,7 @@ PassOwnPtr<MediaQueryEvaluator> MediaQueryMatcher::prepareEvaluator() const
 
     RefPtr<RenderStyle> rootStyle = styleSelector->styleForElement(documentElement, 0 /*defaultParent*/, false /*allowSharing*/, true /*resolveForRootDefault*/);
 
-    return adoptPtr(new MediaQueryEvaluator(mediaType(), m_document->frame(), rootStyle.get()));
+    return adoptPtr(new MediaQueryEvaluator(mediaType(), m_document->frame(), rootStyle));
 }
 
 bool MediaQueryMatcher::evaluate(MediaList* media)
