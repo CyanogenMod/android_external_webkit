@@ -848,6 +848,7 @@ void ShaderProgram::drawQuad(const DrawQuadData* data)
     } else {
         textureId = data->textureId();
         textureFilter = data->textureFilter();
+        textureFilter = GL_LINEAR;
         textureTarget = data->textureTarget();
         shaderType = getTextureShaderType(textureTarget, data->hasRepeatScale());
     }
