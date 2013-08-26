@@ -856,10 +856,12 @@ void TextRunWalker::setGlyphPositions(bool isRTL)
         // no advance on this glyph, that should be ok.
         if (0 == m_item.advances[i]) {
             const HB_UChar16 c = m_item.string[m_item.item.pos + logClustersIndex];
+#ifndef REVERIE
             if ((c == zeroWidthJoiner) || (c == zeroWidthNonJoiner)) {
                 static Glyph spaceGlyph = m_font->glyphDataForCharacter(space, false).glyph;
                 m_glyphs16[i] = spaceGlyph;
             }
+#endif
         }
 
         // TODO We would like to add m_letterSpacing after each cluster, but I
