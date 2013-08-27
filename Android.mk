@@ -47,6 +47,10 @@ ifneq ($(ENABLE_AUTOFILL),false)
   ENABLE_AUTOFILL = true
 endif
 
+# Control WML compiling in webkit.
+ifneq ($(ENABLE_WML),true)
+    ENABLE_WML = false
+endif
 # Custom y-to-cpp rule
 define webkit-transform-y-to-cpp
 @mkdir -p $(dir $@)
@@ -195,6 +199,11 @@ LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBCORE_PATH)/workers \
 	$(WEBCORE_PATH)/xml
 
+ifeq ($(ENABLE_WML),true)
+LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
+       $(WEBCORE_PATH)/wml
+endif
+
 LOCAL_C_INCLUDES := $(LOCAL_C_INCLUDES) \
 	$(WEBKIT_PATH)/android \
 	$(WEBKIT_PATH)/android/WebCoreSupport \
@@ -322,6 +331,10 @@ endif
 
 ifeq ($(ENABLE_SVG),true)
 LOCAL_CFLAGS += -DENABLE_SVG=1 -DENABLE_SVG_ANIMATION=1
+endif
+
+ifeq ($(ENABLE_WML),true)
+LOCAL_CFLAGS += -DENABLE_WML=1
 endif
 
 ifeq ($(ENABLE_WTF_USE_ACCELERATED_COMPOSITING),false)

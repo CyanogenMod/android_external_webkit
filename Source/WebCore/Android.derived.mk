@@ -146,6 +146,11 @@ style_sheets := $(LOCAL_PATH)/css/html.css $(LOCAL_PATH)/css/quirks.css $(LOCAL_
 ifeq ($(ENABLE_SVG), true)
 style_sheets := $(style_sheets) $(LOCAL_PATH)/css/svg.css
 endif
+
+ifeq ($(ENABLE_WML),true)
+style_sheets := $(style_sheets) $(LOCAL_PATH)/css/wml.css
+endif
+
 GEN := $(intermediates)/css/UserAgentStyleSheets.h
 make_css_file_arrays := $(LOCAL_PATH)/css/make-css-file-arrays.pl
 $(GEN): PRIVATE_CUSTOM_TOOL = $< $@ $(basename $@).cpp $(filter %.css,$^)
@@ -185,6 +190,18 @@ $(GEN): xml_attrs := $(LOCAL_PATH)/xml/xmlattrs.in
 $(GEN): $(LOCAL_PATH)/dom/make_names.pl $(xml_attrs)
 	$(transform-generated-source)
 LOCAL_GENERATED_SOURCES += $(GEN)
+
+ifeq ($(ENABLE_WML),true)
+# WML attribute names
+GEN:= $(intermediates)/WMLNames.cpp $(intermediates)/WMLNames.h $(intermediates)/WMLElementFactory.cpp $(intermediates)/WMLElementFactory.h
+$(GEN): PRIVATE_PATH := $(LOCAL_PATH)
+$(GEN): PRIVATE_CUSTOM_TOOL = perl -I $(PRIVATE_PATH)/bindings/scripts $< --tags $(wml_tag) --attrs $(wml_attrs) --factory --wrapperFactory --output $(dir $@)
+$(GEN): wml_tag := $(LOCAL_PATH)/wml/WMLTagNames.in
+$(GEN): wml_attrs := $(LOCAL_PATH)/wml/WMLAttributeNames.in
+$(GEN): $(LOCAL_PATH)/dom/make_names.pl $(wml_tag) $(wml_attrs)
+	$(transform-generated-source)
+LOCAL_GENERATED_SOURCES += $(GEN)
+endif
 
 # XLink attribute names
 
