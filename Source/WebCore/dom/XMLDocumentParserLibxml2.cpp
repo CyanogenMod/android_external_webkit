@@ -1063,6 +1063,8 @@ void XMLDocumentParser::internalSubset(const xmlChar* name, const xmlChar* exter
         String extId = toString(externalID);
 #endif
 #if ENABLE(WML)
+        //make sure extid in uppercase
+        extId = extId.upper();
         if (isWMLDocument()
             && extId != "-//WAPFORUM//DTD WML 2.0//EN"
             && extId != "-//WAPFORUM//DTD WML 1.3//EN"
