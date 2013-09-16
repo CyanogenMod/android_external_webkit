@@ -75,6 +75,11 @@ public:
 
     void setDocumentWasLoadedAsPartOfNavigation();
 
+#if ENABLE(WML)
+    //XML Declaration only allowed at the start of the document.
+    bool receivedData() { return m_receivedData; }
+#endif
+
 private:
     PassRefPtr<Document> createDocument(const KURL&);
     void clear();
