@@ -25,6 +25,10 @@
 ## OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 ##
 
+ifeq ($(MULTI_LANG_ENGINE),REVERIE)
+LOCAL_CFLAGS += -DREVERIE
+endif
+
 LOCAL_SRC_FILES := \
 	bindings/generic/ActiveDOMCallback.cpp \
 	bindings/generic/BindingSecurityBase.cpp \
