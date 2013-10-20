@@ -308,6 +308,9 @@ static MediaMIMETypeMap& mediaMIMETypeMap()
         { "audio/mpegurl", "m3u" },
         { "audio/x-mpegurl", "m3u" },
 
+        // DASH
+        { "application/dash+xml", "mpd" },
+
         // MPEG-4
         { "video/x-m4v", "m4v" },
         { "audio/x-m4a", "m4a" },
