@@ -905,11 +905,7 @@ bool RenderLayerBacking::containsPaintedContent() const
         return hasBoxDecorationsOrBackground(renderer());
 #endif
     if (renderer()->isCanvas()) {
-        HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(renderer()->node());
-        CanvasRenderingContext* context = canvas->renderingContext();
-        if(!context) {
-            return false;
-        }
+       m_graphicsLayer->setNeedsDisplay();
     }
     return true;
 }
