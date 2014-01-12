@@ -45,7 +45,6 @@
 // underlying framework implementation without using LOG_ASSERT.
 // TODO: Remove this once LOG_ASSERT is removed from the framework in AOSP.
 #undef LOG_ASSERT
-#undef ALOG_ASSERT
 // Copied from log.h.
 #define ALOG_ASSERT(cond, ...) LOG_FATAL_IF(!(cond), ## __VA_ARGS__)
 
