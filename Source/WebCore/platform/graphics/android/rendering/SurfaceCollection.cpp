@@ -55,7 +55,7 @@ SurfaceCollection::SurfaceCollection(BaseLayerAndroid* layer)
     m_compositedRoot->updatePositionsRecursive(visibleRect);
 
     // allocate surfaces for layers, merging where possible
-    ALOGV("new tree, allocating surfaces for tree %p", m_baseLayer);
+    ALOGV("new tree, allocating surfaces for tree %p", m_compositedRoot);
 
     LayerMergeState layerMergeState(&m_surfaces);
     m_compositedRoot->assignSurfaces(&layerMergeState);

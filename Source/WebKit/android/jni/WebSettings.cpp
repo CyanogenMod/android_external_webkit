@@ -466,7 +466,7 @@ public:
             // Check for non-null string as an optimization, as this is the common case.
             if (str) {
                 String path = jstringToWtfString(env, str);
-                ALOG_ASSERT(!path.empty(), "Java side should never send empty string for AppCache path");
+                ALOG_ASSERT(!path.isEmpty(), "Java side should never send empty string for AppCache path");
                 // This database is created on the first load. If the file
                 // doesn't exist, we create it and set its permissions. The
                 // filename must match that in ApplicationCacheStorage.cpp.
